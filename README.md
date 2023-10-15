@@ -4,7 +4,7 @@
 
 This is a library (in C) for detecting computer languages of a code snippet.
 
-It heavily relies on ChatGPT to generate a dataset of 100 languages codesnippets,
+It heavily relies on ChatGPT to generate a dataset of 100 languages code snippets,
 as well as creating indicative substrings that frequently occur in those languages.
 We use substrings to vectorize a snippet of code, by putting 1 if a given substrings is in the snippet, 0 otherwise.
 
