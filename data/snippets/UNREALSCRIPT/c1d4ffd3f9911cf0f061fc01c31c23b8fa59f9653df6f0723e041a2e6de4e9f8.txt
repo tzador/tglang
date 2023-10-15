@@ -1,0 +1,58 @@
+class MyActor extends Actor
+  within MyPackage;
+  
+  var const int MAX_HEALTH = 100;
+  var int currentHealth;
+  
+  var MyCustomObject myObject;
+  
+  replication
+  {
+    reliable if (Role == ROLE_Authority);
+  }
+
+  state Running
+  {
+    event BeginPlay()
+    {
+      Super.BeginPlay();
+      InitializeObject(myObject);
+    }
+    
+    event TakeDamage(int damageAmount, Pawn instigatedBy, Vector hitLocation, Vector momentum, class<DamageType> damageType)
+    {
+      currentHealth -= damageAmount;
+      if (currentHealth <= 0)
+      {
+        GotoState('Dead');
+      }
+    }
+    
+    event Touch(Actor other, PrimitiveComponent thisPrimitiveComponent, PrimitiveComponent otherPrimitiveComponent, int otherIndex, Vector hitLocation, Vector hitNormal)
+    {
+      if (other.IsA('PlayerPawn'))
+      {
+        other.TakeDamage(damageAmount, self, hitLocation, hitNormal, DamageType_Class);
+      }
+    }
+  }
+  
+  state Dead
+  {
+    event BeginState()
+    {
+      SetActorTickEnabled(false);
+      SetActorHiddenInGame(true);
+      SetActorCollision(false);
+      DelayUntil(ScoreboardTime + 5.0, function SetTimer('Respawn', RespawnTimer, true), true);
+    }
+    
+    function Respawn()
+    {
+      currentHealth = MAX_HEALTH;
+      SetActorTickEnabled(true);
+      SetActorHiddenInGame(false);
+      SetActorCollision(true);
+      GotoState('Running');
+    }
+  }

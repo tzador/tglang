@@ -1,0 +1,64 @@
+//This code snippet uses 1C_ENTERPRISE programming language
+
+#Define ExtDirName, vmdtcfgDirName, CSVFileName, SaveFileName; //Defining extended directory name, VMDT config directory name, CSV file name, and save file name as global variables
+#Define ArrayCodes, ArrayNames, ArrayCosts; //Defining arrays to store product codes, names, and costs as global variables
+
+//Connecting to the database
+Connection = ConnectToDatabase("DatabaseName", "Username", "Password"); //Connecting to the database with provided credentials
+If Connection = Undefined Then //Checking if connection to the database was successful
+    Message("Error connecting to database");
+Else //If connection was successful
+    Message("Connected to database");
+
+//Getting data from the database
+ValuesCursor = New Query; //Creating a new query object
+ValuesCursor.Text = "SELECT Code, Name, Cost FROM Products"; //Setting the query text to select product code, name, and cost from the Products table
+ValuesResult = ValuesCursor.Execute().Result; //Executing the query and storing the result in a variable
+If ValuesResult.IsEmpty() Then //Checking if the query returned any results
+    Message("No products found");
+Else //If results were found
+    ArrayClear(ArrayCodes); ArrayClear(ArrayNames); ArrayClear(ArrayCosts); //Clearing the arrays to avoid duplicates
+    //Looping through the results and storing them in the arrays
+    While ValuesResult.Next() Do
+        ArrayPush(ArrayCodes, ValuesResult.Value(1)); //Adding product code to ArrayCodes
+        ArrayPush(ArrayNames, ValuesResult.Value(2)); //Adding product name to ArrayNames
+        ArrayPush(ArrayCosts, ValuesResult.Value(3)); //Adding product cost to ArrayCosts
+    EndDo;
+
+//Generating a CSV file with the product data
+FileCSV = New File; //Creating a new file object
+CSVFileName = "Products.csv"; //Setting the CSV file name
+FileCSV.Open(CSVFileName, #CharsetUTF8); //Opening the file for writing in UTF-8 format
+CSVContent = ""; //Initializing a variable to store the CSV content
+For i = 0 To ArrayCount(ArrayCodes) - 1 Do //Looping through the arrays
+    CSVContent = CSVContent + (i+1) + "," + ArrayCodes[i] + "," + ArrayNames[i] + "," + ArrayCosts[i] + "\n"; //Adding a row to the CSV content with product data
+EndDo;
+FileCSV.Write(CSVContent); //Writing the CSV content to the file
+FileCSV.Close(); //Closing the file
+
+//Importing the CSV file to VMDT config directory
+vmdtcfgDirName = GetVMDTConfigDir(); //Getting the VMDT config directory name
+FileCSV.Copy(vmdtcfgDirName); //Copying the CSV file to the VMDT config directory
+SaveFileName = "ImportProducts.txt"; //Setting the save file name
+FileSave = New File; //Creating a new file object
+FileSave.Open(SaveFileName, #CharsetUTF8); //Opening the file for writing in UTF-8 format
+SaveContent = "Import text: PriceTypeCode='1';\n" + "ImportGroups: GroupCode='100';\n"; //Creating the import text and groups
+For i = 0 To ArrayCount(ArrayCodes) - 1 Do //Looping through the arrays
+    SaveContent = SaveContent + "ImportItem: ItemCode='" + ArrayCodes[i] + "'; PhaseQty='1'; ItemName='" + ArrayNames[i] + "'; BasePrice='" + ArrayCosts[i] + "';\n"; //Adding an item to the save content with product data
+EndDo;
+SaveContent = SaveContent + "ImportTransferBlock;"; //Adding the transfer block to the save content
+FileSave.Write(SaveContent); //Writing the save content to the file
+FileSave.Close(); //Closing the file
+
+//Executing the save file in VMDT
+VMDTWindow = VMDTOpen(vmdtcfgDirName); //Opening VMDT with the config directory
+VMDTWindow.SaveImportFileAndWait(SaveFileName); //Executing the save file and waiting for it to finish
+VMDTClose(VMDTWindow); //Closing VMDT
+
+//Deleting the CSV and save files
+FileCSV.Delete(); //Deleting the CSV file
+FileSave.Delete(); //Deleting the save file
+
+//Disconnecting from the database
+DisconnectFromDatabase(Connection); //Disconnecting from the database
+Message("CSV file successfully imported to VMDT"); //Displaying a success message

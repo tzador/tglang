@@ -1,0 +1,120 @@
+// This code snippet uses the VERILOG programming language.
+// It illustrates the implementation of a finite state machine (FSM) with overlapping states.
+// Annotated codes are explained in the comments below.
+
+// Define the states of the FSM using an enum declaration.
+typedef enum logic [3:0] {
+  STATE_IDLE,
+  STATE_READ,
+  STATE_WRITE,
+  STATE_OP1,
+  STATE_OP2,
+  STATE_ERROR
+} states;
+
+// Define the signals used for state transitioning.
+logic [3:0] current_state; // stores the current state
+logic [3:0] next_state; // stores the next state
+logic start; // input signal that starts the FSM
+
+// Declare the state register and the next state logic.
+always_ff @(posedge clk) begin // synchronous always block triggered by a positive edge of the clock
+  if (start) begin // check if the start signal is asserted
+    current_state = STATE_IDLE; // initialize the current state to idle
+  end else begin // if start signal is not asserted
+    current_state = next_state; // update the current state with the next state
+  end
+end
+
+// The next state logic determines the next state the FSM should go to.
+always_comb begin // combinational always block with no inputs, purely combinatorial
+  case (current_state) // case statement for the current state
+    STATE_IDLE: begin // if FSM is in idle state
+      if (input_valid) begin // check if there's valid input
+        next_state = STATE_READ; // go to read state
+      end else begin // if no valid input
+        next_state = STATE_IDLE; // stay in idle state
+      end
+    end
+
+    STATE_READ: begin // if FSM is in read state
+      next_state = STATE_OP1; // go to op1 state
+    end
+
+    STATE_WRITE: begin // if FSM is in write state
+      next_state = STATE_OP2; // go to op2 state
+    end
+
+    STATE_OP1: begin // if FSM is in op1 state
+      next_state = STATE_WRITE; // go to write state
+    end
+
+    STATE_OP2: begin // if FSM is in op2 state
+      next_state = STATE_ERROR; // go to error state
+    end
+
+    STATE_ERROR: begin // if FSM is in error state
+      next_state = STATE_ERROR; // stay in error state
+    end
+
+    default: next_state = STATE_ERROR; // if FSM is in undefined state, go to error state
+  endcase
+end
+
+// The output logic determines the output based on the current state.
+always_comb begin // combinational always block with no inputs, purely combinatorial
+  case (current_state) // case statement for the current state
+    STATE_IDLE: begin // if FSM is in idle state
+      output_valid = 0; // output is invalid
+      output = 0; // output is undefined
+    end
+
+    STATE_READ: begin // if FSM is in read state
+      output_valid = 1; // output is valid
+      output = read_data; // output is the data from reading
+    end
+
+    STATE_WRITE: begin // if FSM is in write state
+      output_valid = 1; // output is valid
+      output = 0; // output is undefined since it's a write state
+    end
+
+    STATE_OP1: begin // if FSM is in op1 state
+      output_valid = 1; // output is valid
+      output = input_data + 5; // output is the input data plus 5
+    end
+
+    STATE_OP2: begin // if FSM is in op2 state
+      output_valid = 1; // output is valid
+      output = input_data * 2; // output is the input data multiplied by 2
+    end
+
+    STATE_ERROR: begin // if FSM is in error state
+      output_valid = 0; // output is invalid
+      output = 0; // output is undefined
+    end
+  endcase
+end
+
+// Testbench code for simulating the FSM.
+initial begin // initial block, executed only once at the beginning of simulation
+  clk = 0; // initialize clock signal to 0
+  forever #5 clk = ~clk; // toggle clock every 5 time units
+end
+
+initial begin // initial block, executed only once at the beginning of simulation
+  start = 1; // assert the start signal
+  #5 start = 0; // deassert the start signal after 5 time units
+  #10 $finish; // end simulation after 10 time units
+end
+
+initial begin // initial block, executed only once at the beginning of simulation
+  input_valid = 1; // assert the input valid signal
+  input_data = 8; // set the input data to 8
+  #20 input_valid = 0; // deassert the input valid signal after 20 time units
+end
+
+// Print the simulation results.
+always @(posedge clk) begin // synchronous always block triggered by a positive edge of the clock
+  $display("Current State: %0d, Next State: %0d, Output Valid: %d, Output Data: %0d", current_state, next_state, output_valid, output); // print the current state, next state, output valid, and output data
+end

@@ -1,0 +1,85 @@
+# Annotated NGINX configuration file
+# Load NGINX modules
+load_module /usr/lib/nginx/modules/ngx_http_image_filter_module.so;
+load_module /usr/lib/nginx/modules/ngx_http_xslt_filter_module.so;
+# Run NGINX as a daemon
+daemon on;
+# Set number of worker processes
+# based on the number of CPU cores available
+worker_processes auto;
+# Specify the file containing the process ID of the master process
+pid /run/nginx.pid;
+# Specify the user and group to run NGINX as
+user nginx;
+# Specify the maximum number of open file descriptors for each worker process
+# determines the maximum number of connections that can be handled concurrently
+worker_rlimit_nofile 1024;
+# Specify the event loop mechanism used by NGINX 
+events {
+  # Use the "epoll" event polling method
+  use epoll;
+  # Set the maximum number of connections that can be opened simultaneously
+  worker_connections 1024;
+  # Enable multi_accept to accept multiple connections at once
+  multi_accept on;
+}
+# HTTP server configuration
+http {
+  # Set standard MIME types
+  # as well as types detected from the file extension
+  include /etc/nginx/mime.types;
+  # Specify default log format
+  log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                  '$status $body_bytes_sent "$http_referer" '
+                  '"$http_user_agent" "$http_x_forwarded_for"';
+  # Specify the location of the log files and their formatting
+  access_log /var/log/nginx/access.log main;
+  error_log /var/log/nginx/error.log;
+  # Include global configurations for all virtual hosts
+  include /etc/nginx/conf.d/*.conf;
+  # Configure the virtual hosts
+  server {
+    # Listen on port 80
+    listen 80;
+    # Handle requests for the default server
+    server_name _;
+    # Serve static files
+    location /static/ {
+      root /var/www/example.com;
+    }
+    # Serve dynamic content
+    location / {
+      # Use a proxy pass to send requests to a backend server
+      proxy_pass http://127.0.0.1:8000;
+      # Activate buffering between NGINX and the backend server
+      proxy_buffering on;
+      # Set the maximum size of the buffer
+      proxy_buffer_size 4k;
+      # Specify the timeout for keeping the connection open to the backend server
+      proxy_connect_timeout 5s;
+      # Cache responses from the backend server for a certain amount of time
+      proxy_cache_valid 200 15m;
+      # Specify which headers should be passed to the backend server
+      proxy_set_header Host $http_host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    # Redirect requests to the HTTPS version of the site
+    location / {
+      return 301 https://$host$request_uri;
+    }
+    # Enable gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+    # Enable brotli compression
+    brotli on;
+    # Specify the compression level
+    brotli_comp_level 6;
+    # Specify the minimum size of a response to enable compression
+    brotli_min_length 1000;
+    # Set the buffers used for gzip and brotli compression
+    gzip_buffers 16 8k;
+    brotli_buffers 16 8k;
+  }
+}

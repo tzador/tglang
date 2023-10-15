@@ -1,0 +1,62 @@
+/* This program calculates the total cost of a customer's order */
+
+DEFINE VARIABLE order_num AS INTEGER NO-UNDO.
+
+DEFINE TEMP-TABLE item_table
+    FIELD item_name AS CHARACTER FORMAT "X(25)"
+    FIELD item_price AS DECIMAL FORMAT ">>>,>>9.99"
+    INDEX item_number IS PRIMARY item_name
+    INDEX item_total IS item_price.
+
+DEFINE TEMP-TABLE order_table
+    FIELD order_num AS INTEGER
+    FIELD total_cost AS DECIMAL FORMAT ">>>,>>9.99".
+
+DEFINE BUFFER item_buffer FOR item_table.
+DEFINE BUFFER order_buffer FOR order_table.
+
+DEFINE VARIABLE item_name AS CHARACTER NO-UNDO.
+DEFINE VARIABLE item_price AS DECIMAL FORMAT ">>>,>>9.99" NO-UNDO.
+DEFINE VARIABLE quantity AS INTEGER NO-UNDO.
+DEFINE VARIABLE subtotal AS DECIMAL FORMAT ">>>,>>9.99" NO-UNDO.
+DEFINE VARIABLE total_cost AS DECIMAL FORMAT ">>>,>>9.99" NO-UNDO.
+
+DO WHILE TRUE: /* Loop to get customer's order items */
+
+    DISPLAY "Please enter the item name (or type 'exit' to finish):".
+    ACCEPT item_name.
+
+    IF item_name = "exit" THEN DO:
+        LEAVE. /* Exit loop when customer is finished ordering */
+    END.
+    ELSE DO:
+        DO ON ERROR UNDO, LEAVE:
+            FIND item_buffer USING item_name.
+            PROMPT-FOR quantity WITH FRAME {&ANALYZE-CHOICE-1}.
+
+            subtract quantity from item_buffer.item_price * quantity
+                giving subtotal NO-ERROR.
+
+            DISPLAY item_buffer.item_name "Quantity:" quantity "Subtotal:" subtotal.
+        END.
+    END.
+
+    ASSIGN total_cost = total_cost + subtotal. /* Calculate total cost */
+
+END.
+
+CREATE order_buffer. /* Create new record in order table */
+ASSIGN order_buffer.order_num = order_num
+       order_buffer.total_cost = total_cost.
+
+FOR EACH item_buffer: /* Loop through items to calculate total cost */
+    ASSIGN order_num = order_buffer.order_num.
+    ASSIGN quantity = item_buffer.quantity.
+    ASSIGN item_price = item_buffer.item_price.
+    ASSIGN subtotal = item_buffer.subtotal.
+
+    REPEAT 9 HOLDING item_buffer: /* Repeat display for each item in buffer */
+        DISPLAY item_buffer.item_name "Quantity:" quantity "Subtotal:" subtotal.
+    END.
+
+    DISPLAY "Total Cost:" total_cost WITH FRAME {SNIP-OUTPUT}.

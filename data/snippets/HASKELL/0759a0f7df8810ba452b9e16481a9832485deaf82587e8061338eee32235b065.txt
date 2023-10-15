@@ -1,0 +1,34 @@
+{-# LANGUAGE GADTs, StandaloneDeriving, DataKinds, PolyKinds, TypeFamilies #-}
+
+import Data.Kind
+
+-- create a type-level list using kind polymorphism
+-- and type families to define a cons and nil constructor
+data Lst :: Type -> [k] -> Type where
+  Cons :: a -> Lst a as -> Lst a (a ': as)
+  Nil :: Lst a '[]
+
+-- type family that removes the first element of a type-level list
+type family Tail (xs :: [k]) :: [k] where
+  Tail (x ': xs) = xs
+
+-- type family that concatenates two type-level lists
+type family Concat (xs :: [k]) (ys :: [k]) :: [k] where
+  Concat '[] ys = ys
+  Concat (x ': xs) ys = x ': Concat xs ys
+
+-- standalone deriving for Show instance of our type-level list
+deriving instance (Show a, Show (Lst a as)) => Show (Lst a (a ': as))
+deriving instance Show (Lst a '[])
+
+-- example of using our type-level list
+lst :: Lst Int '[Int, Bool, String]
+lst = Cons 5 (Cons 2 (Cons 3 Nil)) -- [5,2,3]
+
+-- example of using our Tail type family
+tl :: Lst Int (Tail '[Int, Bool, String])
+tl = Cons True (Cons "hello" Nil) -- [True,"hello"]
+
+-- example of using our Concat type family
+cat :: Lst Int (Concat '[Int, Bool] '[String, Char])
+cat = Cons 1 (Cons True (Cons "hi" (Cons 'c' Nil))) -- [1,True,"hi",'c']

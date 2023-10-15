@@ -1,0 +1,244 @@
+pragma solidity ^0.5.0;
+
+/**
+ * @title ERC721 Non-Fungible Token Standard basic implementation
+ * @dev See https://eips.ethereum.org/EIPS/eip-721
+ */
+contract ERC721BasicToken is ERC721Basic, ApprovableERC721, Pausable, LockableERC721 {
+
+    // Mapping from token ID to owner
+    mapping (uint256 => address) internal tokenOwner;
+
+    // Mapping from token ID to approved address
+    mapping (uint256 => address) internal tokenApprovals;
+
+    // Mapping from owner to number of owned token
+    mapping (address => uint256) internal ownedTokensCount;
+
+    // Mapping from owner to operator approvals
+    mapping (address => mapping (address => bool)) internal operatorApprovals;
+
+    constructor() public {
+        // Initialize contract
+        supportedInterfaces[0x80ac58cd] = true; // ERC721
+    }
+
+    /**
+     * @dev Gets the balance of the specified address
+     * @param _owner Address to query the balance of
+     * @return An uint256 representing the amount owned by the passed address
+     */
+    function balanceOf(address _owner) public view returns (uint256) {
+        require(_owner != address(0));
+        return ownedTokensCount[_owner];
+    }
+
+    /**
+     * @dev Gets the owner of the specified token ID
+     * @param _tokenId uint256 ID of the token to query the owner of
+     * @return Owner address currently marked as the owner of the given token ID
+     */
+    function ownerOf(uint256 _tokenId) public view returns (address) {
+        address owner = tokenOwner[_tokenId];
+        require(owner != address(0));
+        return owner;
+    }
+
+    /**
+     * @dev Approves another address to transfer the given token ID
+     * The zero address indicates there is no approved address.
+     * There can only be one approved address per token at a given time.
+     * Can only be called by the token owner or an approved operator.
+     * @param _to address to be approved for the given token ID
+     * @param _tokenId uint256 ID of the token to be approved
+     */
+    function approve(address _to, uint256 _tokenId) public {
+        address owner = ownerOf(_tokenId);
+        require(_to != owner);
+        require(msg.sender == owner || isApprovedForAll(owner, msg.sender));
+
+        tokenApprovals[_tokenId] = _to;
+        emit Approval(owner, _to, _tokenId);
+    }
+
+    /**
+     * @dev Transfers the ownership of a given token ID to another address
+     * Usage of this method is discouraged, use `safeTransferFrom` whenever possible
+     * Requires the msg sender to be the owner, approved, or operator
+     * @param _from current owner address of the token
+     * @param _to address to receive the ownership of the given token ID
+     * @param _tokenId uint256 ID of the token to be transferred
+     */
+    function transferFrom(address _from, address _to, uint256 _tokenId) public {
+        //solhint-disable-next-line max-line-length
+        require(_isApprovedByOwner(msg.sender, _tokenId) || _isApprovedForAll(msg.sender, _from));
+        require(_isOwnerOrOperator(_from, msg.sender));
+
+        _transfer(_from, _to, _tokenId);
+    }
+
+    /**
+     * @dev Safely transfers the ownership of a given token ID to another address
+     * If the target address is a contract, it must implement `onERC721Received`,
+     * which is called upon a safe transfer, and return the magic value
+     * `bytes4(keccak256("onERC721Received(address,uint256,bytes)"))`; otherwise,
+     * the transfer is reverted.
+     * Requires the msg sender to be the owner, approved, or operator
+     * @param _from current owner address of the token
+     * @param _to address to receive the ownership of the given token ID
+     * @param _tokenId uint256 ID of the token to be transferred
+     * @param _data bytes data to send along with a safe transfer check
+     */
+    function safeTransferFrom(address _from, address _to, uint256 _tokenId, bytes memory _data) public {
+        transferFrom(_from, _to, _tokenId);
+        require(_checkOnERC721Received(_from, _to, _tokenId, _data));
+    }
+
+    /**
+     * @dev Safely transfers the ownership of a given token ID to another address
+     * If the target address is a contract, it must implement `onERC721Received`,
+     * which is called upon a safe transfer, and return the magic value
+     * `bytes4(keccak256("onERC721Received(address,uint256,bytes)"))`; otherwise,
+     * the transfer is reverted.
+     * Does another check to see if sender meets token owner/operator/approved level
+     * @param _from current owner address of the token
+     * @param _to address to receive the ownership of the given token ID
+     * @param _tokenId uint256 ID of the token to be transferred
+     * @param _data bytes data to send along with a safe transfer check
+     */
+    function safeTransferFromWithCheck(address _from, address _to, uint256 _tokenId, bytes memory _data) public {
+        safeTransferFrom(_from, _to, _tokenId, _data);
+        require(_isApprovedByOwner(msg.sender, _tokenId) || _isApprovedForAll(msg.sender, _from));
+    }
+
+    /**
+     * @dev Internal function to mint a new token
+     * Reverts if the given token ID already exists
+     * @param _to The address that will own the minted token
+     * @param _tokenId uint256 ID of the token to be minted
+     */
+    function _mint(address _to, uint256 _tokenId) internal {
+        require(_to != address(0));
+        require(_tokenId > 0);
+        require(tokenOwner[_tokenId] == address(0));
+
+        tokenOwner[_tokenId] = _to;
+        ownedTokensCount[_to]++;
+
+        emit Transfer(address(0), _to, _tokenId);
+    }
+
+    /**
+     * @dev Internal function to burn a specific token
+     * Reverts if the token does not exist
+     * Updates the number of tokens owned by the given address (owner -> 0 can reduce the count)
+     * @param _owner owner of the token to burn
+     * @param _tokenId uint256 ID of the token being burned
+     */
+    function _burn(address _owner, uint256 _tokenId) internal {
+        require(ownerOf(_tokenId) == _owner);
+
+        _clearApproval(_owner, _tokenId);
+
+        ownedTokensCount[_owner]--;
+        tokenOwner[_tokenId] = address(0);
+
+        emit Transfer(_owner, address(0), _tokenId);
+    }
+
+    /**
+     * @dev Internal function to clear current approval of a given token ID
+     * Reverts if the token ID does not exist
+     * @param _owner owner of the token
+     * @param _tokenId uint256 ID of the token to be transferred
+     */
+    function _clearApproval(address _owner, uint256 _tokenId) internal {
+        require(ownerOf(_tokenId) == _owner);
+        if (tokenApprovals[_tokenId] != address(0)) {
+            tokenApprovals[_tokenId] = address(0);
+            emit Approval(_owner, address(0), _tokenId);
+        }
+    }
+
+    /**
+     * @dev Internal function to check if a given sender can transfer a given tokenID
+     * @param _from address to start balance decrease from
+     * @param _to address to start balance increase from
+     * @param _tokenId uint256 ID of the token to be transfered
+     */
+    function _isOwnerOrOperator(address _from, address _to) internal view returns (bool) {
+        return _from == _to || isApprovedForAll(_from, _to);
+    }
+
+    /**
+     * @dev Internal function to check if a given owner address is different from the given operator address
+     * @param _owner address which may have given a tokenId permission for an operator
+     * @param _operator address which may have been given permission by a tokenId (_owner)
+     * @return bool if operator is approved
+     */
+    function _isApprovedByOwner(address _owner, uint256 _tokenId) internal view returns (bool) {
+        return tokenApprovals[_tokenId] == _owner;
+    }
+
+    /**
+     * @dev Internal function to check if all the token's operators are approved by the current owner.
+     * @param _owner current owner
+     * @param _operator operator to check if approved
+     * @return bool true if all token's operators are approved by owner
+     */
+    function _isApprovedForAll(address _owner, address _operator) internal view returns (bool) {
+        return operatorApprovals[_owner][_operator];
+    }
+
+    /**
+     * @dev Internal function to do the actual transfer - accepts address arguments to override since `send
+     * @notice this method is deprecated even though it is internal, use `safeTransferFrom` whenever possible
+     * or transferFrom elsewhere
+     * Throws unless `from` is the current owner or an approved operator
+     * Throws if `to` is the zero address
+     * Throws if `tokenId` is not a valid token
+     * @param _from address sending from
+     * @param _to address receiving from
+     * @param _tokenId uint256 ID of the token to be transferred
+     */
+    function _transfer(address _from, address _to, uint256 _tokenId) internal {
+        require(_to != address(0));
+        require(tokenOwner[_tokenId] == _from);
+        require(_isOwnerOrOperator(_from, msg.sender));
+
+        _clearApproval(_from, _tokenId);
+
+        tokenOwner[_tokenId] = _to;
+        ownedTokensCount[_from]--;
+        ownedTokensCount[_to]++;
+
+        emit Transfer(_from, _to, _tokenId);
+    }
+
+    /**
+     * @dev checks if token has been transferred to a non ERC721Receiver implementer by accident by using the interface
+     */
+    function _checkOnERC721Received(address _from, address _to, uint256 _tokenId, bytes memory _data) internal returns (bool) {
+        // Check if recipient is contract
+        if (!_isContract(_to)) {
+            return true;
+        }
+        // Call onERC721Received in the _to contract
+        bytes4 retval = ERC721Receiver(_to).onERC721Received(msg.sender, _from, _tokenId, _data);
+        //bytes4(keccak256("onERC721Received(address,address,uint256,bytes)")) ^ bytes4(0x150b7a02)
+
+        require(retval == bytes4(0x150b7a02));
+
+        return true;
+    }
+
+    /**
+     * @dev returns whether an address is a contract address
+     */
+    function _isContract(address addr) internal view returns (bool) {
+        uint size;
+        // solhint-disable-next-line no-inline-assembly
+        assembly { size := extcodesize(addr) }
+        return size > 0;
+    }
+}

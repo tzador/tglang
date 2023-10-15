@@ -1,0 +1,82 @@
+proc invert_matrix {matrix} {
+    # This procedure takes in a matrix and returns its inverse.
+    set rows [llength $matrix]
+    set cols [llength [lindex $matrix 0]]
+    # Check if matrix is square.
+    if {$rows != $cols} {
+        puts "Error: cannot invert non-square matrix."
+        return 0
+    }
+    # Create identity matrix of same size.
+    set identity {}
+    for {set i 0} {$i < $rows} {incr i} {
+        set row {}
+        for {set j 0} {$j < $rows} {incr j} {
+            if {$i == $j} {
+                lappend row 1
+            } else {
+                lappend row 0
+            }
+        }
+        lappend identity $row
+    }
+    # Perform Gaussian elimination to get upper triangular matrix.
+    for {set i 0} {$i < $rows} {incr i} {
+        # Pivoting step: swap rows with largest value in current column.
+        set largest 0
+        set swap_index $i
+        for {set j $i} {$j < $rows} {incr j} {
+            if {[abs [lindex [lindex $matrix $j] $i]] > $largest} {
+                set largest [abs [lindex [lindex $matrix $j] $i]]
+                set swap_index $j
+            }
+        }
+        set temp [lindex $matrix $swap_index]
+        set matrix $i [lindex $matrix $i]
+        set matrix $i $temp
+        set temp2 [lindex $identity $swap_index]
+        set identity $i [lindex $identity $i]
+        set identity $i $temp2
+        # Elimination step: transform all rows below pivot to have 0 in pivot column.
+        for {set j [expr $i+1]} {$j < $rows} {incr j} {
+            # Find ratio between first element of pivot row and first element of current row.
+            set ratio [expr [lindex [lindex $matrix $j] $i]/[lindex [lindex $matrix $i] $i]]
+            # Eliminate first element of current row by subtracting ratio * first element of pivot row.
+            set temp [lindex [lindex $matrix $j] $i]
+            for {set k 0} {$k < $rows} {incr k} {
+                set matrix $j [lreplace [lindex $matrix $j] $k $k [expr [lindex [lindex $matrix $j] $k] - [expr $ratio * [lindex [lindex $matrix $i] $k]]]]
+            }
+            # Do the same for the identity matrix to keep track of transformations.
+            for {set k 0} {$k < $rows} {incr k} {
+                set identity $j [lreplace [lindex $identity $j] $k $k [expr [lindex [lindex $identity $j] $k] - [expr $ratio * [lindex [lindex $identity $i] $k]]]]
+            }
+        }
+    }
+    # Perform backward substitution to get reduced row echelon form.
+    for {set i [expr $rows-1]} {$i >= 0} {incr i -1} {
+        # Make pivot element 1 by dividing all elements in row by pivot element.
+        set pivot [lindex [lindex $matrix $i] $i]
+        lassign [lindex $matrix $i] matrix_list
+        lassign [lindex $identity $i] identity_list
+        for {set j 0} {$j < $rows} {incr j} {
+            set matrix $i [lreplace $matrix_list $j $j [expr [lindex $matrix_list $j]/$pivot]]
+            set identity $i [lreplace $identity_list $j $j [expr [lindex $identity_list $j]/$pivot]]
+        }
+        # Transform all rows above pivot to have 0 in pivot column.
+        for {set j [expr $i-1]} {$j >= 0} {incr j -1} {
+            # Find ratio between first element of pivot row and first element of current row.
+            set ratio [expr [lindex [lindex $matrix $j] $i]/[lindex [lindex $matrix $i] $i]]
+            # Eliminate first element of current row by subtracting ratio * first element of pivot row.
+            set temp [lindex [lindex $matrix $j] $i]
+            for {set k 0} {$k < $rows} {incr k} {
+                set matrix $j [lreplace [lindex $matrix $j] $k $k [expr [lindex [lindex $matrix $j] $k] - [expr $ratio * [lindex [lindex $matrix $i] $k]]]]
+            }
+            # Do the same for the identity matrix to keep track of transformations.
+            for {set k 0} {$k < $rows} {incr k} {
+                set identity $j [lreplace [lindex $identity $j] $k $k [expr [lindex [lindex $identity $j] $k] - [expr $ratio * [lindex [lindex $identity $i] $k]]]]
+            }
+        }
+    }
+    # Return the transformed identity matrix, which is the inverse of the original matrix.
+    return [lmap row $identity {lrange $row $rows [expr 2*$rows-1]}]
+}

@@ -1,0 +1,82 @@
+plugins {
+    // Plugin to help generate Java projects
+    id 'java-library'
+    // Plugin to run tests
+    id 'jacoco'
+    // Plugin to create code quality reports
+    id 'checkstyle'
+    // Plugin to upload artifacts to a Maven repository
+    id 'maven-publish'
+}
+
+// Java plugin extensions
+java {
+    // The compatibility version of Java to use
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(14)
+    }
+    // Source and target compatibility version of Java
+    sourceCompatibility = 14
+    targetCompatibility = 14
+}
+
+// Dependency management
+dependencies {
+    // Dependency on JUnit for testing
+    testImplementation 'junit:junit:4.12'
+    // Dependency on Log4j for logging
+    implementation 'log4j:log4j:1.2.17'
+    // Dependency on Apache Commons for utility functions
+    implementation 'org.apache.commons:commons-lang3:3.8.1'
+}
+
+// Checkstyle configuration
+checkstyle {
+    // Configuration file
+    configFile = rootProject.file('checkstyle.xml')
+    // Enable Google style checks
+    configProperties = [ 'checkstyleConfig' : 'google_checks.xml' ]
+}
+
+// Tasks for generating code quality reports
+tasks.register('generateCodeQualityReport') {
+    // Task description
+    description = "Generates code quality report"
+    // Task dependencies
+    dependsOn 'jacocoTestReport', 'checkstyle'
+    // Task action to generate the report
+    doLast {
+        logger.lifecycle("Generating code quality report...")
+        // Execute Jacoco report task
+        exec {
+            // Command to execute to generate the HTML report
+            commandLine 'gradle', 'jacocoTestReport', 'checkstyle'
+        }
+    }
+}
+
+// Publishing to a Maven repository
+publishing {
+    // Maven publication
+    publications {
+        // Name of the publication
+        mavenJava(Maven Publication) {
+            // Artifact to publish
+            from components.java
+            // Publishing information
+            groupId = 'com.example'
+            artifactId = 'my-library'
+            version = '1.0.0'
+            // Maven repository to publish to
+            repository MavenRepository {
+                // URL of the repository
+                url = 'https://repo.example.com/releases'
+                // Set authentication credentials if needed
+                credentials {
+                    username = project.findProperty('repo.username') ?: System.getenv("REPO_USERNAME")
+                    password = project.findProperty('repo.password') ?: System.getenv("REPO_PASSWORD")
+                }
+            }
+        }
+    }
+}

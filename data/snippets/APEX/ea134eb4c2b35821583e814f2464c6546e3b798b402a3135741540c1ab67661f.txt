@@ -1,0 +1,33 @@
+trigger updateAccountName on Contact (after insert, after update) {
+    Set<Id> accountIds = new Set<Id>();
+
+    for(Contact con : Trigger.new) {
+        // Checking if the contact has an account assigned
+        if(con.AccountId != null) {
+            // Adding the account id to the set
+            accountIds.add(con.AccountId);
+        }
+    }
+
+    // Querying for the related accounts and their associated contacts
+    List<Account> accounts = [SELECT Id, Name, (SELECT Id, Name FROM Contacts) FROM Account WHERE Id IN :accountIds];
+
+    // Looping through the accounts and updating their names
+    for(Account a : accounts) {
+        // Checking if there are multiple contacts assigned to the account
+        if(a.Contacts.size() > 1) {
+            // Concatenating the first and last names of the contacts and updating the account name
+            String concatenatedNames = '';
+            for(Contact c : a.Contacts) {
+                concatenatedNames += c.FirstName + ' ' + c.LastName + ', ';
+            }
+            a.Name = concatenatedNames.removeEnd(', ');
+        } else {
+            // Setting the account name to the first and last name of the only contact assigned
+            a.Name = a.Contacts[0].FirstName + ' ' + a.Contacts[0].LastName;
+        }
+    }
+
+    // Updating the accounts
+    update accounts;
+}

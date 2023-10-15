@@ -1,0 +1,163 @@
+plugins {
+    id 'java'
+    id 'com.github.johnrengelman.shadow' version '5.2.0'
+}
+
+group 'com.example'
+version '1.0-SNAPSHOT'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Spring dependencies
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+    // Database dependencies
+    runtimeOnly 'com.h2database:h2'
+
+    // Testing dependencies
+    testImplementation 'junit:junit'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'org.hsqldb:hsqldb'
+
+    // Logging dependencies
+    implementation 'org.slf4j:slf4j-api:1.7.30'
+    implementation 'ch.qos.logback:logback-classic:1.2.3'
+
+    // JSON processing dependency
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.9.8'
+}
+
+// Shadow Jar settings
+task shadowJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
+    manifest {
+        attributes 'Main-Class': 'com.example.Main'
+    }
+    // Copy dependencies into jar
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    // Exclude logback.xml from jar
+    exclude 'logback.xml'
+}
+
+// Define SourceSets for integration tests
+sourceSets {
+    integrationTest {
+        java {
+            srcDir 'src/integrationTest/java'
+        }
+        resources {
+            srcDir 'src/integrationTest/resources'
+        }
+    }
+}
+
+// Run integration tests
+task integrationTest(type: Test) {
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+}
+
+// Aggregate test tasks
+test {
+    finalizedBy integrationTest
+}
+
+// Configure JavaDoc generation
+task javadocJar(type: Jar) {
+    from javadoc
+    archiveClassifier.set('javadoc')
+}
+
+// Create JavaDoc task
+javadoc {
+    options {
+        encoding 'UTF-8'
+        docTitle 'Example Project JavaDoc'
+        docVersion '1.0'
+        docCharset 'UTF-8'
+        docFileTitle 'Example Project JavaDoc'
+        author true
+        authorLabel 'Created by'
+        use true
+        version true
+    }
+    failOnError false
+}
+
+// Run JavaDoc task before build
+build.dependsOn javadoc
+
+// Define tasks for generating and publishing project documentation to JFrog Artifactory
+task generateDocumentation(type: Javadoc) {
+    enabled = false
+    source = sourceSets.main.allJava
+    destinationDir = file("$buildDir/docs")
+    failOnError = false
+    options.links("https://javadoc.setec.org")
+    title("Example Project JavaDoc")
+    version("1.0")
+}
+
+task publishDocumentation(type: Javadoc) {
+    source = sourceSets.main.allJava
+    destinationDir = file("$buildDir/docs")
+    failOnError = false
+    options.links("https://javadoc.setec.org")
+    title("Example Project JavaDoc")
+    version("1.0")
+}
+
+// Aggregate documentation generation tasks
+documentation {
+    finalizedBy generateDocumentation
+}
+
+// Configure publishing to Artifactory
+publishing {
+    publications {
+        examples(MavenPublication) {
+            from components.java
+            artifactId = 'examples'
+            version = '1.0'
+        }
+    }
+    repositories {
+        maven {
+            url "http://example.artifactory.io"
+        }
+    }
+}
+
+// Define task for uploading source code to Artifactory
+task uploadSourceTarball(type: Tar) {
+    extension = 'tar.gz'
+    compression = Compression.GZIP
+    destinationDirectory = temporaryDir
+    destinationPath = file("$buildDir/source.tgz")
+    baseName = 'source'
+    from projectDir
+    exclude '.gradle'
+}
+
+// Upload source code to Artifactory before publishing
+build.finalizedBy uploadSourceTarball
+
+// Define task for uploading jar to Artifactory
+task uploadJar(type: Tar) {
+    extension = 'jar'
+    destinationDirectory = temporaryDir
+    destinationPath = file("$buildDir/jar.tar")
+    baseName = 'example'
+    from projectDir
+    include 'build/libs/example-1.0-SNAPSHOT.jar'
+}
+
+// Upload jar to Artifactory before publishing
+build.dependsOn uploadJar

@@ -1,0 +1,49 @@
+&SCOPE-DEFINE my_ilevel 5. /* Define integer variable */
+DEFINE TEMP-TABLE tt_customers /* Define temporary table */
+FIELD custnum AS INTEGER
+FIELD name AS CHARACTER
+FIELD city AS CHARACTER
+FIELD state AS CHARACTER
+FIELD zip AS CHARACTER.
+
+/* Define query for selecting data from customer table */
+DEFINE QUERY myq FOR Customer.
+/* Start transaction */
+BEGIN TRANSACTION.
+
+/* Fetch data from Customer table */
+DO WHILE NOT AVAILABLE Customer:
+    REPEAT:
+        FIND FIRST myq NO-LOCK.  /* Get first record from query */
+        CREATE tt_customers.  /* Create temporary table record */
+        tt_customers.custnum = Customer.custnum.  /* Set field values */
+        tt_customers.name = Customer.name.
+        tt_customers.city = Customer.city.
+        tt_customers.state = Customer.state.
+        tt_customers.zip = Customer.zip.
+
+        /* Check for more records in query */
+        ON ERROR UNDO, LEAVE tt_customers.
+        END.
+    FINALLY:
+        ON ERROR UNDO, LEAVE Customer.
+        END.
+    END.
+END.
+
+/* Check if transaction is successful */
+IF NOT TRANSACTION-COMPLETE():
+    MESSAGE "Transaction failed!" VIEW-AS ALERT-BOX.
+    DELETE PROCEDURE.
+ELSE:
+    MESSAGE "Transaction successful!" VIEW-AS ALERT-BOX.
+END.
+
+/* Display data from temporary table */
+FOR EACH tt_customers:
+    DISP tt_customers.custnum tt_customers.name tt_customers.city
+        tt_customers.state tt_customers.zip.
+END.
+
+/* Commit transaction */
+COMMIT TRANSACTION.

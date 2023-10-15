@@ -1,0 +1,33 @@
+/* This program uses a temp-table to store data */
+DEFINE TEMP-TABLE tt-customer
+    FIELD cust-num AS INTEGER
+    FIELD cust-name AS CHAR
+    FIELD cust-city AS CHAR
+    INDEX idx-cust-num IS UNIQUE cust-num.
+
+/* Retrieves data from external table and populates temp-table */
+DEFINE VARIABLE hQuery AS HANDLE NO-UNDO.
+CREATE QUERY hQuery.
+hQuery:SET-BUFFERS(BUFFER tt-customer:HANDLE).
+hQuery:QUERY-PREPARE("FOR EACH customer NO-LOCK").
+hQuery:QUERY-OPEN().
+
+/* Loop through records and store data in temp-table */
+REPEAT:
+    hQuery:GET-NEXT() /* Retrieve next record */
+    IF hQuery:QUERY-OFF-END THEN /* Exit loop if all records have been retrieved */
+        LEAVE.
+    /* Store data in temp-table */
+    CREATE tt-customer.
+    BUFFER tt-customer.cust-num:BUFFER-VALUE = BUFFER customer.cust-num:BUFFER-VALUE.
+    BUFFER tt-customer.cust-name:BUFFER-VALUE = BUFFER customer.cust-name:BUFFER-VALUE.
+    BUFFER tt-customer.cust-city:BUFFER-VALUE = BUFFER customer.cust-city:BUFFER-VALUE.
+END.
+
+/* Sort temp-table by customer name in descending order */
+TEMP-TABLE tt-customer:DEFAULT-SORT = "cust-name DESC".
+
+/* Display data in temp-table */
+FOR EACH tt-customer:
+    DISPLAY tt-customer WITH FRAME cust-frame 3 COL STYLE system-standard.
+END.

@@ -1,0 +1,48 @@
+@ECHO OFF
+SETLOCAL ENABLEDELAYEDEXPANSION
+REM This code snippet creates a batch file that copies all files from one directory to another
+REM and only copies files that have been modified within the last 24 hours
+SET source=C:\Users\John\Documents
+SET destination=C:\Users\John\Desktop\Backup
+SET "start=!date!"
+REM remove leading space from date
+SET start=!start:~1!
+REM remove forward slashes from date and replace with underscores
+SET start=!start:/=_!
+REM set time to 12am
+SET start=!start!_000000
+REM remove colons from time and replace with underscores
+SET start=!start::=_!
+REM set time to 24 hours ago
+SET start=!start:~0,11!23!start:~13!
+REM set /A ensures the variable is interpreted as an integer
+SET /A start=1 2>%TEMP%\date.tmp
+REM %errorlevel% is set if the expression is less than, equal or greater than IntegerZero
+IF %errorlevel% EQU 0 (
+ SET /A start-=(60*60*24)
+ SET /A year=!start:~0,4!
+ SET /A month=!start:~4,2!
+ SET /A day=!start:~6,2!
+ SET /A hour=!start:~8,2!
+ SET /A minute=!start:~10,2!
+ SET /A second=!start:~12,2!
+ SET start=!year!!month!!day!!hour!!minute!.!second!
+)
+REM loop through each file in the source directory
+FOR %%f IN ("%source%\*.*") DO (
+ REM retrieve last modified date and time of the file
+ SET "lastmodified=%%~tf"
+ REM remove unwanted characters and set as integer
+ SET /A lastmodified=!lastmodified:~0,22!
+ REM if the file was modified within the last 24 hours, copy it to the destination directory
+ IF !lastmodified! GTR !start! (
+  REM create destination directories if they do not exist
+  IF NOT EXIST "%destination%\%%~pf" MD "%destination%\%%~pf"
+  REM copy the file
+  COPY /Y "%%f" "%destination%\%%f"
+ )
+)
+REM print success message
+ECHO All files modified within the last 24 hours have been copied to the destination directory.
+ENDLOCAL
+PAUSE

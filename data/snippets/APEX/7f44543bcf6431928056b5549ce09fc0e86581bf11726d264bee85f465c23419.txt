@@ -1,0 +1,28 @@
+Map<Id, List<SObject>> recordMap = new Map<Id, List<SObject>>();
+
+Schema.DescribeSObjectResult opportunityDescribe = Opportunity.SObjectType.getDescribe();
+Map<String, Schema.SObjectField> fieldMap = opportunityDescribe.fields.getMap();
+
+for (Opportunity opp : [SELECT Id, Name, StageName, CloseDate FROM Opportunity]) {
+    if (recordMap.containsKey(opp.StageName)) {
+        recordMap.get(opp.StageName).add(opp);
+    } else {
+        List<SObject> recordList = new List<SObject>();
+        recordList.add(opp);
+        recordMap.put(opp.StageName, recordList);
+    }
+}
+
+for (String fieldName : fieldMap.keySet()) {
+    String fieldType = String.valueOf(fieldMap.get(fieldName).getDescribe().getType());
+    if (fieldType == 'REFERENCE') {
+        String referencedObjectType = String.valueOf(fieldMap.get(fieldName).getDescribe().getReferenceTo()[0]);
+        if (referencedObjectType == 'Account') {
+            for (SObject record : recordMap.get(opp.StageName)) {
+                if (record.get(fieldName) != null) {
+                    recordMap.get(opp.StageName).add(record.get(fieldName).get('Name'));
+                }
+            }
+        }
+    }
+}

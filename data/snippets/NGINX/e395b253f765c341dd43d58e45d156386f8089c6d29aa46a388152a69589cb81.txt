@@ -1,0 +1,58 @@
+worker_processes 4; # Number of worker processes running simultaneously
+
+events { # Event settings
+    worker_connections 1024; # Maximum number of connections per worker process
+    multi_accept on; # Allow multiple requests to be accepted and handled at once
+}
+
+http { # HTTP server settings
+    include mime.types; # File types and their associated MIME types
+    default_type application/octet-stream; # Default MIME type for files
+    sendfile on; # Enable sendfile() to efficiently transfer files
+    keepalive_timeout 65; # Maximum time in seconds for an idle keep-alive connection
+    open_file_cache max=1000 inactive=20s; # Cache open file descriptors
+    server_names_hash_bucket_size 128; # Size of the server names hash table
+
+    gzip on; # Enable gzip compression
+
+    server { # Server block for handling requests
+        listen 80; # Listen on port 80
+        server_name example.com; # Server name for this block
+
+        location / { # Location block for handling requests to the root directory
+            root /var/www/html; # Root directory for serving files
+            index index.html; # Default file to serve if no specific file is requested
+        }
+
+        location /images/ { # Location block for handling requests to the images directory
+            alias /var/www/images/; # Alias for the images directory
+            autoindex on; # Enable directory listing
+            expires 30d; # Set cache expiration to 30 days
+        }
+
+        location /api/ { # Location block for handling requests to the API
+            proxy_pass http://127.0.0.1:8080; # Proxy requests to the API server
+            proxy_http_version 1.1; # Use HTTP version 1.1 for proxy requests
+            proxy_set_header Host $host; # Pass the original host header to the API server
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # Pass client IP address to the API server
+        }
+
+        error_page 404 /404.html; # Error page for requests that return 404 status code
+        error_page 500 502 503 504 /50x.html; # Error page for requests that return 500, 502, 503, or 504 status code
+
+        location = /50x.html { # Location block for handling requests to the 50x.html error page
+            root /var/www/errors; # Root directory for serving error pages
+        }
+
+        location ~* \.(gif|jpg|png)$ { # Location block for handling requests to image files
+            expires 30d; # Set cache expiration to 30 days
+            add_header Cache-Control "public"; # Set "public" cache-control response header
+        }
+    }
+
+    server { # Server block for handling requests to another domain
+        listen 80; # Listen on port 80
+        server_name anotherdomain.com; # Server name for this block
+        # Similar configuration as the first server block
+    }
+}

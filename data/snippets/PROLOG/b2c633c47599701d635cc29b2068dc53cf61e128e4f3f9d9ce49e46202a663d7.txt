@@ -1,0 +1,101 @@
+% This code snippet implements the alpha-beta pruning algorithm for the game of tic-tac-toe
+
+% Define the board and its initial state
+:- dynamic board/1.
+board([[-,-,-],
+	   [-,-,-],
+	   [-,-,-]]).
+
+% Defines the value of each player and empty space on the board
+value(cell(X,Y), Val) :-
+	board(Board),
+	nth1(Y, Board, Row),
+	nth1(X, Row, Player),
+	determine_val(Player, Val).
+
+% Defines the heuristic value for each player
+determine_val(-, 0).
+determine_val(X, 1) :- X = x.
+determine_val(o, -1).
+
+% Determines if the board is full and the game is over
+is_full([], _, true).
+is_full([[-,-,-]|Rest], Turn, false) :-
+	is_full(Rest, Turn, false).
+is_full([[X,_,_]|Rest], Turn, Completed) :-
+	X = Turn,
+	is_full(Rest, Turn, Completed).
+
+% Determines if a player has won the game
+won(Player, Board) :-
+	is_row_completed(Player, Board);
+	is_col_completed(Player, Board);
+	is_diag_completed(Player, Board).
+
+% Determines if any row is completed by a player
+is_row_completed(Player, [[Player,Player,Player]|_]).
+is_row_completed(Player, [_|Rest]) :-
+	is_row_completed(Player, Rest).
+
+% Determines if any column is completed by a player
+is_col_completed(Player, [[Player,_,_],[_,Player,_],[_,_,Player]]).
+is_col_completed(Player, [[_,Player,_],[_,_,Player],[_,_,_]]).
+is_col_completed(Player, [[_,_,Player],[_,_,Player],[_,_,Player]]).
+
+% Determines if any diagonal is completed by a player
+is_diag_completed(Player, [[Player,_,_],[_,Player,_],[_,_,Player]]).
+is_diag_completed(Player, [[_,_,Player],[_,Player,_],[Player,_,_]]).
+
+% Returns the best move for a given player using alpha-beta pruning
+% with a maximum depth of 5 moves
+choose_move(Board, Player, Move) :-
+	max(A, -1000, 1000, Board, Player, 5, Move).
+
+% Maximizes the score for the player while minimizing the opponent's score
+max(Score, _, _, Board, Player, Depth, cell(X,Y)) :-
+	Depth =< 0,
+	value(cell(X,Y), Score);
+	is_full(Board, Player, Completed),
+	won(Player, Board),
+	value(cell(X,Y), Score).
+
+max(Score, Alpha, Beta, Board, Player, Depth, BestMove) :-
+	findall(cell(X,Y), is_valid_move(X,Y,Board), Moves),
+	NewDepth is Depth - 1,
+	best_move(Board, Player, Moves, Alpha, Beta, NewDepth, none, BestMove).
+
+% Chooses the best move for the player based on the minimum score of the opponent
+best_move(_, _, [], _, _, _, BestMove, BestMove).
+best_move(Board, Player, [Move | Rest], alpha, Beta, Depth, _, BestMove) :-
+	min(A, alpha, Beta, [[Player | Board], Move], Depth, other_player(Player), Value),
+	max(S, A, Beta, [[Player | Board], Move], Player, Depth, BestMove),
+	S =< A,
+	best_move(Board, Player, Rest, alpha, A, Depth, Move, BestMove).
+best_move(Board, Player, [Move | Rest], Alpha, Beta, Depth, TempMove, BestMove) :-
+	min(A, Alpha, Beta, [[Player | Board], Move], Depth, other_player(Player), Value),
+	S is max(A, Alpha),
+	best_move(Board, Player, Rest, S, Beta, Depth, TempMove, BestMove).
+
+min(Score, _, _, Board, Player, Depth, OtherPlayer, cell(X,Y)) :-
+	Depth =< 0,
+	value(cell(X,Y), Score);
+	is_full(Board, Player, Completed),
+	won(OtherPlayer, Board),
+	value(cell(X,Y), Score).
+
+min(Score, Alpha, Beta, Board, Player, Depth, other_player(Player), BestMove) :-
+	findall(cell(X,Y), is_valid_move(X,Y,Board), Moves),
+	NewDepth is Depth - 1,
+	worst_move(Board, Player, Moves, Alpha, Beta, NewDepth, none, BestMove).
+
+% Chooses the move that will minimize the score for the player
+worst_move(_, _, [], _, _, _, BestMove, BestMove).
+worst_move(Board, Player, [Move | Rest], Alpha, beta, Depth, _, BestMove) :-
+	max(B, Alpha, beta, [[Player | Board], Move], Depth, other_player(Player), Value),
+	min(S, Alpha, B, [[Player | Board], Move], Player, Depth, BestMove),
+	B >= beta,
+	worst_move(Board, Player, Rest, beta, Alpha, Depth, Move, BestMove).
+worst_move(Board, Player, [Move | Rest], Alpha, Beta, Depth, TempMove, BestMove) :-
+	max(B, Alpha, Beta, [[Player | Board], Move], Depth, other_player(Player), Value),
+	S is min(B, Beta),
+	worst_move(Board, Player, Rest, Alpha, S, Depth, TempMove, BestMove).

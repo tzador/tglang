@@ -1,0 +1,48 @@
+DATA: lt_customers TYPE TABLE OF cust_tab,
+
+      gt_sales TYPE TABLE OF sales_tab,
+
+      ls_sales TYPE sales_tab.
+
+SELECT * FROM kna1
+   INNER JOIN vbak ON kna1-kunnr = vbak-kunnr
+   INTO TABLE lt_customers
+   WHERE kna1-land1 = 'US'
+   AND vbak-vkorg = 'US01'
+   AND vbak-erdat BETWEEN '20190101' AND '20191231'.
+
+CALL FUNCTION 'SD_RFC_SELECT_BAPI'
+  EXPORTING
+    i_customer = lt_customers
+    i_data_cutodd = 'C'.
+
+DO 3 TIMES.
+
+  ls_sales-kunnr = lt_customers-kunnr.
+  ls_sales-land1 = lt_customers-land1.
+
+  CALL FUNCTION 'BAPI_SALESORDER_GETLIST'
+    EXPORTING
+      CUSTOMER_NUMBER = ls_sales-kunnr
+      SALES_ORGANIZATION = ls_sales-land1
+      ORDER_CAT = 'Z'.
+
+  IF sy-subrc = 0.
+
+    READ TABLE gt_sales INTO ls_sales INDEX 1.
+
+    WRITE: / 'Customer Number:', ls_sales-kunnr.
+    WRITE: / 'Order ID:', ls_sales-vbeln.
+    WRITE: / 'Order Date:', ls_sales-audat.
+    WRITE: / 'Delivery Date:', ls_sales-vdatu.
+
+    LOOP AT gt_sales INTO ls_sales.
+      WRITE: / 'Item Number:', ls_sales-posnr.
+      WRITE: / 'Material:', ls_sales-matnr.
+      WRITE: / 'Quantity:', ls_sales-kwmeng.
+      WRITE: / 'Unit of Measure:', ls_sales-vrkme.
+    ENDLOOP.
+
+  ENDIF.
+
+ENDDO.

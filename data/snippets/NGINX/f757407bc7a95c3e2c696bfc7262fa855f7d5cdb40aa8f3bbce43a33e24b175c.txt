@@ -1,0 +1,69 @@
+server {
+#listen directive specifies the address and port where the server will listen for connections
+    listen 80;
+#server_name directive specifies the domain name or IP address where the server should respond to requests from
+    server_name example.com www.example.com;
+#root directive specifies the document root or main directory of the server's files
+    root /var/www/example;
+#index directive specifies the file that should be served when a directory is requested, default to index.html
+    index index.html;
+#location directive specifies the location of the resources requested by the client
+#the ^~ modifier marks this location as non-regex, meaning it will be matched only if the client's request matches this path exactly
+    location ^~ /images/ {
+        expires 30d;
+        access_log off;
+    }
+#the = modifier marks this location as exact match, and nginx will not look for other matches for this request
+    location = /about {
+        return 301 https://example.com;
+    }
+#the ~ modifier marks this location as case-sensitive regex
+    location ~* \.(gif|jpg|jpeg) {
+#valid_referers specifies the domains that are allowed to access and display images matching the regex
+        valid_referers none blocked example.com;
+        if ($invalid_referer) {
+#return a 403 forbidden error if the request does not come from any of the valid_referers
+            return 403;
+        }
+#set the Cache-Control header to serve the image for 30 days and turn off access log
+        expires 30d;
+        access_log off;
+    }
+#the / modifier marks this location as a prefix match
+    location / {
+#proxy_pass directive specifies the server that will handle the request if it is not for a static file
+#the server in this case is a load balancer which will distribute the traffic to various upstream servers
+        proxy_pass https://example.com;
+        proxy_set_header Host $host;
+#proxy_set_header allows setting custom headers for the request
+        proxy_set_header X-Real-IP $remote_addr;
+#proxy_set_header allows setting custom headers for the server's response
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#proxy_set_header allows setting custom headers for the client's IP address
+    }
+#the /api modifier marks this location as a prefix match, and sets a rate limit of 100 requests per second
+    location /api {
+        limit_req zone=api burst=100 nodelay;
+    }
+#the /static modifier marks this location as a prefix match to serve static files
+    location /static {
+#try_files directive checks if the requested file exists, and if not, passes the request to the next matching location block
+        try_files $uri @proxy_to_app;
+    }
+#the @proxy_to_app modifier names a location block that will handle the request if it is not found in the static file location
+    location @proxy_to_app {
+#proxy_pass directive specifies the server to handle the request, in this case a Flask app served by a Unix socket
+        proxy_pass http://unix:/home/user/app.sock;
+#proxy_redirect directive allows modifying the URL in a redirect response from the upstream server
+        proxy_redirect off;
+#proxy_intercept_errors directive allows nginx to intercept errors from the proxy server and return them directly to the client
+        proxy_intercept_errors on;
+    }
+#this server block also includes various security measures to prevent common attacks, as well as gzip compression to improve performance
+    client_body_timeout 10;
+    client_header_timeout 10;
+    send_timeout 10;
+    keepalive_timeout 10;
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+}

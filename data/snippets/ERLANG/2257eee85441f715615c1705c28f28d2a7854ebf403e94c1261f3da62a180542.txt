@@ -1,0 +1,114 @@
+-module(snake_game).
+-export([start/0]).
+
+%%% Game state
+-record(state, {snake = [],
+                food,
+                height = 10,
+                width = 10,
+                score = 0}).
+    
+%%% Game start 
+start() ->
+    loop(init_state()).
+
+%% Init game state
+init_state() ->
+    #state{food = random_position(),
+           snake = [random_position()],
+           score = 0}.
+
+%% Loop function for game state
+loop(State) ->
+    NewState = update_state(State),
+    draw_game(NewState),
+    wait_for_input(),
+    loop(NewState).
+
+%% Update game state
+update_state(State) ->
+    NewSnake = move_snake(State),
+    NewState = State#state{snake = NewSnake},
+    generate_food(NewState).
+
+%% Move snake function
+move_snake(State) ->
+    Snake = State#state.snake,
+    case Snake of
+        [Head|_] -> [move(Head) | Snake]
+    end.
+
+%% Move function for new position
+move(Position) ->
+    {X, Y} = Position,
+    case rand:uniform(4) of
+        1 -> {X + 1, Y};
+        2 -> {X - 1, Y};
+        3 -> {X, Y - 1};
+        4 -> {X, Y + 1}
+    end.
+
+%% Generate random position on game board
+random_position() ->
+    {X, Y} = {rand:uniform(10), rand:uniform(10)},
+    {X, Y}.
+
+%% Function to check for collision with food and update score
+generate_food(State) ->
+    Snake = State#state.snake,
+    Food = State#state.food,
+    case lists:member(Food, Snake) of
+        true -> State#state{score = State#state.score + 1,
+                            food = random_position()};
+        false -> State
+    end.
+
+%% Function to draw game state
+draw_game(State) ->
+    Snake = State#state.snake,
+    Food = State#state.food,
+    Board = init_board(),
+    Board1 = place_food(Board, Food),
+    Board2 = place_snake(Board1, Snake),
+    print_board(Board2).
+
+%% Function to initialize game board
+init_board() ->
+    init_board(10, 10, []).
+    
+init_board(Width, Height, Acc) when Width == 0 -> Acc;
+init_board(Width, Height, Acc) ->
+    init_board(Width-1, Height, [lists:duplicate(Height, 0)|Acc]).
+
+%% Function to place food on board
+place_food(Board, {X, Y}) ->
+    lists:replace_element(X, lists:replace_element(Y, 2, lists:nth(X, Board)), Board).
+
+%% Function to place snake on board
+place_snake(Board, [SnakeHead|SnakeTail]) ->
+    place_snake(place_tile(Board, SnakeHead, 1), SnakeTail).
+
+%% Function to place tile on board
+place_tile(Board, {X, Y}, Tile) ->
+    lists:replace_element(X, lists:replace_element(Y, Tile, lists:nth(X, Board)), Board).
+
+%% Function to print game board
+print_board(Board) ->
+    lists:foreach(fun(Row) ->
+                      lists:foreach(fun(Tile) ->
+                                        case Tile of
+                                            0 -> io:format("|   |");
+                                            1 -> io:format("| S |");
+                                            2 -> io:format("| F |")
+                                        end
+                                  end, Row),
+                      io:format("~n")
+                end, Board).
+
+%% Function to wait for input
+wait_for_input() ->
+    receive
+        _ -> ok
+    after
+        500 -> ok
+    end.

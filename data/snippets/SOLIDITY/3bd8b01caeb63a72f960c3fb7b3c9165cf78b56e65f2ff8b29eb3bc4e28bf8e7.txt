@@ -1,0 +1,80 @@
+pragma solidity ^0.6.0;
+
+interface ERC20Token {
+    function totalSupply() external view returns (uint);
+    function balanceOf(address account) external view returns (uint);
+    function transfer(address recipient, uint amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint);
+    function approve(address spender, uint amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint amount) external returns (bool);
+
+    event Transfer(address indexed from, address indexed to, uint value);
+    event Approval(address indexed owner, address indexed spender, uint value);
+}
+
+contract ExampleToken is ERC20Token {
+    string public name;
+    string public symbol;
+    uint8 public decimals;
+    uint public override totalSupply;
+
+    mapping(address => uint) public balances;
+    mapping(address => mapping(address => uint)) public allowances;
+
+    constructor(string memory _name, string memory _symbol, uint8 _decimals, uint _initialSupply) public {
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+        totalSupply = _initialSupply * 10 ** uint(decimals);
+        balances[msg.sender] = totalSupply;
+    }
+
+    function balanceOf(address account) public view override returns (uint) {
+        return balances[account];
+    }
+
+    function transfer(address recipient, uint amount) public override returns (bool) {
+        require(balances[msg.sender] >= amount, "Insufficient balance");
+        balances[msg.sender] -= amount;
+        balances[recipient] += amount;
+        emit Transfer(msg.sender, recipient, amount);
+        return true;
+    }
+
+    function allowance(address owner, address spender) public view override returns (uint) {
+        return allowances[owner][spender];
+    }
+
+    function approve(address spender, uint amount) public override returns (bool) {
+        // allowances[msg.sender][spender] = amount;
+        _approve(msg.sender, spender, amount);
+        return true;
+    }
+
+    function transferFrom(address sender, address recipient, uint amount) public override returns (bool) {
+        require(balances[sender] >= amount, "Insufficient balance");
+        require(allowances[sender][msg.sender] >= amount, "Insufficient allowance");
+        balances[sender] -= amount;
+        balances[recipient] += amount;
+        allowances[sender][msg.sender] -= amount;
+        emit Transfer(sender, recipient, amount);
+        return true;
+    }
+
+    function increaseAllowance(address spender, uint addedAmount) public returns (bool) {
+        // allowances[msg.sender][spender] += addedAmount;
+        _approve(msg.sender, spender, allowances[msg.sender][spender] + addedAmount);
+        return true;
+    }
+
+    function decreaseAllowance(address spender, uint subtractedAmount) public returns (bool) {
+        require(allowances[msg.sender][spender] >= subtractedAmount, "Decreased allowance below zero");
+        allowances[msg.sender][spender] -= subtractedAmount;
+        return true;
+    }
+
+    function _approve(address owner, address spender, uint amount) internal {
+        allowances[owner][spender] = amount;
+        emit Approval(owner, spender, amount);
+    }
+}

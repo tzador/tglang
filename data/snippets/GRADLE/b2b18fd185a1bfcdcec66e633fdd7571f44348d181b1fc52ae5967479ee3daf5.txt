@@ -1,0 +1,99 @@
+apply plugin: 'java'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile group: 'junit', name: 'junit', version: '4.12'
+    implementation 'com.google.guava:guava:30.0-jre'
+}
+
+task runTest(type: Test) {
+    description = 'Runs unit tests for this project'
+    
+    include '**/*Test.class'
+    // includes all test classes in the current directory recursion
+    
+    exclude '**/ui/*Test.class'
+    // exclude all test classes in the ui package
+    
+    reports {
+        html.enabled = false
+        // disables generation of HTML report
+        junitXml.enabled = true
+        // enables generation of XML report
+        // reports are stored in build/test-results directory
+    }
+}
+
+task buildJar(type: Jar) {
+    description = 'Creates a JAR file of this project'
+    
+    archiveBaseName.set('my-project') // sets the base name of the JAR file
+    // default is project name
+    archiveVersion.set('1.0') // sets the version of the JAR file
+    // default is project version
+    
+    manifest {
+        attributes 'Main-Class': 'com.example.Main'
+        // sets the entry point for the JAR file
+    }
+    
+    from sourceSets.main.output // adds all compiled code from the main source set
+    from sourceSets.test.output // adds all compiled code from the test source set
+    
+    exclude '**/*.yaml' // excludes files with the .yaml extension
+    
+    doLast {
+        println('JAR file created successfully')
+    }
+}
+
+task createDocumentation(type: Javadoc) {
+    description = 'Generates Javadoc documentation for this project'
+    
+    title = 'My Project Documentation'
+    
+    source = sourceSets.main.allJava // sets the source files for Javadoc
+    exclude '**/*.txt' // excludes files with the .txt extension
+    
+    options.author = true
+    // enables showing author names in Javadoc
+    options.version = '1.0'
+    // sets the version for the documentation
+    
+    destinationDir = file("$buildDir/docs/javadoc") // sets the output directory
+    
+    doLast {
+        println('Javadoc documentation created successfully')
+    }
+}
+
+task runMyProject(dependsOn: 'build') {
+    description = 'Runs the JAR file of this project'
+    
+    tasks.buildJar.execute() // executes the buildJar task before running this task
+    
+    doLast {
+        println('Running my project...')
+        javaexec {
+            main = '-jar'
+            args = ['build/libs/my-project-1.0.jar']
+            // runs the JAR file with the specified arguments
+        }
+    }
+}
+
+task clean(type: Delete) {
+    description = 'Cleans the project directory'
+    
+    delete 'build' // deletes the build directory and all its contents
+    
+    doLast {
+        println('Project cleaned successfully')
+    }
+}
+
+// this task runs all the other tasks
+task all(dependsOn: ['runTest', 'createDocumentation', 'runMyProject', 'clean'])

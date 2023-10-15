@@ -1,0 +1,78 @@
+/**
+ * @title Voting
+ * @dev Contract for creating and managing elections using Ethereum blockchain
+ */
+contract Voting {
+    // state variables
+    uint256 public totalVotes;
+    address public owner;
+    mapping(address => bool) public voters;
+    mapping(address => Vote) public votes;
+
+    // structs
+    struct Candidate {
+        string name;
+        uint256 voteCount;
+    }
+
+    struct Vote {
+        address voter;
+        address candidate;
+        uint256 timestamp;
+    }
+
+    // events
+    event NewElection(address owner, string name);
+    event VoterAdded(address voter);
+    event Voted(address voter, string candidate, uint256 timestamp);
+
+    // modifiers
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the owner can call this function.");
+        _;
+    }
+
+    modifier onlyVoter() {
+        require(voters[msg.sender], "Only registered voters can call this function.");
+        _;
+    }
+
+    /**
+     * @dev contract constructor
+     * @param _name Name of the election
+     * @param _owner Owner of the election
+     */
+    constructor(string memory _name, address _owner) public {
+        owner = _owner;
+        emit NewElection(_owner, _name);
+    }
+
+    /**
+     * @dev add a voter to the map of voters
+     * @param _voter Address of the voter
+     */
+    function addVoter(address _voter) public onlyOwner {
+        voters[_voter] = true;
+        emit VoterAdded(_voter);
+    }
+
+    /**
+     * @dev cast a vote for a candidate
+     * @param _candidate Address of the candidate
+     */
+    function vote(address _candidate) public onlyVoter {
+        require(votes[msg.sender].timestamp == 0, "This voter has already voted.");
+
+        votes[msg.sender] = Vote({
+            voter: msg.sender,
+            candidate: _candidate,
+            timestamp: now
+        });
+
+        // update candidate vote count
+        candidates[_candidate].voteCount++;
+        totalVotes++;
+
+        emit Voted(msg.sender, candidates[_candidate].name, now);
+    }
+}

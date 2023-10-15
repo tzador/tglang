@@ -1,0 +1,65 @@
+*&---------------------------------------------------------------------*
+*& Report * This is a long and complex report that requires multiple tables and calculations
+*&---------------------------------------------------------------------*
+REPORT Z_COMPLEX_REPORT.
+
+* Declaring Internal Tables for data storage
+DATA: l_mara TYPE TABLE OF MARA,
+      l_marc TYPE TABLE OF MARC,
+      l_mard TYPE TABLE OF MARD,
+      l_makt TYPE TABLE OF MAKT,
+      l_mseg TYPE TABLE OF MSEG,
+      l_mbes TYPE TABLE OF MBES.
+
+* Selection screen parameters for user input
+PARAMETERS: p_werks TYPE MARC-WERKS OBLIGATORY,
+            p_matnr TYPE MARA-MATNR OBLIGATORY.
+
+* Query to retrieve material data from MARA table
+SELECT * FROM MARA
+  INTO TABLE l_mara
+  WHERE MATNR = p_matnr.
+
+* Query to retrieve plant-specific material data from MARC table
+SELECT * FROM MARC
+  INTO TABLE l_marc
+  WHERE MATNR = p_matnr
+    AND WERKS = p_werks.
+
+* Calculate total stock based on all plant-specific stocks in MARD table
+LOOP AT l_marc ASSIGNING FIELD-SYMBOL(<fs_marc>).
+  SELECT SUM(LABST) FROM MARD
+    INTO <fs_marc>-total_stock
+    WHERE MATNR = <fs_marc>-matnr
+      AND WERKS = <fs_marc>-werks.
+ENDLOOP.
+
+* Retrieve material description from MAKT table
+SELECT * FROM MAKT
+  INTO TABLE l_makt
+  FOR ALL ENTRIES IN l_marc
+  WHERE MATNR = l_marc-matnr.
+
+* Retrieve material batch data from MSEG table
+SELECT * FROM MSEG
+  INTO TABLE l_mseg
+  FOR ALL ENTRIES IN l_mara
+  WHERE MATNR = l_mara-matnr.
+
+* Calculate total valuation based on material batches in MBES table
+LOOP AT l_mseg ASSIGNING FIELD-SYMBOL(<fs_mseg>).
+  SELECT SINGLE * FROM MBES
+    INTO <fs_mseg>-valuation
+    WHERE VBELN = <fs_mseg>-mblnr
+      AND POSNR = <fs_mseg>-zeile.
+ENDLOOP.
+
+* Output report columns with relevant data
+WRITE: / 'Material No.', 'Material Description', 'Plant', 'Total Stock', 'Total Valuation'.
+LOOP AT l_mara ASSIGNING FIELD-SYMBOL(<fs_mara>).
+  WRITE: / <fs_mara>-matnr,
+         l_makt-maktx,
+         l_marc-werks,
+         l_marc-total_stock,
+         l_mseg-valuation.
+ENDLOOP.

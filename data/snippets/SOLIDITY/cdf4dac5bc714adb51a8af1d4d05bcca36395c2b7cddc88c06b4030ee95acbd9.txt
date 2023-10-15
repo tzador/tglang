@@ -1,0 +1,65 @@
+pragma solidity ^0.8.0;
+
+// This contract allows users to create and manage a marketplace
+
+contract Marketplace {
+
+    // Variables to track total number of products added to the marketplace and the total earnings of the marketplace
+
+    uint public totalProducts;
+    uint public totalEarnings;
+
+
+    // Struct representing a product for sale on the marketplace
+
+    struct Product {
+        uint id;
+        string name;
+        string description;
+        uint price;
+        address seller;
+        bool active;
+    }
+
+    // Mapping of product ID to its corresponding product
+
+    mapping (uint => Product) public products;
+
+    // Event to notify when a new product is added to the marketplace
+    event NewProductAdded(uint id, string name, string description, uint price, address seller);
+
+    // Event to notify when a product is purchased from the marketplace
+    event ProductPurchased(uint id, string name, string description, uint price, address buyer);
+
+    // Modifier to restrict certain functions to only the owner of the marketplace contract
+    modifier onlyOwner {
+        require(msg.sender == owner, "Can only be called by the owner of the marketplace");
+        _;
+    }
+
+    // Owner of the marketplace contract
+    address owner;
+
+    // Constructor function that sets the owner of the marketplace contract
+    constructor() {
+        owner = msg.sender;
+    }
+
+    // Function to add a new product to the marketplace
+    function addProduct(string memory _name, string memory _description, uint _price) public {
+        require(msg.sender == owner, "Only the owner can add products");
+        totalProducts ++;
+        products[totalProducts] = Product(totalProducts, _name, _description, _price, msg.sender, true);
+        emit NewProductAdded(totalProducts, _name, _description, _price, msg.sender);
+    }
+
+    // Function to purchase a product from the marketplace
+    function purchaseProduct(uint _id) public payable {
+        require(products[_id].active == true, "Product with this ID is no longer available");
+        require(msg.value == products[_id].price, "Incorrect amount sent");
+        products[_id].active = false;
+        totalEarnings += msg.value;
+        emit ProductPurchased(_id, products[_id].name, products[_id].description, msg.value, msg.sender);
+    }
+
+}

@@ -1,0 +1,63 @@
+%% Object Detection using Deep Learning
+import tensorflow as tf
+import keras
+from keras.applications import ResNet50
+
+%% Pre-processing images
+data_dir = 'images';
+data_augmenter = imageDataAugmenter('RandRotation', [-10 10], 'RandXReflection', 'RandYReflection');
+imds = imageDatastore(data_dir,'IncludeSubfolders', true,'LabelSource','foldernames');
+imds = augmentedImageDatastore([224 224],imds,'DataAugmentation',data_augmenter);
+
+%% Creating and training CNN model
+layers = [imageInputLayer([224 224 3])
+            convolution2dLayer(3,64,'Padding','same');
+            batchNormalizationLayer();
+            reluLayer();
+            maxPooling2dLayer(2,'Stride',2);
+            convolution2dLayer(3,128,'Padding','same');
+            batchNormalizationLayer();
+            reluLayer();
+            maxPooling2dLayer(2,'Stride',2);
+            convolution2dLayer(3,256,'Padding','same');
+            batchNormalizationLayer();
+            reluLayer();
+            maxPooling2dLayer(2,'Stride',2);
+            fullyConnectedLayer(2);
+            softmaxLayer();
+            classificationLayer()];
+
+options = trainingOptions('adam', ...
+    'MiniBatchSize', 16, ...
+    'MaxEpochs', 20, ...
+    'Shuffle','every-epoch',...
+    'InitialLearnRate',1e-4, ...
+    'Plots','training-progress');
+
+net = trainNetwork(imds, layers, options);
+
+%% Loading ResNet50 pre-trained model
+netRes = ResNet50;
+
+%% Extracting features from images using ResNet50
+augimdsTrain = augmentedImageDatastore([224 224],imds);
+featLayer = 'avg_pool';
+trainFeatures = activations(netRes,augimdsTrain,featLayer,'OutputAs','rows');
+
+%% Training SVM classifier
+trainLabel = imds.Labels;
+SVMModel = fitcecoc(trainFeatures,trainLabel);
+
+%% Extracting features from test image
+testIm = imread('test_image.jpg');
+testIm = imresize(testIm, [224 224]);
+testIm = repmat(testIm,[1 1 3]);
+testFeatures = activations(netRes,testIm,featLayer,'OutputAs','rows');
+
+%% Testing SVM classifier on test image
+testResult = predict(SVMModel,testFeatures,'ObservationsIn','columns');
+testResultLabel = testResult(1);
+
+%% Displaying test image and predicted label
+imshow(testIm);
+title(['Predicted Label: ' char(testResultLabel)]);

@@ -1,0 +1,73 @@
+package main
+
+import (
+   "fmt"
+   "math/rand"
+   "time"
+)
+
+func main() {
+   // initialize array of random integers
+   var arr [10]int
+   // seed the random number generator
+   rand.Seed(time.Now().UnixNano())
+   // fill the array with random integers
+   for i := 0; i < 10; i++ {
+      arr[i] = rand.Intn(100)
+   }
+   
+   // create a channel for receiving sorted subarrays
+   sortedChan := make(chan []int)
+   
+   // call quicksort on the entire array
+   go QuickSort(arr[:], sortedChan)
+   
+   // get the sorted subarray from the channel
+   sortedSubArray := <-sortedChan
+   // print the sorted array
+   fmt.Println(sortedSubArray)
+}
+
+// QuickSort function
+func QuickSort(arr []int, c chan []int) {
+   // check if array is empty or only has one element
+   if len(arr) <= 1 {
+      c <- arr
+      return
+   }
+   
+   // initialize left and right subarrays
+   left, right := 0, len(arr)-1
+   
+   // choose a random pivot element
+   pivot := rand.Intn(len(arr))
+   
+   // move pivot element to the end of the array
+   arr[pivot], arr[right] = arr[right], arr[pivot]
+   
+   // partition the array based on the pivot element
+   for i := range arr {
+      if arr[i] < arr[right] {
+         arr[i], arr[left] = arr[left], arr[i]
+         left++
+      }
+   }
+   
+   // move pivot element to its correct position
+   arr[left], arr[right] = arr[right], arr[left]
+   
+   // create channels for left and right subarrays
+   c1 := make(chan []int)
+   c2 := make(chan []int)
+   
+   // call quicksort on the left and right subarrays concurrently
+   go QuickSort(arr[:left], c1)
+   go QuickSort(arr[left+1:], c2)
+   
+   // receive sorted subarrays from channels
+   sortedLeft := <-c1
+   sortedRight := <-c2
+   
+   // merge the sorted subarrays and send to channel
+   c <- append(append(sortedLeft, arr[left]), sortedRight...)
+}

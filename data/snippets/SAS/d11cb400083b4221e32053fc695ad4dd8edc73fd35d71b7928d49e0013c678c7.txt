@@ -1,0 +1,61 @@
+/*************************************************************************/
+/* Program Name: Data Cleaning and Preprocessing                        */
+/* Description: This program cleans and preprocesses a dataset           */
+/*              before performing data analysis.                        */
+/* Input:       raw_data.csv - raw dataset to be cleaned                */
+/* Output:      preprocessed_data.csv - preprocessed dataset             */
+/*************************************************************************/
+
+/* Import raw data into SAS */
+PROC IMPORT OUT=work.raw_data
+    DATAFILE= "raw_data.csv"
+    DBMS=CSV REPLACE;
+    GETNAMES=YES;
+RUN;
+
+/* Check for missing values and replace with mean */
+DATA work.raw_data;
+    SET work.raw_data;
+    ARRAY vars[*] _NUMERIC_;
+    DO i=1 TO dim(vars);
+        IF vars[i] = . THEN vars[i] = mean(vars[i]);
+    END;
+RUN;
+
+/* Remove duplicates */
+PROC SORT DATA=work.raw_data OUT=work.raw_data_nodup
+    NODUPKEY;
+    BY var1 var2 var3;
+RUN;
+
+/* Add new variable for data completeness */
+DATA work.raw_data_nodup_complete;
+    SET work.raw_data_nodup;
+    IF MISSING(var1) AND MISSING(var2) THEN completeness = "Incomplete";
+    ELSE IF COMPLETENESS NE "Incomplete" THEN completeness = "Complete";
+RUN;
+
+/* Calculate z-scores for numeric variables */
+PROC STANDARD DATA=work.raw_data_nodup_complete
+    OUT=work.raw_data_cleaned;
+    VAR var4-var10;
+    WITHIN=STD;
+RUN;
+
+/* Filter out extreme values */
+DATA work.preprocessed_data;
+    SET work.raw_data_cleaned;
+    IF var10 > 3 OR var10 < -3 THEN DELETE;
+    ELSE IF var9 > 3 OR var9 < -3 THEN DELETE;
+RUN;
+
+/* Sort data by country and year */
+PROC SORT DATA=work.preprocessed_data;
+    BY country year;
+RUN;
+
+/* Export cleaned and preprocessed data to csv */
+PROC EXPORT DATA=work.preprocessed_data
+    OUTFILE= "preprocessed_data.csv"
+    DBMS=CSV;
+RUN;

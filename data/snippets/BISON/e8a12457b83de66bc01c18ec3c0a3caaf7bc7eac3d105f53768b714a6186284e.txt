@@ -1,0 +1,143 @@
+/*
+This is a BISON file used for parsing and generating abstract syntax trees for a small programming language.
+*/
+
+%{
+/* C code is allowed in the prologue section, which is placed before the first rule */
+
+#include <stdio.h>
+#include "ast.h" /* header file for abstract syntax tree structures and functions */
+
+/* Declare global variables and functions used in the parsing rules */
+int var_count = 0;
+void generate_code(ASTNode* node);
+
+%}
+
+/* Define the BISON grammar rules */
+
+%token IF ELSE WHILE
+%token <num> NUM_TOKEN
+%token <id> ID_TOKEN
+
+%start program /* This is the starting symbol for the grammar */
+%union { /* The union of the token types that will be used in the abstract syntax tree nodes */
+    int num;
+    char* id;
+    ASTNode* node;
+}
+
+%% /* Begin the grammar rules */
+
+program: /* Rule for a program */
+    /* Define the structure of a program, consisting of one or more statements */
+    stmt_list
+    ;
+    
+stmt_list: /* Rule for a list of statements */
+    stmt
+    | stmt_list stmt
+    ;
+    
+stmt: /* Rule for a single statement */
+    expr_stmt
+    | if_stmt
+    | while_stmt
+    ;
+    
+expr_stmt: /* Rule for an expression statement */
+    expression ';'
+    ;
+    
+if_stmt: /* Rule for an if statement */
+    IF '(' expression ')' '{' stmt_list '}' 
+        /* Use BISON semantic actions to generate the appropriate AST node for the if statement */
+        { $$ = new_if_node($3, $6, NULL); }
+    | IF '(' expression ')' '{' stmt_list '}' ELSE '{' stmt_list '}'
+        /* Use BISON semantic actions to generate the appropriate AST node for the if-else statement */
+        { $$ = new_if_node($3, $6, $10); }
+    ;
+    
+while_stmt: /* Rule for a while loop statement */
+    WHILE '(' expression ')' '{' stmt_list '}'
+        /* Use BISON semantic actions to generate the appropriate AST node for the while loop statement */
+        { $$ = new_while_node($3, $6); }
+    ;
+    
+expression: /* Rule for an expression */
+    NUM_TOKEN
+        /* Use BISON semantic actions to generate the appropriate AST node for a number */
+        { $$ = new_num_node($1); }
+    | ID_TOKEN
+        /* Use BISON semantic actions to generate the appropriate AST node for an identifier */
+        { $$ = new_id_node($1); }
+    | expression '+' expression
+        /* Use BISON semantic actions to generate the appropriate AST node for an addition expression */
+        { $$ = new_add_node($1, $3); }
+    | expression '*' expression
+        /* Use BISON semantic actions to generate the appropriate AST node for a multiplication expression */
+        { $$ = new_mult_node($1, $3); }
+    | '-' expression
+        /* Use BISON semantic actions to generate the appropriate AST node for a negation expression */
+        { $$ = new_neg_node($2); }
+    | '(' expression ')'
+        /* Use BISON semantic actions to generate the appropriate AST node for a grouped expression */
+        { $$ = $2; }
+    ;
+    
+%% /* End the grammar rules */
+
+/* C code is allowed in the epilogue section, which is placed after all the rules */
+
+/* Define functions to generate code from abstract syntax trees */
+void generate_code(ASTNode* node) {
+    if (node->type == NUM_NODE) {
+        printf("%d", node->num); /* Print out the number */
+    }
+    else if (node->type == ID_NODE) {
+        printf("%s", node->id); /* Print out the identifier */
+    }
+    else if (node->type == ADD_NODE) {
+        generate_code(node->left); /* Recursively generate code for the left expression */
+        printf(" + "); /* Print out the addition operator */
+        generate_code(node->right); /* Recursively generate code for the right expression */
+    }
+    else if (node->type == MULT_NODE) {
+        generate_code(node->left); /* Recursively generate code for the left expression */
+        printf(" * "); /* Print out the multiplication operator */
+        generate_code(node->right); /* Recursively generate code for the right expression */
+    }
+    else if (node->type == NEG_NODE) {
+        printf("-"); /* Print out the negation operator */
+        generate_code(node->child); /* Recursively generate code for the expression */
+    }
+    else if (node->type == IF_NODE) {
+        printf("if ("); /* Print out the if keyword and open parentheses */
+        generate_code(node->condition); /* Recursively generate code for the condition */
+        printf(") {\n"); /* Print out the closing parentheses and open curly brace */
+        generate_code(node->body); /* Recursively generate code for the body of the if statement */
+        printf("}\n"); /* Print out the closing curly brace */
+        if (node->else_body != NULL) { /* If there is an else statement, generate code for it */
+            printf("else {\n"); /* Print out the else keyword and open curly brace */
+            generate_code(node->else_body); /* Recursively generate code for the body of the else statement */
+            printf("}\n"); /* Print out the closing curly brace */
+        }
+    }
+    else if (node->type == WHILE_NODE) {
+        printf("while ("); /* Print out the while keyword and open parentheses */
+        generate_code(node->condition); /* Recursively generate code for the condition */
+        printf(") {\n"); /* Print out the closing parentheses and open curly brace */
+        generate_code(node->body); /* Recursively generate code for the body of the while loop */
+        printf("}\n"); /* Print out the closing curly brace */
+    }
+}
+
+/* Define the main function to parse a program and generate code */
+int main() {
+    yyparse(); /* Invoke the BISON parser */
+    
+    /* Generate code from the abstract syntax tree */
+    generate_code($1);
+    
+    return 0;
+}

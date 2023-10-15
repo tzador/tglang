@@ -1,0 +1,25 @@
+/* set the macro variable with the current date */
+%let today = %sysfunc(today());
+
+/* create a dataset based on a SQL query */
+data new_dataset;
+   set old_dataset(where = (date = '&today')); /* select only records with current date */
+   format date ddmmyy8.; /* format the date column in the new dataset */
+   where status = 'Completed'; /* only select records with status 'Completed' */
+   by user_id; /* sort records by user_id */
+run;
+
+/* merge the new dataset with existing dataset */
+data merged_dataset;
+   merge existing_dataset new_dataset;
+   by user_id;
+run;
+
+/* calculate average number of completed tasks per user */
+proc sql;
+   create table completed_tasks as
+   select user_id, avg(num_tasks) as avg_completed_tasks
+   from merged_dataset
+   where status = 'Completed' /* only consider records with status 'Completed' */
+   group by user_id;
+quit;

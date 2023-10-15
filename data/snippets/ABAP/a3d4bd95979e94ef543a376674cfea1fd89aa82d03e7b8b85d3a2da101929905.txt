@@ -1,0 +1,30 @@
+METHOD get_sales_data.
+" This method retrieves the sales data from the database
+" Start of method
+SELECT matnr bilnr kwmeng FROM vbap
+  INTO TABLE @DATA(lt_sales_data)
+  FOR ALL ENTRIES IN @lt_material
+  WHERE matnr = @lt_material-matnr.
+    
+  LOOP AT lt_material ASSIGNING FIELD-SYMBOL(<material>).
+    LOOP AT lt_sales_data INTO DATA(ls_data)
+        ASSIGNING FIELD-SYMBOL(<sales_data>).
+        " Calculating the total sales quantities for each material
+        ls_data-total_quantity = <material>-quantity * ls_data-kwmeng.
+    ENDLOOP.
+  ENDLOOP.
+
+  " Fetching the plant and sales organization data
+  SELECT SINGLE werks vkbur INTO (@DATA(lv_plant), @DATA(lv_sales_org))
+  FROM vbak WHERE vbeln = lv_invoice_num.
+
+  " Fetching the customer number for the given sales organization
+  SELECT SINGLE knumv INTO @DATA(lv_customer)
+  FROM knvv WHERE kunnr = lv_customer_num AND vkorg = lv_sales_org.
+
+  " Calculating the total sales amounts for each invoice line item
+  LOOP AT lt_sales_data ASSIGNING FIELD-SYMBOL(<item>).
+    <item>-total_amount = <item>-sales_price * <item>-total_quantity.
+  ENDLOOP.
+
+ENDMETHOD.

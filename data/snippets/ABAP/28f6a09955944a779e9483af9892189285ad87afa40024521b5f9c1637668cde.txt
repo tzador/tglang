@@ -1,0 +1,37 @@
+REPORT Z_TEST.
+* This is a report to demonstrate complex calculations using ABAP Demo Code
+TABLES: MARA, MARC.
+DATA: lt_mara TYPE TABLE OF MARA. " Define internal table to hold material data
+DATA: lt_marc TYPE TABLE OF MARC. " Define internal table to hold plant data
+DATA: lwa_mara TYPE MARA. " Define work area for material data
+DATA: lwa_marc TYPE MARC. " Define work area for plant data
+DATA: lv_total_cost TYPE I. " Define variable to hold total cost
+DATA: lv_aging_days TYPE I. " Define variable to hold material age
+DATA: lv_cost_per_day TYPE F. " Define variable to hold cost per day
+SELECT-OPTIONS: s_matnr FOR MARA-MATNR. " Selection screen option for material number
+SELECT-OPTIONS: s_werks FOR MARC-WERKS. " Selection screen option for plant number
+START-OF-SELECTION.
+  SELECT * FROM MARA INTO TABLE lt_mara WHERE MATNR IN s_matnr. " Get material data based on selection
+  SELECT * FROM MARC INTO TABLE lt_marc WHERE MATNR IN s_matnr AND WERKS IN s_werks. " Get plant data based on selection
+  LOOP AT lt_mara INTO lwa_mara. " Loop through material data
+    CLEAR: lv_total_cost, lv_aging_days, lv_cost_per_day. " Clear variables for each material
+    LOOP AT lt_marc INTO lwa_marc WHERE MATNR = lwa_mara-MATNR. " Loop through plant data for each material
+      CALCULATE_COST( " Calling a function to calculate cost for each plant
+        EXPORTING
+          in_value = lwa_marc-VALUE
+          in_year = lwa_marc-YEARS
+          in_prod_cost = lwa_mara-PROD_COST
+        IMPORTING
+          out_cost = lv_total_cost ).
+      ADD 1 TO lv_aging_days. " Increment aging days for each plant
+    ENDLOOP.
+    lv_cost_per_day = lv_total_cost / lv_aging_days. " Calculate cost per day for the material
+    WRITE: / lwa_mara-MATNR, lwa_mara-DESCR, lv_cost_per_day. " Output material number, description, and cost per day
+  ENDLOOP.
+FORM CALCULATE_COST " Function to calculate cost based on plant value, production cost, and number of years
+  USING in_value TYPE I
+        in_year TYPE I
+        in_prod_cost TYPE I
+  CHANGING out_cost TYPE I.
+  out_cost = ( in_value * in_prod_cost ) + in_year. " Complex calculation for cost
+ENDFORM.

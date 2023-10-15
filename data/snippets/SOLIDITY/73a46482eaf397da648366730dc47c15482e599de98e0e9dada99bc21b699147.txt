@@ -1,0 +1,97 @@
+/**
+ * The contract represents a blockchain-based charity organization.
+ * It allows for transparent donation tracking and automated distribution of funds.
+ */
+
+// Imports
+import "github.com/OpenZeppelin/contracts/token/ERC20/ERC20.sol";
+import "github.com/OpenZeppelin/contracts/access/Ownable.sol";
+
+// Contract Definition
+contract Charity is ERC20, Ownable {
+    /**
+     * Struct representing a donation.
+     * A donation includes the address of the donor,
+     * the amount donated, and the timestamp of the donation.
+     */
+    struct Donation {
+        address donor;
+        uint256 amount;
+        uint256 timestamp;
+    }
+
+    // Public variables
+    string public constant NAME = "Solidarity Coin";
+    string public constant SYMBOL = "SOL";
+    uint8 public constant DECIMALS = 18;
+
+    /**
+     * Array of donations mapped to a unique donation ID.
+     */
+    mapping(uint256 => Donation) public donations;
+    /**
+     * Total number of donations made to the contract.
+     */
+    uint256 public totalDonations;
+    /**
+     * Total amount of donations collected.
+     */
+    uint256 public totalDonationAmount;
+
+    // Events
+    event DonationReceived(
+        address indexed donor,
+        uint256 amount,
+        uint256 timestamp
+    );
+
+    // Constructor
+    constructor() public ERC20(NAME, SYMBOL) {
+        // Mint 100 million tokens to the contract owner.
+        _mint(msg.sender, 100000000 * (10**uint256(DECIMALS)));
+    }
+
+    // Functions
+    /**
+     * @dev Function to donate funds to the contract.
+     * The donated funds will be converted to Solidarity Coin.
+     * @param _donationAmount The amount to be donated.
+     */
+    function donate(uint256 _donationAmount) external {
+        // Transfer the donation amount from the donor's address to the contract address.
+        require(
+            ERC20.transferFrom(msg.sender, address(this), _donationAmount)
+        );
+        // Mint Solidarity Coins equal to the donation amount.
+        _mint(msg.sender, _donationAmount);
+        // Record the donation in the donations mapping.
+        donations[totalDonations] = Donation(
+            msg.sender,
+            _donationAmount,
+            block.timestamp
+        );
+        // Increase the total donation amount and the total number of donations.
+        totalDonations += 1;
+        totalDonationAmount += _donationAmount;
+        // Emit the DonationReceived event.
+        emit DonationReceived(msg.sender, _donationAmount, block.timestamp);
+    }
+
+    /**
+     * @dev Function to withdraw funds from the contract.
+     * Can only be called by the contract owner.
+     * @param _amount The amount to be withdrawn.
+     */
+    function withdraw(uint256 _amount) external onlyOwner {
+        // Transfer the specified amount of Solidarity Coins from the contract to the owner's address.
+        require(ERC20.transfer(msg.sender, _amount));
+    }
+
+    /**
+     * @dev Function to get the total balance of Solidarity Coins in the contract.
+     * @return The total Solidarity Coin balance.
+     */
+    function getBalance() external view returns (uint256) {
+        return ERC20.balanceOf(address(this));
+    }
+}

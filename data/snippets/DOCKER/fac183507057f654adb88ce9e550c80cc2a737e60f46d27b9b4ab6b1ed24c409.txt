@@ -1,0 +1,39 @@
+# Create a multi-stage build for a Node.js application
+FROM node:12-alpine AS build
+
+# Set working directory
+WORKDIR /app
+
+# Copy package.json and package-lock.json
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy source files to the working directory
+COPY . .
+
+# Build the application
+RUN npm run build
+
+# Start a new build stage for production
+FROM node:12-alpine AS prod-stage
+
+# Set working directory
+WORKDIR /app
+
+# Copy built application from previous stage
+COPY --from=build /app/dist ./dist
+
+# Install dependencies for production
+RUN npm install --only=production
+
+# Set environment variables
+ENV PORT=3000
+ENV NODE_ENV=production
+
+# Expose the container's port
+EXPOSE 3000
+
+# Start the server
+CMD ["node", "dist/app.js"]

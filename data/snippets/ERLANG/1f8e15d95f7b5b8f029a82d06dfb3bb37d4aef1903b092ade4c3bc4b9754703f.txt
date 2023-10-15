@@ -1,0 +1,96 @@
+-module(dining_philosophers).
+
+%% Defining the number of philosophers and forks
+-define(NUM_PHILOSOPHERS, 5).
+-define(NUM_FORKS, 5).
+
+%% Creating the main function
+main() ->
+    %% Spawning the philosophers and storing them in a list
+    Philosophers = [spawn(?MODULE, philosopher, [ID, ?MODULE:fork(ID)]) || ID <- lists:seq(1, ?NUM_PHILOSOPHERS)],
+    %% Spawning the forks and storing them in a list
+    Forks = [spawn(?MODULE, fork, [ID]) || ID <- lists:seq(1, ?NUM_FORKS)],
+    %% Starting the eating process
+    ?MODULE:eat(Forks, Philosophers).
+
+%% The philosopher function
+philosopher(ID, Fork) ->
+    %% Printing the current status
+    io:format("Philosopher ~w is thinking~n", [ID]),
+    %% Attempting to pick up fork on left side
+    Fork ! {take, self()},
+    receive
+        %% If fork is available, pick it up
+        available ->
+            %% Printing the current status
+            io:format("Philosopher ~w picked up fork ~w, continuing to eat~n", [ID, ID]),
+            %% Attempting to pick up fork on right side
+            ?MODULE:pick_right_fork(Fork, ID);
+        %% If fork is not available, continue thinking
+        {_From, unavailable} ->
+            %% Printing the current status
+            io:format("Philosopher ~w could not pick up fork ~w, continuing to think~n", [ID, ID]),
+            ?MODULE:think(ID)
+    end.
+
+%% The fork function
+fork(ID) ->
+    %% The current holder of the fork
+    Holder = none,
+    receive
+        %% If philosopher requests to take fork
+        {take, Philosopher} ->
+            case Holder of
+                %% If fork is not currently held, give it to the philosopher
+                none ->
+                    %% Printing the current status
+                    io:format("Fork ~w is now held by philosopher ~w~n", [ID, Philosopher]),
+                    Philosopher ! available,
+                    ?MODULE:pick_right_fork(self(), ID);
+                %% If fork is currently held, send back unavailable message
+                _ ->
+                    %% Printing the current status
+                    io:format("Fork ~w is currently being used~n", [ID]),
+                    Philosopher ! {self(), unavailable}
+            end
+    end.
+
+%% The function to pick up the fork on the right side
+pick_right_fork(Fork, ID) ->
+    %% Attempting to pick up fork on right side
+    Fork ! {take, self()},
+    receive
+        %% If fork is available, continue eating
+        available ->
+            %% Printing the current status
+            io:format("Philosopher ~w picked up fork ~w, continuing to eat~n", [ID, ID]),
+            ?MODULE:eat(Fork);
+        %% If fork is not available, drop left fork and continue thinking
+        {_From, unavailable} ->
+            %% Printing the current status
+            io:format("Philosopher ~w could not pick up fork ~w, dropping left fork and continuing to think~n", [ID, ID]),
+            ?MODULE:think(ID)
+    end.
+
+%% The function for eating
+eat(Fork) ->
+    %% Printing the current status
+    io:format("Philosopher ~w is now eating~n", [ID]),
+    %% Waiting 3 seconds to simulate eating
+    timer:sleep(3000),
+    %% Dropping both forks
+    Fork ! {done, self()},
+    receive
+        %% If fork is taken back, continue thinking
+        taken_back ->
+            ?MODULE:think(ID)
+    end.
+
+%% The function for thinking
+think(ID) ->
+    %% Printing the current status
+    io:format("Philosopher ~w is now thinking~n", [ID]),
+    %% Waiting 3 seconds to simulate thinking
+    timer:sleep(3000),
+    %% Returning to philosopher function
+    philosopher(ID, ?MODULE:fork(ID)).

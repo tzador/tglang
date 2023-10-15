@@ -1,0 +1,109 @@
+events {
+    # Define the maximum number of connections that can be opened simultaneously
+    # by NGINX. This number should be at least as high as your worker_processes
+    # setting.
+    worker_connections 1024;
+
+    # This directive sets the amount of memory that can be used for reading
+    # compressed responses from a proxied server. Larger responses are stored
+    # to a temporary file on the disk. If nginx compressed output from the
+    # proxied server, the proxy_set_body setting will be ignored.
+    proxy_buffering on;
+}
+
+http {
+    # Basic proxy configuration
+    proxy_redirect off;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+    # Gzip settings
+    gzip on;
+    gzip_disable "msie6";
+
+    # Limit the number of requests a single connection can make
+    limit_req_zone $binary_remote_addr zone=one:10m rate=1r/s;
+
+    # Enable caching for content with specific file extensions
+    location ~* \.(css|js)$ {
+        proxy_cache_valid 200 60m;
+
+        # Enable caching for specific URLs
+        if ($arg_cacheable = "true") {
+            set $no_cache 0;
+        }
+    }
+
+    # Custom error pages
+    error_page 404 /errors/404.html;
+    error_page 500 /errors/500.html;
+
+    # Redirect all HTTP traffic to HTTPS
+    server {
+        listen 80;
+        server_name example.com;
+
+        location / {
+            return 301 https://$server_name$request_uri;
+        }
+    }
+
+    # Website configuration
+    server {
+        listen 443 ssl;
+        server_name example.com;
+
+        ssl_certificate /etc/nginx/ssl/example.com.crt;
+        ssl_certificate_key /etc/nginx/ssl/example.com.key;
+
+        location / {
+            # Limit the maximum size of the uploaded file
+            client_max_body_size 50m;
+
+            # Deny access to hidden files and system files
+            location ~ /\. {
+                deny all;
+            }
+
+            # Enable PHP processing
+            location ~ \.php$ {
+                fastcgi_pass unix:/var/run/php/php7.2-fpm.sock;
+                fastcgi_param SCRIPT_FILENAME $request_filename;
+                include fastcgi_params;
+            }
+            
+            # Serve static files directly
+            # Cache control for static files
+            location ~* \.(jpg|jpeg|gif|png|ico|woff|woff2|css|js)$ {
+                expires 365d;
+                add_header Cache-Control "public";
+            }
+        }
+    }
+
+    # Load balancing configuration
+    upstream backend {
+        server backend1.example.com;
+        server backend2.example.com;
+        server backend3.example.com;
+    }
+
+    server {
+        listen 80;
+        server_name example.com;
+
+        location / {
+            # Use round-robin load balancing
+            proxy_pass http://backend;
+            proxy_http_version 1.1;
+
+             # Enable health checks for backend servers
+            health_check;
+            health_check_timeout 10s;
+            health_check_interval 5s;
+            health_check_successes 2;
+            health_check_failures 3;
+        }
+    }
+}

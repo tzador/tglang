@@ -1,0 +1,113 @@
+/**
+ * @title Music Contract
+ * @dev This contract allows users to store and purchase music tracks on the blockchain.
+ */
+ 
+pragma solidity ^0.5.0;
+
+/**
+ * @dev Contract for managing ownership and permission to sell music tracks.
+ */
+contract MusicContract {
+    
+    // Event for when a new track is uploaded
+    event TrackUploaded(uint trackId, bytes ipfsHash);
+    
+    // Event for when a track is purchased
+    event TrackPurchased(uint trackId, address buyer);
+    
+    // Storage for music track information
+    struct Track {
+        bytes ipfsHash; // IPFS hash of the track
+        bool forSale; // Whether the track is available for sale
+        address owner; // Address of the track's current owner
+        uint price; // Price of the track in ether
+    }
+    
+    // Array containing all tracks
+    Track[] public tracks;
+    
+    // Mapping to keep track of who owns which track
+    mapping(uint => address) private trackToOwner;
+    
+    // Mapping to keep track of the amount of each track owned by a buyer
+    mapping(address => mapping(uint => uint)) private trackOwnershipCount;
+    
+    /**
+    * @dev Function for uploading a new track
+    * @param _ipfsHash IPFS hash of the track
+    * @param _price Price of the track in ether
+    */
+    function uploadTrack(bytes memory _ipfsHash, uint _price) public {
+        // Create a new track and add it to the tracks array
+        uint trackId = tracks.push(Track(_ipfsHash, true, msg.sender, _price)) - 1;
+        
+        // Set the new track's owner in the trackToOwner mapping
+        trackToOwner[trackId] = msg.sender;
+        
+        // Increase the track ownership count for the owner
+        trackOwnershipCount[msg.sender][trackId]++;
+        
+        // Emit the TrackUploaded event
+        emit TrackUploaded(trackId, _ipfsHash);
+    }
+    
+    /**
+     * @dev Function for purchasing a track
+     * @param _trackId ID of the track to purchase
+     */
+    function purchaseTrack(uint _trackId) public payable {
+        // Get the track from the tracks array
+        Track storage track = tracks[_trackId];
+        
+        // Make sure the track is for sale and the buyer is not the owner
+        require(track.forSale && msg.sender != track.owner);
+        
+        // Make sure the buyer has sent enough ether
+        require(msg.value == track.price);
+        
+        // Transfer the track ownership from the current owner to the buyer
+        trackToOwner[_trackId] = msg.sender;
+        
+        // Increase the track ownership count for the buyer
+        trackOwnershipCount[msg.sender][_trackId]++;
+        
+        // Refund the previous owner if they are not the contract owner
+        if (track.owner != address(this)) {
+            track.owner.transfer(msg.value);
+        }
+        
+        // Set the track as no longer for sale
+        track.forSale = false;
+        
+        // Emit the TrackPurchased event
+        emit TrackPurchased(_trackId, msg.sender);
+    }
+    
+    /**
+     * @dev Function for retrieving the IPFS hash of a track
+     * @param _trackId ID of the track
+     */
+    function getTrackIPFSHash(uint _trackId) public view returns (bytes memory) {
+        require(_trackId < tracks.length);
+        return tracks[_trackId].ipfsHash;
+    }
+    
+    /**
+     * @dev Function for retrieving the price of a track
+     * @param _trackId ID of the track
+     */
+    function getTrackPrice(uint _trackId) public view returns (uint) {
+        require(_trackId < tracks.length);
+        return tracks[_trackId].price;
+    }
+    
+    /**
+     * @dev Function for retrieving the ownership information of a track
+     * @param _trackId ID of the track
+     */
+    function getTrackOwnership(uint _trackId) public view returns (bool forSale, address owner, uint ownershipCount) {
+        require(_trackId < tracks.length);
+        return (tracks[_trackId].forSale, tracks[_trackId].owner, trackOwnershipCount[tracks[_trackId].owner][_trackId]);
+    }
+}

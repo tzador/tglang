@@ -1,0 +1,93 @@
+CREATE TYPE employee_record IS RECORD (
+  employee_id   employees.employee_id%TYPE,
+  first_name    employees.first_name%TYPE,
+  last_name     employees.last_name%TYPE,
+  hire_date     employees.hire_date%TYPE
+);
+/
+
+CREATE OR REPLACE PROCEDURE add_employee (
+  p_first_name  employees.first_name%TYPE,
+  p_last_name   employees.last_name%TYPE,
+  p_hire_date   employees.hire_date%TYPE,
+  p_department  departments.department_id%TYPE,
+  p_job         jobs.job_id%TYPE,
+  p_salary      employees.salary%TYPE,
+  p_manager     employees.employee_id%TYPE := NULL,
+  p_commission  employees.commission_pct%TYPE := NULL
+)
+IS
+  l_employee_id  employees.employee_id%TYPE;
+BEGIN
+  INSERT INTO employees (
+    employee_id,
+    first_name,
+    last_name,
+    hire_date,
+    job_id,
+    salary,
+    manager_id,
+    department_id,
+    commission_pct
+  )
+  VALUES (
+    employees_seq.NEXTVAL,
+    p_first_name,
+    p_last_name,
+    p_hire_date,
+    p_job,
+    p_salary,
+    p_manager,
+    p_department,
+    p_commission
+  )
+  RETURNING employee_id
+  INTO l_employee_id;
+
+  IF p_commission IS NOT NULL THEN
+    INSERT INTO employees (
+      employee_id,
+      first_name,
+      last_name,
+      hire_date,
+      job_id,
+      salary,
+      manager_id,
+      department_id,
+      commission_pct
+    )
+    VALUES (
+      employees_seq.NEXTVAL,
+      'Commission',
+      'Payout',
+      p_hire_date,
+      p_job,
+      p_salary * (p_commission / 100),
+      l_employee_id,
+      p_department,
+      NULL
+    );
+  END IF;
+
+  COMMIT;
+
+  DBMS_OUTPUT.PUT_LINE('Employee ' || p_first_name || ' ' || p_last_name || ' added');
+
+  EXCEPTION
+    WHEN OTHERS THEN
+      ROLLBACK;
+      DBMS_OUTPUT.PUT_LINE('Error adding employee: ' || SQLERRM);
+      RAISE;
+END;
+/
+
+EXEC add_employee(
+  p_first_name => 'John',
+  p_last_name => 'Smith',
+  p_hire_date => '01-JAN-2020',
+  p_department => 20,
+  p_job => 'IT_PROG',
+  p_salary => 8000,
+  p_manager => 100,
+  p_commission => 10
+);

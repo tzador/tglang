@@ -1,0 +1,40 @@
+worker_processes auto; #sets the number of worker processes to the number of CPU cores
+error_log /var/log/nginx/error.log warn; #sets the error log file and log level
+pid /var/run/nginx.pid; #sets the pid file location
+events {
+    worker_connections 1024; #sets the maximum number of simultaneous connections
+}
+
+http {
+    include /etc/nginx/mime.types; #includes the default MIME types
+    default_type application/octet-stream; #sets the default MIME type
+    sendfile on; #enables sendfile to speed up file transfers
+    tcp_nopush on; #enables propagation of data packets as soon as they are available
+    tcp_nodelay on; #enables the TCP_NODELAY option
+    keepalive_timeout 65; #sets the number of seconds to keep connections open
+    types_hash_max_size 2048; #sets the maximum size of a types hash table
+    
+    server {
+        listen 80; #sets the port to listen on
+        server_name website.com; #sets the server name
+        root /usr/share/nginx/html; #sets the root directory for requests
+        index index.html; #sets the default file to serve
+        location / {
+            try_files $uri $uri/ =404; #checks if file exists, if not returns a 404 error
+        }
+        error_page 404 /404.html; #sets the custom 404 error page
+        error_page 500 502 503 504 /50x.html; #sets the custom 50x error page
+
+        location = /50x.html { #defines the location for custom error page
+            root /usr/share/nginx/html; #sets the root directory for requests
+        }
+        location ~ \.php$ { #defines how to handle PHP files
+            fastcgi_pass unix:/var/run/php5-fpm.sock; #sets the socket address for PHP scripts
+            fastcgi_index index.php; #sets the default PHP file to serve
+            include fastcgi_params; #includes configuration for FastCGI module
+        }
+        location ~ /\.ht { #blocks access to hidden files
+            deny all; 
+        }
+    }
+}

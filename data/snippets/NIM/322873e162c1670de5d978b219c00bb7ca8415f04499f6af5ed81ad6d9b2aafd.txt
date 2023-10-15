@@ -1,0 +1,96 @@
+# This is a code snippet in NIM
+# It uses a complex data structure called a 'QuadTree'
+# to perform a search and print the results
+
+type
+    # Define a 'Point' object with x and y coordinates
+    Point = object
+        x, y: int
+
+    # Define the 'QuadTree' object with 4 children
+    # and a list of points at each node
+    QuadTree = object
+        pointList: seq[Point]
+        topLeft: ref QuadTree
+        topRight: ref QuadTree
+        bottomLeft: ref QuadTree
+        bottomRight: ref QuadTree
+
+# Function to insert a point into the QuadTree
+# Takes in a reference to the tree and the point to be inserted
+proc insert(var tree: ref QuadTree, point: Point) =
+    # Check if the tree is empty
+    if tree == nil:
+        tree = QuadTree(pointList: @[point])
+
+    # Check if the point already exists in the tree
+    elif point in tree.pointList:
+        echo "Point already exists in the QuadTree"
+
+    # Check if there is only one point in the tree
+    elif len(tree.pointList) == 1:
+        # Create the 4 child trees and assign the point to the correct node
+        tree.topLeft = QuadTree(pointList: @[tree.pointList[0]])
+        tree.topRight = QuadTree(pointList: @[point])
+        tree.bottomLeft = QuadTree(pointList: [])
+        tree.bottomRight = QuadTree(pointList: [])
+
+    # Otherwise, recursively insert the point into the appropriate child tree
+    else:
+        # Find the correct quadrant based on the coordinates of the point
+        if point.x < (tree.topLeft.pointList[0].x + tree.topRight.pointList[0].x) div 2:
+            if point.y < (tree.topLeft.pointList[0].y + tree.bottomLeft.pointList[0].y) div 2:
+                insert(tree.topLeft, point)
+            else:
+                insert(tree.bottomLeft, point)
+        else:
+            if point.y < (tree.topRight.pointList[0].y + tree.bottomRight.pointList[0].y) div 2:
+                insert(tree.topRight, point)
+            else:
+                insert(tree.bottomRight, point)
+
+# Function to search for points within a given range
+# Takes in a reference to the tree, the range in x and y coordinates,
+# and a list to store the search results
+proc search(var tree: ref QuadTree, xRange: tuple[x1, x2: int], yRange: tuple[y1, y2: int], var resultList: seq[Point]) =
+    # Check if tree is empty
+    if tree == nil:
+        return
+
+    # If the pointList at this node is within the given range, add them to the results
+    for point in tree.pointList:
+        if point.x >= xRange.x1 and point.x <= xRange.x2 and point.y >= yRange.y1 and point.y <= yRange.y2:
+            resultList.add(point)
+
+    # Recursively search for points in the appropriate child tree
+    # depending on their coordinates in the range
+    if tree.topLeft and xRange.x1 <= (tree.topLeft.pointList[0].x + tree.topRight.pointList[0].x) div 2:
+        if tree.topLeft and yRange.y1 <= (tree.topLeft.pointList[0].y + tree.bottomLeft.pointList[0].y) div 2:
+            search(tree.topLeft, xRange, yRange, resultList)
+    if tree.bottomLeft and xRange.x1 <= (tree.bottomLeft.pointList[0].x + tree.bottomRight.pointList[0].x) div 2:
+        if tree.bottomLeft and yRange.y2 >= (tree.bottomLeft.pointList[0].y + tree.topLeft.pointList[0].y) div 2:
+            search(tree.bottomLeft, xRange, yRange, resultList)
+    if tree.topRight and xRange.x2 >= (tree.topRight.pointList[0].x + tree.bottomRight.pointList[0].x) div 2:
+        if tree.topRight and yRange.y1 <= (tree.topRight.pointList[0].y + tree.bottomRight.pointList[0].y) div 2:
+            search(tree.topRight, xRange, yRange, resultList)
+    if tree.bottomRight and xRange.x2 >= (tree.bottomRight.pointList[0].x + tree.bottomLeft.pointList[0].x) div 2:
+        if tree.bottomRight and yRange.y2 >= (tree.bottomRight.pointList[0].y + tree.topRight.pointList[0].y) div 2:
+            search(tree.bottomRight, xRange, yRange, resultList)
+
+# Initialize the QuadTree with some sample points
+var tree: ref QuadTree
+insert(tree, Point(x: 2, y: 4))
+insert(tree, Point(x: 7, y: 1))
+insert(tree, Point(x: 5, y: 3))
+insert(tree, Point(x: 9, y: 8))
+
+# Define the range to search within
+var xRange = tuple[x1: 3, x2: 8]
+var yRange = tuple[y1: 0, y2: 5]
+
+# Perform the search and print the results
+var resultList: seq[Point]
+search(tree, xRange, yRange, resultList)
+echo "Search results within range: "
+for point in resultList:
+    echo "Point(x: ", point.x, ", y: ", point.y, ")"

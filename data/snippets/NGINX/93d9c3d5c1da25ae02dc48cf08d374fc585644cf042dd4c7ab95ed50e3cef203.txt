@@ -1,0 +1,82 @@
+# This is a server block in NGINX configuration file
+server {
+    # Listen to requests on port 80
+    listen 80;
+    
+    # Listen to requests on port 443
+    listen 443 ssl http2;
+    
+    # Specify the server name
+    server_name example.com;
+    
+    # Configure SSL certificate
+    ssl_certificate /path/to/certificate.pem;
+    ssl_certificate_key /path/to/private_key.pem;
+    
+    # Enable gzip for better performance
+    gzip on;
+    gzip_types text/plain text/css application/json;
+    gzip_min_length 1000;
+    
+    # Set up reverse proxy for handling requests
+    location / {
+        proxy_pass http://backend_server;
+        
+        # Configure caching
+        proxy_cache my_cache;
+        proxy_cache_valid 200 302 1h;
+        proxy_cache_valid 404 60m;
+        proxy_cache_valid any 5m;
+    }
+    
+    # Configure cache purging
+    location /purge {
+        allow 127.0.0.1;
+        deny all;
+        proxy_cache_purge my_cache "$scheme$request_method$host$request_uri";
+    }
+    
+    # Configure error pages
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html {
+        root /usr/share/nginx/html;
+    }
+    
+    # Configure custom headers
+    add_header X-Frame-Options SAMEORIGIN;
+    add_header X-Content-Type-Options nosniff;
+    add_header X-XSS-Protection "1; mode=block";
+    
+    # Enable HTTP/2 for better performance
+    http2_max_field_size 2k;
+    http2_recv_timeout 30s;
+    
+    # Enable server side includes
+    ssi on;
+    ssi_types text/html;
+    
+    # Set up monitoring and metrics with NGINX Plus
+    # Example configuration - requires NGINX Plus
+    # stream {
+    #     log_format upstream '$remote_addr [$time_local] '
+    #      '$protocol $status $bytes_sent $bytes_received '
+    #      '$session_time "$upstream_addr" '
+    #      '"$upstream_bytes_sent" "$upstream_bytes_received" "$upstream_connect_time"';
+    #
+    #     access_log /var/log/nginx/stream.log upstream;
+    #
+    #     upstream backend {
+    #         server 127.0.0.1:8080;
+    #     }
+    #
+    #     server {
+    #         listen 0.0.0.0:80;
+    #
+    #         location /stats {
+    #             check_health;
+    #             proxy_pass http://backend;
+    #             proxy_set_header Connection keep-alive;
+    #         }
+    #     }
+    # }
+}

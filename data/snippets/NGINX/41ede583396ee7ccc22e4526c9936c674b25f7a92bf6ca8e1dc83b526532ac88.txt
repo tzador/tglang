@@ -1,0 +1,65 @@
+# Global configuration options 
+worker_processes auto;  # Sets the number of NGINX worker processes based on the number of cores available
+error_log  /var/log/nginx/error.log warn;  # Sets the location and level of severity for error logging
+
+# Events block 
+events {
+  worker_connections  1024;  # Limits the number of connections per worker process
+  multi_accept on;  # Enables the acceptance of multiple connections at a time 
+  use epoll;  # Configures the event-driven methodology for handling connections  
+}
+
+# HTTP block 
+http {
+  include       mime.types;  # Includes a list of known MIME types for valid request types
+  default_type  application/octet-stream;  # Defines the default MIME type for responses sent out without a specific MIME type
+  log_format  main '$remote_addr - $remote_user [$time_local] "$request" '  # Defines the format for access logs
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"';
+  
+  # Virtual servers
+  server {
+    listen       80;  # Listens for requests on port 80
+    server_name  example.com;  # Sets the server name for this virtual server
+    root         /usr/share/nginx/html;  # Sets the root directory for serving static content
+    
+    # Location block 
+    location / {
+      try_files $uri $uri/ /index.html;  # Tries to find a file matching the request URI, if not found, returns index.html file
+    }
+    
+    # Error pages 
+    error_page   500 502 503 504  /50x.html;  # Defines the error pages and response codes to be returned in case of server errors
+    location = /50x.html {
+        root   /usr/share/nginx/html;
+    }
+  }
+  
+  # HTTPS configuration 
+  server {
+    listen       443 ssl;  # Listens for HTTPS requests on port 443 and enable SSL
+    server_name  example.com;  # Sets the server name for this virtual server
+    root         /usr/share/nginx/html;  # Sets the root directory for serving static content
+    ssl_certificate /etc/nginx/ssl/example.com.crt;  # Specifies the path to the SSL certificate file
+    ssl_certificate_key /etc/nginx/ssl/example.com.key;  # Specifies the path to the SSL private key file
+    
+    # Location block 
+    location / {
+      try_files $uri $uri/ /index.html;  # Tries to find a file matching the request URI, if not found, returns index.html file
+    }
+  }
+  
+  # Reverse proxy configuration 
+  server {
+    listen       80;  # Listens for requests on port 80
+    server_name  api.example.com;  # Sets the server name for this virtual server
+    
+    # Location block 
+    location / {
+      proxy_pass http://localhost:8000;  # Forwards all requests to the specified local server 
+      proxy_set_header Host $host;  # Sets the Host header for requests
+      proxy_set_header X-Real-IP $remote_addr;  # Sets the IP address of the client making the request
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;  # Appends the IP address of the client to the X-Forwarded-For header 
+    }
+  }
+}

@@ -1,0 +1,40 @@
+/* This code snippet is an example of a complex algorithm in OPENEDGE_ABL */
+
+DEFINE VARIABLE i AS INTEGER NO-UNDO. /* Declare a variable to be used later */
+
+DEFINE QUERY qEmp /* Define a QUERY object to use in the algorithm */
+FOR Employee NO-LOCK, /* Specify the table/view to query */
+EmployeeCompany NO-LOCK /* Specify additional tables/views to join */
+
+/* Set up the query to retrieve specific data */
+/* The WHERE clause will only retrieve records where the employee is under 30 years old */
+/* The BY clause sorts the results by employee salary in descending order */
+QUERY qEmp:QUERY-PREPARE("FOR EACH Employee WHERE Employee.Age < 30 BY Employee.Salary DESCENDING").
+
+/* Execute the query and store the results in a buffer */
+/* The SAVE-AS attribute saves the results in a temporary buffer named "youngEmps" */
+/* The without-lock option avoids locking the retrieved records */
+qEmp:QUERY-OPEN().
+
+/* Use a loop to iterate through the results and perform calculations */
+/* The SCAN statement goes through each record in the buffer */
+/* The DOWN option starts from the last record and goes backwards through the buffer */
+/* The FIELD function retrieves the value from a specific field in the current record */
+FOR EACH Employee OF qEmp FOREACH DESCENDING:
+
+    /* Use the field values to calculate a new salary for the employee */
+    /* The "&" is used to concatenate strings and variables */
+    /* The ROUND function rounds the calculated salary to the nearest whole number */
+    ASSIGN Employee.Salary = ROUND(FIELD(qEmp:HANDLE, "Employee.Salary") * 1.1,2)
+    Employee.Note = "New salary is " + STRING(Employee.Salary) + " after a 10% raise!".
+
+END.
+
+/* Close the query and release any locks */
+qEmp:QUERY-CLOSE().
+
+/* Print out the updated employees with their new salaries */
+FOR EACH Employee:
+    MESSAGE "Employee" Employee.ID "has a new salary of $" Employee.Salary SKIP
+    "Note:" Employee.Note VIEW-AS ALERT-BOX.
+END.

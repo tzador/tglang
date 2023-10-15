@@ -1,0 +1,79 @@
+# NGINX Server Configuration
+
+# Set the server's root directory
+root /var/www/html;
+
+# Set the default document for the server
+index index.html index.php;
+
+# Serve static files first, then pass control to PHP
+location / {
+    try_files $uri $uri/ /index.php;
+}
+
+# Enable GZIP compression for faster delivery
+gzip on;
+gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+# Configure caching for common file types
+location ~* \.(jpg|jpeg|png|gif|ico|svg|bmp)$ {
+    expires 30d;
+}
+
+location ~* \.(pdf|css|html|js|swf)$ {
+    expires 1d;
+}
+
+# Set up secure TLS/SSL connection
+ssl on;
+ssl_certificate /etc/ssl/certs/nginx.pem;
+ssl_certificate_key /etc/ssl/private/nginx.key;
+
+# Configure virtual hosts
+server {
+    listen 80;
+    server_name www.example.com;
+
+    # Enable secure HTTP to HTTPS redirect
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name www.example.com;
+
+    # Add strict transport security
+    add_header Strict-Transport-Security "max-age=31536000";
+
+    # Configure reverse proxy for backend server
+    location /api {
+          proxy_pass http://127.0.0.1:8000;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Serve static files and pass control to PHP
+    location / {
+          try_files $uri $uri/ /index.php;
+    }
+
+    # Enable GZIP compression for faster delivery
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    # Configure caching for common file types
+    location ~* \.(jpg|jpeg|png|gif|ico|svg|bmp)$ {
+          expires 30d;
+    }
+
+    location ~* \.(pdf|css|html|js|swf)$ {
+          expires 1d;
+    }
+
+    # Set up secure TLS/SSL connection
+    ssl on;
+    ssl_certificate /etc/ssl/certs/nginx.pem;
+    ssl_certificate_key /etc/ssl/private/nginx.key;
+}

@@ -1,0 +1,108 @@
+%{
+// This section is used to declare C code that will be included in the generated parser
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+%}
+
+// This section defines the tokens used by the lexer
+%token <val> NUMBER // Defines a token called NUMBER that contains a value
+%token <id> ID // Defines a token called ID that contains an identifier
+
+// This section defines the grammar rules for the language
+%start Program // Defines the starting rule
+%type <val> Program // Specifies the type of the Program rule as a value
+
+Program: DeclList StmtList { // Program rule consists of DeclList and StmtList
+    // Code to be executed when Program rule is matched
+    printf("Parsing successful!\n");
+    exit(0);
+}
+| { // Empty alternative when Program rule is not matched
+    // Code to be executed when Program rule is not matched
+    printf("Parsing failed.\n");
+    exit(1);
+};
+
+DeclList: Decl ';' DeclList { // DeclList rule consists of Decl followed by a semicolon and another DeclList
+    // Code to be executed when DeclList rule is matched
+    printf("DeclList rule matched.\n");
+}
+| { // Empty alternative when DeclList rule is not matched
+    // Code to be executed when DeclList rule is not matched
+    printf("DeclList rule not matched.\n");
+};
+
+Decl: Type ID { // Decl rule consists of a Type and an ID
+    // Code to be executed when Decl rule is matched
+    printf("Decl rule matched for ID: %s\n", $2); // $2 refers to the value of the second token, in this case the ID
+    $$ = $2; // Set $$ (the value of Decl) to the value of $2 (the ID)
+};
+
+Type: 'int' | 'char' | 'float' // Defines possible types for a declaration
+
+StmtList: Stmt ';' StmtList { // StmtList rule consists of Stmt followed by a semicolon and another StmtList
+    // Code to be executed when StmtList rule is matched
+    printf("StmtList rule matched.\n");
+}
+| { // Empty alternative when StmtList rule is not matched
+    // Code to be executed when StmtList rule is not matched
+    printf("StmtList rule not matched.\n");
+};
+
+Stmt: ID '=' Expr { // Stmt rule consists of an ID followed by an equals sign and an Expr
+    // Code to be executed when Stmt rule is matched
+    printf("Stmt rule matched for ID: %s\n", $1); // $1 refers to the value of the first token, in this case the ID
+    $$ = $3; // Set $$ (the value of Stmt) to the value of $3 (the Expr)
+};
+
+Expr: Expr '+' Expr { // Expr rule consists of two Expr separated by a plus sign
+    // Code to be executed when Expr rule is matched
+    printf("Expr rule matched for value: %d\n", $1 + $3); // Calculates the sum of the two values and prints it
+    $$ = $1 + $3; // Set $$ (the value of Expr) to the sum of the two values
+}
+| NUMBER { // Expr rule can also simply be a NUMBER
+    // Code to be executed when Expr rule is matched
+    printf("Expr rule matched for value: %d\n", $1); // Prints the value of the NUMBER
+    $$ = $1; // Set $$ (the value of Expr) to the value of the NUMBER
+};
+
+%%
+// This section contains any additional C code that needs to be included in the generated parser
+
+int main() {
+    yyparse(); // Starts parsing the input according to the rules specified above
+    return 0;
+}
+
+// This section defines the lexer, which is responsible for converting characters into tokens
+%{
+int yylex(void) {
+    char ch;
+    while ((ch = getchar()) != EOF && ch != '\n') { // Read character by character until end of file or new line is reached
+        if (isdigit(ch)) { // Check if character is a digit
+            ungetc(ch, stdin); // Put the digit back into the input stream
+            scanf("%d", &yylval.val); // Scan the digit as a number and save it in yylval.val
+            return NUMBER; // Return the NUMBER token
+        } else if (isalpha(ch)) { // Check if character is a letter
+            // Read the identifier until a non-alphanumeric character is found
+            char identifier[50];
+            int i = 0;
+            while (isalnum(ch)) {
+                identifier[i++] = ch;
+                ch = getchar();
+            }
+            identifier[i] = '\0';
+            ungetc(ch, stdin); // Put the non-alphanumeric character back into the input stream
+            strcpy(yylval.id, identifier); // Copy the identifier into yylval.id
+            return ID; // Return the ID token
+        }
+    }
+    return ch; // Return the character if it is not a digit or letter
+}
+
+void yyerror(char* s) { // Error handling function
+    printf("Error: %s\n", s); // Print the error message
+    exit(1); // Exit the program with an error status
+}
+%}

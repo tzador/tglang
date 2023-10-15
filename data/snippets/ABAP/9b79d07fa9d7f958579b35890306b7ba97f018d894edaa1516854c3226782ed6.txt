@@ -1,0 +1,107 @@
+*&---------------------------------------------------------------------*
+*& Report Z_TEST_ABAP
+*&---------------------------------------------------------------------*
+
+REPORT z_test_abap.
+
+*&---------------------------------------------------------------------*
+*& Tables Declaration
+*&---------------------------------------------------------------------*
+
+TABLES: sscrfields. "Screen fields for Dynamic Select-Option
+
+*&---------------------------------------------------------------------*
+*& Types Declaration
+*&---------------------------------------------------------------------*
+
+TYPES: BEGIN OF t_month,
+         month(2) TYPE n,
+         year(4) TYPE n,
+       END OF t_month.
+
+*&---------------------------------------------------------------------*
+*& Data Declaration
+*&---------------------------------------------------------------------*
+
+DATA: lt_months TYPE STANDARD TABLE OF t_month,
+      ls_months TYPE t_month,
+      lv_date TYPE datum,
+      lv_year TYPE n,
+      lv_month TYPE n.
+
+*&---------------------------------------------------------------------*
+*& Select-Options Declaration
+*&---------------------------------------------------------------------*
+
+SELECT-OPTIONS: s_date FOR lt_months-month,
+                s_year FOR lv_year.
+
+*&---------------------------------------------------------------------*
+*& Start of Selection
+*&---------------------------------------------------------------------*
+
+START-OF-SELECTION.
+
+lv_date = sy-datum.
+RAISE do_78.
+"We dynamically populate the month and year options from user input
+* dynamic select-option support
+sscrfields = c_dynsel_mand.
+CALL FUNCTION 'DYNP_VALUES_READ'
+  EXPORTING
+    dyname = sy-cprog
+    dynumb = sy-dynnr
+  TABLES
+    field  = sscrfields
+  EXCEPTIONS
+    invalid_abapworkarea = 1
+    invalid_dynprofield = 2
+    invalid_dynproname = 3
+    invalid_dynpronummer = 4
+    invalid_request = 5
+    no_fielddescription = 6
+    illegal_fielddescription = 7
+    undefined_error = 8
+    double_conversion = 9
+    stepl_not_found = 10
+    OTHERS = 11.
+IF sy-subrc <> 0.
+  * Implement suitable error handling here
+  RETURN.
+ENDIF.
+FREE sscrfields.
+" User input for month
+DESCRIBE FIELD s_date-low TYPE lv_month.
+IF lv_month IS INITIAL.
+  lv_month = sy-datlo.
+ENDIF.
+lv_month = lv_month + c_day_adjust.
+IF lv_month GT 12.
+  lv_month = 1.
+  lv_year = lv_year + 1.
+ELSE.
+  lv_year = s_year-low.
+ENDIF.
+IF lv_month LT 10.
+  WRITE: '/0', lv_month.
+ELSE.
+  WRITE: lv_month.
+ENDIF.
+ls_months-month = lv_month.
+ls_months-year = lv_year.
+APPEND ls_months TO lt_months.
+ls_months-month = lv_month + 1.
+ls_months-year = lv_year.
+APPEND ls_months TO lt_months.
+ls_months-month = lv_month + 2.
+ls_months-year = lv_year.
+APPEND ls_months TO lt_months.
+for ls_months in lt_months.
+
+* Displaying month and year for user
+WRITE: 'Current Month: ', ls_months-month, '/ Current Year: ', ls_months-year.
+ENDFOR.
+
+*&---------------------------------------------------------------------*
+*& End of the Code
+*&---------------------------------------------------------------------*

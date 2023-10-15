@@ -1,0 +1,30 @@
+// Create a contact trigger
+trigger ContactTrigger on Contact (after insert, after update) {
+    // Declare variables
+    Set<Id> accountIds = new Set<Id>();
+    Map<Id, Contact> updatedContacts = new Map<Id, Contact>();
+    
+    // Loop through inserted and updated contacts
+    for (Contact con : Trigger.new) {
+        // Check if contact is associated with an account
+        if (con.AccountId != null) {
+            // Add account Id to set
+            accountIds.add(con.AccountId);
+            
+            // Add contact to map for later update
+            updatedContacts.put(con.Id, con);
+        }
+    }
+    
+    // Query related accounts
+    List<Account> accounts = [SELECT Id, Name FROM Account WHERE Id IN :accountIds];
+    
+    // Loop through accounts
+    for (Account acc : accounts) {
+        // Update account name with number of associated contacts
+        acc.Name = acc.Name + ' - Contacts: ' + updatedContacts.get(acc.Id).size();
+    }
+    
+    // Update related accounts
+    update accounts;
+}

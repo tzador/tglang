@@ -1,0 +1,44 @@
+DEF VAR i AS INT INIT 1. /*Initialize a variable i as an integer with a value of 1*/
+
+FOR EACH Customer NO-LOCK /*Start a FOR loop to iterate over each Customer record*/
+WHERE Customer.Country = "USA": /*Only iterate over records where Customer's country is USA*/
+    DISPLAY Customer.Name Customer.Address. /*Display the customer's name and address*/
+
+    CASE Customer.Type: /*Start a CASE statement to handle different customer types*/
+        WHEN "Individual": /*If the customer type is Individual, run the following code*/
+            ASSIGN Customer.CreditLimit = 1000. /*Assign a credit limit of 1000 to the customer*/
+        WHEN "Corporate": /*If the customer type is Corporate, run the following code*/
+            ASSIGN Customer.CreditLimit = 5000. /*Assign a credit limit of 5000 to the customer*/
+        OTHERWISE /*If the customer type is not Individual or Corporate, run the following code*/
+            ASSIGN Customer.CreditLimit = 2000. /*Assign a credit limit of 2000 to the customer*/
+    END CASE. /*End the CASE statement*/
+
+    IF Customer.Discount > 0 THEN /*If the customer has a discount greater than 0*/
+        DO: /*Start a DO block*/
+            MESSAGE Customer.Name + " is eligible for a discount!" /*Display a message stating the customer is eligible for a discount*/
+            Customer.Discount = Customer.Discount * 0.5. /*Apply a 50% discount to the customer's discount*/
+            REPEAT: /*Start a REPEAT statement*/
+                ASSIGN Customer.OrderTotal = Customer.OrderTotal * 0.9. /*Apply a 10% discount to the customer's total order*/
+                Customer.OrderCount = Customer.OrderCount + 1. /*Increase the customer's order count by 1*/
+            END. /*End the REPEAT statement*/
+        END. /*End the DO block*/
+    ELSE:
+        UNDO, THROW ERROR Customer.Name + " is not eligible for a discount." /*If the customer is not eligible for a discount, undo any changes and throw an error*/
+    END. /*End the IF statement*/
+
+    IF Customer.OrderCount > 5 THEN /*If the customer has placed more than 5 orders*/
+        DO:
+            FIND Customer.INDEX "OrderCount" DESCENDING NO-LOCK. /*Find the record with the highest order count*/
+            MESSAGE "Customer " + Customer.Name + "has the most orders with " + Customer.OrderCount + "." /*Display a message stating the customer with the most orders*/
+            ASSIGN Customer.OrderTotal = Customer.OrderTotal * 0.8. /*Apply a 20% discount to the customer's total order*/
+        END.
+    END IF.
+
+    IF Customer.LastOrderDate LT TODAY - 30 THEN /*If the customer's last order date is more than 30 days ago*/
+        DO:
+            MESSAGE "Customer " + Customer.Name + " hasn't placed an order in over 30 days!" /*Display a message stating the customer hasn't placed an order in over 30 days*/
+            UNDO, THROW ERROR "Customer " + Customer.Name + " must place an order within 30 days!" /*Undo any changes and throw an error stating the customer must place an order within 30 days*/
+        END.
+    END IF.
+
+END. /*End the FOR loop*/

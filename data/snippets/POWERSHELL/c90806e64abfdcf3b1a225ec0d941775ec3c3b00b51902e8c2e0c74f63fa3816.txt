@@ -1,0 +1,32 @@
+# This code snippet generates a report based on computer disk usage and saves it as a CSV file
+
+# Get list of all computers in a network
+$computers = Get-ADComputer -Filter *
+
+# Create an empty list to store disk usage information
+$diskUsage = @()
+
+# Loop through each computer
+foreach ($computer in $computers) {
+
+    # Get computer name
+    $computerName = $computer.Name
+
+    # Get disk usage information
+    $diskInfo = Get-WmiObject Win32_LogicalDisk -ComputerName $computerName |
+                Select-Object SystemName, DeviceID, VolumeName, @{Name="DiskSize (GB)"; Expression={"{0:N2}" -f ($_.Size/1GB)}},
+                            @{Name="FreeSpace (GB)"; Expression={"{0:N2}" -f ($_.Freespace/1GB)}},
+                            @{Name="UsedSpace (GB)"; Expression={"{0:N2}" -f (($_.Size - $_.Freespace)/1GB)}},
+                            @{Name="FreeSpace (%)"; Expression={"{0:N2}" -f (($_.Freespace/$_.Size)*100)}},
+                            @{Name="UsedSpace (%)"; Expression={"{0:N2}" -f (($_.UsedSpace/$_.Size)*100)}} 
+    
+    # Add computer disk usage information to list
+    $diskUsage += $diskInfo
+
+}
+
+# Convert list to CSV
+$diskUsage | Export-Csv disk_usage_report.csv -NoTypeInformation
+
+# Print success message
+Write-Host "Disk usage report successfully generated and saved as CSV file."

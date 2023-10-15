@@ -1,0 +1,121 @@
+// Contract to store and manage employee information
+pragma solidity ^0.8.0;
+
+// Importing SafeMath library to handle safe mathematical operations
+import "github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/math/SafeMath.sol";
+
+contract EmployeeManagement {
+    /*======= VARIABLES =======*/
+    address owner; // Contract owner's address
+    uint256 totalEmployees; // Total number of employees
+    mapping (address => Employee) employees; // Mapping to store all employees
+
+    /*======= STRUCTS =======*/
+    // Employee struct to store employee information
+    struct Employee {
+        address employeeAddress;
+        string name;
+        uint256 salary;
+        uint256 annualLeave;
+    }
+
+    /*======= MODIFIERS =======*/
+    // Modifier to restrict access to contract owner only
+    modifier onlyOwner {
+        require(msg.sender == owner, "You are not the owner of this contract");
+        _;
+    }
+
+    /*======= EVENTS =======*/
+    // Event triggered when new employee is added
+    event NewEmployeeAdded(address indexed employeeAddress, string name, uint256 salary);
+
+    // Event triggered when employee's salary is updated
+    event SalaryUpdated(address indexed employeeAddress, uint256 oldSalary, uint256 newSalary);
+
+    // Event triggered when employee's annual leave is updated
+    event AnnualLeaveUpdated(address indexed employeeAddress, uint256 oldLeave, uint256 newLeave);
+
+    /*======= CONSTRUCTOR =======*/
+    // Initializing contract with owner's address and setting totalEmployees to 0
+    constructor() {
+        owner = msg.sender;
+        totalEmployees = 0;
+    }
+
+    /*======= FUNCTIONS =======*/
+    // Function to add new employee to the contract
+    function addEmployee(address _employeeAddress, string memory _name, uint256 _salary, uint256 _annualLeave) external onlyOwner {
+        require(_employeeAddress != address(0), "Invalid employee address");
+        require(bytes(_name).length > 0, "Invalid employee name");
+        require(_salary > 0, "Invalid employee salary");
+        require(_annualLeave >= 0 && _annualLeave <= 365, "Invalid annual leave days");
+
+        // Check if employee already exists in the contract
+        require(employees[_employeeAddress].employeeAddress == address(0), "Employee already exists");
+
+        // Create new employee and add to employees mapping
+        Employee memory newEmployee = Employee(_employeeAddress, _name, _salary, _annualLeave);
+        employees[_employeeAddress] = newEmployee;
+
+        // Increment totalEmployees count
+        totalEmployees++;
+
+        // Trigger event
+        emit NewEmployeeAdded(_employeeAddress, _name, _salary);
+    }
+
+    // Function to update employee's salary
+    function updateSalary(address _employeeAddress, uint256 _newSalary) external onlyOwner {
+        require(_employeeAddress != address(0), "Invalid employee address");
+        require(employees[_employeeAddress].employeeAddress != address(0), "Employee does not exist");
+        require(_newSalary > 0, "Invalid employee salary");
+
+        // Store old salary for event
+        uint256 oldSalary = employees[_employeeAddress].salary;
+
+        // Update salary in employees mapping
+        employees[_employeeAddress].salary = _newSalary;
+
+        // Trigger event
+        emit SalaryUpdated(_employeeAddress, oldSalary, _newSalary);
+    }
+
+    // Function to update employee's annual leave days
+    function updateAnnualLeave(address _employeeAddress, uint256 _newLeave) external onlyOwner {
+        require(_employeeAddress != address(0), "Invalid employee address");
+        require(employees[_employeeAddress].employeeAddress != address(0), "Employee does not exist");
+        require(_newLeave >= 0 && _newLeave <= 365, "Invalid annual leave days");
+
+        // Store old leave days for event
+        uint256 oldLeave = employees[_employeeAddress].annualLeave;
+
+        // Update annual leave in employees mapping
+        employees[_employeeAddress].annualLeave = _newLeave;
+
+        // Trigger event
+        emit AnnualLeaveUpdated(_employeeAddress, oldLeave, _newLeave);
+    }
+
+    // Function to get employee's information
+    function getEmployee(address _employeeAddress) public view returns(address, string memory, uint256, uint256) {
+        require(_employeeAddress != address(0), "Invalid employee address");
+        require(employees[_employeeAddress].employeeAddress != address(0), "Employee does not exist");
+
+        // Retrieve employee information from employees mapping
+        Employee memory employee = employees[_employeeAddress];
+
+        // Return employee information
+        return (
+            _employeeAddress,
+            employee.name,
+            employee.salary,
+            employee.annualLeave
+        );
+    }
+
+    // Function to get total number of employees
+    function getTotalEmployees() public view returns(uint256) {
+        return totalEmployees;
+    }
+}

@@ -1,0 +1,58 @@
+DECLARE 
+  -- declaring a record type to store employee details
+  TYPE emp_record IS RECORD (
+    emp_id NUMBER(6),
+    emp_name VARCHAR2(50),
+    emp_dept VARCHAR2(50),
+    emp_salary NUMBER(10,2)
+  );
+
+  -- declaring a cursor to retrieve employee data
+  CURSOR emp_cursor IS
+    SELECT emp_id, emp_name, emp_dept, emp_salary
+    FROM employees
+    WHERE emp_id > 100;
+
+  -- declaring a variable to store cursor data
+  emp_details emp_record;
+
+  -- declaring exception variable
+  emp_not_found EXCEPTION;
+
+BEGIN
+  -- open cursor
+  OPEN emp_cursor;
+
+  -- loop through cursor data
+  LOOP
+    -- fetch cursor data into record variable
+    FETCH emp_cursor INTO emp_details;
+
+    -- exit loop if no more data
+    IF emp_cursor%NOTFOUND THEN
+      EXIT;
+    END IF;
+
+    -- insert record data into another table
+    INSERT INTO employee_audit(emp_id, emp_name, emp_dept, emp_salary)
+    VALUES(emp_details.emp_id, emp_details.emp_name, emp_details.emp_dept, emp_details.emp_salary);
+
+    -- update employee salary
+    UPDATE employees
+    SET emp_salary = emp_details.emp_salary * 1.1
+    WHERE emp_id = emp_details.emp_id;
+
+  END LOOP;
+
+  -- close cursor
+  CLOSE emp_cursor;
+
+  -- commit changes
+  COMMIT;
+
+  EXCEPTION
+    -- handle exception if no data found
+    WHEN NO_DATA_FOUND THEN
+    RAISE emp_not_found;
+END;
+/

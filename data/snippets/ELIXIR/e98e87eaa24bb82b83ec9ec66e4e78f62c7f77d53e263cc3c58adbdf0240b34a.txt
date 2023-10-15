@@ -1,0 +1,224 @@
+defmodule Game do
+  @behaviour Agent
+  
+  @name "RPG Game"
+  @version "1.0.0"
+  
+  @moduledoc """
+  This module defines the structure and behavior for the RPG Game agent.
+  """
+  
+  @doc "Represents a character in the game"
+  defstruct [:name, :level, :class, :health, :mana, :inventory, :experience]
+  
+  @doc """
+  Starts a new game with a given character name and class.
+  
+  ## Examples
+      iex> Game.start("John", "Warrior")
+      %Game{name: "John", level: 1, class: "Warrior", 
+      health: 100, mana: 50, inventory: [], experience: 0}
+      
+      iex> Game.start("Jane", "Mage")
+      %Game{name: "Jane", level: 1, class: "Mage", 
+      health: 75, mana: 100, inventory: [], experience: 0}
+  
+  """
+  def start(name, class) do
+    %Game{name: name,
+          level: 1,
+          class: class,
+          health: starting_health(class),
+          mana: starting_mana(class),
+          inventory: [],
+          experience: 0}
+  end
+  
+  defp starting_health(class) do
+    case class do
+      "Warrior" -> 100
+      "Mage" -> 75
+      "Rogue" -> 50
+    end
+  end
+  
+  defp starting_mana(class) do
+    case class do
+      "Warrior" -> 50
+      "Mage" -> 100
+      "Rogue" -> 75
+    end
+  end
+  
+  @doc """
+  Adds an item to the character's inventory.
+  
+  ## Examples
+      iex> game = Game.start("John", "Warrior")
+      %Game{name: "John", level: 1, class: "Warrior", 
+      health: 100, mana: 50, inventory: [], experience: 0}
+      
+      iex> Game.add_item(game, "Sword")
+      %Game{name: "John", level: 1, class: "Warrior", 
+      health: 100, mana: 50, inventory: ["Sword"], experience: 0}
+  
+  """
+  def add_item(game, item) do
+    %{game | inventory: [item | game.inventory]}
+  end
+  
+  def level_up(game) do
+    %{game | level: game.level + 1,
+             health: game.health + 10,
+             mana: game.mana + 10}
+  end
+  
+  def take_damage(game, damage) do
+    %{game | health: game.health - damage}
+  end
+  
+  def use_mana(game, amount) do
+    %{game | mana: game.mana - amount}
+  end
+  
+  @doc """
+  Accepts a list of games and returns the game with the highest level.
+  
+  ## Examples
+      iex> games = [Game.start("John", "Warrior"), 
+      Game.start("Jane", "Mage"), Game.start("Bob", "Rogue")]
+      [%Game{name: "John", level: 1, class: "Warrior", 
+      health: 100, mana: 50, inventory: [], experience: 0},
+       %Game{name: "Jane", level: 1, class: "Mage",
+       health: 75, mana: 100, inventory: [], experience: 0},
+       %Game{name: "Bob", level: 1, class: "Rogue",
+       health: 50, mana: 75, inventory: [], experience: 0}]
+      
+      iex> Game.get_highest_level(game)
+      %Game{name: "Jane", level: 1, class: "Mage",
+       health: 75, mana: 100, inventory: [], experience: 0}
+  
+  """
+  def get_highest_level(games) do
+    List.foldl(fn game, acc ->
+      if game.level > acc.level do
+        game
+      else
+        acc
+      end
+    end, hd(games), tl(games))
+  end
+  
+end
+
+defmodule Adventure do
+  @behaviour Scenario
+
+  @name "Adventure Mode"
+  @version "2.0.0"
+
+  @moduledoc """
+  Defines the structure and behavior for the Adventure scenario.
+  """
+
+  @doc """
+  Starts a new adventure in a specified location with a given game.
+  If no location is specified, a random one will be chosen.
+
+  ## Examples
+      iex> game = Game.start("John", "Warrior")
+      %Game{name: "John", level: 1, class: "Warrior", 
+      health: 100, mana: 50, inventory: [], experience: 0}
+      
+      iex> Adventure.start(game, "Castle")
+      %{game: %Game{name: "John", level: 1, class: "Warrior", 
+      health: 100, mana: 50, inventory: [], experience: 0},
+      location: "Castle",
+      enemies: [], rewards: []}
+  """
+  def start(game, location \\ choose_location()) do
+    %{game: game,
+      location: location,
+      enemies: generate_enemies(),
+      rewards: []}
+  end
+
+  defp choose_location() do
+    ["Forest", "Castle", "Cave"] |> Enum.random()
+  end
+
+  defp generate_enemies() do
+    3 |> Enum.map(fn _ -> Goblin.new() end)
+  end
+
+  def run(game, adventure) do
+    IO.puts adventure.location <> " - Level " <> Integer.to_string(game.level)
+    fight_enemies(game, adventure.enemies)
+    get_rewards(game, adventure)
+  end
+
+  defp fight_enemies(game, enemies) do
+    Enum.each(enemies, fn enemy ->
+      damage = enemy.attack()
+      updated_game = Game.take_damage(game, damage)
+      IO.puts "You took " <> Integer.to_string(damage) <> " damage from the " <> enemy.type <> "!"
+      if updated_game.health > 0 do
+        IO.puts "You defeated the " <> enemy.type <> " and gained " <> Integer.to_string(enemy.experience) <> " experience!"
+        updated_game = Game.use_mana(updated_game, 10)
+        updated_game = Game.add_item(updated_game, enemy.loot)
+        updated_game = Game.level_up(updated_game)
+      else
+        IO.puts "You have been defeated by the " <> enemy.type <> ". Game over."
+        System.halt(0)
+      end
+    end)
+  end
+
+  defp get_rewards(game, adventure) do
+    updated_game = %{game | experience: game.experience + 100}
+    %{adventure | rewards: [updated_game] | > Adventure.experience(adventure)}
+  end
+
+  defp experience(adventure) do
+    IO.puts "You gained 100 experience!"
+    adventure
+  end
+
+end
+
+defmodule Goblin do
+  @behaviour Enemy
+
+  @moduledoc """
+  Defines the structure and behavior for the Goblin enemy.
+  """
+
+  @doc """
+  Creates a new Goblin enemy with a random type, attack power, and loot.
+
+  ## Examples
+      iex> Goblin.new()
+      %Goblin{type: "Goblin", attack: 15, loot: "Gold"}
+  """
+  defstruct [:type, :attack, :loot]
+
+  @attack_types ["Goblin", "Hobgoblin", "Goblin Boss"]
+  @loot_types ["Gold", "Potion", "Sword"]
+  @min_attack 15
+  @max_attack 25
+
+  def new do
+    %Goblin{type: @attack_types |> Enum.random(),
+            attack: rand(@min_attack..@max_attack),
+            loot: @loot_types |> Enum.random()}
+  end
+
+  def attack(goblin) do
+    IO.puts "The " <> goblin.type <> " attacks you for " <> Integer.to_string(goblin.attack) <> " damage!"
+    goblin.attack
+  end
+end
+
+defimpl Agent do
+  def type, do: @name
+end

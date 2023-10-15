@@ -1,0 +1,79 @@
+/*!
+ * @brief This is a custom component for a draggable list item
+ * that implements both vertical and horizontal dragging.
+ */
+
+import QtQuick 2.12
+
+Item {
+    id: listItem
+    property int index // the index of the item in the list
+    property bool dragging // flag to indicate if the item is being dragged
+    property int originalX // original x position of the item
+    property int originalY // original y position of the item
+
+    signal dropped(int index) // signal emitted when item is dropped after dragging
+
+    // set the width and height of the list item
+    width: parent.width
+    height: dp(parent.height) // ensure that the height is in device-independent pixels
+    
+    // define a MouseArea to handle dragging and dropping behavior
+    MouseArea {
+        id: dragArea
+        anchors.fill: parent
+
+        // handle the onPressed event to set the original position of the item
+        onPressed: {
+            listItem.originalX = listItem.x;
+            listItem.originalY = listItem.y;
+        }
+
+        // handle the onPositionChanged event to update the item's position while dragging
+        onPositionChanged: {
+            // check if the item is being dragged horizontally
+            if (Math.abs(drag.x - drag.startX) > drag.dragThreshold) {
+                // disable vertical scrolling while dragging horizontally
+                parentListView.contentItem.flickableDirection = Flickable.HorizontalFlick;
+                // update the x position of the item
+                listItem.x = originalX + drag.deltaX;
+            }
+
+            // check if the item is being dragged vertically
+            if (Math.abs(drag.y - drag.startY) > drag.dragThreshold) {
+                // disable horizontal scrolling while dragging vertically
+                parentListView.contentItem.flickableDirection = Flickable.VerticalFlick;
+                // update the y position of the item
+                listItem.y = originalY + drag.deltaY;
+            }
+        }
+
+        // handle the onReleased event to emit the dropped signal and reset the item's position
+        onReleased: {
+            // emit the dropped signal with the updated index of the item
+            listItem.dropped(listItem.index);
+            // reset the flickable direction to allow scrolling
+            parentListView.contentItem.flickableDirection = Flickable.BothFlick;
+            // reset the item's position to its original position
+            listItem.x = originalX;
+            listItem.y = originalY;
+        }
+    } // end of MouseArea
+
+    // define the visual representation of the list item
+    Rectangle {
+        id: itemRect
+        width: parent.width
+        height: parent.height
+        color: dragging ? "lightblue" : "white" // change color when item is being dragged
+
+        // add a label to display the index of the item
+        Label {
+            id: itemLabel
+            text: "Item " + (listItem.index + 1)
+            anchors.centerIn: parent
+            font.pixelSize: dp(20)
+            color: dragging ? "white" : "black" // change text color when item is being dragged
+        }
+    } // end of Rectangle
+} // end of Item

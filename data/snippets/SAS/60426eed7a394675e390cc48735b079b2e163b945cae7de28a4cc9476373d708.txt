@@ -1,0 +1,50 @@
+*Create a dataset from existing data using SQL syntax;
+
+*Connect to a database and extract data;
+proc sql;
+    connect to odbc (datasrc="MyDataSource" user="username" password="*****");
+    create table mydataset as 
+    select * from connection to odbc 
+    (select column1, column2, column3 
+    from mydatabase.mytable 
+    where column1 = 'criteria'
+    order by column2 desc);
+quit;
+
+*Rename columns and add new calculated columns;
+data mydataset;
+    set mydataset;
+    rename column1 = new_column1
+        column2 = new_column2;
+    length column3 $10;
+    column4 = column1 || column2;
+run;
+
+*Join two datasets using a common key;
+proc sql;
+    create table joined_dataset as 
+    select a.*, b.column1, b.column2 
+    from mydataset a
+    inner join myotherdataset b 
+    on a.common_key = b.common_key;
+quit;
+
+*Create a macro variable based on a dataset;
+proc sql noprint;
+    select count(distinct column1) into :num_obs 
+    from joined_dataset;
+quit;
+
+*Loop through macro variable and create new dataset for each value;
+%macro do_loop;
+    %do i = 1 %to &num_obs.;
+        %let current_value = %scan(&num_obs., &i.);
+        data _null_;
+            set joined_dataset;
+            where column1 = &current_value.;
+            file "new_dataset_&current_value..txt";
+            put column1 column2 column3;
+        run;
+    %end;
+%mend;
+%do_loop;

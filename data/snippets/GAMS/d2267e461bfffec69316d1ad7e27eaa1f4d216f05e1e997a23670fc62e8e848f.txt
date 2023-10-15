@@ -1,0 +1,43 @@
+Set i 'set of nodes'
+Set j 'set of arcs'
+Set se(i) /i1 * in/ 'starting nodes'
+Set te(j) /j1 * jn/ 'ending nodes'
+Set path(i,j) 'set of possible paths from i to j';
+
+Table costs(i,j) 'costs from i to j'
+            j1      j2       ... jn
+i1      0         5       ...  10
+i2      3         0       ...  8 
+...     ...       ...     ...  ...
+in      12        9       ...  0;
+
+Variable x(i,j) 'binary variable for arcs';
+
+Equation flow(i, j) 'flow conservation constraint';
+Equation source(i) 'source node constraint';
+Equation sink(i) 'sink node constraint';
+Equation cost 'total cost objective';
+
+flow(i,j).. x(i,j) =e= sum(se$(ord(se) = ord(i)), path(i,j)) 
+                         - sum(te$(ord(te) = ord(i)), path(i,j)); 
+source(i).. sum(j, x(i,j)) =e= 1; 
+sink(i).. sum(j, x(j,i)) =e= 1; 
+cost.. z =e= sum((i,j), costs(i,j)*x(i,j));
+
+model m /all/;
+
+option mip = cplex;
+
+solve m using mip minimizing z;
+
+display x.l, x.m;
+
+parameter path_used(i,j) 'parameter to track used paths';
+
+loop((i,j), 
+     if(x.m(i,j) > 0.5, 
+        path_used(i,j) = yes; 
+     )
+);
+
+display path_used;

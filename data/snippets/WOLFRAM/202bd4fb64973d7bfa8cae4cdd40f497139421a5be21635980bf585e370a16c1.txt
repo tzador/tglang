@@ -1,0 +1,76 @@
+(*
+This code snippet uses the Wolfram programming language to implement a Monte Carlo simulation of the Ising model in statistical mechanics.
+In this simulation, we calculate the magnetization and energy of a 2D lattice of spin-values {-1, 1} at a range of temperatures.
+The results are then plotted in a 3D graph.
+
+To begin, we define a function for randomly assigning spin-values to our lattice, using RandomChoice to generate pseudo-random integers of -1 and 1.
+*)
+
+spinValues[x_, y_] := Table[RandomChoice[{-1, 1}], {x}, {y}]
+
+(*
+Next, we define a function that calculates the energy of each spin in the lattice, based on its neighboring spins.
+We use periodic boundary conditions, meaning the last column and row are connected to the first column and row.
+The function takes in the spin lattice, the row and column indices, and the size of the lattice.
+Note the use of Mod to account for the periodic boundary conditions.
+The energy is calculated as the product of the spin in question with its top, bottom, left, and right neighbors.
+*)
+
+energy[spin_, x_, y_, lx_, ly_] := spin[[x, y]]*(spin[[Mod[x - 1, lx] + 1, y]] + spin[[x, Mod[y - 1, ly] + 1]] + spin[[Mod[x + 1, lx] + 1, y]] + spin[[x, Mod[y + 1, ly] + 1]])
+
+(*
+Next, we define a function that calculates the total energy of the lattice by summing over the energies of each spin.
+*)
+
+totalEnergy[spin_, lx_, ly_] := Sum[energy[spin, x, y, lx, ly], {x, 1, lx}, {y, 1, ly}]
+
+(*
+We also define a function that calculates the magnetization of the lattice as the sum of all spin-values.
+*)
+
+magnetization[spin_] := Total[Flatten[spin]]
+
+(*
+Now, we can implement the Monte Carlo simulation by randomly flipping spins and calculating the change in energy.
+The change in energy is calculated as the difference between the current energy and the energy after flipping a spin.
+If the energy decreases, the spin is flipped.
+If the energy increases, the spin may still be flipped with a probability determined by the Metropolis algorithm.
+This is repeated for a specified number of Monte Carlo steps.
+*)
+
+ising[lx_, ly_, steps_, temp_] := Module[{spin, E, dE, M, energyChange},
+  spin = spinValues[lx, ly];
+  E = totalEnergy[spin, lx, ly];
+  M = magnetization[spin];
+
+  (*
+  We use a Table command to randomly select a spin and determine the change in energy.
+  The Table command creates a list of the results of each iteration, which we then use to update the spin lattice and calculate the new energy.
+  *)
+
+  Table[
+   spin[[RandomInteger[{1, lx}], RandomInteger[{1, ly}]]] *= -1; (*Flips a random spin*)
+   energyChange = totalEnergy[spin, lx, ly] - E; (*Calculates the change in energy*)
+   If[energyChange <= 0, (*If the energy decreases, the spin is flipped*)
+    E += energyChange;
+    M += 2*spin[[x, y]],
+    If[RandomReal[] <= Exp[-(energyChange/temp)], (*Else, the spin may still be flipped with a probability determined by the Metropolis algorithm*)
+     E += energyChange;
+     M += 2*spin[[x, y]]
+     ]
+    ], {steps}];
+
+  (*
+  Finally, we return a list containing the temperature, energy, and magnetization values for plotting in a 3D graph.
+  *)
+
+  {temp, E, M}
+]
+
+(*
+We can now plot the results for a range of temperatures, by calling the ising function with different temperatures and saving the results in a list.
+This list is then used to create a 3D graph using ListPlot3D.
+*)
+
+results = Table[ising[20, 20, 10000, T], {T, 0.5, 5, 0.1}];
+ListPlot3D[results, AxesLabel -> {"Temperature", "Energy", "Magnetization"}, PlotRange -> All]

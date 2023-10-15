@@ -1,0 +1,73 @@
+class GBomb extends Actor
+{
+   var bool bBombed; // Boolean variable to track if bomb has been detonated
+   var int nBombRadius; // Integer variable to store the bomb's explosion radius
+
+/**
+ * Function to spawn a bomb at the given location
+ * @param SpawnLocation - The location where the bomb should be spawned
+ */
+   simulated function SpawnBomb(Vector SpawnLocation)
+   {
+      bBombed = false; // Set bBombed variable to false initially
+      nBombRadius = 100; // Set the initial bomb radius to 100
+
+      // Spawn a static mesh component for the bomb
+      local StaticMeshComponent BombMesh;
+      BombMesh = Spawn(Class'StaticMeshComponent', self);
+      // Set the static mesh to a sphere and attach it to the root component
+      BombMesh.SetStaticMesh(StaticMesh'Sphere');
+      BombMesh.AttachToComponent(RootComponent);
+      // Set the translation and scale of the static mesh component
+      BombMesh.SetRelativeLocation(SpawnLocation);
+      BombMesh.SetRelativeScale(Vector(0.5, 0.5, 0.5));
+      // Set the material of the static mesh to a red color to represent a bomb
+      BombMesh.SetMaterial(0, MaterialInstanceConstant'BaseColor_Red');
+
+      // Spawn a particle system component for the explosion effect of the bomb
+      local ParticleSystemComponent ExplosionParticles;
+      ExplosionParticles = Spawn(Class'ParticleSystemComponent', self);
+      // Set the template to the explosion particle system and attach it to the root component
+      ExplosionParticles.SetTemplate(ParticleSystem'SmokeExplosion');
+      ExplosionParticles.AttachToComponent(RootComponent);
+      // Set the emitter's location and rotation to match the bomb's location and rotation
+      ExplosionParticles.SetRelativeLocationAndRotation(SpawnLocation, Rotator(0,0,0));
+   }
+
+/**
+ * Function that is called when the bomb explodes
+ * @param ExplosionLocation - The location of the bomb's explosion
+ */
+   simulated function ExplodeBomb(Vector ExplosionLocation)
+   {
+      // Create a sphere collision component to check for overlapping actors within the explosion radius
+      local SphereCollisionComponent ExplosionCollision;
+      ExplosionCollision = Spawn(Class'SphereCollisionComponent', self);
+      // Set the radius of the collision sphere to the bomb's explosion radius
+      ExplosionCollision.SetSphereRadius(nBombRadius);
+      // Set the collision sphere's location to the explosion location
+      ExplosionCollision.SetRelativeLocation(ExplosionLocation);
+
+      // Create an array to store the actors that are overlapping with the collision sphere
+      local array<Actor> OverlappingActors;
+      // Get all overlapping actors and store them in the array
+      ExplosionCollision.GetOverlappingActors(OverlappingActors);
+      
+      // Loop through the array of overlapping actors
+      local int i;
+      for(i=0; i < OverlappingActors.Length; i++)
+      {
+         // Check if the actor is a player character
+         if(OverlappingActors[i] != None && OverlappingActors[i].IsA('PlayerCharacter'))
+         {
+            // Call the TakeDamage function on the player character to damage them
+            Cast<PlayerCharacter>(OverlappingActors[i]).TakeDamage(10.0, Instigator);
+         }
+      }
+
+      // Set the bBombed variable to true to indicate that the bomb has been detonated
+      bBombed = true;
+      // Destroy the bomb actor
+      Destroy();
+   }
+}

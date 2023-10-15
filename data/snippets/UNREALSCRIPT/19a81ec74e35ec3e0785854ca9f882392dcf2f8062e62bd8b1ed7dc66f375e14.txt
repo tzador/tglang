@@ -1,0 +1,114 @@
+// This code snippet shows a class called "Weapon" with functions and variables related to weapon behavior and attributes.
+
+class Weapon
+    extends Actor
+    placeable
+
+    defaultproperties
+    {
+        PickupSound=Sound'Weapons_AssaultRifle.PickupAssaultRifle'
+        HitEffect=ParticleSystem'WeaponFX.Impact.Flesh.Impact_Flesh_Small'
+        FireRate=10.0
+        AmmoType=class'GameAmmo'
+        MaxAmmo=100
+        MaxClipAmmo=20
+    }
+
+    var float CurrentFireRate;
+    var int Ammo;
+    var int ClipAmmo;
+    var bool bCanFire;
+    var bool bIsReloading;
+
+    // Function that controls when the weapon can be fired
+    function SetCanFire(bool bNewCanFire)
+    {
+        bCanFire = bNewCanFire;
+    }
+
+    // Function to handle firing the weapon
+    function Fire()
+    {
+        // Check if there is enough ammo left
+        if (ClipAmmo > 0)
+        {
+            // Play the firing sound
+            PlaySound(PickupSound,, 1.0, 0, , true);
+
+            // Spawn a projectile using the ammo type defined in defaultproperties
+            Spawn(class'Ammotype', ,, Location,+ Rotation, );
+
+            // Decrease the clip ammo by 1
+            ClipAmmo--;
+
+            // Set the current fire rate to the defined value in defaultproperties
+            SetTimer(FireRate,, CurrentFireRate);
+
+            // Set bCanFire to false to prevent rapid firing
+            SetCanFire(false);
+        }
+        else
+        {
+            // If there is no ammo left, start the reload function
+            Reload();
+        }
+    }
+
+    // Function to handle reloading the weapon
+    function Reload()
+    {
+        // Check if the weapon is already reloading
+        if (!bIsReloading)
+        {
+            // Set bIsReloading to true to prevent multiple reload calls
+            bIsReloading = true;
+
+            // Display a reload animation or sound
+            PlayAnimation(ReloadAnimation, 1.0, true, 0.09);
+
+            // Set a timer to reload the weapon after a certain amount of time
+            SetTimer(ReloadTime, this, Reload);
+        }
+        else
+        {
+            // Once the reloading is finished, reset the clip ammo to the max value defined in defaultproperties
+            ClipAmmo = MaxClipAmmo;
+
+            // Set bIsReloading back to false to allow firing again
+            bIsReloading = false;
+        }
+    }
+
+    // Function to handle the weapon's fire rate
+    simulated function HandleFireRate()
+    {
+        // Check if the current fire rate value is 0
+        if (CurrentFireRate <= 0.0)
+        {
+            // Enable bCanFire to allow firing again
+            SetCanFire(true);
+
+            // Stop the timer
+            ClearTimer(FireRate);
+        }
+        else
+        {
+            // Decrease the fire rate by 1
+            CurrentFireRate -= 1.0;
+        }
+    }
+
+    // Function to handle dropping the weapon
+    function Drop()
+    {
+        // Spawn a new weapon pickup at the current location
+        local Actor Pickup;
+        Pickup = Spawn(class'WeaponPickup',,, Location + vect(0, 0, PickupHeight));
+
+        // Set the pickup's weapon to this instance of Weapon
+        Pickup.Weapon = self;
+
+        // Destroy this instance of Weapon
+        Destroy();
+    }
+}

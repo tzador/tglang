@@ -1,0 +1,133 @@
+interface IERC20 {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+}
+
+interface IERC165 {
+    function supportsInterface(bytes4 interfaceId) external view returns (bool);
+}
+
+contract ERC20 is IERC20, IERC165 {
+    ...
+    // Function that allows transfers of tokens between two addresses
+    function transfer(address recipient, uint256 amount) external override returns (bool) {
+        // Sender's balance has to be greater than or equal to the amount being transferred
+        require(_balances[msg.sender] >= amount, "ERC20: Not enough balance to transfer");
+
+        // Deduct the transferred amount from the sender's balance
+        _balances[msg.sender] = _balances[msg.sender].sub(amount);
+
+        // Add the transferred amount to the recipient's balance
+        _balances[recipient] = _balances[recipient].add(amount);
+        
+        // Emit an event to signify the transfer
+        emit Transfer(msg.sender, recipient, amount);
+
+        return true;
+    }
+
+    // Function that allows an approved spender to transfer tokens from the owner's account to another account
+    function transferFrom(address sender, address recipient, uint256 amount) external override returns (bool) {
+        // Sender's balance has to be greater than or equal to the amount being transferred
+        require(_balances[sender] >= amount, "ERC20: Not enough balance to transfer");
+
+        // Spender's allowance has to be greater than or equal to the amount being transferred
+        require(_allowances[sender][msg.sender] >= amount, "ERC20: Not enough allowance to transfer");
+
+        // Deduct the transferred amount from the owner's balance
+        _balances[sender] = _balances[sender].sub(amount);
+
+        // Add the transferred amount to the recipient's balance
+        _balances[recipient] = _balances[recipient].add(amount);
+
+        // Deduct the transferred amount from the spender's allowance
+        _allowances[sender][msg.sender] = _allowances[sender][msg.sender].sub(amount);
+
+        // Emit an event to signify the transfer
+        emit Transfer(sender, recipient, amount);
+
+        return true;
+    }
+
+    // Function that approves a spender to transfer a certain amount of tokens from the owner's account
+    function approve(address spender, uint256 amount) external override returns (bool) {
+        // Set the spender's allowance to the desired amount
+        _allowances[msg.sender][spender] = amount;
+
+        // Emit an event to signify the approval
+        emit Approval(msg.sender, spender, amount);
+
+        return true;
+    }
+
+    // Function that returns the total supply of tokens
+    function totalSupply() public view override returns (uint256) {
+        return _totalSupply;
+    }
+
+    // Function that returns the balance of a specific address
+    function balanceOf(address account) public view override returns (uint256) {
+        return _balances[account];
+    }
+
+    // Function that returns the current allowance of a spender for an owner's account
+    function allowance(address owner, address spender) public view override returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    // Function that checks if a contract supports a specific interface
+    function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
+        return interfaceId == type(IERC20).interfaceId || interfaceId == type(IERC165).interfaceId;
+    }
+
+    // Function modifiers
+    modifier onlyOwner() {
+        require(msg.sender == _owner, "ERC20: Only owner can perform this action");
+        _;
+    }
+
+    // Internal function that adds tokens to the specified account's balance
+    function _mint(address account, uint256 amount) internal {
+        // Prevents overflow by ensuring that the new balance will not exceed the maximum possible value for a uint256
+        require(_balances[account] + amount > _balances[account], "ERC20: Amount causes overflow");
+        
+        // Add the amount to the total supply
+        _totalSupply = _totalSupply.add(amount);
+
+        // Add the amount to the specified account's balance
+        _balances[account] = _balances[account].add(amount);
+
+        // Emit an event to signify the minting process
+        emit Transfer(address(0), account, amount);
+    }
+
+    // Internal function that removes tokens from the specified account's balance
+    function _burn(address account, uint256 amount) internal {
+        // Sender's balance has to be greater than or equal to the amount being burned
+        require(_balances[account] >= amount, "ERC20: Not enough balance to burn");
+
+        // Substract the amount from the total supply
+        _totalSupply = _totalSupply.sub(amount);
+
+        // Substract the amount from the specified account's balance
+        _balances[account] = _balances[account].sub(amount);
+
+        // Emit an event to signify the burning process
+        emit Transfer(account, address(0), amount);
+    }
+
+    // Internal function that transfers ownership of the contract to a new owner
+    function _transferOwnership(address newOwner) internal {
+        // Set the new owner as the owner of the contract
+        _owner = newOwner;
+
+        // Emit an event to signify the change of ownership
+        emit OwnershipTransferred(_owner, newOwner);
+    }
+}

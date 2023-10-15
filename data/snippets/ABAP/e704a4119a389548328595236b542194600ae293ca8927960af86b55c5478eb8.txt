@@ -1,0 +1,55 @@
+*&---------------------------------------------------------------------*
+*& Report Z_PROCESS_TRANSACTIONS
+*&
+*&---------------------------------------------------------------------*
+REPORT z_process_transactions.
+
+*" This report processes transactions from a specified date
+*" and determines the total amount of transactions
+
+TABLES: bkpf, bseg.
+
+*"-------------------------------------------------------------*
+*" COMMON DECLARATIONS
+*"-------------------------------------------------------------*
+
+DATA: date TYPE d, "date for processing
+      total TYPE p DECIMALS 2, "total amount of transactions
+      tab TYPE STANDARD TABLE OF bseg WITH HEADER LINE. "internal table for storing transaction data
+
+*"-------------------------------------------------------------*
+*" SELECT INPUT DATE FROM USER
+*"-------------------------------------------------------------*
+PARAMETERS p_date TYPE d. "input date from user
+
+*"-------------------------------------------------------------*
+*" GET TRANSACTIONS FROM HBKF TABLE
+*"-------------------------------------------------------------*
+SELECT * FROM bkpf
+  WHERE bldat >= p_date. "select all transactions with date greater than or equal to input date
+
+*"-------------------------------------------------------------*
+*" GET TRANSACTION ITEMS FROM BSEG TABLE
+*"-------------------------------------------------------------*
+SELECT * FROM bseg
+  INTO TABLE tab
+  FOR ALL ENTRIES IN bkpf
+  WHERE bukrs = bkpf~bukrs "select all transaction items for the selected transactions
+  AND belnr = bkpf~belnr
+  AND gjahr = bkpf~gjahr.
+
+*"-------------------------------------------------------------*
+*" CALCULATE TOTAL AMOUNT
+*"-------------------------------------------------------------*
+LOOP AT tab.
+  total = total + tab-wrbtr. "add transaction amount to total amount
+ENDLOOP.
+
+*"-------------------------------------------------------------*
+*" WRITE OUTPUT
+*"-------------------------------------------------------------*
+WRITE: / 'Total amount of transactions from', p_date, 'is', total. "write total amount of transactions to output
+
+*&---------------------------------------------------------------------*
+*& END OF REPORT Z_PROCESS_TRANSACTIONS
+*&---------------------------------------------------------------------*

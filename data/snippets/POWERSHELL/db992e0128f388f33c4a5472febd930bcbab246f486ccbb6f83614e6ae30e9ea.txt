@@ -1,0 +1,77 @@
+function Get-MachineInfo {
+#This function retrieves system information from a local or remote machine
+    [CmdletBinding()] #binds function to the cmdlet pipeline
+    param(
+        [parameter(Mandatory=$true, Position=0)] #sets parameter as mandatory and first in position in the pipeline
+        [string]$ComputerName, #name of the local or remote machine
+        [string]$UserName, #optional parameter for a specific user on the machine
+        [switch]$Detailed #optional parameter for more detailed information
+    )
+    #requires -version 3.0 #specifies minimum version of Powershell required to run this function
+    
+    Begin { #begin block runs before the first pipeline object is processed
+        Write-Verbose "Starting Get-MachineInfo function..."
+    }
+    Process { #process block runs for each input object in the pipeline
+        try {
+            $machineInfo = New-Object System.Collections.ArrayList #creates an empty arraylist to store information
+            
+            #gets basic system information
+            $basicInfo = Get-CimInstance -ComputerName $ComputerName -ClassName Win32_ComputerSystem -ErrorAction Stop
+            $hostname = $basicInfo.Name
+            $domain = $basicInfo.Domain
+            $model = $basicInfo.Model
+            $manufacturer = $basicInfo.Manufacturer
+            $systemType = $basicInfo.SystemType
+            $totalMemory = [math]::Round(($basicInfo.TotalPhysicalMemory / 1GB),2) #converts memory from bytes to GB
+            
+            #gets operating system information
+            $osInfo = Get-CimInstance -ComputerName $ComputerName -ClassName Win32_OperatingSystem -ErrorAction Stop
+            $osName = $osInfo.Caption
+            $version = $osInfo.Version
+            $buildNumber = $osInfo.BuildNumber
+            $installedDate = $osInfo.InstallDate
+            $lastBoot = $osInfo.LastBootUpTime
+            $architecture = $osInfo.OSArchitecture
+            
+            #adds basic system information to the arraylist
+            $machineInfo.Add("Hostname: $hostname")
+            $machineInfo.Add("Domain: $domain")
+            $machineInfo.Add("Model: $model")
+            $machineInfo.Add("Manufacturer: $manufacturer")
+            $machineInfo.Add("System Type: $systemType")
+            $machineInfo.Add("Total Memory: $totalMemory GB")
+            
+            if($Detailed) { #if Detailed parameter is specified, get more detailed information
+                #gets disk information
+                $diskInfo = Get-CimInstance -ComputerName $ComputerName -ClassName Win32_LogicalDisk -ErrorAction Stop
+                foreach($disk in $diskInfo) {
+                    $diskName = $disk.DeviceID
+                    $diskSize = [math]::Round(($disk.Size / 1GB),2)
+                    $freeSpace = [math]::Round(($disk.FreeSpace / 1GB),2)
+                    $usedSpace = [math]::Round(($diskSize - $freeSpace),2)
+                    $percentFree = [math]::Round((($freeSpace / $diskSize) * 100),2)
+                    $diskInfoString = "Drive: $diskName Size: $diskSize GB Free space: $freeSpace GB ($percentFree% free)"
+                    $machineInfo.Add($diskInfoString)
+                }
+                
+                #gets user information
+                if($UserName) {
+                    $userInfo = Get-CimInstance -ComputerName $ComputerName -ClassName Win32_ComputerSystem -ErrorAction Stop
+                    $userFullname = $userInfo.UserName
+                    $userSID = $userInfo.SID
+                    $machineInfo.Add("Username: $userFullname")
+                    $machineInfo.Add("User SID: $userSID")
+                }
+            }
+            #outputs the arraylist as a table
+            $machineInfo | Out-String | Out-Host
+        }
+        catch {
+            Write-Warning "Error retrieving information from $ComputerName"
+        }
+    }
+    End { #end block runs after all objects have been processed in the pipeline
+        Write-Verbose "Get-MachineInfo function completed."
+    }
+}

@@ -1,0 +1,137 @@
+% Multilayer Perceptron Neural Network Model
+% This code implements a multilayer perceptron neural network for classification tasks
+
+% Import data
+data = csvread('input_data.csv');
+
+% Separate the input features and target labels
+target_labels = data(:,end);
+input_features = data(:,1:end-1);
+
+% Normalize input features
+norm_features = input_features./max(input_features(:));
+
+% Convert target labels to one-hot encoding
+num_classes = length(unique(target_labels));
+one_hot_labels = zeros(length(target_labels), num_classes);
+
+for i = 1:length(target_labels)
+    one_hot_labels(i,target_labels(i)) = 1;
+end
+
+% Split data into training and testing sets
+percent_train = 0.8; % percentage of data for training
+train_data = norm_features(1:round(percent_train*end), :);
+train_labels = one_hot_labels(1:round(percent_train*end), :);
+test_data = norm_features(round(percent_train*end)+1:end, :);
+test_labels = one_hot_labels(round(percent_train*end)+1:end, :);
+
+% Set parameters for the neural network
+num_hidden_layers = 2; % number of hidden layers
+num_neurons = [20, 10]; % number of neurons in each hidden layer
+learning_rate = 0.01;
+num_epochs = 50; % number of training iterations
+
+% Initialize weights and biases for each layer
+layers = [size(train_data,2), num_neurons, num_classes];
+weights = cell(num_hidden_layers+1,1);
+biases = cell(num_hidden_layers+1,1);
+
+% Initialize weights for input layer
+weights{1} = rand(layers(1), layers(2));
+
+% Initialize weights and biases for hidden layers
+for i = 2:num_hidden_layers+1
+    weights{i} = rand(layers(i-1), layers(i));
+    biases{i-1} = rand(1, layers(i));
+end
+
+% Initialize weights for output layer
+weights{num_hidden_layers + 1} = rand(layers(num_hidden_layers+1), layers(num_hidden_layers+2));
+
+% Train the neural network
+for epoch = 1:num_epochs
+    % Feedforward pass
+    hidden_layer_inputs = cell(num_hidden_layers,1);
+    hidden_layer_outputs = cell(num_hidden_layers,1);
+    
+    % Calculate hidden layer outputs
+    for i = 1:num_hidden_layers
+        if i == 1
+            hidden_layer_inputs{i} = train_data * weights{i} + biases{i};
+        else
+            hidden_layer_inputs{i} = hidden_layer_outputs{i-1} * weights{i} + biases{i};
+        end
+        hidden_layer_outputs{i} = sigmoid(hidden_layer_inputs{i});
+    end
+    
+    % Calculate output layer outputs
+    output_layer_inputs = hidden_layer_outputs{end} * weights{num_hidden_layers + 1};
+    output_layer_outputs = softmax(output_layer_inputs);
+    
+    % Calculate error and gradients for output layer
+    output_error = output_layer_outputs - train_labels;
+    output_gradients = output_error .* softmax_prime(output_layer_inputs);
+    
+    % Backpropagate to hidden layers
+    hidden_gradients = cell(num_hidden_layers,1);
+    hidden_gradients{num_hidden_layers} = output_gradients * weights{num_hidden_layers + 1}' .* sigmoid_prime(hidden_layer_inputs{end});
+    
+    for i = num_hidden_layers-1:-1:1
+        hidden_gradients{i} = hidden_gradients{i+1} * weights{i+1}' .* sigmoid_prime(hidden_layer_inputs{i});
+    end
+    
+    % Update weights and biases using gradient descent
+    for i = 1:num_hidden_layers+1
+        if i == 1
+            weights{i} = weights{i} - (learning_rate * train_data' * hidden_gradients{i});
+        else
+            weights{i} = weights{i} - (learning_rate *  hidden_layer_outputs{i-1}' * hidden_gradients{i});
+            biases{i-1} = biases{i-1} - (learning_rate * sum(hidden_gradients{i}, 1));
+        end
+    end
+end
+
+% Make predictions on test data
+hidden_layer_inputs = cell(num_hidden_layers,1);
+hidden_layer_outputs = cell(num_hidden_layers,1);
+
+% Calculate hidden layer outputs
+for i = 1:num_hidden_layers
+    if i == 1
+        hidden_layer_inputs{i} = test_data * weights{i} + biases{i};
+    else
+        hidden_layer_inputs{i} = hidden_layer_outputs{i-1} * weights{i} + biases{i};
+    end
+    hidden_layer_outputs{i} = sigmoid(hidden_layer_inputs{i});
+end
+
+% Calculate output layer outputs
+output_layer_inputs = hidden_layer_outputs{end} * weights{num_hidden_layers + 1};
+output_layer_outputs = softmax(output_layer_inputs);
+
+% Convert predicted labels to class labels
+[~, predicted_labels] = max(output_layer_outputs, [], 2);
+[~, actual_labels] = max(test_labels, [], 2);
+
+% Calculate accuracy
+accuracy = sum(predicted_labels == actual_labels) / length(actual_labels)
+
+%%%%% Helper Functions %%%%%
+% Activation functions
+function y = sigmoid(x)
+    y = 1./(1+exp(-x));
+end
+
+function y = softmax(x)
+    y = exp(x)./sum(exp(x),2);
+end
+
+% Derivative of activation functions
+function y = sigmoid_prime(x)
+    y = sigmoid(x).*(1-sigmoid(x));
+end
+
+function y = softmax_prime(x)
+    y = sigmoid(x).*(1-sigmoid(x));
+end

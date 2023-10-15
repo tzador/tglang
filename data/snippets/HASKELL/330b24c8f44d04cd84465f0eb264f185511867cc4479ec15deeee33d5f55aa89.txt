@@ -1,0 +1,51 @@
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, DeriveGeneric #-}
+-- Datatypes
+data User = User
+  { userID :: Int
+  , userName :: String
+  , userEmail :: String
+  } deriving (Show, Generic)
+
+data Post = Post
+  { postID :: Int
+  , postTitle :: String
+  , postContent :: String
+  , postAuthor :: User
+  } deriving (Show, Generic)
+
+-- Typeclass for converting to and from JSON
+class JSONConvertible a b where
+  toJSON :: a -> b
+  fromJSON :: b -> a
+
+-- Implementing the typeclass for User
+instance JSONConvertible User String where
+  toJSON user = "{ \"id\": \"" ++ show (userID user) ++ "\", \"name\": \"" ++ userName user ++ "\", \"email\": \"" ++ userEmail user ++ "\" }"
+  fromJSON jsonString = User { userID = read id, userName = name, userEmail = email }
+    where
+      id = getValue "id" jsonString
+      name = getValue "name" jsonString
+      email = getValue "email" jsonString
+      getValue key value = takeWhile (/= '"') $ drop (length key + 4) $ dropWhile (/= ':') $ dropWhile (/= '"') value
+
+-- Implementing the typeclass for Post
+instance JSONConvertible Post String where
+  toJSON post = "{ " ++ postAuthorJSON ++ ", \"title\": \"" ++ postTitle post ++ "\", \"content\": \"" ++ postContent post ++ "\" }"
+    where
+      postAuthorJSON = "\"author\": " ++ toJSON (postAuthor post)
+  fromJSON jsonString = Post { postID = read id, postTitle = title, postContent = content, postAuthor = User { userID = read authorID, userName = authorName, userEmail = authorEmail } }
+    where
+      id = getValue "id" jsonString
+      title = getValue "title" jsonString
+      content = getValue "content" jsonString
+      authorJSON = getValue "author" jsonString
+      authorID = getValue "id" authorJSON
+      authorName = getValue "name" authorJSON
+      authorEmail = getValue "email" authorJSON
+
+-- Example usage
+main = do
+  let user = User { userID = 1, userName = "John", userEmail = "john@example.com" }
+  let post = Post { postID = 1, postTitle = "Hello World", postContent = "This is my first post!", postAuthor = user }
+  let json = toJSON post
+  print $ fromJSON json == post

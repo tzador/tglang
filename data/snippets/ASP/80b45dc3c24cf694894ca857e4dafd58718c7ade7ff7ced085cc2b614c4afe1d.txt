@@ -1,0 +1,57 @@
+<%@LANGUAGE="VBSCRIPT" CODEPAGE="65001"%>
+<!--#include file="functions.inc" -->
+<%
+Dim strConn, objConn, objRS
+Dim strSQL, strSearch
+Dim objFSO, objFile
+Set objFSO=Server.CreateObject("Scripting.FileSystemObject")
+Set objFile=objFSO.OpenTextFile(Server.MapPath("search.inc"), 1)
+
+strSearch=objFile.ReadAll()
+objFile.Close
+strSearch=Replace(strSearch, "$strKey", Trim(Request.QueryString("Search")))
+
+strConn="PROVIDER=Microsoft.Jet.OLEDB.4.0;DATA SOURCE=" & Server.MapPath("db.mdb") & ";"
+Set objConn=Server.CreateObject("ADODB.Connection")
+objConn.ConnectionString=strConn
+objConn.Open
+
+If Request.QueryString("Search")<>"" Then
+	strSQL="SELECT * FROM Products WHERE Name LIKE '%" & strSearch & "%' OR Description LIKE '%" & strSearch & "%'"
+	Set objRS=objConn.Execute(strSQL)
+End If
+%>
+
+<h1>Search Results</h1>
+<table>
+	<tr>
+		<th>Name</th>
+		<th>Description</th>
+		<th>Price</th>
+	</tr>
+<%
+If Not objRS.EOF Then
+	Do While Not objRS.EOF
+%>
+	<tr>
+		<td><a href="product.asp?ID=<%Response.Write(objRS("ID")) %>"><% Response.Write(objRS("Name")) %></a></td>
+		<td><% Response.Write(Replace(objRS("Description"), strSearch, "<strong>" & strSearch & "</strong>")) %></td>
+		<td><% Response.Write(FormatCurrency(objRS("Price"),2)) %></td>
+	</tr>
+<%
+		objRS.MoveNext
+	Loop
+Else
+%>
+	<tr>
+		<td colspan="3">No results found.</td>
+	</tr>
+<%
+End If
+objRS.Close
+objConn.Close
+Set objRS=Nothing
+Set objConn=Nothing
+%>
+
+</table>

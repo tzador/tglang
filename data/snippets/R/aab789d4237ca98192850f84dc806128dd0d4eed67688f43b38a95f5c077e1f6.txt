@@ -1,0 +1,30 @@
+### Import required libraries ###
+library(dplyr) #Used for data manipulation
+library(ggplot2) #Used for data visualization
+library(randomForest) #Used for building random forest models
+
+### Load and preprocess data ###
+data <- read.csv("data.csv", header = TRUE) #Load data from CSV file
+data <- subset(data, select = -c(ID, Date)) #Remove unnecessary columns
+data$Value <- as.factor(data$Value) #Convert value column to factor for classification
+
+### Perform feature selection ###
+corr_matrix <- cor(data) #Calculate correlation matrix
+highly_corr_features <- findCorrelation(corr_matrix, cutoff = 0.8) #Find highly correlated features
+data <- data[,-highly_corr_features] #Remove highly correlated features from data
+
+### Split data into training and testing set ###
+smp_size <- floor(0.8 * nrow(data)) #Set training size
+train_index <- sample(seq_len(nrow(data)), size = smp_size) #Randomly select rows for training
+train_data <- data[train_index,] #Create training set
+test_data <- data[-train_index,] #Create testing set
+
+### Build and evaluate random forest model ###
+model <- randomForest(Value ~., data = train_data) #Build model using training data
+predictions <- predict(model, newdata = test_data) #Make predictions on test data
+accuracy <- mean(predictions == test_data$Value) #Calculate accuracy of model
+print(accuracy) #Print accuracy to console
+
+### Plot importance of features ###
+feature_importance <- importance(model) #Calculate importance of features
+ggplot(feature_importance, aes(x = 0, y = MeanDecreaseGini, fill = Feature)) + geom_bar(stat = "identity") + theme_void() + labs(x = "Mean Decrease Gini", y = NULL) #Plot importance of features using ggplot2

@@ -1,0 +1,58 @@
+//This code snippet creates a custom object called 'ContactStatistics' in Salesforce 
+Schema.SObjectType contactStatisticsType = Schema.getGlobalDescribe().get('ContactStatistics'); 
+if (contactStatisticsType == null) { 
+    Schema.SObjectType parentType = Schema.getGlobalDescribe().get('CustomObject__c'); 
+    Schema.SObjectType[] parentTypes = new List<Schema.SObjectType>{parentType}; 
+    Map<Schema.SObjectType, Schema.SObjectField[]> childRelationships = parentType.getDescribe().getChildRelationships(); 
+    List<String> missingParentRelationships = new List<String>(); 
+    List<Schema.ChildRelationship> relationships = new List<Schema.ChildRelationship>(); 
+    for (Schema.SObjectType objectType : childRelationships.keySet()) { 
+        for (Schema.SObjectField field : childRelationships.get(objectType)) { 
+            Schema.ChildRelationship relationship = field.getRelationship(); 
+            if (relationship.getChildSObject() == 'CustomObject__c') { 
+                relationships.add(relationship); 
+            } 
+        } 
+    } 
+    String relationship = relationships.get(0).getRelationshipName(); 
+    Map<String, Schema.SObjectField> contactFieldMap = new Map<String, Schema.SObjectField>(); 
+    contactFieldMap.put('FirstName', Contact.Fields.FirstName); 
+    contactFieldMap.put('LastName', Contact.Fields.LastName); 
+    contactFieldMap.put('Email', Contact.Fields.Email); 
+    contactFieldMap.put('CustomField1__c', CustomObject__c.Fields.CustomField1__c); 
+    contactFieldMap.put('CustomField2__c', CustomObject__c.Fields.CustomField2__c); 
+    Map<String, Schema.SObjectField> fieldMap = new Map<String, Schema.SObjectField>(new Map<String, Schema.SObjectField>(contactFieldMap));
+    //create custom object
+    Schema.CustomObject customObject = new Schema.CustomObject();
+    customObject.setFullName('ContactStatistics__c');
+    customObject.setLabel('Contact Statistics');
+    customObject.setPluralLabel('Contact Statistics');
+    customObject.setDescription('Stores statistics related to contacts');
+    customObject.setDeploymentStatus(DeploymentStatus.Deployed);
+    customObject.setSharingModel(SharingModel.ReadWrite);
+    customObject.setExternalSharingModel(ExternalSharingModel.ReadWrite);
+    customObject.setCustomSettingsType(CustomSettingsType.Hierarchy);
+    customObject.setEnableReports(true);
+    //create custom fields for custom object
+    List<Schema.SObjectField> customFields = new List<Schema.SObjectField>();
+    customFields.add(new Schema.FieldDefinition('CustomField1__c', Schema.SObjectType.CustomObject__c, 'CustomField1__c'));
+    customFields.add(new Schema.FieldDefinition('CustomField2__c', Schema.SObjectType.CustomObject__c, 'CustomField2__c'));
+    //add required attributes for fields
+    for (Schema.SObjectField field : customFields) {
+        field.setLabel(field.getDescribe().getName());
+        field.setLength(255);
+        field.setDescription('This is a custom field for Contact Statistics');
+        field.setType(FieldType.Text);
+    }
+    //add custom fields and relationship field to custom object
+    customObject.setFields(customFields);
+    customObject.setChildRelationships(relationships);
+    customObject.setType('CustomObject__c'); 
+    Schema.SaveResult saveResult = Schema.sObjectType.ContactStatistics__c.newSObject().insert();
+    if (saveResult.isSuccess()) {
+        System.debug('Custom object created successfully');
+    } else {
+        System.debug('An error occurred creating the custom object: ' + saveResult.getErrors()[0].getMessage());
+    }
+}
+//output:

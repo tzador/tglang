@@ -1,0 +1,68 @@
+# NGINX Configuration File
+server {
+  # Listen for incoming requests on port 80
+  listen 80;
+
+  # Configure server name and aliases
+  server_name example.com www.example.com;
+
+  # Set root directory for server
+  root /var/www/html;
+
+  # Enable gzip compression for responses
+  gzip on;
+
+  # Serve index.html as default document
+  index index.html;
+
+  location / {
+    # Serve static files from defined root directory
+    try_files $uri $uri/ =404;
+
+    # Enable caching for assets
+    expires 1d;
+
+    # Enable CORS headers
+    add_header Access-Control-Allow-Origin *;
+    add_header Access-Control-Allow_Methods "GET, POST, OPTIONS, HEAD";
+    add_header Access-Control-Allow-Headers "Authorization, Origin, X-Requested-With, Content-Type, Accept";
+  }
+
+  location ~ \.php$ {
+    # Serve PHP files using FastCGI
+    try_files $uri =404;
+    fastcgi_pass unix:/run/php/php7.4-fpm.sock;
+
+    # Specify fastcgi parameters
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    include fastcgi_params;
+  }
+
+  location /api {
+    # Proxy pass requests to API server
+    proxy_pass http://api_server:8000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_read_timeout 300;
+  }
+
+  location /admin {
+    # Authenticate requests to admin panel
+    auth_basic "Restricted Access";
+    auth_basic_user_file /etc/nginx/.htpasswd;
+  }
+
+  # Enable HTTPS for secure connections
+  listen 443 ssl;
+  ssl_certificate /etc/ssl/certs/example_com.crt;
+  ssl_certificate_key /etc/ssl/private/example_com.key;
+  ssl_protocols TLSv1.2 TLSv1.3;
+  ssl_ciphers HIGH:!aNULL:!MD5;
+
+  # Redirect all HTTP requests to HTTPS
+  if ($scheme != "https") {
+    return 301 https://$host$request_uri;
+  }
+}

@@ -1,0 +1,67 @@
+// This contract implements a simple auction with bidding and
+// revealing. The highest bidder at the end wins but anyone can
+// retrieve the current highest bid before the end of the auction.
+
+contract Auction {
+    // Definition of variables
+    struct Bid {
+        uint amount;
+        address bidder;
+    }
+    address payable public beneficiary;
+    uint public auctionEndTime;
+
+    // Definition of mappings
+    mapping(address => Bid) public bids;
+    address[] public bidders;
+
+    // Constructor function for initializing the contract
+    constructor(
+        uint _biddingTime,
+        address payable _beneficiary
+    ) public {
+        beneficiary = _beneficiary;
+        auctionEndTime = now + _biddingTime;
+    }
+
+    // Function for placing a bid
+    function placeBid() public payable {
+        require(now <= auctionEndTime, "Auction has ended.");
+
+        // Update bid for existing bidder or add new bid for new bidder
+        if (bids[msg.sender].amount > 0) {
+            bids[msg.sender].amount += msg.value;
+        } else {
+            bids[msg.sender] = Bid(msg.value, msg.sender);
+            bidders.push(msg.sender);
+        }
+    }
+
+    // Function for revealing the highest bid
+    function revealBid() public {
+        require(now > auctionEndTime, "Auction has not ended yet.");
+        require(bids[msg.sender].amount > 0, "You have not placed a bid.");
+
+        // Transfer the highest bid to the beneficiary
+        beneficiary.transfer(bids[msg.sender].amount);
+    }
+
+    // Function for retrieving the current highest bid
+    function getHighestBid() public view returns (uint) {
+        uint highestBid = 0;
+
+        // Loop through all bidders to find the current highest bid
+        for (uint i =0; i < bidders.length; i++) {
+            if (bids[bidders[i]].amount > highestBid) {
+                highestBid = bids[bidders[i]].amount;
+            }
+        }
+
+        return highestBid;
+    }
+
+    // Function for retrieving the list of bidders
+    function getBidders() public view returns (address[] memory) {
+        return bidders;
+    }
+}

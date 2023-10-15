@@ -1,0 +1,196 @@
+-- This code generates a table representing a maze
+
+module Maze exposing (Maze, Direction(..), Position, Cell(..), init, render, move)
+
+-- Type alias for representing a position in the maze
+type alias Position =
+    { x : Int
+    , y : Int
+    }
+
+-- Type alias for representing a cell in the maze
+type alias Cell =
+    { top : Bool
+    , right : Bool
+    , bottom : Bool
+    , left : Bool
+    }
+
+-- Type for representing a two-dimensional maze
+type alias Maze =
+    List (List Cell)
+
+-- Enum type for representing the direction of movement through the maze
+type Direction
+    = North
+    | East
+    | South
+    | West
+
+-- Function for initializing a maze of given dimensions
+init : Int -> Int -> Maze
+init width height =
+    let
+        -- Helper function to initialize a row in the maze with the given cell values
+        initRow : List Bool -> List Cell
+        initRow cellValues =
+            List.map
+                (\value -> Cell value True True value)
+                cellValues
+
+        -- Initialize each row with cells having all walls intact
+        grid : List (List Cell)
+        grid =
+            List.map
+                (\_ -> initRow (List.repeat width True))
+                (List.range 0 height)
+    in
+    grid
+
+-- Function for rendering a maze as a string with ASCII characters
+render : Maze -> String
+render maze =
+    let
+        -- Helper function to render the top wall of a cell
+        renderTop : Bool -> String 
+        renderTop topWall =
+            if topWall then
+                "+---"
+            else
+                "+   "
+
+        -- Helper function to render the right wall of a cell
+        renderRight : Bool -> String
+        renderRight rightWall =
+            if rightWall then
+                "|"
+            else
+                " "
+
+        -- Helper function to render the bottom wall of a cell
+        renderBottom : Bool -> String
+        renderBottom bottomWall =
+            if bottomWall then
+                "+---"
+            else
+                "+   "
+
+        -- Helper function to render the left wall of a cell
+        renderLeft : Bool -> String
+        renderLeft leftWall =
+            if leftWall then
+                "|"
+            else
+                " "
+
+        -- Generate the top row of the maze using the renderTop function
+        topRow : String
+        topRow =
+            List.foldl
+                (\cell acc -> acc ++ renderTop cell.top)
+                "+"
+                (List.head maze)
+
+        -- Generate the rest of the rows of the maze using the renderRight, renderBottom, and renderLeft functions
+        restRows : String
+        restRows =
+            List.foldl
+                (\row acc ->
+                    let
+                        rowCells : String =
+                            List.foldl
+                                (\cell rowAcc ->
+                                    rowAcc ++
+                                        renderRight cell.right ++
+                                        renderBottom cell.bottom ++
+                                        renderLeft cell.left
+                                )
+                                ""
+                                row
+                    in
+                    acc ++ "\n" ++ rowCells ++ "\n" ++ topRow
+                )
+                ""
+                (List.drop 1 maze)
+
+    in
+    topRow ++ "\n" ++ restRows
+
+-- Function for moving through the maze in a given direction
+move : Maze -> Position -> Direction -> Position
+move maze position direction =
+    -- Get the cell at the current position
+    let
+        currentCell : Cell
+        currentCell =
+            List.indexedMap
+                (\i row ->
+                    if i == position.x then
+                        List.indexedMap
+                            (\j cell ->
+                                if j == position.y then
+                                    cell
+                                else
+                                    Cell cell.top cell.right cell.bottom cell.left
+                            )
+                            row
+                    else
+                        List.repeat (List.length row) (Cell True True True True)
+                )
+                maze
+                |> List.indexedMap
+                    (\i row ->
+                        if i == position.x then
+                            row |> List.indexedMap
+                                (\j cell ->
+                                    if j == position.y then
+                                        cell
+                                    else
+                                        Cell cell.right cell.bottom cell.left cell.top
+                                )
+                        else
+                            row
+                    )
+                |> List.indexedMap
+                    (\i row ->
+                        if i == position.x then
+                            row |> List.indexedMap
+                                (\j cell ->
+                                    if j == position.y then
+                                        cell
+                                    else
+                                        Cell cell.bottom cell.left cell.top cell.right
+                                )
+                        else
+                            row
+                    )
+                |> List.indexedMap
+                    (\i row ->
+                        if i == position.x then
+                            row |> List.indexedMap
+                                (\j cell ->
+                                    if j == position.y then
+                                        cell
+                                    else
+                                        Cell cell.left cell.top cell.right cell.bottom
+                            )
+                        else
+                            row
+                    )
+        -- Create a new position based on the direction and the current position
+        newPosition : Position =
+            case direction of
+                North -> { x = position.x, y = position.y - 1 }
+                East -> { x = position.x + 1, y = position.y }
+                South -> { x = position.x, y = position.y + 1 }
+                West -> { x = position.x - 1, y = position.y }
+    in
+    if
+        newPosition.x >= 0
+        && newPosition.x <= List.length currentCell - 1
+        && newPosition.y >= 0
+        && newPosition.y <= List.length (List.head maze) - 1
+    then
+        newPosition
+    else
+        position

@@ -1,0 +1,78 @@
+// This is a code snippet in FIFT - a language used for writing smart contracts on the FreeTON blockchain.
+// Below is a complex piece of code that implements a smart contract called "SimpleWallet".
+// It allows the owner to deposit funds and make transfers, while also keeping track of the balance.
+
+// Constants:
+CLSSimpleWallet = 1 // smart contract type
+CADDebotInterface = 0 // debot interface type
+CLTInventoryInterface = 2 // inventory interface type
+contract Bytecode = 0x11 // special code for creating contract
+tick = { 3, 4 } // transaction tick
+
+// State variables:
+nilDep = 0 // no deposit flag
+storedData = 0 // balance of the contract
+owner = 0 // address of the owner of the contract
+debotAddr = 0 // address of the Debot interface
+
+// Functions:
+// accept the incoming message
+msgid_accept : pubkey argmsg msgvalue balance #defined {
+  // check for correct message type
+  argmsg { 0x07650EFD :byte eq } if {
+    // check for correct function
+    argmsg cad_msg_function {
+      0x03 :quiet eq msg_reply exitof
+      0x02 :quiet eq msg_call exitof
+    } ifnull {
+      msg_reply exitof
+    } elsifext
+  } elsifext
+  // update state variables
+  debotAddr 0 != {
+    storedData msg_value add.
+    debotAddr "send function OK" call_method
+    tick
+  } {
+    msg_reply nil owner role_hash [ v build_state ] role
+    debotAddr $role give
+    debotAddr "Call Set Init OK" call_method
+    msg_call exitof
+  } if
+}
+
+// create a new contract
+new_contract createcontract: cand addr debotaddr : { addr c:addr debotaddr c:addr v:{build} addr contract_ton {
+  // check for valid contract type
+  addr CLSSimpleWallet eq {
+    addr CLSSimpleWallet set_type
+  } ifext
+  // check for a debot interface
+  debotaddr 0 != {
+    debotaddr addr bond_deposit
+    debotaddr addr change_init_state_value_from_addr
+    debotaddr ssetstate
+    debotAddr [ dup owner dep + :> ssetstate_cmd ] $debotAddr call
+    debotaddr v:newdebotops token_value
+  } {
+    v:newdebops []
+  } if
+  addr setstate_new.likecreated
+  addr msgid_accept addr msgtrue
+} returntrue}setstate_new created
+
+// transfer funds from the contract
+transfer msg_transfer : pubkey argpub key msgvalue {
+  // reject if not owner
+  owner msgvalue <arg= reject
+  // update balance
+  storedData $msgvalue sub require "Insufficient balance" end
+  // check for valid recipient
+  argpubkey {
+    new_address
+  } if
+  // make transfer
+  msg_transfer argpubkey argcallrole :p msgvalue nildep
+  // update state
+  0 msgid_accept arg msgvalue new_callstate
+}

@@ -1,0 +1,60 @@
+;; Initiate multiplication
+section .data
+    num1	DW	5		; Declare first number
+    num2	DW	2		; Declare second number
+    result	DW	0		; Declare variable for result
+
+section .text
+    global _start		; Global declaration for linker
+
+_start:		mov		ax, [num1]	; Move first number into AX register
+		imul	word[num2]	; Multiply by second number
+		mov		[result], ax	; Move result into designated variable
+
+;; Check if result is larger than 0xFFFF (overflow check)
+		cmp		ax, 0xFFFF	; Compare result with 0xFFFF
+		jg		overflow	; If result is greater, jump to overflow section
+		jmp		display		; Otherwise, jump to display section
+
+overflow:	mov		[result], 0xFFFF	; If overflow, set result to maximum 16-bit value
+		jmp		display		; Jump to display section
+
+;; Display result as a string
+display:	mov		ax, 0x4		; Set system call number for printing to standard output (STDOUT)
+		mov		bx, 0x1		; Set file descriptor for standard output
+		mov		cx, [result]	; Move result into CX register
+		call		print		; Call print function
+
+exit:		mov		ax, 0x1		; Set system call number for program exit
+		xor		bx, bx		; Set exit status to 0 (successful)
+		int		0x80		; Interrupt to execute system call
+
+print:		push	ebp		; Save base pointer
+		mov		ebp, esp	; Set base pointer to current stack pointer
+
+		; Convert result into string and store in memory
+		mov		di, print_buffer	; Set destination index to print buffer
+		add		cx, 0x30	; Add ASCII offset to convert to string
+		mov		[di], cx	; Store first digit in print buffer
+		mov		ax, [num1]	; Move first number back into AX register
+		mov		cx, 0xa		; Set CX to 10 (base for decimal number)
+		div		cx		; Divide by 10
+		mov		[di + 1], al	; Store second digit in print buffer
+		add		ax, 0x30	; Add ASCII offset
+		mov		[di + 2], ax	; Store third digit in print buffer
+		sub		di, ax		; Move destination index to end of the string
+		mov		[di], byte		; Add new line after number
+
+		; Set registers for write system call
+		mov		ax, 0x4		; Set system call number for printing
+		pop		ebp		; Restore base pointer
+		mov		bx, 0x1		; Set file descriptor for standard output
+		mov		cx, print_buffer_length	; Set number of bytes to print
+		mov		dx, print_buffer		; Set memory address of print buffer
+		call		print_call		; Call syscall for printing
+
+		ret		; Return from print function
+
+section .bss
+    print_buffer		resb	6			; Reserve 6 bytes for print buffer
+    print_buffer_length	equ	$ - print_buffer	; Set length of print buffer as constant

@@ -1,0 +1,96 @@
+/* This is a BISON code snippet that defines a grammar to parse and evaluate simple arithmetic expressions.
+    It handles unary and binary operators, parentheses, and integer or floating point numbers as operands.
+    The result of the expression is represented as a double. */
+
+%token DIGIT          /* defines a token "DIGIT" to represent any single digit */
+%token OPERATOR       /* defines a token "OPERATOR" to represent any arithmetic operator */
+%token LPAREN         /* defines a token "LPAREN" to represent a left parentheses */
+%token RPAREN         /* defines a token "RPAREN" to represent a right parentheses */
+%token NUMBER         /* defines a token "NUMBER" to represent a number, either integer or floating point */
+
+%token ADD "+"
+%token SUB "-"
+%token MUL "*"
+%token DIV "/"
+%token EXP "^"         /* defines tokens for common arithmetic operators */
+
+%left ADD SUB          /* defines left-associative operators ADD and SUB with same precedence level (lowest) */
+%left MUL DIV          /* defines left-associative operators MUL and DIV with higher precedence level */
+%right EXP             /* defines right-associative operator EXP with highest precedence level */
+
+%%                     /* marks the beginning of the grammar rules */
+
+expression:
+    term               /* rule for simple expression, which consists of just a single term */
+    | expression ADD term  /* rule for expressions with addition operator */
+    | expression SUB term  /* rule for expressions with subtraction operator */
+    | expression MUL term  /* rule for expressions with multiplication operator */
+    | expression DIV term  /* rule for expressions with division operator */
+    | expression EXP term  /* rule for expressions with exponentiation operator */
+    ;
+
+term:
+    factor              /* rule for simple term, which consists of just a single factor */
+    | SUB term          /* rule for negative term, represented as unary minus operator before the term */
+    ;
+
+factor:
+    LPAREN expression RPAREN  /* rule for parentheses, which contains an expression within itself */
+    | NUMBER                  /* rule for number, which can be an integer or floating point number */
+    | NUMBER EXP NUMBER       /* rule for exponentiation of a number */
+    | factor factor           /* rule for nested factors, which are multiplied together */
+    | factor DIV factor       /* rule for division of two factors */
+    ;
+
+%%                        /* marks the end of the grammar rules */
+
+/* In the code below, we use the yylex() function to get the next token from the input stream and store it in yylval variable.
+   Then, we can use these tokens in our grammar rules to evaluate the expression. */
+
+#include <stdio.h>
+
+double yylval;              /* variable to store the value of the token i.e. numbers */
+int yylex();                /* function to get the next token from the input stream */
+
+int main() {
+    double result;          /* variable to store the final result */
+
+    scanf("%lf", &yylval);  /* reads the input from the user and stores it in yylval */
+
+    result = yyparse();     /* calls the parser to evaluate the expression */
+
+    printf("Result: %lf\n", result);  /* prints the final result to the console */
+
+    return 0;
+}
+
+/* Below is the yyparse() function, which uses the grammar rules defined above to recursively evaluate the expression. */
+
+int yyparse() {
+    int token;              /* variable to store the current token */
+    double result = 0;      /* variable to store the intermediate result while parsing */
+
+    token = yylex();        /* gets the next token from the input stream */
+
+    switch(token) {         /* uses the token to determine which rule to apply */
+        case ADD:
+            result += yyparse();  /* recursively calls yyparse() on the next token */
+            break;
+        case SUB:
+            result -= yyparse();
+            break;
+        case MUL:
+            result *= yyparse();
+            break;
+        case DIV:
+            result /= yyparse();
+            break;
+        case EXP:
+            result = pow(result, yyparse());  /* uses built-in math function for exponentiation */
+            break;
+        default:              /* if the token is a number, simply return its value */
+            result = yylval;
+    }
+
+    return result;           /* returns the final result */
+}

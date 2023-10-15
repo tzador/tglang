@@ -1,0 +1,203 @@
+! This program calculates the optimal path for a traveling salesman problem
+! using a genetic algorithm
+
+program TSP_genetic
+
+implicit none
+
+! parameter declarations
+integer, parameter :: num_cities = 20 ! number of cities to visit
+integer, parameter :: population_size = 100 ! size of the population for the genetic algorithm
+integer, parameter :: num_generations = 1000 ! number of generations for the genetic algorithm
+integer, parameter :: crossover_rate = 0.8 ! the rate at which crossover occurs during reproduction
+integer, parameter :: mutation_rate = 0.01 ! the rate at which mutations occur during reproduction
+
+! variable declarations
+integer :: i, j, city, parent1, parent2, num_offspring, elite
+real :: distance, min_distance ! variables for storing distances between cities
+integer :: cities(num_cities) ! array to store the order of cities in the tour
+real :: distances(num_cities, num_cities) ! array to store the distance between each pair of cities
+integer :: population(population_size, num_cities) ! 2D array to store the population of tours
+integer :: offspring(population_size, num_cities) ! 2D array to store the offspring of tours
+
+! initialize the population randomly
+do i = 1, population_size
+	cities = (/ (j, j = 1, num_cities) /) ! create a random order of cities
+	population(i,:) = cities ! store the tour as a row in the population array
+end do
+
+! calculate the distance between each pair of cities
+do i = 1, num_cities-1
+	do j = i+1, num_cities
+		distances(i,j) = calc_distance(i,j) ! call a function to calculate the distance between two cities
+		distances(j,i) = distances(i,j) ! distances are symmetric so assign the same value
+	end do
+end do
+
+! main loop for the genetic algorithm
+do i = 1, num_generations
+
+	! select two parents for reproduction using tournament selection
+	parent1 = tournament_selection()
+	parent2 = tournament_selection()
+
+	! initialize offspring array to 0's
+	offspring = 0
+
+	! perform crossover between two parents to create offspring
+	do j = 1, crossover_rate*population_size, 2
+		call crossover(parent1, parent2, offspring(j,:), offspring(j+1,:))
+	end do
+
+	! perform mutation on offspring
+	do j = 1, mutation_rate*population_size
+		call mutation(offspring(j,:))
+	end do
+
+	! replace worst individuals in the population with offspring
+	do j = 1, num_offspring
+		call replace_worst(offspring(j,:))
+	end do
+
+	! update elitism
+	elite = floor(0.1*population_size)
+	call update_elitism(elite)
+
+end do
+
+! output the optimal tour
+write(*,*) "Optimal tour:"
+write(*,*) population(1,:)
+
+contains
+! function to calculate the distance between two cities
+function calc_distance(city1, city2)
+	calc_distance = sqrt((city1 - city2)**2) ! calculate the Euclidean distance between two cities
+end function calc_distance
+
+! the tournament selection method chooses the best individual from a random group of individuals
+function tournament_selection()
+	integer :: i, rand_individual
+	real :: rand
+	integer :: tournament_size = 5 ! size of tournament group
+	integer :: best_individual
+	real :: best_distance = 1000000.0 ! initialize with a large value
+
+	! create a random group of individuals for the tournament
+	do i = 1, tournament_size
+		rand = int(rand()*population_size) + 1 ! generate a random integer between 1 and population_size
+		if (distances(cities(1), cities(rand)) <= best_distance) then
+			best_individual = rand
+			best_distance = distances(cities(1), cities(rand))
+		end if
+	end do
+
+	tournament_selection = best_individual ! return the best individual from the tournament
+end function tournament_selection
+
+! performs crossover between two parents to generate offspring
+subroutine crossover(parent1, parent2, offspring1, offspring2)
+	integer, intent(in) :: parent1, parent2 ! the two parents to be crossed over
+	integer, intent(out) :: offspring1(num_cities), offspring2(num_cities) ! the two offspring after crossover
+	integer :: i, j, temp ! variables for storing cities and indices during crossover
+	integer :: crossover_point ! the point at which crossover occurs
+
+	! generate a random crossover point
+	crossover_point = int(rand()*num_cities) + 1
+
+	! copy first half of parent1's cities to offspring1
+	do i = 1, crossover_point
+		offspring1(i) = population(parent1,i)
+	end do
+
+	! fill offspring2 with all the remaining cities from parent2
+	do i = crossover_point+1, num_cities
+		offspring2(i) = population(parent2,i)
+	end do
+
+	! iterate through offspring2 and check for duplicated cities
+	do i = 1, num_cities
+		! check if the current city in offspring2 has already been included
+		do j = 1, num_cities
+			if (offspring1(j) == offspring2(i)) exit ! exit loop if the city is already in offspring1
+		end do
+		! if the city is not already in offspring1, add it to the next available position
+		offspring1(i+crossover_point) = offspring2(i)
+	end do
+
+	! swap cities if the offspring is not valid (i.e. contains duplicate cities)
+	do i = 1, num_cities
+		! if the city is not in the correct position (i.e. not following the order of cities), swap it with another city
+		if (population(offspring1(i), :) /= distances(i,:)) then
+			do j = 1, num_cities
+				! if the current city in offspring2 is not in the correct position, swap it with the incorrect city in offspring1
+				if (offspring2(i) == offspring1(j)) then
+					temp = offspring1(i) ! store the incorrect city in offspring1
+					offspring1(i) = offspring2(i) ! swap it with the corresponding city in offspring2
+					offspring2(i) = temp ! assign the incorrect city in offspring1 to the correct position in offspring2
+				end if
+			end do
+		end if
+	end do
+end subroutine crossover
+
+! performs mutation on an individual by swapping two cities
+subroutine mutation(individual)
+	integer, intent(inout) :: individual(num_cities) ! the individual to be mutated
+	integer :: city1, city2, temp ! variables for storing cities and indices for swapping
+
+	! generate two random cities to be swapped
+	city1 = int(rand()*num_cities) + 1
+	city2 = int(rand()*num_cities) + 1
+
+	! swap the two cities
+	temp = individual(city1)
+	individual(city1) = individual(city2)
+	individual(city2) = temp
+end subroutine mutation
+
+! replaces worst individuals in the population with offspring
+subroutine replace_worst(offspring)
+	integer, intent(in) :: offspring(num_cities) ! the offspring to be added to the population
+	integer :: i, j ! variables for iterating through the population and offspring
+	integer :: worst_individual ! index of the worst individual in the population
+	real :: worst_distance = 0.0 ! initialize with a small value
+
+	! find the worst individual in the population
+	do i = 1, population_size
+		! calculate the distance of the current individual in the population
+		distance = 0.0
+		do j = 1, num_cities-1
+			distance = distance + distances(population(i,j), population(i,j+1))
+		end do
+
+		if (distance > worst_distance) then
+			worst_individual = i
+			worst_distance = distance
+		end if
+	end do
+
+	! replace the worst individual in the population with the offspring
+	population(worst_individual,:) = offspring
+end subroutine replace_worst
+
+! updates elitism by keeping the best elite individuals in the population
+subroutine update_elitism(elite)
+	integer, intent(in) :: elite ! number of elite individuals to be kept in the population
+	integer :: i, j, temp ! variables for iterating through the population and swapping individuals
+
+	! sort the population in ascending order based on the total distance of each individual's tour
+	do i = 1, population_size
+		do j = 1, population_size-1
+			if (distances(population(j,:), cities(1)) > distances(population(j+1,:), cities(1))) then
+				temp = population(j,:)
+				population(j,:) = population(j+1,:)
+				population(j+1,:) = temp
+			end if
+		end do
+	end do
+
+	! replace the last elite individuals in the population with the best elite individuals
+	population(population_size-elite:,:) = population(1:elite,:)
+end subroutine update_elitism
+end program TSP_genetic

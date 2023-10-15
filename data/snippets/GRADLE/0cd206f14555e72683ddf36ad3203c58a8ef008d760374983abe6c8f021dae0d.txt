@@ -1,0 +1,72 @@
+plugins {
+    id 'java-library' // applies java-library plugin
+    id 'application' // applies application plugin
+    id 'com.github.ben-manes.versions' version '0.38.0' // applies versions plugin
+    id 'com.github.spotbugs' version '1.6.6' // applies spotbugs plugin
+    id 'com.github.johnrengelman.shadow' version '5.2.0' // applies shadow plugin
+    id 'com.github.ben-manes.caffeine' version '2.8.5' // applies caffeine plugin
+    id 'io.freefair.lombok' version '6.2' // applies lombok plugin
+}
+
+group 'com.example' // sets project group name
+version '1.0-SNAPSHOT' // sets project version
+
+sourceCompatibility = JavaVersion.VERSION_11 // sets source compatibility
+targetCompatibility = JavaVersion.VERSION_11 // sets target compatibility
+
+repositories {
+    mavenCentral() // adds Maven Central repository
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web' // adds Spring Boot web starter dependency
+    implementation 'org.projectlombok:lombok' // adds Lombok dependency
+    compileOnly 'org.projectlombok:lombok' // adds Lombok dependency for compile-only use
+    compileOnly 'javax.annotation:javax.annotation-api' // adds javax.annotation-api dependency for compile-only use
+    testImplementation 'org.springframework.boot:spring-boot-starter-test' // adds Spring Boot test starter dependency
+    testImplementation 'org.assertj:assertj-core' // adds AssertJ core dependency for testing
+    testImplementation 'org.mockito:mockito-core' // adds Mockito core dependency for testing
+    testImplementation 'com.github.tomakehurst:wiremock-jre8' // adds WireMock dependency for testing
+}
+
+test {
+    useJUnitPlatform() // configures test task to use JUnit Platform
+    finalizedBy jacocoTestReport // adds jacocoTestReport task as a finalizer
+}
+
+jacocoTestReport {
+    reports {
+        xml.enabled true // sets jacoco xml report to be generated
+        csv.enabled false // disables csv report
+        html.destination file("${buildDir}/reports/jacoco") // configures html report destination
+    }
+}
+
+spotbugs {
+    ignoreFailures = true // ignores failures during spotbugs task
+}
+
+task writeLibraries << { // creates custom task to write library information to a file
+    project.configurations.compileOnly.files.each { file ->
+        def name = file.name.substring(0, file.name.lastIndexOf("."))
+        def version = file.name.substring(file.name.lastIndexOf("-") + 1, file.name.lastIndexOf("."))
+        def output = "${name}=${version}"
+        new File("${buildDir}/libraries.txt") << output // writes library information to libraries.txt file in build directory
+    }
+}
+
+shadowJar {
+    archiveBaseName.set("my-app") // sets base name for shadow jar file
+    archiveVersion.set("") // sets empty version for shadow jar file
+    classifier.set("all") // sets classifier for shadow jar file
+    manifest {
+        attributes 'Main-Class': 'com.example.main.Main' // sets main class for shadow jar
+    }
+}
+
+gradleVersionCatalog { // configures versions catalog plugin
+    catalogFile = file("versions.lock") // sets versions.lock file as a catalog
+    ignoreGradleUpdates = true // ignores gradle updates in versions.lock file
+    outputFormat = 'kotlin' // sets output format to kotlin
+    wrapperPattern = "${project.gradle.wrapper.gradleVersion}-{0}.zip" // sets wrapper pattern
+}

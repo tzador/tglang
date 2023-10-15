@@ -1,0 +1,34 @@
+use std::alloc::{AllocError, Layout};
+
+// A custom allocator struct that implements the `Alloc` trait
+struct CustomAllocator;
+
+// Implementing the `Alloc` trait for the `CustomAllocator` struct
+unsafe impl alloc::Allocator for CustomAllocator {
+    fn allocate(
+        &self,
+        layout: Layout
+    ) -> Result<NonNull<[u8]>, AllocError> {
+        // Allocate memory using a system-specific allocator
+        let raw_ptr = System::allocate(layout.clone())?;
+
+        // Convert the raw pointer into a non-null pointer
+        let non_null_ptr = NonNull::new(raw_ptr as *mut u8)
+            .ok_or_else(|| AllocError)?;
+
+        // Return a `NonNull<[u8]>` type, which represents a
+        // non-null slice of bytes allocated in memory
+        let slice = unsafe { slice::from_raw_parts_mut(non_null_ptr.as_ptr(), layout.size()) };
+        let non_null_slice = unsafe { NonNull::new_unchecked(slice) };
+
+        Ok(non_null_slice)
+    }
+
+    fn deallocate(&self, ptr: NonNull<u8>, layout: Layout) {
+      // Convert the `NonNull` pointer back to a raw pointer
+      let raw_ptr = ptr.as_ptr();
+
+      // Deallocate the memory using a system-specific allocator
+      System::deallocate(raw_ptr, layout);
+    }
+}

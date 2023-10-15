@@ -1,0 +1,57 @@
+/**
+* This program generates a Mandelbrot set fractal image using multithreading and SIMD operations.
+* The output is saved as a PNG file.
+* Author: John Smith
+*/
+
+import core.simd;
+import core.sys.posix.math;
+import std.parallelism;
+
+ubyte[4] getColor(double a, double b) {
+    int iterations = 0;
+    Vector2i z = Vector2i(0, 0);
+    Vector2i c = Vector2i(a, b);
+
+    while (iterations < 255 && z.norm < 2) {
+        z = z * z + c;
+        iterations += 1;
+    }
+
+    return [iterations, iterations, iterations, 255];
+}
+
+void main() {
+    auto width = 500;
+    auto height = 500;
+    auto pixels = new ubyte[4][width][height];
+    auto colors = new ubyte[4];
+
+    foreach (i; 0 .. width) {
+        foreach (j; 0 .. height) {
+            double a = map(i, 0, width, -2, 2);
+            double b = map(j, 0, height, -2, 2);
+            colors = getColor(a, b);
+            pixels[i][j] = colors;
+        }
+    }
+
+    spawnWorkers(); // spawn threads for parallel processing
+
+    /* For each pixel, compute its color and store it in the pixels array */
+    foreach (i; 0 .. width) {
+           foreach (j; 0 .. height) {
+                auto pixelColor = pixels[i][j];
+                auto red = cast(ubyte) pixelColor[0];
+                auto green = cast(ubyte) pixelColor[1];
+                auto blue = cast(ubyte) pixelColor[2];
+                auto alpha = cast(ubyte) pixelColor[3];
+                auto rgba = rgbaColor(red, green, blue, alpha);
+                pixels[i][j] = rgba;
+           }
+    }
+
+    PNGImage image = new PNGImage(width, height, pixels);
+
+    image.save("mandelbrot.png");
+}

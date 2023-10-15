@@ -1,0 +1,40 @@
+/* This code snippet generates a report of sales data for a specific product in a given time period */
+
+/* Set the name and location of the data set */
+LIBNAME sales_data '/home/user/sales_data';
+
+/* Define the variables to be used in the report */
+%let product = 'Widget';
+%let start_date = '01JAN2020'd;
+%let end_date = '31DEC2020'd;
+
+/* Create a filtered data set based on the specified time period and product */
+DATA sales_report;
+SET sales_data.sales;
+WHERE product = &product AND order_date BETWEEN &start_date AND &end_date;
+
+/* Sort the data set by date */
+PROC SORT data=sales_report;
+BY order_date;
+
+/* Create a new variable to calculate total sales for each day */
+RETAIN daily_sales 0;
+IF first.date THEN daily_sales = 0;
+daily_sales + total_sales;
+
+/* Create a new variable to calculate total sales for the specified product */
+RETAIN product_sales 0;
+IF product = &product THEN product_sales + total_sales;
+
+/* Create a new variable to calculate the percentage of total sales for the specified product */
+product_percent = product_sales / sum(total_sales);
+
+/* Generate the report with the relevant information */
+PROC PRINT data=sales_report;
+TITLE "Sales Report for Product &product between &start_date and &end_date";
+VAR order_date daily_sales product_sales product_percent;
+
+/* Save the report as a PDF in the specified location */
+ODS LISTING CLOSE;
+ODS PDF file='/home/user/sales_report.pdf';
+RUN;

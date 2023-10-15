@@ -1,0 +1,58 @@
+/* This is a complex code snippet that demonstrates a stored procedure in OPENEDGE_ABL */
+
+/* Define input parameters */
+DEFINE INPUT PARAMETER p_customerId AS INTEGER NO-UNDO.
+DEFINE INPUT PARAMETER p_orderDate AS DATE NO-UNDO.
+DEFINE INPUT PARAMETER p_productCode AS CHARACTER FORMAT "x(5)" NO-UNDO.
+
+/* Define local variables */
+DEFINE VARIABLE v_customerName AS CHARACTER FORMAT "x(50)" NO-UNDO.
+DEFINE VARIABLE v_orderQty AS INTEGER NO-UNDO.
+DEFINE VARIABLE v_totalPrice AS DECIMAL FORMAT ">(15)($$,$$9.99)" NO-UNDO.
+DEFINE VARIABLE v_orderId AS INTEGER NO-UNDO.
+DEFINE VARIABLE v_discount AS DECIMAL FORMAT ">(5)$999.99" NO-UNDO.
+
+/* Define temporary table to store results */
+DEFINE TEMP-TABLE tt_orderDetails
+    FIELD customerName AS CHARACTER FORMAT "x(50)"
+    FIELD orderQty AS INTEGER
+    FIELD totalPrice AS DECIMAL FORMAT ">(15)($$,$$9.99)"
+    FIELD discount AS DECIMAL FORMAT ">(5)$999.99"
+    INDEX idx_orderId IS UNIQUE PRIMARY customerName.
+
+/* Begin stored procedure */
+FOR EACH Order WHERE Order.customerId = p_customerId
+    AND Order.orderDate = p_orderDate
+    AND Order.productCode = p_productCode
+    NO-LOCK:
+    /* Retrieve data from related tables */
+    FIND FIRST Customer WHERE Customer.customerId = Order.customerId NO-LOCK NO-ERROR.
+    FIND FIRST Product WHERE Product.productCode = Order.productCode NO-LOCK NO-ERROR.
+
+    /* Calculate total price and discount */
+    v_orderQty = Order.orderQty.
+    v_discount = Product.discount.
+    IF v_orderQty > Product.bulkQty THEN
+        v_totalPrice = (Product.unitPrice * v_orderQty) * (1 - (v_discount / 100)).
+    ELSE
+        v_totalPrice = Product.unitPrice * v_orderQty.
+
+    /* Store results in temporary table */
+    CREATE tt_orderDetails.
+    ASSIGN tt_orderDetails.customerName = Customer.customerName
+           tt_orderDetails.orderQty     = v_orderQty
+           tt_orderDetails.totalPrice   = v_totalPrice
+           tt_orderDetails.discount     = v_discount.
+END.
+
+/* Output results in tabular form */
+FOR EACH tt_orderDetails
+    BREAK BY customerName:
+    DISP customerName
+         orderQty
+         totalPrice
+         discount
+    WITH DOWN WIDTH 10 NO-LABELS NO-CONVERT.
+
+/* End stored procedure */
+END PROCEDURE.

@@ -1,0 +1,40 @@
+set commodities 'set of commodities'
+set periods 'set of periods'
+set locations 'set of locations'
+set routes(locations,locations) 'set of possible routes'
+
+scalar production_cost;
+scalar transport_cost;
+scalar storage_cost;
+
+parameter demand(commodities) 'demand for each commodity in the period';
+parameter production_capacity(commodities) 'maximum production capacity for each commodity';
+parameter storage_capacity(commodities) 'maximum storage capacity for each commodity';
+
+table production_cost_table(commodities,periods) 'cost per unit of production for each commodity in each period';
+table transport_cost_table(commodities,locations,locations) 'cost per unit of transportation for each commodity between each pair of locations';
+table storage_cost_table(commodities,periods) 'cost per unit of storage for each commodity in each period';
+
+variable production(commodities,periods) 'quantity of each commodity produced in each period';
+variable transportation(commodities,locations,locations,periods) 'quantity of each commodity transported between each pair of locations in each period';
+variable storage(commodities,periods) 'quantity of each commodity stored in each period';
+
+equation production_constraint(commodities,periods) 'production cannot exceed capacity';
+equation storage_constraint(commodities,periods) 'storage cannot exceed capacity';
+equation demand_constraint(commodities,periods) 'total supply equals demand';
+equation transportation_constraint(commodities,locations) 'total outgoing transportation equals total incoming transportation';
+
+production_constraint(commodities,periods).. production(commodities,periods) =l= production_capacity(commodities);
+storage_constraint(commodities,periods).. storage(commodities,periods) =l= storage_capacity(commodities);
+demand_constraint(commodities,periods).. production(commodities,periods) + storage(commodities,periods) =e= demand(commodities);
+transportation_constraint(commodities,locations).. sum((l1,l2)$(ord(l1)<>ord(l2)), transportation(commodities,l1,l2,periods)) =e= transportation(commodities,l2,l1,periods);
+
+equation total_cost 'total cost to minimize';
+total_cost.. sum((i,j,p)$(ord(i)<>ord(j)),(production_cost_table(i,p)*production(i,p))+(sum((k,l), transport_cost_table(i,k,l)*transportation(i,k,l,p)))+(storage_cost_table(i,p)*storage(i,p))) =e= total_cost;
+
+model transportation_problem 'transportation optimization model'
+/total_cost, production_constraint, storage_constraint, demand_constraint, transportation_constraint/;
+
+solve transportation_problem using LP minimizing total_cost;
+
+display total_cost.l; 'displays the optimized total cost'

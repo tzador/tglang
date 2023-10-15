@@ -1,0 +1,33 @@
+# Retrieve all running processes and filter out those that are owned by the current user
+$processes = Get-Process | Where-Object {$_.Owner -eq $env:UserName}
+
+# Create a new hashtable to store the processes and their CPU usage
+$cpuUsage = @{}
+
+# Loop through each process and retrieve its CPU usage
+foreach ($process in $processes) {
+    # Get the CPU usage of the process using WMI
+    $cpu = Get-WmiObject -Class Win32_PerfFormattedData_PerfProc_Process |
+           Where-Object {$_.Name -eq $process.ProcessName} |
+           Select-Object -ExpandProperty PercentProcessorTime
+
+    # Add the process name and its CPU usage to the hashtable
+    $cpuUsage[$process.ProcessName] = $cpu
+}
+
+# Sort the hashtable by CPU usage, from highest to lowest
+$sortedCpuUsage = $cpuUsage.GetEnumerator() | Sort-Object -Property Value -Descending
+
+# Print the top 5 processes with the highest CPU usage
+Write-Host "Top 5 processes with highest CPU usage:"
+$i = 0
+foreach ($item in $sortedCpuUsage) {
+    # Limit to printing only the top 5 processes
+    if ($i -lt 5) {
+        Write-Host "$($item.Name): $($item.Value)%"
+        $i++
+    }
+    else {
+        break
+    }
+}

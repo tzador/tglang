@@ -1,0 +1,58 @@
+// This contract allows users to participate in a decentralized prediction market
+// using the ERC-20 token standard.
+
+pragma solidity ^0.8.0;
+
+import "./IERC20.sol"; // Imports the interface for the ERC-20 token standard
+
+contract PredictionMarket {
+    // State variables
+    address public owner; // Address of the contract owner
+    IERC20 public token; // Interface of the ERC-20 token used in the market
+    mapping(address => uint) public balances; // Maps addresses to their token balances
+    mapping(address => bool) public allowedTokens; // Maps tokens to their approval status
+
+    // Events
+    event Purchase(address indexed buyer, uint amount, uint price);
+    event Sell(address indexed seller, uint amount, uint price);
+    event Approval(address indexed token, bool status);
+
+    // Constructor function
+    constructor(address _tokenAddress) {
+        owner = msg.sender; // Sets the contract owner as the address of the deployer
+        token = IERC20(_tokenAddress); // Sets the token interface using the given address
+        allowedTokens[_tokenAddress] = true; // Approves the token used in the market
+    }
+
+    // Modifiers
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the contract owner can call this function.");
+        _;
+    }
+
+    // Functions
+    // Allows users to buy tokens in exchange for ETH at the given price
+    function buyTokens(uint amount, uint price) public payable {
+        require(allowedTokens[address(token)], "The token used in this market is not allowed.");
+        require(msg.value == amount * price, "Incorrect ETH sent.");
+        token.transfer(msg.sender, amount); // Transfers the tokens to the buyer
+        balances[msg.sender] += amount; // Updates the buyer's token balance
+        emit Purchase(msg.sender, amount, price); // Emits the Purchase event
+    }
+
+    // Allows users to sell tokens for ETH at the given price
+    function sellTokens(uint amount, uint price) public {
+        require(allowedTokens[address(token)], "The token used in this market is not allowed.");
+        require(balances[msg.sender] >= amount, "Insufficient tokens to sell.");
+        token.transferFrom(msg.sender, address(this), amount); // Transfers tokens to the contract
+        msg.sender.transfer(amount * price); // Sends ETH to the seller
+        balances[msg.sender] -= amount; // Updates the seller's token balance
+        emit Sell(msg.sender, amount, price); // Emits the Sell event
+    }
+
+    // Allows the contract owner to approve or revoke a token for use in the market
+    function approveToken(address tokenAddress, bool status) public onlyOwner {
+        allowedTokens[tokenAddress] = status;
+        emit Approval(tokenAddress, status); // Emits the Approval event
+    }
+}

@@ -1,0 +1,87 @@
+server {
+    #defines the server block
+    
+    listen 80; 
+    #tells NGINX to listen on port 80 for incoming requests
+    
+    server_name example.com; 
+    #the domain name this server block will respond to
+    
+    location / {
+        root /var/www/example.com; 
+        #tells NGINX where to find the files for this location
+        
+        index index.html; 
+        #specifies the default file to serve if none is specified in the request
+        
+        try_files $uri $uri/ =404; 
+        #checks if the requested file exists, if not serves a 404 error
+    }
+
+    location /blog/ {
+        proxy_pass http://127.0.0.1:3000; 
+        #forwards requests to the specified URL, in this case, the local port 3000
+        
+        proxy_set_header X-Forwarded-For $remote_addr; 
+        #passes the client's IP address to the backend server
+        
+        proxy_set_header Host $http_host; 
+        #passes the original request's host to the backend server
+        
+        proxy_set_header X-Forwarded-Proto https; 
+        #informs the backend server that the original request was made over HTTPS
+        
+        proxy_redirect off; 
+        #prevents the backend server from redirecting the client
+    }
+
+    location ~* \.php$ {
+        fastcgi_pass unix:/run/php/php7.4-fpm.sock; 
+        #forwards requests to the specified PHP-FPM socket
+        
+        fastcgi_index index.php; 
+        #specifies the default file to serve if none is specified in the request
+        
+        include fastcgi_params; 
+        #includes fastcgi configuration variables
+        
+        fastcgi_param SCRIPT_FILENAME /var/www/example.com/$fastcgi_script_name; 
+        #sets the file to be executed as the requested PHP file
+        
+        fastcgi_param PATH_INFO $fastcgi_path_info; 
+        #provides the path to the requested PHP file
+    }
+
+    location /static/ {
+        alias /var/www/example.com/static/; 
+        #specifies the location of the static files
+        
+        expires 7d; 
+        #sets a 7 day cache for the static files
+        
+        add_header Cache-Control "public"; 
+        #informs clients that they are allowed to cache the static files
+    }
+
+    location ~* \.(jpg|jpeg|gif|png|css|js|ico)$ {
+        try_files $uri  =404; 
+        #checks if the requested file exists, if not serves a 404 error
+        
+        expires max; 
+        #sets the maximum cache time for these types of files
+        
+        log_not_found off; 
+        #prevents logging of missing files
+    }
+
+    error_page 404 /404.html; 
+    #defines the page to display for 404 errors
+
+    location = /404.html {
+        internal; 
+        #only accessible within NGINX
+        
+        root /var/www/error_pages; 
+        #specifies the location of the 404.html file
+    }
+}

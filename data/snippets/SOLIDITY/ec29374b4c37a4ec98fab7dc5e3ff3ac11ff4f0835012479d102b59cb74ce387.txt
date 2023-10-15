@@ -1,0 +1,71 @@
+// Contract that implements a decentralized token exchange
+pragma solidity ^0.8.4;
+
+// Import ERC20 Token interface from OpenZeppelin library
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+// Contract that defines an order
+contract Order {
+    enum OrderType {BUY, SELL} // Enum type to specify buy/sell order
+    address public token; // ERC20 token address
+    uint public amount; // Amount of token to be exchanged
+    uint public price; // Price in wei
+    OrderType public orderType; // Type of order
+    address public maker; // Address of order maker
+
+    // Constructor function
+    constructor(address _token, uint _amount, uint _price, OrderType _orderType, address _maker) {
+        token = _token;
+        amount = _amount;
+        price = _price;
+        orderType = _orderType;
+        maker = _maker;
+    }
+}
+
+// Contract that manages the decentralized token exchange
+contract DecentralizedExchange {
+    // Mapping of token address to orders
+    mapping(address => Order[]) public tokenToOrders;
+    
+    // Function to create a new order
+    function createOrder(address _token, uint _amount, uint _price, OrderType _orderType) external {
+        // Transfer token to contract for safekeeping
+        IERC20(_token).transferFrom(msg.sender, address(this), _amount);
+        // Add order to mapping
+        Order memory newOrder = new Order(_token, _amount, _price, _orderType, msg.sender);
+        tokenToOrders[_token].push(newOrder);
+        
+        // Emit event for new order creation
+        emit NewOrderCreated(_token, _amount, _price, _orderType, msg.sender);
+    }
+    
+    // Function to execute an order
+    function executeOrder(address _token, uint _amount, uint _price, OrderType _orderType, address _maker) external {
+        // Check if order exists and has specified amount and price
+        require(tokenToOrders[_token].contains(Order(_token, _amount, _price, _orderType, _maker)), "Order does not exist or has wrong amount/price.");
+        
+        // Transfer funds from sender to maker
+        if(_orderType == OrderType.BUY) {
+            // Calculate token amount based on price
+            uint tokenAmount = _amount * (10**IERC20(_token).decimals()) / _price;
+            // Transfer ETH from sender to maker
+            payable(_maker).transfer(_price);
+            // Transfer tokens from contract to sender
+            IERC20(_token).transfer(msg.sender, tokenAmount);
+        } else if(_orderType == OrderType.SELL) {
+            // Transfer ETH from sender to maker
+            payable(_maker).transfer(_price);
+            // Transfer tokens from maker to sender
+            IERC20(_token).transferFrom(_maker, msg.sender, _amount);
+        }
+        
+        // Emit event for order execution
+        emit OrderExecuted(_token, msg.sender, _maker, _amount, _price);
+    }
+    
+    // Event to emit when a new order is created
+    event NewOrderCreated(address token, uint amount, uint price, OrderType orderType, address maker);
+    // Event to emit when an order is executed
+    event OrderExecuted(address token, address buyer, address seller, uint amount, uint price);
+}

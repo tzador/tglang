@@ -1,0 +1,62 @@
+*&---------------------------------------------------------------------*
+*& Report Z_TEST_REPORT
+*&
+*&---------------------------------------------------------------------*
+REPORT Z_TEST_REPORT.
+
+* Declaring custom table type for demonstration
+* This table type will have fields for employee name and salary
+TYPES: BEGIN OF ty_employee,
+        name TYPE string,
+        salary TYPE c LENGTH 20,
+       END OF ty_employee.
+
+* Declaring an internal table based on the custom table type
+DATA: lt_employee TYPE TABLE OF ty_employee.
+
+* Assigning values to the internal table
+lt_employee = VALUE #( ( name = 'John Doe' salary = '1000' )
+                       ( name = 'Jane Smith' salary = '1500' )
+                       ( name = 'Bob Johnson' salary = '2000' ) ).
+
+* Declaring an interface for the ALV grid control
+DATA: lo_interface TYPE REF TO cl_salv_table,
+      lo_columns TYPE REF TO cl_salv_columns_table.
+
+* Creating an instance of the ALV grid control
+lo_interface = cl_salv_table=>factory( ).
+
+* Setting up the display options for the grid
+lo_interface->set_screen_size( 50 132 ).
+lo_interface->set_layout( 'HEADER' ).
+lo_interface->set_sort_criteria( 'NAME ASCENDING' ).
+
+* Calling the columns table for the grid and adding columns
+lo_columns = lo_interface->get_columns( ).
+lo_columns->add_column( name = 'NAME' ).
+lo_columns->add_column( name = 'SALARY' ).
+
+* Displaying the data in the internal table on the ALV grid
+lo_interface->set_table_for_first_display( EXPORTING i_structure_name = 'TY_EMPLOYEE'
+                                           CHANGING  it_outtab        = lt_employee ).
+
+* Creating a selection criteria for the ALV grid to filter data
+DATA: ls_filter TYPE lvc_s_fcat,
+      lt_filter TYPE lvc_t_fcat.
+
+ls_filter-fieldname = 'NAME'.
+ls_filter-seltext_l = 'Employee Name'.
+
+* Populating the selection criteria with values for the drop-down list
+SELECT DISTINCT name
+  FROM lt_employee
+  INTO TABLE @DATA(lt_names).
+
+DATA: ls_name TYPE string.
+LOOP AT lt_names INTO ls_name.
+  ls_filter-value = ls_name.
+  INSERT ls_filter INTO TABLE lt_filter.
+ENDLOOP.
+
+* Setting up the selection criteria for the grid and displaying
+lo_interface->set_selection( CHANGING ct_layout = lt_filter ).

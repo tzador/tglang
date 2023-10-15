@@ -1,0 +1,57 @@
+CLASS lcl_report DEFINITION INHERITING FROM cl_gui_custom_container
+PUBLIC SECTION.
+  PRIVATE SECTION.
+    TYPES:
+      BEGIN OF lty_item,
+        material TYPE matnr,
+        description TYPE maktx,
+        unit TYPE mabnr,
+        quantity TYPE mng01,
+        net_value TYPE dmbtr,
+      END OF lty_item.
+
+    DATA:
+      mt_items TYPE STANDARD TABLE OF lty_item WITH KEY material,
+      mo_toolbar TYPE REF TO cl_gui_toolbar.
+ENDCLASS.
+
+
+METHOD constructor.
+  super->constructor( exporter = c_editor ).
+  mo_toolbar = cl_gui_toolbar=>new( parent = me ).
+ENDMETHOD.
+
+
+METHOD set_data.
+  mo_toolbar->add_function(
+    name = 'SELECTIONS'
+    icon = icon_selections
+    quickinfo = 'Filter data'
+    on_function = me->on_filter ).
+  SET HANDLER me->handle_toolbar_events FOR mo_toolbar.
+ENDMETHOD.
+
+
+METHOD on_filter.
+  me->refresh_table( ).
+ENDMETHOD.
+
+
+METHOD handle_toolbar_events.
+  CASE me->mo_toolbar->function.
+    WHEN 'SELCTION'.
+      mo_toolbar->function = -1.
+      mo_toolbar->handle_cancel( ).
+    WHEN OTHERS.
+      me->mo_toolbar->handle_default_event( ).
+  ENDCASE.
+ENDMETHOD.
+
+
+METHOD refresh_table.
+  lo_table = cl_gui_alv_grid=>new( parent = me ).
+  mo_toolbar->set_function_status( function = 'SELECTION'
+                                  status = cl_gui_toolbar=>disable ).  
+  CHECK lo_table IS BOUND.
+  SET HANDLER me->handle_toolbar_events FOR lo_table.
+ENDMETHOD.

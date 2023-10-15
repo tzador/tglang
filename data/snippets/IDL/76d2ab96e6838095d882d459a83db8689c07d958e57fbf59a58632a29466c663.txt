@@ -1,0 +1,62 @@
+pro asterism, separation, filename
+  ;! This program calculates the angular separation between two stars in an asterism
+  ;! based on their celestial coordinates
+  ;!
+  ;! Input parameters:
+  ;!     separation: the desired distance between the two stars in degrees
+  ;!     filename: the name of the file containing the celestial coordinates of the asterism
+  ;!
+  ;! Output:
+  ;!     The program prints the two stars in the asterism with the desired separation,
+  ;!     as well as their celestial coordinates and the separation between them.
+  ;
+  ;! Import necessary libraries
+  compile_opt strictarr
+  compile_opt idl2
+  ;
+  ;! Define constants
+  constant RAD2DEG, 180./!PI ;! conversion factor from radians to degrees
+  ;
+  ;! Read the file
+  openr, lun, filename ;! open the file for reading
+  count = 0 ;! initialize the counter
+  while not eof(lun) do begin ;! loop over each line in the file
+    line = strcompress(readf(lun, STRING=lines)) ;! read the line and remove any whitespaces
+    ;! Split the line into individual values
+    pieces = strarr(6) ;! create a string array to hold the pieces
+    pieces[0] = strtrim(line[0:7]) ;! get the star's ID
+    x = strmid(line, 9, 11) ;! get the RA
+    y = strmid(line, 21, 11) ;! get the Dec
+    pieces[1] = !val(x[0:1]) + !val(x[2:3])/60. + !val(x[4:5])/3600. ;! convert RA to degrees
+    pieces[2] = !val(y[0:2]) + !val(y[3:4])/60. + !val(y[5:6])/3600. ;! convert Dec to degrees
+    ;! Add the pieces to an array of stars
+    if count eq 0 then begin ;! for the first star
+      stars = pieces ;! create the array
+    endif else begin ;! for any other stars
+      stars = [[stars[0], stars[1], stars[2]], pieces] ;! append the new star to the array
+    endelse
+    count++ ;! increase the counter
+  endwhile
+  close, lun ;! close the file
+  ;
+  ;! Calculate the separation between the two desired stars
+  star1 = where(stars[0] eq separation and stars[1] eq -40) ;! find the first star
+  star2 = where(stars[0] eq separation and stars[1] eq 20) ;! find the second star
+  ;
+  ;! Calculate the angular separation between the two stars
+  ra1 = stars[star1[0]][1] ;! get the RA of the first star
+  dec1 = stars[star1[0]][2] ;! get the Dec of the first star
+  ra2 = stars[star2[0]][1] ;! get the RA of the second star
+  dec2 = stars[star2[0]][2] ;! get the Dec of the second star
+  ;! Convert from degrees to radians for the haversine formula
+  radec1 = [ra1*!D2R, dec1*!D2R]
+  radec2 = [ra2*!D2R, dec2*!D2R]
+  ;! Calculate the angular separation
+  ds = havdist(radec1, radec2) ;! have distance between the two stars in radians
+  angular_sep = RAD2DEG*2.*!ASIND(ds) ;! convert to degrees
+  ;
+  ;! Print the results
+  print, 'Star 1: ', stars[star1[0]][0], ' (RA = ', stars[star1[0]][1], ' deg, Dec = ', stars[star1[0]][2], ' deg)'
+  print, 'Star 2: ', stars[star2[0]][0], ' (RA = ', stars[star2[0]][1], ' deg, Dec = ', stars[star2[0]][2], ' deg)'
+  print, 'Angular separation: ', angular_sep, ' deg'
+end

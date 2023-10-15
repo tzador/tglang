@@ -1,0 +1,220 @@
+%{
+// define constants
+#define DIGIT 1
+#define LETTER 2
+#define OPERATOR 3
+#define START 4
+
+// define global variables
+int count = 0;
+int num_digits = 0;
+int num_letters = 0;
+int num_operators = 0;
+int num_errors = 0;
+%}
+
+// define token types
+%token <type> DIGIT
+%token <type> LETTER
+%token <type> OPERATOR
+%token <type> ERROR
+
+// define grammar rules
+%start program
+
+program:
+    /* empty production */
+    |
+    program statement
+    {
+        count++;
+    }
+    |
+    program ERROR
+    {
+        count++;
+        num_errors++;
+    }
+
+statement:
+    declaration ';'
+    |
+    assignment ';'
+    |
+    expression ';'
+
+declaration:
+    type ID
+
+assignment:
+    ID '=' expression
+
+expression:
+    '(' expression ')'
+    |
+    expression OPERATOR expression
+    |
+    ID
+    {
+        num_letters++;
+    }
+    |
+    NUM
+    {
+        num_digits++;
+    }
+    |
+    ERROR
+    {
+        num_errors++;
+    }
+
+type:
+    'int'
+    |
+    'char'
+    |
+    'bool'
+    |
+    'string'
+
+ID:
+    LETTER
+    |
+    ID LETTER
+    |
+    ID DIGIT
+
+NUM:
+    DIGIT
+    |
+    NUM DIGIT
+    |
+    NUM '.'
+    {
+        num_errors++;
+    }
+    |
+    NUM NUM
+    {
+        num_errors++;
+    }
+
+%%
+
+// define functions to handle different token types
+<type> type_to_int(char *str)
+{
+    if(strcmp(str, "int") == 0)
+    {
+        return DIGIT;
+    }
+    else if(strcmp(str, "char") == 0)
+    {
+        return LETTER;
+    }
+    else if(strcmp(str, "bool") == 0)
+    {
+        return OPERATOR;
+    }
+    else if(strcmp(str, "string") == 0)
+    {
+        return ERROR;
+    }
+}
+
+<type> num_to_int(char *str)
+{
+    // check if string is a valid number
+    for(int i = 0; i < strlen(str); i++)
+    {
+        if(!isdigit(str[i]) && str[i] != '.')
+        {
+            return ERROR;
+        }
+    }
+
+    return DIGIT;
+}
+
+<type> letter_to_int(char *str)
+{
+    // check if string is a valid identifier
+    for(int i = 0; i < strlen(str); i++)
+    {
+        if(!isalpha(str[i]))
+        {
+            return ERROR;
+        }
+    }
+
+    return LETTER;
+}
+
+<type> operator_to_int(char *str)
+{
+    // check if string is a valid operator
+    if(strlen(str) != 1 || str[0] != '+' || str[0] != '-' || str[0] != '*' || str[0] != '/')
+    {
+        return ERROR;
+    }
+
+    return OPERATOR;
+}
+
+// main function to parse input and output token types
+int main()
+{
+    // initialize lexer
+    yylex_init();
+
+    // loop to handle each token in input
+    while(true)
+    {
+        // get next token from input
+        int token = yylex();
+
+        // break out of loop if end of input is reached
+        if(token == 0)
+        {
+            break;
+        }
+
+        // handle different token types
+        switch(token)
+        {
+            case DIGIT:
+            {
+                num_digits++;
+                break;
+            }
+            case LETTER:
+            {
+                num_letters++;
+                break;
+            }
+            case OPERATOR:
+            {
+                num_operators++;
+                break;
+            }
+            case ERROR:
+            {
+                num_errors++;
+                break;
+            }
+        }
+    }
+
+    // print results
+    printf("Total tokens: %d\n", count);
+    printf("Number of digits: %d\n", num_digits);
+    printf("Number of letters: %d\n", num_letters);
+    printf("Number of operators: %d\n", num_operators);
+    printf("Number of errors: %d\n", num_errors);
+
+    // close lexer
+    yylex_destroy();
+    
+    return 0;
+}

@@ -1,0 +1,109 @@
+# NGINX configuration file
+
+# Specifies the user and group that the NGINX worker processes should run as
+user www-data;
+
+# Defines the number of worker processes and the number of connections they can handle
+worker_processes auto;
+events {
+    worker_connections 1024;
+}
+
+# Specifies the location of the error log
+error_log /var/log/nginx/error.log;
+
+# Sets the default format and file for access logs
+access_log /var/log/nginx/access.log main;
+
+# Specifies the location of the PID file for the NGINX worker process
+pid /run/nginx.pid;
+
+# Specifies the location of the NGINX configuration file
+include /etc/nginx/conf.d/*.conf;
+
+# Includes virtual host configurations from the vhosts.d directory
+include /etc/nginx/vhosts.d/*;
+
+http {
+    # Sets the default MIME type for content that NGINX sends to clients
+    default_type application/octet-stream;
+
+    # Enables gzip compression for responses
+    gzip on;
+
+    # Specifies the compression level
+    gzip_comp_level 6;
+
+    # Specifies which types of requests and responses should be compressed
+    gzip_types text/plain text/css application/json application/javascript text/xml;
+
+    # Enables the use of the sendfile() syscall to transfer files
+    sendfile on;
+
+    # Specifies the buffer size for file transfers
+    tcp_nopush on;
+    tcp_nodelay on;
+
+    # Sets the default size and time limit for server response headers
+    server_names_hash_bucket_size 64;
+    client_header_buffer_size 4k;
+    client_max_body_size 20M;
+    large_client_header_buffers 4 16k;
+
+    # Enables the use of a shared memory for faster access to frequently used data
+    # and to reduce memory usage when using large amounts of virtual hosts
+    server_names_hash_max_size 1024;
+    server_names_hash_bucket_size 128;
+
+    # Configures the list of available timeouts for NGINX
+    keepalive_timeout 65;
+    keepalive_requests 10000;
+    client_body_timeout 10;
+    client_header_timeout 2;
+
+    # Configures the paths for caching files
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=one:8m max_size=3000m inactive=600m;
+    proxy_temp_path /var/tmp/nginx;
+
+    # Enables the use of a shared memory for caching frequently used data
+    proxy_cache one;
+    # Specifies the maximum time for caching responses
+    proxy_cache_valid 200 302 1h;
+    proxy_cache_valid 404 1m;
+
+    # Enables the use of the POST method in caching
+    proxy_cache_methods POST;
+    # Specifies which hosts should not be cached
+    proxy_cache_bypass $http_pragma;
+    proxy_cache_revalidate on;
+
+    # Configures caching for requests that do not have corresponding responses
+    proxy_cache_use_stale error timeout invalid_header updating http_500 http_502 http_503 http_504;
+
+    # Configures NGINX to store the initial part of a client response to a temporary file
+    client_body_temp_path /var/tmp/nginx/client_body_temp 1 2;
+
+    # Configures NGINX to only buffer responses to a temporary file
+    proxy_buffers 8 32k;
+    proxy_buffer_size 64k;
+
+    # Enables the use of a file for reading server response headers that exceed the allocated buffers
+    large_client_header_buffers 4 4k;
+
+    # Enables the use of a shared memory for caching frequently used data
+    fastcgi_cache_path /var/cache/fastcgi levels=1:2 keys_zone=one:16m inactive=60m;
+
+    # Specifies the maximum time for caching responses from the fastcgi server
+    fastcgi_cache_valid 200 302 1h;
+    fastcgi_cache_valid 404 1m;
+
+    # Configures caching for requests that do not have corresponding responses
+    fastcgi_cache_bypass $http_pragma;
+    fastcgi_cache_revalidate on;
+    fastcgi_cache_min_uses 1;
+
+    # Specifies the size and timeouts for the temporary file used when reading and writing to a client
+    fastcgi_busy_buffers_size 1k;
+    fastcgi_temp_file_write_size 256k;
+    fastcgi_read_timeout 120s;
+}

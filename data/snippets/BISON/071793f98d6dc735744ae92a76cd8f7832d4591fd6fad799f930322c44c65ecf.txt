@@ -1,0 +1,136 @@
+%code requires {
+  /* This section declares the required header files for the BISON program */
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include <string.h>
+  #include "stack.h" /* Include a custom header file for a stack data structure */
+}
+
+%union {
+  /* This section declares the union types used in the grammar */
+  char *string;
+  int number;
+  struct Node *node_ptr;
+}
+
+%type <node_ptr> expr value param /* Sets the type of each rule to be a node_ptr */
+
+%token <string> VARNUM /* Defines a token type to be a string */
+
+/* Declare non-terminal symbols and their associated precedence */
+%nonassoc LEFT
+%nonassoc RIGHT
+%left '=' '+=' '-=' '*=' '/='
+
+%% /* Start of grammar rules */
+
+prog: /* Start rule for the program */
+  while(input()) {
+    /* Use a while loop to read input and apply grammar rules */
+    $$ = $1 /* Set the output of the parser to the result of the last grammar rule */
+  }
+  ;
+
+input:
+  | '=' VARNUM { /* This rule handles the assignment operator '=' */
+    $$ = create_node("assignment"); /* Creates a new node in the AST with the given value */
+    $$->left = $2; /* Assigns the VARNUM token to the left child of the node */
+    $$->right = NULL;
+  }
+  | VARNUM '+=' VARNUM { /* This rule handles the addition assignment operator '+=' */
+    $$ = create_node("+=");
+    $$->left = create_node(VARNUM);
+    $$->right = create_node(VARNUM);
+  }
+  | VARNUM '-=' VARNUM { /* This rule handles the subtraction assignment operator '-=' */
+    $$ = create_node("-=");
+    $$->left = create_node(VARNUM);
+    $$->right = create_node(VARNUM);
+  }
+  | VARNUM '*=' VARNUM { /* This rule handles the multiplication assignment operator '*=' */
+    $$ = create_node("*=");
+    $$->left = create_node(VARNUM);
+    $$->right = create_node(VARNUM);
+  }
+  | VARNUM '/=' VARNUM { /* This rule handles the division assignment operator '/=' */
+    $$ = create_node("/=");
+    $$->left = create_node(VARNUM);
+    $$->right = create_node(VARNUM);
+  }
+  ;
+
+expr: /* This rule handles expressions containing mathematical operators */
+  /* The precedence levels dictate the order in which the operators are evaluated */
+  | expr '+' expr %precedence '+' { /* The %precedence keyword sets the precedence level for the rule */
+    $$ = create_node("+");
+    $$->left = $1;
+    $$->right = $3;
+  }
+  | expr '-' expr %precedence '-' {
+    $$ = create_node("-");
+    $$->left = $1;
+    $$->right = $3;
+  }
+  | expr '*' expr %precedence '*' {
+    $$ = create_node("*");
+    $$->left = $1;
+    $$->right = $3;
+  }
+  | expr '/' expr %precedence '/' {
+    $$ = create_node("/");
+    $$->left = $1;
+    $$->right = $3;
+  }
+  | '(' expr ')' { /* This rule handles parentheses in expressions */
+    $$ = $2;
+  }
+  | VARNUM { /* This rule handles individual variables or numbers */
+    $$ = create_node(VARNUM);
+  }
+  ;
+
+
+value: /* This rule handles values for parameters */
+  | value '%' { /* This rule divides the value of the parameter by 100 */
+    $$ = create_node("%");
+    $$->left = $1;
+    $$->right = create_node("100");
+  }
+  | '%' value { /* This rule multiplies the value of the parameter by 0.01 */
+    $$ = create_node("*");
+    $$->left = $2;
+    $$->right = create_node("0.01");
+  }
+  | VARNUM { /* This rule handles individual variables or numbers for a parameter value */
+    $$ = create_node(VARNUM);
+  }
+  ;
+
+param: /* This rule handles parameters for functions */
+  | '(' param ',' param ')' { /* This rule handles functions with two parameters */
+    $$ = create_node("function");
+    $$->left = $2;
+    $$->right = $4;
+  }
+  | '(' param ')' { /* This rule handles functions with one parameter */
+    $$ = create_node("function");
+    $$->left = $2;
+    $$->right = NULL;
+  }
+  | VARNUM { /* This rule handles individual variables or numbers as parameters */
+    $$ = create_node(VARNUM);
+  }
+  ;
+  
+%%
+/* End of grammar rules */
+
+/* Helper function for creating nodes in the AST */
+struct Node *create_node(char *value) {
+  struct Node *new_node = (struct Node *)malloc(sizeof(struct Node));
+  new_node->value = value;
+  new_node->left = NULL;
+  new_node->right = NULL;
+
+  return new_node;
+}

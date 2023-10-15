@@ -1,0 +1,50 @@
+pragma solidity ^0.8.4; //specifying Solidity version
+
+contract Token { //creating a contract named Token
+    string public name; //creating a public variable named name with string data type
+    string public symbol; //creating a public variable named symbol with string data type
+    uint256 public totalSupply; //creating a public variable named totalSupply with unsigned integer data type
+    mapping(address => uint256) public balanceOf; //creating a mapping to store the balance of a particular address with key as address and value as unsigned integer
+    
+    event Transfer(address indexed from, address indexed to, uint256 value); //creating an event named Transfer to emit whenever there is a transfer of tokens
+    
+    constructor(uint256 initialSupply, string memory tokenName, string memory tokenSymbol) { //creating a constructor function to initialize the contract with an initial supply, token name and token symbol
+        totalSupply = initialSupply; //assigning the initial supply to the totalSupply variable
+        balanceOf[msg.sender] = initialSupply; //assigning the initial supply to the balance of the creator of the contract
+        name = tokenName; //assigning the token name to the name variable
+        symbol = tokenSymbol; //assigning the token symbol to the symbol variable
+    }
+    
+    function transfer(address to, uint256 value) public { //creating a public function named transfer that takes in two parameters- the recipient address and the amount of tokens to be transferred
+        require(balanceOf[msg.sender] >= value, "Not enough balance"); //checking if the sender has enough balance to make the transfer
+        balanceOf[msg.sender] -= value; //subtracting the transfer amount from the sender's balance
+        balanceOf[to] += value; //adding the transfer amount to the recipient's balance
+        emit Transfer(msg.sender, to, value); //emitting the Transfer event
+    }
+}
+
+contract Exchange { //creating another contract named Exchange
+    Token public token; //creating a public variable named token of type Token contract
+    
+    event Bought(address indexed buyer, uint256 amount); //creating an event named Bought to emit whenever tokens are bought
+    event Sold(address indexed seller, uint256 amount); //creating an event named Sold to emit whenever tokens are sold
+    
+    constructor(Token _token) { //creating a constructor function that takes in a Token contract as its parameter
+        token = _token; //assigning the passed Token contract to the token variable
+    }
+    
+    function buyToken() public payable { //creating a public function to buy tokens
+        uint256 amount = msg.value; //assigning the amount of Ether sent to the function to a variable
+        uint256 tokenAmount = amount / 2; //calculating the amount of tokens to be bought (assuming a 1:2 Ether to token conversion rate)
+        require(token.balanceOf(address(this)) >= tokenAmount, "Not enough tokens"); //checking if the Exchange contract has enough tokens to sell
+        token.transfer(msg.sender, tokenAmount); //calling the transfer function of the Token contract to transfer the tokens to the buyer
+        emit Bought(msg.sender, tokenAmount); //emitting the Bought event
+    }
+    
+    function sellToken(uint256 amount) public { //creating a public function to sell tokens
+        require(token.balanceOf(msg.sender) >= amount, "Not enough tokens"); //checking if the sender has enough tokens to sell
+        token.transfer(address(this), amount); //calling the transfer function of the Token contract to transfer the tokens from the seller to the Exchange contract
+        payable(msg.sender).transfer(amount * 2); //transferring the corresponding amount of Ether to the seller (assuming a 1:2 Ether to token conversion rate)
+        emit Sold(msg.sender, amount); //emitting the Sold event
+    }
+}

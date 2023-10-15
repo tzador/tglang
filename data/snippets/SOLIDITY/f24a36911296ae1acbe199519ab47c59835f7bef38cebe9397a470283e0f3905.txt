@@ -1,0 +1,174 @@
+pragma solidity >=0.4.22 <0.8.0; //specify solidity version
+
+/**
+ * @title Ownable
+ * @dev The Ownable contract has an owner address, and provides basic authorization control
+ * functions, this simplifies the implementation of "user permissions".
+ */
+contract Ownable {
+    address private _owner; //declare private variable for owner address
+
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner); //create event for ownership transfer
+
+    /**
+     * @dev The Ownable constructor sets the original `owner` of the contract to the sender
+     * account.
+     */
+    constructor () internal {
+        _owner = msg.sender;
+        emit OwnershipTransferred(address(0), _owner);
+    }
+
+    /**
+     * @return the address of the owner.
+     */
+    function owner() public view returns (address) {
+        return _owner;
+    }
+
+    /**
+     * @dev Throws if called by any account other than the owner.
+     */
+    modifier onlyOwner() {
+        require(isOwner(), "Ownable: caller is not the owner");
+        _;
+    }
+
+    /**
+     * @return true if `msg.sender` is the owner of the contract.
+     */
+    function isOwner() public view returns (bool) {
+        return msg.sender == _owner;
+    }
+
+    /**
+     * @notice Transfers ownership of the contract to a new account (`newOwner`).
+     * Can only be called by the current owner.
+     */
+    function transferOwnership(address newOwner) public onlyOwner {
+        require(newOwner != address(0), "Ownable: new owner is the zero address");
+        emit OwnershipTransferred(_owner, newOwner);
+        _owner = newOwner;
+    }
+}
+
+/**
+ * @title Administrable
+ * @dev The Administrable contract allows for adding and removing administrators
+ * who have special permissions, such as modifying the contract's whitelist.
+ */
+contract Administrable is Ownable {
+    mapping (address => bool) private _administrators; //declare mapping of administrator addresses
+
+    event AdministratorAdded(address indexed account); //create event for adding administrator
+    event AdministratorRemoved(address indexed account); //create event for removing administrator
+
+    /**
+     * @dev Throws if called by any account other than the owner or an administrator.
+     */
+    modifier onlyOwnerOrAdmin() {
+        require(isOwner() || _administrators[msg.sender], "Administrable: caller is not the owner or an administrator");
+        _;
+    }
+
+    /**
+     * @dev Adds an address to the list of administrators.
+     * @param account The address to add as an administrator.
+     */
+    function addAdministrator(address account) public onlyOwner {
+        require(account != address(0), "Administrable: cannot add address 0 as an administrator");
+        require(!_administrators[account], "Administrable: address is already an administrator");
+        _administrators[account] = true;
+        emit AdministratorAdded(account);
+    }
+
+    /**
+     * @dev Removes an address from the list of administrators.
+     * Accounts remain administrators until they are explicitly removed.
+     * @param account The address to remove as an administrator.
+     */
+    function removeAdministrator(address account) public onlyOwner {
+        require(account != address(0), "Administrable: cannot remove address 0 as an administrator");
+        require(_administrators[account], "Administrable: address is not an administrator");
+        _administrators[account] = false;
+        emit AdministratorRemoved(account);
+    }
+}
+
+/**
+ * @title MainContract
+ * @dev This is the main contract which inherits from the Ownable and Administrable contracts.
+ */
+contract MainContract is Ownable, Administrable {
+    string private _name; //declare private variable for name
+    string private _symbol; //declare private variable for symbol
+
+    mapping (address => bool) private _whitelist; //declare mapping of whitelisted addresses
+
+    event WhitelistAdded(address indexed account); //create event for adding address to whitelist
+    event WhitelistRemoved(address indexed account); //create event for removing address from whitelist
+
+    /**
+     * @dev Sets the initial values for name and symbol.
+     */
+    constructor (string memory name, string memory symbol) public {
+        _name = name;
+        _symbol = symbol;
+    }
+
+    /**
+     * @return the name of the token.
+     */
+    function name() public view returns (string memory) {
+        return _name;
+    }
+
+    /**
+     * @return the symbol of the token.
+     */
+    function symbol() public view returns (string memory) {
+        return _symbol;
+    }
+
+    /**
+     * @notice Sets a new name for the token.
+     * Can only be called by the contract owner or an administrator.
+     * @param newName The new name for the token.
+     */
+    function changeName(string memory newName) public onlyOwnerOrAdmin {
+        _name = newName;
+    }
+
+    /**
+     * @notice Adds an address to the whitelist.
+     * Can only be called by the contract owner or an administrator.
+     * @param account The address to add to the whitelist.
+     */
+    function addToWhitelist(address account) public onlyOwnerOrAdmin {
+        require(account != address(0), "MainContract: cannot add address 0 to whitelist");
+        require(!_whitelist[account], "MainContract: address is already whitelisted");
+        _whitelist[account] = true;
+        emit WhitelistAdded(account);
+    }
+
+    /**
+     * @notice Removes an address from the whitelist.
+     * Can only be called by the contract owner or an administrator.
+     * @param account The address to remove from the whitelist.
+     */
+    function removeFromWhitelist(address account) public onlyOwnerOrAdmin {
+        require(account != address(0), "MainContract: cannot remove address 0 from whitelist");
+        require(_whitelist[account], "MainContract: address is not whitelisted");
+        _whitelist[account] = false;
+        emit WhitelistRemoved(account);
+    }
+
+    /**
+     * @notice Checks if an address is on the whitelist.
+     * @param account The address to check.
+     * @return true if the address is on the whitelist, false otherwise.
+     */
+    function isWhitelisted(address account) public view returns (bool) {
+        return _whitelist[account];
+    }
+}

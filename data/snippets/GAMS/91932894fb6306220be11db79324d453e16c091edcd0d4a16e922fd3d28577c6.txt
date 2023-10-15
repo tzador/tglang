@@ -1,0 +1,65 @@
+/*
+ This GAMS code generates a linear optimization model for a cargo transportation problem
+*/
+
+sets
+    i  - set of origins
+    j  - set of destinations
+    k  - set of cargo types
+    r  - set of routes
+    o(i)  - origin of cargo type i
+    d(j)  - destination of cargo type j
+    cq(i,k) - cost coefficient for cargo type i from origin o(i) to destination d(j)
+    f(i,k)  - frequency of cargo type i from origin o(i) to destination d(j)
+    cap(i,j,k)  - capacity constraint for cargo type k on route r(k)
+
+parameters
+    load(i,k) - total load of cargo type k from origin o(i)
+    demand(j,k) - demand of cargo type k at destination d(j)
+    cost - total cost of transportation
+
+variables
+    x(i,j,k) - amount of cargo type k transported from origin o(i) to destination d(j)
+    total_cost - total cost of transportation
+
+equations
+    flow(j,k) - flow balance equation
+    capacity(i,j,k) - capacity constraint
+    demand_bal(j,k) - demand balance equation
+    total_cost_def - definition of total cost
+
+model cargo_transport /all/;
+
+option optcr=0.01, limrow=50, limcol=50;
+
+solve cargo_transport using lp minimizing total_cost;
+
+display x.l, total_cost.l;
+
+data;
+
+set i /1*york, 2*chicago, 3*houston/;
+set j /1*new_york, 2*los_angeles, 3*miami/;
+set k /1*grain, 2*coal, 3*steel/;
+set r /1*chicago_la, 2*houston_miami/;
+
+o(i) = ord(i);
+d(j) = ord(j);
+cq(i,k) = uniform(50,100);
+f(i,k) = round(uniform(1,5));
+cap(r,1) = 150;
+cap(r,2) = 200;
+cap(r,3) = 100;
+
+load(i,k) = sum((j,d(j),k), x(i,j,k));
+demand(j,k) = sum((i,o(i),k), x(i,j,k));
+
+cost = sum((i,j,k), cq(i,k) * x(i,j,k));
+
+x.lo(i,j,k) = 0;
+x.up(i,j,k) = cap(i,j,k);
+x.fx(1,"los_angeles","grain") = 50;
+x.fx(2,"new_york","coal") = 100;
+x.fx(3,"miami","steel") = 30;
+
+display demand, cost, load, cap;

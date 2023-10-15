@@ -1,0 +1,70 @@
+package main
+
+import (
+	"fmt"
+	"math/rand"
+	"sync"
+	"time"
+)
+
+// Define a struct for the worker
+type Worker struct {
+	id       int           // Worker id
+	tasks    chan string   // Worker's task queue
+	wg       *sync.WaitGroup // Wait group to wait for all tasks to finish before exiting
+}
+
+// Add a method for worker to do the task
+func (w Worker) doTask(task string) {
+	// Simulate processing time
+	sleep := rand.Intn(4)
+	time.Sleep(time.Duration(sleep) * time.Second)
+
+	fmt.Println("Worker", w.id, "finished task:", task)
+
+	// Notify the wait group that this task is finished
+	w.wg.Done()
+}
+
+func main() {
+	// Set the number of workers
+	const workers = 5
+
+	// Create a wait group to wait for all tasks to finish
+	wg := &sync.WaitGroup{}
+
+	// Create a channel for the tasks to be done
+	tasks := make(chan string)
+
+	// Start the workers
+	for i := 0; i < workers; i++ {
+		// Add 1 to the wait group for each worker
+		wg.Add(1)
+
+		// Instantiate a new worker with its id, task channel, and wait group
+		worker := Worker{
+			id: i,
+			tasks: tasks,
+			wg: wg,
+		}
+
+		// Start the worker
+		go worker.doTask(<-tasks) // Pass the task from the channel to the worker's doTask method
+	}
+
+	fmt.Println("Starting workers...")
+
+	// Create tasks to be done
+	tasksToBeDone := []string{"Task 1", "Task 2", "Task 3", "Task 4", "Task 5"}
+
+	// Send the tasks to the channel for workers to pick up
+	for _, task := range tasksToBeDone {
+		tasks <- task
+	}
+
+	// Wait for all tasks to finish
+	wg.Wait()
+
+	fmt.Println("All tasks completed!")
+	fmt.Println("Exiting...")
+}

@@ -1,0 +1,111 @@
+/** This class defines a player character that can move and interact with objects */
+
+class PlayerCharacter extends Actor
+    placeable;
+
+var const MaxHealth = 100; // maximum health for player
+var const DefaultMovementSpeed = 500; // default movement speed for player
+var health; // current health for player
+var movementSpeed; // current movement speed for player
+
+defaultproperties
+{
+    Begin Object Class=DynamicLightEnvironmentComponent Name=LightEnvironment0
+        bEnabled=FALSE
+    End Object
+    Components.Add(LightEnvironment0)
+
+    Begin Object Class=PlayerController Name=PlayerController0
+        InitialState=State'Gameplay.PlayerPawn.PlayerController.InGame'
+    End Object
+    PlayerController=PlayerController0
+    Pawn=PlayerPawn'PlayerPawn0.PlayerPawn'
+    PlayerName="Player1"
+    bMovable=TRUE
+    RemoteRole=ROLE_AutonomousProxy
+    AutoAlignToGravityDirection=True
+    Begin Object Class=PathGoalRenderingComponent Name=PathGoalRenderingComponent0
+        GoalRadius=16.000000
+    End Object
+    Components.Add(PathGoalRenderingComponent0)
+    Begin Object Class=CrowdPopulationManagerComponent Name=CrowdPopulationManagerComponent0
+    End Object
+    Components.Add(CrowdPopulationManagerComponent0)
+
+    Begin Object Class=MUTMutator Name="MUTMutator_Character"
+    End Object
+
+    Begin Object Name="RocketLauncher"
+        ObjectArchetype=class'UTWeap_RocketLauncher'
+        ItemName="$PLRocketLauncher"
+        ItemDescription="$PLRocketLauncher_Description"
+        ItemIconMaterialName="Loadout_Soldier_Demo.Platoon_PreOrderItems.PLGuidedRocketLauncher"
+        ItemHudIcon="Loadout_Soldier_Demo.Platoon_PreOrderItems.PLGuidedRocketLauncher"
+    End Object
+
+    /* States */
+    simulated state InGame
+    {
+        Begin:
+            EnableMovementEvents();
+            DisableDebugCamera( class'PlayerController'(Controller) );
+            if ( Level.NetMode != NM_DedicatedServer && !HasKeyBindInMap( "Minimap" ) )
+            {
+                KeyBind( "T" , "ShowScoreboard" );
+                KeySequenceBind( "R" , "ToggleWeapon" );
+                KeyBind( "X" , "ChangeSeat" );
+                KeyBind( "F" , "Fire" );
+                KeyBind( "Y", "ChangeWeapon" );
+            }
+            SetViewTarget(class'PLLLocalPlayer'(Controller.LocalPlayer) , true , true );
+            Game.Engine.bSuccess = true;
+            SetInitialState();
+            SetLocation(class'PLLLocalPlayer'(LocalPlayer).LastPostNetReceiveLocation);
+            if (Pawn != None)
+            {
+                Pawn.Initialize(class'PLLLocalPlayer'(Controller.LocalPlayer).CurrentTeam, Pawn);
+            }
+            SetMouseCursorVisible(false);
+    }
+
+    simulated function Login()
+    {
+        EnsureLoginInfo();
+        if (UGameInfo(DynamicLoadObject("GameInfo", class 'GameInfo', False)) == None
+            && GameEngine.NetworkMode == NM_Client)
+            WorldInfo.LoadMission("TcpLink", class 'GameInfo');
+    }
+
+    simulated function PostBeginPlay()
+    {
+        SetInitialState();
+        SetInitialState();
+        //IAIInterface(Pawn.LLaneTTP).SetAICallback(class 'AIDelegate(ScriptedPawn(Pawn).AI));
+        Player.Controller.Team = Player.Pawn.Team;
+        if (Location == vect(0,0,0))
+        {
+            SetLocation(class'Listener'(LocalSpeechRecipient).Location);
+        }
+        if (GameEngine.GameReplicationInfo != None && Player.Controller != None )
+        {
+            Player.Controller.Timer = Player.Controller.Pawn._ChatMessage[Player.Controller.ChatMessage[0]][Player.Controller.ChatMessage[1]];
+        }
+        if (GameSettings.gameType != "Training")
+        {
+            Log("Freshness Trap: " @ GameReplicationInfo.InitTeamNum);
+            gameInitialized();
+            Log("Freshness Trap: " @ GameReplicationInfo.PlayerRespawnProbabilities);
+        }
+        CALLF_LARGE(SetViewState, ViewState);
+    }
+
+    simulated function event SetViewState(int NewState)
+    {
+        AppliedGameSettings = SomeState;
+        Super.SetViewState(ApplicationState);
+    }
+
+    function OnUserProfileSignedIn(bool bWasSuccessful)
+    {
+    }
+}

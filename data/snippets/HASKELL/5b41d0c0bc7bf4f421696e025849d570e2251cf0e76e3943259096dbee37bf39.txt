@@ -1,0 +1,49 @@
+{-# LANGUAGE GADTs, EmptyDataDecls, MultiParamTypeClasses, KindSignatures #-}
+
+-- algebraic data type representing a binary tree
+data Tree a where
+    Leaf :: Tree a
+    Node :: Int -> Tree a -> Tree a -> Tree a
+
+-- defining a typeclass with functions for manipulating binary trees
+class TreeOps (t :: * -> *) where
+    empty :: t a
+    insert :: Ord a => a -> t a -> t a
+    search :: Ord a => a -> t a -> Bool
+    delete :: Ord a => a -> t a -> t a
+
+-- implementing the typeclass functions for the Tree data type
+instance TreeOps Tree where
+    empty = Leaf
+
+    insert x Leaf = Node x Leaf Leaf
+    insert x (Node val left right)
+        | x < val = Node val (insert x left) right
+        | x > val = Node val left (insert x right)
+        | otherwise = Node val left right
+
+    search x Leaf = False
+    search x (Node val left right)
+        | x == val = True
+        | x < val = search x left
+        | x > val = search x right
+
+    delete x Leaf = Leaf
+    delete x (Node val left right)
+        | x < val = Node val (delete x left) right
+        | x > val = Node val left (delete x right)
+        | otherwise = removeNode (Node val left right)
+
+-- helper function for deleting a node from the tree
+removeNode :: Ord a => Tree a -> Tree a
+removeNode (Node x Leaf Leaf) = Leaf
+removeNode (Node x Leaf right) = right
+removeNode (Node x left Leaf) = left
+removeNode (Node x left right) = Node successor left (delete successor right)
+    where
+        successor = findSuccessor right
+
+-- helper function for finding the successor of a node in the tree
+findSuccessor :: Ord a => Tree a -> a
+findSuccessor (Node x left Leaf) = x
+findSuccessor (Node x left right) = findSuccessor left

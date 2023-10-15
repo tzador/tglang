@@ -1,0 +1,37 @@
+DECLARE
+    -- variable declaration
+    l_employee_id NUMBER := 100; -- employee id
+    l_salary NUMBER; -- salary of the employee
+    l_min_salary NUMBER; -- minimum salary for the employee's job title
+    l_max_salary NUMBER; -- maximum salary for the employee's job title
+    
+BEGIN
+    -- initialize l_salary to 0
+    l_salary := 0;
+    
+    -- get minimum and maximum salary for employee's job title
+    SELECT MINIMUM_SALARY, MAXIMUM_SALARY
+    INTO l_min_salary, l_max_salary
+    FROM JOB_TITLES
+    WHERE ID = (SELECT JOB_TITLE_ID FROM EMPLOYEES WHERE ID = l_employee_id);
+
+    FOR i IN 1..12 LOOP -- loop through each month
+        -- get total hours worked by employee for the month
+        SELECT SUM(HOURS_WORKED)
+        INTO l_hours_worked
+        FROM TIMESHEETS
+        WHERE EMPLOYEE_ID = l_employee_id AND MONTH = TO_CHAR(ADD_MONTHS(SYSDATE, -i+1), 'MM');
+        
+        -- calculate salary for the month
+        l_salary := l_hours_worked * (CASE
+                                    WHEN l_hours_worked < 160 THEN l_min_salary / 160 * l_hours_worked -- if less than 160 hours worked, salary is prorated based on minimum salary
+                                    ELSE l_max_salary -- if 160 or more hours worked, salary is maximum salary for job title
+                                    END);
+        
+        -- insert salary for the month into salary table
+        INSERT INTO SALARIES (EMPLOYEE_ID, MONTH, SALARY)
+        VALUES (l_employee_id, TO_CHAR(ADD_MONTHS(SYSDATE, -i+1), 'MM'), l_salary);
+    END LOOP;
+    
+    COMMIT; -- commit changes to database
+END;

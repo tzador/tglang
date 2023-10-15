@@ -1,0 +1,27 @@
+#This code snippet uses Rake tasks to build a custom deployment task
+
+namespace :deploy do
+  desc 'Custom deployment task'
+  task :custom do
+    # Perform any necessary build actions
+    Rake::Task['build'].execute
+
+    #Deploy files to remote server
+    Net::SSH.start('localhost', 'user', password: 'password') do |ssh|
+      #Zip all necessary files into an archive
+      ssh.exec!('tar -zcvf deployment.tar.gz *')
+
+      #Transfer the archive to remote server
+      ssh.scp.upload!('deployment.tar.gz', '/home/deployer/deployment.tar.gz')
+
+      #Extract the archive on remote server
+      ssh.exec!('tar -zxvf deployment.tar.gz')
+
+      #Delete the archive
+      ssh.exec!('rm deployment.tar.gz')
+    end
+
+    #Restart server
+    system('sudo systemctl restart myapp.service')
+  end
+end

@@ -1,0 +1,89 @@
+/* An example of inheritance in Solidity using ERC20 token standards */
+
+// Import the OpenZeppelin library
+pragma solidity ^0.6.0;
+import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
+
+// Create a contract for our custom token 
+contract MyToken is ERC20 {
+    // Declare a public variable representing the token name
+    string public constant name = "My Token";
+    // Declare a public variable representing the token symbol
+    string public constant symbol = "MTK";
+    // Declare a public variable representing the token decimal places
+    uint8 public constant decimals = 18;
+    // Declare a public variable representing the initial token supply
+    uint256 public initialSupply = 1000000 * (10 ** uint256(decimals));
+
+    // A mapping to keep track of accounts and their balances
+    mapping(address => uint256) private _balances;
+    // A mapping to keep track of accounts and their allowances
+    mapping(address => mapping(address => uint256)) private _allowed;
+
+    // The constructor to initialize the token with the initial supply
+    constructor() public ERC20(name, symbol) {
+        _mint(msg.sender, initialSupply);
+    }
+
+    // The function to transfer tokens from one account to another
+    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+        _transfer(msg.sender, recipient, amount);
+        return true;
+    }
+
+    // The function to approve an allowance for another account to spend tokens
+    function approve(address spender, uint256 amount) public virtual override returns (bool) {
+        _approve(msg.sender, spender, amount);
+        return true;
+    }
+
+    // The function to transfer tokens from one account to another by a third party
+    function transferFrom(address sender, address recipient, uint256 amount) public virtual override returns (bool) {
+        _transfer(sender, recipient, amount);
+        _approve(sender, msg.sender, _allowed[sender][msg.sender].sub(amount));
+        return true;
+    }
+
+    // Function to get the balance of an account
+    function balanceOf(address account) public view returns (uint256) {
+        return _balances[account];
+    }
+
+    // Function to get an account's remaining allowance
+    function allowance(address owner, address spender) public view returns (uint256) {
+        return _allowed[owner][spender];
+    }
+
+    // Function to increase an account's allowance
+    function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool) {
+        _approve(msg.sender, spender, _allowed[msg.sender][spender].add(addedValue));
+        return true;
+    }
+
+    // Function to decrease an account's allowance
+    function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
+        _approve(msg.sender, spender, _allowed[msg.sender][spender].sub(subtractedValue));
+        return true;
+    }
+
+    // Internal function to transfer tokens from one account to another
+    function _transfer(address sender, address recipient, uint256 amount) internal virtual {
+        require(sender != address(0), "Transfer from zero address");
+        require(recipient != address(0), "Transfer to zero address");
+        require(_balances[sender] >= amount, "Insufficient balance");
+
+        _balances[sender] = _balances[sender].sub(amount);
+        _balances[recipient] = _balances[recipient].add(amount);
+
+        emit Transfer(sender, recipient, amount);
+    }
+
+    // Internal function to approve an allowance for another account to spend tokens
+    function _approve(address owner, address spender, uint256 amount) internal virtual {
+        require(owner != address(0), "Approve from zero address");
+        require(spender != address(0), "Approve to zero address");
+
+        _allowed[owner][spender] = amount;
+        emit Approval(owner, spender, amount);
+    }
+}

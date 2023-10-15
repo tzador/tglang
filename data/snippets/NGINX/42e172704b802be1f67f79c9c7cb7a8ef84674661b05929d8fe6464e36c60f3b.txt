@@ -1,0 +1,64 @@
+# -⁠*⁠- coding: utf-8 -*- #This is a comment
+
+# Defining a server block to handle requests
+server {
+
+	# Listen on port 80 for incoming requests
+	listen 80;
+
+	# Handling the path /home and sending request to a different server
+	location /home {
+		proxy_pass http://127.0.0.1:3000;
+	}
+
+	# Redirecting any requests with a query string to another path
+	if ($args ~ test) {
+		rewrite ^/(.*)$ /new/$uri redirect;
+	}
+
+	# Setting up caching for certain file extensions
+	location ~* \.(js|css|png|jpg|jpeg|gif|ico)$ {
+		expires 1d;
+	}
+
+	# Denying access to a specific IP address
+	deny 192.168.1.1;
+
+	# Allowing access to a specific IP address
+	allow 127.0.0.1;
+
+	# Limiting the number of connections per IP
+	limit_conn_zone $binary_remote_addr zone=conn_limit_per_ip:10m;
+
+	# Limiting the rate of requests per IP
+	limit_req_zone $binary_remote_addr zone=req_limit_per_ip:10m rate=10r/s;
+
+	# Configuring caching for static files
+	location ~* \.(?:css|js|jpg|png)$ {
+		expires 30d;
+		add_header Cache-Control public;
+	}
+
+	# Setting up gzip compression for specific file types
+	gzip on;
+	gzip_types text/plain application/xml;
+
+	# Setting up HTTP auth for a specific path
+	location /admin {
+		auth_basic "Restricted";
+		auth_basic_user_file /etc/nginx/.htpasswd;
+	}
+
+	# Handling 404 errors and redirecting to a custom page
+	error_page 404 /404.html;
+	location = /404.html {
+		internal;
+	}
+
+	# Setting up a server-side redirect for SEO purposes
+	if ($http_host !~ "^www.example.com\$") {
+		# Inserts the subdomain to the beginning of the path
+		rewrite ^(.*)$ http://www.example.com$1 permanent;
+	}
+
+}

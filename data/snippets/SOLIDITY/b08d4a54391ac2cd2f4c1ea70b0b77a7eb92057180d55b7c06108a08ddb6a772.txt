@@ -1,0 +1,84 @@
+pragma solidity ^0.8.0;
+
+interface ERC721 {
+    function balanceOf(address _owner) external view returns (uint256);
+    function ownerOf(uint256 _tokenId) external view returns (address);
+    function approve(address _to, uint256 _tokenId) external;
+    function transferFrom(address _from, address _to, uint256 _tokenId) external;
+    function tokenOfOwnerByIndex(address _owner, uint256 _index) external view returns (uint256);
+}
+
+contract MyCollectibles {
+    ERC721 private _tokenContract;
+
+    // Arrays to store each user's collectibles and the index of their last collectible
+    mapping(address => uint256[]) private _collectibles;
+    mapping(address => uint256) private _lastCollectedIndex;
+
+    // Event to track ownership changes
+    event OwnershipChanged(address indexed collector, address indexed newOwner, uint256 tokenId);
+
+    // Function to initialize the contract
+    constructor(address tokenAddress) public {
+        _tokenContract = ERC721(tokenAddress);
+    }
+
+    // Function to get the total number of collectibles a user owns
+    function totalCollectibles(address collector) external view returns(uint256) {
+        return _collectibles[collector].length;
+    }
+
+    // Function to add a new collectible to a user's collection
+    function addCollectible(address collector, uint256 tokenId) external {
+        // Check if user is the owner of the token
+        require(_tokenContract.ownerOf(tokenId) == collector, "You do not own this token");
+
+        // Add token to user's collection
+        _collectibles[collector].push(tokenId);
+
+        // Emit event to track ownership change
+        emit OwnershipChanged(collector, collector, tokenId);
+    }
+
+    // Function to remove the last collected collectible from a user's collection
+    function removeLastCollected(address collector) external {
+        // Check if user has any collectibles
+        require(_collectibles[collector].length > 0, "You have no collectibles");
+
+        // Get the index of the last collected collectible
+        uint256 indexToRemove = _lastCollectedIndex[collector];
+
+        // Check that the index is within the range of the user's collection
+        require(indexToRemove < _collectibles[collector].length, "Invalid index");
+
+        // Get the token id of the last collected collectible
+        uint256 tokenIdToRemove = _collectibles[collector][indexToRemove];
+
+        // Transfer the token to the contract
+        _tokenContract.transferFrom(collector, address(this), tokenIdToRemove);
+
+        // Remove the token from the user's collection
+        _collectibles[collector].pop();
+
+        // Update the index of the last collected collectible
+        _lastCollectedIndex[collector] = _collectibles[collector].length - 1;
+
+        // Emit event to track ownership change
+        emit OwnershipChanged(collector, address(this), tokenIdToRemove);
+    }
+
+    // Function to transfer a collectible to another user
+    function transferCollectible(address from, address to, uint256 tokenId) external {
+        // Check if user is the owner of the token
+        require(_tokenContract.ownerOf(tokenId) == from, "You do not own this token");
+
+        // Check if user is approved to transfer the token
+        require(_tokenContract.getApproved(tokenId) == address(this), "You are not approved to transfer this token");
+
+        // Transfer the token to the new owner
+        _tokenContract.transferFrom(from, to, tokenId);
+
+        // Emit event to track ownership change
+        emit OwnershipChanged(from, to, tokenId);
+    }
+}

@@ -1,0 +1,54 @@
+{
+/* This is a sample procedure that creates a nested temp-table to store sales data for different products and years */
+
+/* Define the temp-table structure for sales data */
+DEFINE TEMP-TABLE tt_sales
+    FIELD prod_name AS CHARACTER 
+    FIELD prod_year AS INT64
+    FIELD prod_qty AS DECIMAL
+    INDEX prod_name prod_year.
+
+/* Declare a cursor to retrieve product data */
+DEFINE VARIABLE c_prod_name AS CHARACTER.
+DEFINE VARIABLE c_prod_year AS INT64.
+DEFINE CURSOR cur_product FOR
+    SELECT prod_name, prod_year
+    FROM products.
+
+/* Open the cursor and retrieve product data */
+OPEN CURSOR cur_product.
+FETCH FIRST CURSOR cur_product INTO c_prod_name, c_prod_year.
+
+/* Loop through product data and insert into temp-table */
+DO WHILE AVAILABLE(cur_product):
+    /* Declare a temp-table handle for nested table */
+    DEFINE TEMP-TABLE tt_prod_data
+        FIELD prod_qty AS DECIMAL
+        INDEX prod_qty.
+
+    /* Retrieve sales data for current product and year */
+    FOR EACH sales WHERE sales.prod_name = c_prod_name AND sales.prod_year = c_prod_year NO-LOCK:
+        /* Insert sales data into nested temp-table */
+        CREATE tt_prod_data.
+        IMPORT UNFORMATTED tt_prod_data.prod_qty = sales.prod_qty.
+
+    /* Insert nested temp-table into main temp-table */
+    INSERT tt_sales.
+    ASSIGN
+        tt_sales.prod_name = c_prod_name
+        tt_sales.prod_year = c_prod_year
+        tt_sales.prod_qty = tt_prod_data.prod_qty.
+
+    /* Fetch next product from cursor */
+    FETCH NEXT CURSOR cur_product INTO c_prod_name, c_prod_year.
+END.
+
+/* Display the sales data */
+FOR EACH tt_sales NO-LOCK:
+    DISPLAY tt_sales WITH FRAME f_sales.
+
+/* Close cursor and delete temp-tables */
+CLOSE CURSOR cur_product.
+DELETE OBJECT tt_sales.
+DELETE OBJECT tt_prod_data.
+}

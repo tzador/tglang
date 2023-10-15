@@ -1,0 +1,90 @@
+{-# LANGUAGE MultiParamTypeClasses #-} -- Enable extension
+{-# OPTIONS_GHC -fno-warn-tabs #-} -- Ignore tab warnings
+module Main where
+import Text.ParserCombinators.ReadP
+import Control.Applicative ((<|>))
+import Control.Monad (replicateM, replicateM_)
+import Data.Char (isDigit)
+import Data.List (sort)
+
+class (Ord a, Num a) => Arithmetic a where -- Create a class with two constraints
+	add :: a -> a -> a -- Create a function 'add' with two parameters
+	sub :: a -> a -> a -- Create a function 'sub' with two parameters
+	mul :: a -> a -> a -- Create a function 'mul' with two parameters
+	div :: a -> a -> Maybe a -- Create a function 'div' with two parameters and return type 'Maybe a'
+
+instance Arithmetic Int where -- Create an instance of the 'Arithmetic' class for 'Int'
+	add = (+) -- Define 'add' as the '+' operator
+	sub = (-) -- Define 'sub' as the '-' operator
+	mul = (*) -- Define 'mul' as the '*' operator
+	div x y -- Define 'div' as a function with two parameters
+		| y == 0 = Nothing -- Check for division by zero and return 'Nothing' if true
+		| otherwise = Just (x `div` y) -- Perform division and wrap result in 'Just'
+
+instance Arithmetic Integer where -- Create an instance of the 'Arithmetic' class for 'Integer'
+	add = (+) -- Define 'add' as the '+' operator
+	sub = (-) -- Define 'sub' as the '-' operator
+	mul = (*) -- Define 'mul' as the '*' operator
+	div x y -- Define 'div' as a function with two parameters
+		| y == 0 = Nothing -- Check for division by zero and return 'Nothing' if true
+		| otherwise = Just (x `div` y) -- Perform division and wrap result in 'Just'
+
+instance Arithmetic Float where -- Create an instance of the 'Arithmetic' class for 'Float'
+	add = (+) -- Define 'add' as the '+' operator
+	sub = (-) -- Define 'sub' as the '-' operator
+	mul = (*) -- Define 'mul' as the '*' operator
+	div x y -- Define 'div' as a function with two parameters
+		| y == 0.0 = Nothing -- Check for division by zero and return 'Nothing' if true
+		| otherwise = Just (x / y) -- Perform division and wrap result in 'Just'
+
+instance Arithmetic Double where -- Create an instance of the 'Arithmetic' class for 'Double'
+	add = (+) -- Define 'add' as the '+' operator
+	sub = (-) -- Define 'sub' as the '-' operator
+	mul = (*) -- Define 'mul' as the '*' operator
+	div x y -- Define 'div' as a function with two parameters
+		| y == 0.0 = Nothing -- Check for division by zero and return 'Nothing' if true
+		| otherwise = Just (x / y) -- Perform division and wrap result in 'Just'
+
+-- Helper functions to parse input from string to arithmetic types
+parseInt :: ReadP Int -- Parse string input to 'Int'
+parseInt = read <$> many1 (satisfy isDigit) -- Satisfy predicate 'isDigit' and apply 'read' function to resulting string
+
+parseInteger :: ReadP Integer -- Parse string input to 'Integer'
+parseInteger = read <$> many1 (satisfy isDigit) -- Satisfy predicate 'isDigit' and apply 'read' function to resulting string
+
+parseFloat :: ReadP Float -- Parse string input to 'Float'
+parseFloat = read <$> (many1 (satisfy isDigit) <|> (:) <$> char '.' <*> many1 (satisfy isDigit)) -- Satisfy predicate 'isDigit' and parse decimal part with '.' character
+
+parseDouble :: ReadP Double -- Parse string input to 'Double'
+parseDouble = read <$> (many1 (satisfy isDigit) <|> (:) <$> char '.' <*> many1 (satisfy isDigit)) -- Satisfy predicate 'isDigit' and parse decimal part with '.' character
+
+main :: IO () -- Main function to perform calculations and print results
+main = do
+	putStrLn "Welcome to simple calculator!"
+	putStrLn "Please enter the first number:"
+	num1 <- readLn -- Read input from user and bind to 'num1'
+	putStrLn "Please enter the second number:"
+	num2 <- readLn -- Read input from user and bind to 'num2'
+	let result1 = add num1 num2 -- Calculate sum of 'num1' and 'num2' and bind to 'result1'
+	let result2 = sub num1 num2 -- Calculate difference of 'num1' and 'num2' and bind to 'result2'
+	let result3 = mul num1 num2 -- Calculate product of 'num1' and 'num2' and bind to 'result3'
+	let result4 = div num1 num2 -- Calculate quotient of 'num1' and 'num2' and bind to 'result4'
+	putStrLn ("Sum: " ++ show result1) -- Print result of sum
+	putStrLn ("Difference: " ++ show result2) -- Print result of difference
+	putStrLn ("Product: " ++ show result3) -- Print result of product
+	case result4 of -- Handle 'Maybe' type using 'case' statement
+		Just res -> putStrLn ("Quotient: " ++ show res) -- If result is 'Just' value, print it
+		Nothing -> putStrLn "Cannot divide by 0" -- If result is 'Nothing', print error message
+	putStrLn "Please enter a list of numbers separated by spaces to sort:"
+	input <- getLine -- Read input from user and bind to 'input'
+	let numbers = parse input -- Parse input string to list of arithmetic types and bind to 'numbers'
+	replicateM_ (length numbers) (putStrLn "-------------------------") -- Print a line for each number in the list
+	putStrLn "Numbers before sorting:" -- Print header
+	mapM_ print numbers -- Print unsorted list of numbers
+	let sorted = sort numbers -- Sort list of numbers and bind to 'sorted'
+	replicateM_ (length numbers) (putStrLn "-------------------------") -- Print a line for each number in the list
+	putStrLn "Numbers after sorting:" -- Print header
+	mapM_ print sorted -- Print sorted list of numbers
+
+parse :: String -> [Maybe Double] -- Parse string of numbers separated by spaces to list of 'Maybe Double'
+parse s = map (readP_to_S (parseFloat <|> parseDouble <|> parseInt)) (words s) >>= (\pairs -> if length pairs == 1 then return (fst (head pairs)) else fail "Failed to parse input") -- Parse each word to 'ReadP Double' and return first result, or fail if parsing fails

@@ -1,0 +1,139 @@
+/Создание новой стандартной формы
+ФормаОТЧТ = СоздатьОбъект("Форма.Отчет");
+
+//Установка свойств формы
+ФормаОТЧТ.ТипОтчета = ТипыОтчетовКлиентскогоИнтерфейса.ДинамическийОтчет;
+ФормаОТЧТ.Заголовок = "Отчет о продажах за период";
+ФормаОТЧТ.ВыравнитьПоЦентру();
+
+//Создание кнопки "Показать отчет"
+КнопкаПоказатьОтчет = ФормаОТЧТ.Кнопки.Добавить("ПоказатьОтчет", "Команда.ПоказатьОтчет()");
+
+//Создание текстовых полей для выбора даты начала периода
+ТекстНачалоПериода = ФормаОТЧТ.ЭлементыФормы.Добавить(ТипыЭлементовФормы.Текст, "ТекстНачалоПериода");
+ТекстНачалоПериода.Заголовок = "Начало периода:";
+ПолеВводаНачалоПериода = ФормаОТЧТ.ЭлементыФормы.Добавить(ТипыЭлементовФормы.ПолеВвода, "ПолеВводаНачалоПериода");
+ПолеВводаНачалоПериода.Представление = "ДатаВремя";
+ПолеВводаНачалоПериода.Значение = ТекущаяДата();
+
+//Создание текстовых полей для выбора даты окончания периода
+ТекстОкончаниеПериода = ФормаОТЧТ.ЭлементыФормы.Добавить(ТипыЭлементовФормы.Текст, "ТекстОкончаниеПериода");
+ТекстОкончаниеПериода.Заголовок = "Окончание периода:";
+ПолеВводаОкончаниеПериода = ФормаОТЧТ.ЭлементыФормы.Добавить(ТипыЭлементовФормы.ПолеВвода, "ПолеВводаОкончаниеПериода");
+ПолеВводаОкончаниеПериода.Представление = "ДатаВремя";
+ПолеВводаОкончаниеПериода.Значение = ТекущаяДата();
+
+//Создание таблицы для вывода данных отчета
+ТаблицаДанных = ФормаОТЧТ.ЭлементыФормы.Добавить(ТипыЭлементовФормы.Таблица, "ТаблицаДанных");
+ТаблицаДанных.Заголовок = "Данные по продажам:";
+ТаблицаДанных.Колонки.Добавить("КодТовара", "Идентификатор товара");
+ТаблицаДанных.Колонки.Добавить("Наименование", "Наименование товара");
+ТаблицаДанных.Колонки.Добавить("Количество", "Количество проданных единиц");
+ТаблицаДанных.Колонки.Добавить("Сумма", "Сумма продажи");
+
+//Регистрация метода формы для обработки нажатия на кнопку "Показать отчет"
+ФормаОТЧТ.Кнопки.ПоказатьОтчет.Метод = "ПоказатьОтчет";
+
+//Метод для заполнения таблицы данными отчета
+ФормаОТЧТ.ПоказатьОтчет = Функция(Ложь)
+	
+	//Получение выбранных дат из полей ввода
+	НачалоПериода = ФормаОТЧТ.ЭлементыФормы.ПолеВводаНачалоПериода.Значение;
+	ОкончаниеПериода = ФормаОТЧТ.ЭлементыФормы.ПолеВводаОкончаниеПериода.Значение;
+
+	//Формирование запроса для получения данных отчета
+	Запрос = Новый Запрос;
+	Запрос.Текст = "ВЫБРАТЬ
+					Товари.Код КАК КодТовара,
+					Товари.Наименование КАК Наименование,
+					СуммыПродаж.Количество КАК Количество,
+					СуммыПродаж.Сумма КАК Сумма
+				ИЗ
+					Справочник.Товары КАК Товари
+					ЛЕВОЕ СОЕДИНЕНИЕ РегистрНакопления.Продажи КАК СуммыПродаж
+					ПО СуммыПродаж.Товар = Товари.Ссылка
+				ГДЕ
+					СуммыПродаж.Период МЕЖДУ &НачалоПериода И &ОкончаниеПериода";
+
+	//Заполнение таблицы данными
+	ТаблицаДанных.Очистить();
+	Результат = Запрос.Выполнить(Новый Структура("НачалоПериода, ОкончаниеПериода", НачалоПериода, ОкончаниеПериода));
+	Для Каждого Строка Из Результат.Выбрать() Цикл
+		НоваяСтрока = ТаблицаДанных.Добавить();
+		НоваяСтрока.КодТовара = Строка.КодТовара;
+		НоваяСтрока.Наименование = Строка.Наименование;
+		НоваяСтрока.Количество = Строка.Количество;
+		НоваяСтрока.Сумма = Строка.Сумма;
+	КонецЦикла;
+
+КонецФункции;
+
+//Открытие формы
+ФормаОТЧТ.Открыть();
+
+'//Метод для обработки нажатия на кнопку "Показать отчет"
+Метод Public Sub ShowReport(sender As Object, e As EventArgs)
+    Dim FormReport As Form = CType(sender, Form)
+    Dim StartDate As Date = DateTime.Parse(FormReport.Controls("Дата Начала Периода").Text)
+    Dim EndDate As Date = DateTime.Parse(FormReport.Controls("Дата Окончания Периода").Text)
+
+    'Получение данных отчета из базы данных
+    Dim dataSource As New DataTable()
+    Using connection As New SqlConnection("Database=MyDatabase;Server=localhost;Trusted_Connection=Yes")
+        connection.Open()
+        Dim command As New SqlCommand("SELECT ItemID, ItemName, Quantity, TotalAmount FROM Sales WHERE SaleDate Between @StartDate and @EndDate", connection)
+        command.Parameters.Add(New SqlParameter("@StartDate", StartDate))
+        command.Parameters.Add(New SqlParameter("@EndDate", EndDate))
+        Using adapter As New SqlDataAdapter(command)
+            adapter.Fill(dataSource)
+        End Using
+    End Using
+
+    'Заполнение таблицы данными
+    FormReport.Controls("Report Data Table").DataSource = dataSource
+    FormReport.Controls("Report Data Table").DataBind()
+End Sub
+
+'//Инициализация формы и кнопки
+Private Sub InitializeForm()
+    Dim FormReport As Form = Me.DesignRuntimeForm
+    FormReport.Text = "Sales Report"
+    FormReport.CenterToScreen()
+    Dim ShowReportButton As New Button()
+    ShowReportButton.Name = "Show Report Button"
+    ShowReportButton.Text = "Show Report"
+    ShowReportButton.Click += New System.EventHandler(AddressOf ShowReport)
+    FormReport.Controls.Add(ShowReportButton)
+    Dim StartDateLabel As New Label()
+    StartDateLabel.Name = "Start Date Label"
+    StartDateLabel.Text = "Start Date:"
+    Dim StartDateInput As New DateTimePicker()
+    StartDateInput.Name = "Start Date Input"
+    StartDateInput.Value = Now()
+    FormReport.Controls.Add(StartDateLabel)
+    FormReport.Controls.Add(StartDateInput)
+    Dim EndDateLabel As New Label()
+    EndDateLabel.Name = "End Date Label"
+    EndDateLabel.Text = "End Date:"
+    Dim EndDateInput As New DateTimePicker()
+    EndDateInput.Name = "End Date Input"
+    EndDateInput.Value = Now()
+    FormReport.Controls.Add(EndDateLabel)
+    FormReport.Controls.Add(EndDateInput)
+    Dim ReportTable As New DataGridView
+    ReportTable.Name = "Report Data Table"
+    FormReport.Controls.Add(ReportTable)
+End Sub
+
+'//Выполнение инициализации после загрузки формы
+Private Sub ReportFormLoaded(sender As Object, e As EventArgs)
+    InitializeForm()
+End Sub
+
+'//Регистрация события инициализации формы
+AddHandler Me.Load, AddressOf ReportFormLoaded
+
+'//Запуск инициализации
+Me.OnLoad(New EventArgs())
+
+'Конец кода 1C_ENTERPRISE

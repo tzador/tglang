@@ -1,0 +1,43 @@
+// Define a task that will download dependencies
+task downloadDependencies(type: Download) {
+    src 'https://example.com/dependency1.jar'
+    src 'https://example.com/dependency2.jar'
+    dest(buildDir)
+    overwrite(true)
+}
+
+// Define a task that will unzip the downloaded dependencies
+task unzipDependencies(type: Copy) {
+    dependsOn downloadDependencies
+    from zipTree(downloadDependencies.dest)
+    into "$buildDir/libs"
+}
+
+// Define a task that will compile the main Java source code
+task compileJava(type: JavaCompile) {
+    dependsOn unzipDependencies
+    source 'src/main/java'
+    classpath unzipDependencies.outputs.files
+    destinationDir "$buildDir/classes"
+}
+
+// Define a task that will jar the compiled classes
+task package(type: Jar) {
+    dependsOn compileJava
+    from "$buildDir/classes"
+    archiveName 'myApp.jar'
+    destinationDir "$buildDir/libs"
+}
+
+// Define a task for running the jar file
+task run(type: JavaExec) {
+    dependsOn package
+    classpath "$buildDir/libs/myApp.jar"
+    main = 'com.example.MyApp'
+}
+
+// Add a task that runs all the previous defined tasks
+task build << { tasks.run.execute() }
+
+// Specify the default tasks to be executed when "gradle" command is run
+defaultTasks 'build'

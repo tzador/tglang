@@ -1,0 +1,75 @@
+type
+  // a custom type for numbers
+  Num = object
+    digits: seq[int]
+    signed: bool
+
+  // a custom type for strings
+  Str = object
+    chars: seq[char]
+    encoded: bool
+
+  // a generic proc that checks for overflow in addition
+  proc check_overflow(x: Num, y: Num): bool =
+    var overflow: bool = false
+
+    // check for sign
+    if x.signed and y.signed:
+      // if both numbers are negative, overflow will be detected through subtraction
+      if x.digits.len < y.digits.len:
+        overflow = true
+      else:
+        // subtract the digits to check if there is more than one digit left (overflow)
+        var i: int = 0
+        while i < x.digits.len:
+          if x.digits[i] - y.digits[i] < 0:
+            overflow = true
+            break
+          inc(i)
+    else:
+      // if both numbers are positive, overflow can occur if the resulting digit is greater than 9
+      if x.digits.len < y.digits.len:
+        overflow = true
+      else:
+        // add the digits and check if there is more than one digit left (overflow)
+        var i: int = 0
+        var carry: int = 0
+        while i < x.digits.len:
+          var sum = x.digits[i] + y.digits[i] + carry
+          if sum > 9:
+            overflow = true
+            break
+          inc(i)
+          carry = sum >= 10
+    return overflow
+
+  // a generic proc that adds two numbers and returns the result
+  proc add(x: Num, y: Num): Num =
+    // initialize a new Num object to store the result
+    var result = Num(digits: @[], signed: false)
+
+    // check for sign
+    if x.signed or y.signed:
+      // if one of the numbers is negative, add -1 to the result at the end
+      result.signed = true
+
+    // perform the addition
+    var i: int = 0
+    var carry: int = 0
+    while i < x.digits.len or i < y.digits.len:
+      var sum = carry + (if i < x.digits.len: x.digits[i] else: 0) + (if i < y.digits.len: y.digits[i] else: 0)
+      result.digits.add(sum mod 10)
+      carry = sum >= 10 ? 1 : 0
+      inc(i)
+
+    // add -1 if the result is negative
+    if result.signed:
+      result = add(result, Num(digits: @[1], signed: false))
+
+    return result
+
+  // example usage
+  let num1 = Num(digits: @[9, 9, 9], signed: true)
+  let num2 = Num(digits: @[8, 9, 9, 9], signed: false)
+  let result = add(num1, num2)
+  echo "Result: ", result.digits

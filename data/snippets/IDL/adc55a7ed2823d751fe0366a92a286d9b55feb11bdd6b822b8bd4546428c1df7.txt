@@ -1,0 +1,45 @@
+pro multiple_fit_pix, x, y, y_error, x_degree, y_degree, best_fit
+
+;This procedure performs a least-squares fit using a multiple
+;polynomial model of two independent variables x and y.
+;The degree of each independent variable can be specified.
+
+;x: array of independent variable 1
+;y: array of independent variable 2
+;y_error: array of errors for dependent variable
+;x_degree: degree of independent variable 1 polynomial
+;y_degree: degree of independent variable 2 polynomial
+;best_fit: result of best fit
+
+;Define the number of coefficients in the polynomial
+n_coeff = (x_degree + 1) * (y_degree + 1) 
+
+;Define the design matrix
+design_matrix = fltarr(n_elements(x), n_coeff)
+
+;Fill the design matrix with the appropriate terms
+for i = 0, x_degree do begin
+    for j = 0, y_degree do begin
+        design_matrix[*, j * (x_degree + 1) + i] = x^i * y^j
+    endfor
+endfor
+
+;Calculate the normal matrix as the product of the transpose
+;of the design matrix and the design matrix
+normal_matrix = matrix_multiply(transpose(design_matrix), design_matrix)
+
+;Calculate the right-hand side vector as the product of 
+;the transpose of the design matrix and the dependent variable weighted by the errors
+rhs_vector = matrix_multiply(transpose(design_matrix), y/y_error)
+
+;Solve the normal equations using the singular value decomposition method
+;This method is more stable and accurate for ill-conditioned systems
+svd_wrapper, normal_matrix, rhs_vector, solution, /double
+
+;Reshape the solution vector into a matrix of coefficients
+best_fit = reshape(solution, x_degree+1, y_degree+1)
+
+;Return the result
+return, best_fit
+
+end

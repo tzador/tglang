@@ -1,0 +1,44 @@
+events{
+    worker_connections 1024; #sets the maximum number of simultaneous connections per worker process
+}
+
+http{
+    server{
+        listen 80; #port that the server listens on for incoming requests
+        server_name example.com; #domain name of the server block
+        location / { #defines the specific configuration for a given URI
+            proxy_pass https://example.com; #specifies the backend server to which the request will be forwarded
+        }
+        location /static/ { #defines the configuration for static files within the specified directory
+            alias /var/www/example.com/static/; #specifies the file path to the directory containing the static files
+        }
+        location ~ \.(gif|jpg|png)$ { #regex matching for file extensions to be handled by this location
+            root /var/www/example.com/media/; #specifies the root directory from where the file will be served
+            try_files $uri =404; #checks if the file exists, if not returns a 404 error
+            expires 30d; #sets the cache expiration time for the file
+        }
+    }
+    server{
+        listen 443 ssl; #port used for secure connections with SSL
+        server_name example.com; #domain name of the server block
+        ssl_certificate /etc/ssl/certs/example.com.crt; #specifies the SSL certificate for the server
+        ssl_certificate_key /etc/ssl/private/example.com.key; #specifies the private key for the SSL certificate
+        location / { #defines the specific configuration for a given URI
+            proxy_pass https://example.com; #specifies the backend server to which the request will be forwarded
+        }
+        location /static/ { #defines the configuration for static files within the specified directory
+            alias /var/www/example.com/static/; #specifies the file path to the directory containing the static files
+        }
+        location ~ \.(gif|jpg|png)$ { #regex matching for file extensions to be handled by this location
+            root /var/www/example.com/media/; #specifies the root directory from where the file will be served
+            try_files $uri =404; #checks if the file exists, if not returns a 404 error
+            expires 30d; #sets the cache expiration time for the file
+        }
+        location /api/ { #defines the configuration for API calls
+            proxy_pass http://127.0.0.1:8000; #specifies the backend server to which the request will be forwarded
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; #adds the IP address of the proxy server to the request header
+            proxy_set_header Host $http_host; #adds the HTTP host header to the request
+            proxy_redirect off; #disables automatic correction of redirect URIs from the upstream server
+        }
+    }
+}

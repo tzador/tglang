@@ -1,0 +1,70 @@
+defmodule MyModule do                                            # Defines a module named 'MyModule'
+  @moduledoc "This is a module for performing various tasks"       # Provides documentation for the module
+  
+  @behaviour BehaviourModule                                      # Specifies the behaviour that this module conforms to
+  
+  require Logger                                                  # Imports the Logger module for logging
+  
+  @moduledoc false                                                # Disables automatic creation of 'moduledoc' attribute
+  
+  @doc "The entry point function for performing the tasks"         # Provides documentation for the function
+  @spec perform_tasks() :: :ok | {:error, any}                     # Defines a function signature
+  def perform_tasks do                                            # Defines the function
+    tasks = get_tasks()                                           # Calls a function to retrieve the tasks
+    Logger.info("Performing #{Enum.count(tasks)} tasks")           # Logs the number of tasks to be performed
+    tasks                                                       
+    |> Enum.map(fn task ->                                        # Maps over the tasks list using an anonymous function
+      execute_task(task)                                          # Calls a function to execute each task
+    end)                                                         
+    |> Enum.filter(fn result ->                                    # Filters out any unsuccessful tasks
+      result == :ok                                               # Specifies the condition for filtering
+    end)                                                         
+    |> length()                                                   # Gets the number of successful tasks 
+    |> save_in_report()                                           # Calls a function to save the results in a report 
+  end
+  
+  @doc "Function for retrieving the tasks from a database"
+  @spec get_tasks() :: [any]                                       # Defines a function signature
+  defp get_tasks do                                                # Defines a private function
+    tasks = Database.query("SELECT * FROM tasks")                  # Queries the database for tasks
+    Enum.map(fn task ->                                            # Maps over the tasks list using an anonymous function
+      parse_task(task)                                             # Calls a function to parse each task
+    end)                                                         
+  end
+  
+  @doc "Function for parsing a task from the database"
+  @spec parse_task(any) :: any                                     # Defines a function signature
+  defp parse_task(task) do                                         # Defines a private function
+    %{id: task["id"], name: task["name"], status: task["status"]}  # Parses the task object into a map
+  end
+  
+  @doc "Function for executing a task"
+  @spec execute_task(any) :: :ok | {:error, any}                   # Defines a function signature
+  defp execute_task(task) do                                       # Defines a private function
+    case task[:status] do                                          # Matches on the status of the task
+      "pending" -> perform_pending_task(task[:name])               # Calls a function to perform a pending task
+      "completed" -> perform_completed_task(task[:name])           # Calls a function to perform a completed task
+      _ -> {:error, "Invalid task status"}                         # Returns an error for any other status
+    end
+  end
+  
+  @doc false                                                      # Disables documentation for this function
+  defp perform_pending_task(name) do                                # Defines a private function
+    Logger.info("#{name} is now pending")                          # Logs the pending task
+    :ok                                                           # Returns a successful result
+  end
+  
+  @doc false                                                      # Disables documentation for this function
+  defp perform_completed_task(name) do                              # Defines a private function
+    Logger.info("#{name} is already completed")                    # Logs that the task is already completed
+    :ok                                                           # Returns a successful result
+  end
+  
+  @doc "Function for saving the results in a report"
+  @spec save_in_report(integer) :: :ok                             # Defines a function signature
+  defp save_in_report(number) do                                   # Defines a private function
+    %{total_tasks: number, timestamp: DateTime.utc_now()}          # Creates a map with the report data
+    |> File.write("./report.json", [pretty: true])                 # Writes the data to a JSON file  
+    :ok                                                           # Returns a successful result
+  end
+end

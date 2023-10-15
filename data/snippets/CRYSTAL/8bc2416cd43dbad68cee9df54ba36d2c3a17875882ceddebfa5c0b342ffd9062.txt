@@ -1,0 +1,73 @@
+require "http/server"
+include HTTP::StatusCodes
+
+# Define a class for our custom server
+class CustomServer < HTTP::Server
+
+  GA_MESSAGES = {
+    "greeting" => "Hello, how can I assist you today?",
+    "farewell" => "Goodbye, it was nice chatting with you."
+  }
+
+  # Method to handle GET requests
+  def handle_get(context : HTTP::Server::Context)
+    # Check if parameter is provided
+    if context.request.url.queries.has_key?("parameter")
+      # Retrieve value from parameter
+      parameter = context.request.url.queries["parameter"]
+      # Generate response with parameter value
+      context.response.status_code = OK
+      context.response.puts "Parameter: #{parameter}"
+      context.response.puts ""
+      context.response.puts "#{GA_MESSAGES["greeting"]}"
+    else
+      # Generate response without parameter
+      context.response.status_code = OK
+      context.response.puts "#{GA_MESSAGES["greeting"]}"
+    end
+    # Send response back to client
+    context.response.finish
+  end
+
+  # Method to handle POST requests
+  def handle_post(context : HTTP::Server::Context)
+    # Check if data is provided
+    if context.request.body?
+      # Retrieve data from body
+      data = context.request.body.to_s
+      # Generate response with data
+      context.response.status_code = OK
+      context.response.puts "Data: #{data}"
+      context.response.puts ""
+      context.response.puts "#{GA_MESSAGES["farewell"]}"
+    else
+      # Generate response without data
+      context.response.status_code = OK
+      context.response.puts "#{GA_MESSAGES["farewell"]}"
+    end
+    # Send response back to client
+    context.response.finish
+  end
+end
+
+# Create an instance of our custom server and start listening
+server = CustomServer.new("0.0.0.0", 3000)
+puts "Listening on #{server.bind_host}:#{server.bind_port}"
+puts "Press Ctrl + C to stop"
+
+# Event loop to handle client requests
+server.listen do |context|
+  case context.request.method
+  # Handle GET requests
+  when HTTP::GET
+    handle_get(context)
+  # Handle POST requests
+  when HTTP::POST
+    handle_post(context)
+  # Handle all other methods
+  else
+    context.response.status_code = NOT_IMPLEMENTED
+    context.response.puts "Method not supported"
+    context.response.finish
+  end
+end

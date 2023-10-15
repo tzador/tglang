@@ -1,0 +1,91 @@
+: SORT ( arr len -- sorted_arr )
+  \ Implementation of quicksort algorithm in FORTH.
+  \ Takes in an array and its length as arguments,
+  \ and returns the sorted array.
+  \ Adapted from https://rosettacode.org/wiki/Sorting_algorithms/Quicksort#Forth
+  
+  \ Check if array has more than one element
+  2 <= IF
+    \ Swap first and last element of array
+    dup -1 + \ last element
+    dup 0a \ first element
+    over *
+    swap \ first * last
+    > IF
+      swap 0a swap \ if greater, swap again
+    THEN
+    swap 0b swap \ else, swap first and last position
+    swap -1 + \ save new last element position
+    swap 0a swap \ and set first element as pivot
+    0 \ set pivot index to 0
+    
+    \ Create variables for left and right pointers
+    var-left  var-right
+    BEGIN 
+      \ Move left pointer to the right until value is greater than pivot
+      BEGIN
+        \ Check if left pointer is at last element or found bigger value
+        last? IF 
+          exit 
+        THEN
+        var-left inc
+        array? var-left @ > IF 
+          exit 
+        THEN
+        var-left @ array swap >r \ Swap elements to compare
+        var-left @ var-left - dup @ \ Save pivot value
+        dup cell + @ rot = not \ Compare values
+        r> swap array swap \ Restore elements
+        var-left @ var-left inc +
+      AGAIN
+      
+      \ Move right pointer to the left until value is smaller than pivot
+      BEGIN
+        \ Check if right pointer is at first element or found smaller value
+        first? IF 
+          exit 
+        THEN
+        var-right dec
+        array? var-right @ < IF 
+          exit 
+        THEN
+        var-right @ array swap >r \ Swap elements to compare
+        var-right @ var-right - dup @ \ Save pivot value
+        dup cell + @ rot = not \ Compare values
+        r> swap array swap \ Restore elements
+        var-right @ var-right dec -
+      AGAIN
+      
+      \ Check if pointers have crossed
+      var-right @ array? var-left @ array > IF 
+        \ Swap pivot with element at right pointer
+        var-right @ array swap 2dup $-1 over over ! \ Save pivot and last element
+        -1 + \ get last element position
+        array! cell+ dup ?DO \ Move elements to the right
+          2dup $+ $-1 i array! i cell- cell dup @ swap i $-1 array! cells \ Shuffle elements
+          cell /string swap cmove \ Move saved pivot value
+          cell inc \ Move pointer
+        LOOP
+        var-left @ var-left dec \ Decrement left pointer
+      ELSE
+        var-left @ array? var-right @ array < IF 
+          \ Swap pivot with element at left pointer
+          var-left @ array swap 2dup $0 over over ! \ Save pivot and first element
+          array! swap inc dup ?DO \ Move elements to the left
+            2dup $-1 i array! 2dup $+ $0 i array! cells \ Shuffle elements
+            cell swap i cell+ cell cells cell+ \ Address of last element of next array
+            strings cells -string cmove \ Move saved pivot value
+            cell dec \ Move pointer
+          LOOP
+          \ Increment right pointer
+          var-right @ var-right inc -
+        THEN
+      THEN
+      var-left @ array? var-right @ array ?DO \ Sort partition to the left
+        pick last - SORT var-left inc \ Move pointer
+      LOOP
+    REPEAT
+  ELSE
+    drop \ If array has only one element, drop it and return
+  THEN
+;

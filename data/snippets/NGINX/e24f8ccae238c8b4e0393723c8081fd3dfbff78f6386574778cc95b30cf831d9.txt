@@ -1,0 +1,88 @@
+server {
+    # Define the port and server name
+    listen 80;
+    server_name example.com;
+
+    # Define the document root and index
+    root /var/www/html;
+    index index.html index.php;
+
+    # Enable gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    # Define the default location
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # Serve static files
+    location ~* \.(jpg|jpeg|gif|png|css|js|ico|xml)$ {
+        access_log off;
+        expires 30d;
+    }
+
+    # Redirect requests to HTTPS
+    location / {
+        return 301 https://$server_name$request_uri;
+    }
+
+    # Configure HTTPS
+    server {
+        listen 443 ssl http2;
+        server_name example.com;
+
+        # Define SSL certificate and key
+        ssl_certificate /etc/nginx/ssl/example.com.crt;
+        ssl_certificate_key /etc/nginx/ssl/example.com.key;
+
+        # Enable ssl session caching
+        ssl_session_cache shared:SSL:10m;
+        ssl_session_timeout 10m;
+        
+        # Enable Perfect Forward Secrecy
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_prefer_server_ciphers on;
+        ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384;
+
+        # Enable OCSP stapling
+        ssl_stapling on;
+        ssl_stapling_verify on;
+        resolver 8.8.8.8 8.8.4.4 valid=300s;
+        resolver_timeout 5s;
+
+        # Enable HTTP/2
+        http2_flag on;
+        http2_max_field_size 65535;
+        http2_max_concurrent_streams 1000;
+        http2_max_requests 1000;
+        http2_recv_timeout 300s;
+        http2_idle_timeout 60s;
+
+        # Enable security headers
+        add_header X-XSS-Protection "1; mode=block";
+        add_header X-Frame-Options "SAMEORIGIN";
+        add_header X-Content-Type-Options "nosniff";
+        add_header Referrer-Policy "no-referrer";
+
+        # Enable caching of HTML files
+        location / {
+            expires 1d;
+            add_header Cache-Control "public";
+        }
+
+        # Serve static files
+        location ~* \.(jpg|jpeg|gif|png|css|js|ico|xml)$ {
+            access_log off;
+            expires 30d;
+        }
+
+        # Hide server version header
+        server_tokens off;
+
+        # Redirect all non-HTTPS requests to HTTPS
+        location / {
+            return 301 https://$server_name$request_uri;
+        }
+    }
+}

@@ -1,0 +1,77 @@
+class PlayerCharacter extends Pawn
+    // Class representing the player character
+
+    var() float Health; // player's health value
+    var() int Armor; // player's armor value
+    var() float Speed; // player's movement speed
+    var() bool IsRunning; // boolean indicating if player is running
+
+    // Function to handle player movement and input
+    simulated function ProcessMove(float DeltaTime, vector NewAccel, byte Control, byte& CompressedFlags, float Delta)
+        local vector Vel;
+
+        // Calculate player's velocity
+        Vel = Velocity + (NewAccel * Speed * DeltaTime * 0.035);
+
+        // Check if player is running and adjust speed accordingly
+        if (IsRunning)
+        {
+            Vel *= 2.0;
+        }
+
+        // Set player's movement parameters
+        SetPhysics(Vel, Rotation, COM_Translation, COM_Rotation, Delta);
+
+        // Process player input
+        if (Control != 0)
+        {
+            // Handle player forward and strafe movement
+            if (CompressedFlags & MOVEFLAG_DoubleClickForward)
+            {
+                Vel.X = 375.0;
+            }
+            else if (CompressedFlags & MOVEFLAG_DoubleClickBackward)
+            {
+                Vel.X = -375.0;
+            }
+
+            if (Control & MOVE_Left)
+                Vel.Y = -375.0;
+            else if (Control & MOVE_Right)
+                Vel.Y = 375.0;
+        }
+    }
+
+    // Function to handle player jumping
+    function bool CanJump()
+    {
+        if (Physics == PHYS_Falling)
+            return false;
+        return true;
+    }
+
+    // Function to handle player taking damage
+    function TakeDamage(int DamageAmount, Actor.dmgInstigatedBy InstigatedBy, vector HitLocation, vector Momentum, name DamageType)
+    {
+        Health -= DamageAmount * Armor; // Adjust health based on player's armor
+        // Check if player's health is below 0
+        if (Health <= 0)
+        {
+            // Inform game mode that player has died
+            if ( GameInfo != None )
+                GameInfo.PlayerDied(PlayerOwner);
+        }
+    }
+
+    defaultproperties
+    {
+        Begin Object Name=PlayerCollisionCylinder
+            CollisionRadius=32.0
+            CollisionHeight=64.0
+        End Object
+        Begin Object Name=PlayerMeshComponent
+            Parent=PlayerCollisionCylinder
+        End Object
+        PlayerControllerClass=class'PlayerController'
+        bHidden=True
+    }

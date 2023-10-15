@@ -1,0 +1,35 @@
+/* This APEX code snippet creates a custom object and trigger
+   to automatically update a field when a related record is 
+   updated. */
+   
+// Define the custom object and its fields
+Object obj = new Object('Custom_Object__c');
+obj.Fields = new List<Field>{
+    new Field('Name', DataTypes.Text),
+    new Field('Related_Record_ID__c', DataTypes.Lookup),
+    new Field('Related_Record_Name__c', DataTypes.Text),
+    new Field('Update_Field__c', DataTypes.Number, true)
+};
+
+// Create the trigger on the related record's object
+trigger RelatedRecordTrigger on Related_Record__c (after update) {
+    // Create a list of custom objects to update
+    List<Object> objectsToUpdate = new List<Object>();
+    
+    // Loop through the related records that were updated
+    for(Related_Record__c relatedRecord : Trigger.New){
+        // Check if the related record has a value for the lookup field
+        if(relatedRecord.Related_Record_ID__c != null){
+            // Find the corresponding custom object related to the updated record
+            Object obj = [SELECT Id, Name, Related_Record_ID__c, Related_Record_Name__c, Update_Field__c 
+                          FROM Custom_Object__c 
+                          WHERE Related_Record_ID__c = :relatedRecord.Id];
+            // Update the custom object's field
+            obj.Update_Field__c = relatedRecord.Some_Field__c;
+            // Add the updated custom object to the list
+            objectsToUpdate.add(obj);
+        }
+    }
+    // Update all of the custom objects in one DML statement
+    update objectsToUpdate;
+}

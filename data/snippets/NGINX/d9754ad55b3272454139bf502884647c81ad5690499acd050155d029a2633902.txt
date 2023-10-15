@@ -1,0 +1,118 @@
+# Basic NGINX server configuration
+server {
+    listen       80; # Port for HTTP requests
+    listen       [::]:80; # IPv6 equivalent
+    server_name  example.com; # Server domain name
+    
+    # Set the root directory for our website
+    root         /var/www/example.com;
+    
+    # Enable gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss application/javascript+json;
+    
+    # Configure caching for certain file types
+    location ~* \.(jpg|jpeg|png|gif|ico|svg)$ {
+        expires 1y;
+        access_log off;
+    }
+    location ~* \.(css|js)$ {
+        expires 1d;
+        access_log off;
+    }
+    
+    # Enable server-side caching
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=cache:10m inactive=60m;
+    server {
+        location / {
+            proxy_cache cache; # Uses cache defined above
+            proxy_pass http://localhost:3000; # Forward requests to backend server
+        }
+    }
+    
+    # Define custom error pages
+    error_page 403 /error/403.html;
+    error_page 404 /error/404.html;
+    error_page 500 /error/500.html;
+    location ^~ /error/ {
+        internal;
+        root /var/www/error_pages;
+    }
+    
+    # Configure HTTPS
+    listen 443 ssl;
+    ssl_certificate /etc/nginx/ssl/example.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/example.com.key;
+    
+    # Enable HTTP/2
+    listen 443 ssl http2;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    
+    # Enable OCSP stapling
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    ssl_trusted_certificate /etc/nginx/ssl/ca.crt;
+    
+    # Enable HSTS header and preload
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+    
+    # Enable X-Frame-Options and XSS protection
+    add_header X-Frame-Options DENY always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    
+    # Enable MIME type detection
+    include mime.types;
+    
+    # Redirect www to non-www URL
+    server {
+        listen 80;
+        server_name www.example.com;
+        return 301 http://example.com$request_uri;
+    }
+    
+    # Enable rate limiting
+    limit_req zone=slowdown burst=10 nodelay;
+    server {
+        location /api/ {
+            limit_req zone=slowdown;
+            proxy_pass http://localhost:3000;
+        }
+    }
+    
+    # Block access to hidden files and folders
+    location ~ /\. {
+        deny all;
+    }
+    
+    # Enable server-side caching for specific user agents
+    proxy_set_header Cache-Control "public, max-age=86400, immutable";
+    proxy_cache_bypass $http_pragma;
+    proxy_cache_revalidate on;
+    map $http_user_agent $cap {
+        default XVARABOT;
+        "~*W3 Total Cache.*" W3TCACHINGCLASS;
+    }
+    server {
+        location ~ /(wp-admin/|wp-content/|wp-includes/) {
+            proxy_cache_key "$cap-$host-$request_uri";
+        }
+    }
+    
+    # Enable Gzip for certain file types
+    http {
+        gzip on;
+        gzip_static on;
+        gzip_disable "msie6";
+        gzip_http_version 1.1;
+        gzip_comp_level 9;
+        gzip_min_length 200;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss application/javascript+json
+        image/gif image/png image/svg+xml;
+        gzip_vary on;
+    }
+    
+    # Configure rewrites for clean URLs
+    location / {
+        try_files $uri $uri/ /index.php?$args;
+    }
+}

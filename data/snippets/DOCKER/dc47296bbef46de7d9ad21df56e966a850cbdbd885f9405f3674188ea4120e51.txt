@@ -1,0 +1,35 @@
+# Dockerfile for building a Node.js application image
+# This is a multi-stage build, separating the build process from the final image
+
+# ---- Base Node ----
+FROM node:alpine AS base
+# Create app directory
+RUN mkdir -p /usr/src/app
+# Set workdir to the app directory
+WORKDIR /usr/src/app
+# Copy package.json and package-lock.json
+COPY package*.json ./
+
+# ---- Dependencies ----
+FROM base AS dependencies
+# Install app dependencies including 'devDependencies'
+RUN npm install
+# Copy app source code
+COPY . .
+
+# ---- Build ----
+FROM dependencies AS build
+# Compile TypeScript to JavaScript
+RUN npm run build
+
+# --- Release with Alpine ----
+FROM node:alpine
+# Install app dependencies without 'devDependencies'
+ENV NODE_ENV=production
+COPY --from=dependencies /usr/src/app/node_modules ./node_modules
+# Copy builded app source code
+COPY --from=build /usr/src/app/dist ./dist
+# Expose port 4000
+EXPOSE 4000
+# Entry point command
+CMD ["node", "dist/main.js"]

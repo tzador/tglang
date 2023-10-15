@@ -1,0 +1,93 @@
+#HTTPS server configuration
+server {
+    listen 443 ssl;
+    ssl_certificate /etc/ssl/certs/nginx-selfsigned.crt;
+    ssl_certificate_key /etc/ssl/private/nginx-selfsigned.key;
+
+    server_name example.com;
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+
+    #enable HTTP/2
+    http2_push_preload on;
+    http2_push /images/logo.png;
+    http2_push /styles/styles.css;
+    http2_push /scripts/script.js;
+    http2_push /fonts/font.woff;
+
+    #enable OCSP stapling
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    ssl_trusted_certificate /etc/ssl/certs/ca.crt;
+
+    #enable cipher suites
+    ssl_ciphers 'ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256';
+
+    #enable HSTS
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+
+    #enable CSRF token protection
+    add_header "Set-Cookie" "XSRF-TOKEN=$ssl_session_id; Path=/; Secure; HttpOnly" always;
+
+    #prevent clickjacking
+    add_header "X-Frame-Options" "SAMEORIGIN" always;
+
+    #prevent mime type sniffing
+    add_header "X-Content-Type-Options" "nosniff" always;
+
+    #disable server version header
+    server_tokens off;
+
+    #enable gzip compression
+    gzip on;
+    gzip_types text/html text/plain text/css application/javascript application/json;
+    gzip_proxied any;
+    gzip_disable "msie6";
+
+    #add cache control headers
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js|woff|woff2)$ {
+        expires 1y;
+        add_header Cache-Control "public, no-transform";
+    }
+
+    #handle SSL redirects
+    if ($scheme != "https") {
+        return 301 https://$host$request_uri;
+    }
+
+    #handle HTTP/2 server push
+    if ($http2_push = "") {
+        add_header Link '<$scheme://$host$image>rel=preload; as=image';
+        add_header Link '<$scheme://$host$style>rel=preload; as=style';
+        add_header Link '<$scheme://$host$script>rel=preload; as=script';
+        add_header Link '<$scheme://$host$font>rel=preload; as=font';
+    }
+
+    #handle OCSP stapling verify
+    location = /olstatus {
+        internal;
+        try_files $uri =404;
+        proxy_ssl_verify on;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        proxy_set_header Content-Type "text/plain";
+        proxy_ssl_trusted_certificate /etc/ssl/certs/ca.crt;
+        proxy_pass $ssl_stapling_response;
+    }
+
+    #handle client requests
+    location / {
+        proxy_ssl_session_reuse on;
+        proxy_cache off;
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host:$proxy_port;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    #handle server errors
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html {
+        root html;
+    }
+}

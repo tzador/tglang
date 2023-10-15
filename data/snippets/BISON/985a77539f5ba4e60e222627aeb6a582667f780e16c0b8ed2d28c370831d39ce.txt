@@ -1,0 +1,145 @@
+/* BISON code to parse and analyze a subset of HTML */
+
+/*** Lexer Rules ***/
+
+%option noyywrap
+%{
+#include "HTMLParser.tab.h"
+%}
+
+alphabet [a-zA-Z]
+number [0-9]
+id ({alphabet}+)
+ws ([ \t\r\n])
+tag_start (<)
+tag_end (>)
+start_comment (<!--)
+end_comment (--(!?->)?)>
+attribute (id|class|href|src|style)
+punct ([.,!?'])
+
+%%
+
+{ws}+        { /* ignore whitespace */ }
+{id}         { /* match opening and closing tags */ 
+                 if(!top || !strcmp(top->id, yytext))
+                    push_element(yytext);
+                 else
+                    pop_element();
+                 return(TOKEN); 
+             }
+{number}+    { /* match attribute values */ 
+                 return(TOKEN); 
+             }
+{tag_start}  { /* match tag start symbol < */ 
+                 return(TOKEN); 
+             }
+{tag_end}    { /* match tag end symbol > */ 
+                 return(TOKEN); 
+             }
+{start_comment}  { /* match start of comment <!-- */ 
+                      yyless(4); /* return to start of tag to match entire comment */ 
+                      return(execute_state(STATE_COMMENT)); 
+                  }
+{end_comment}  { /* match end of comment --> or any invalid characters */ 
+                    yymore(); /* add character back to current token */
+                    return(execute_state(STATE_ANOTHER_ATT)); let_state(STATE_TEXT); 
+                 }
+{attribute}  { /* match valid HTML attributes */ 
+                   state = STATE_ATTRIBUTE; 
+                   push_attrib(yytext); 
+                   return(SYM_ATTRBUTE); 
+               } 
+{punct}      { /* match any punctuation */ 
+                   return(TOKEN); 
+               } 
+. {}           /* catch all for any invalid characters */ 
+write directly to output
+
+/*** Parser Rules ***/
+
+/* match opening and closing of HTML tags */
+element:
+    TOKEN {
+        current = element.top; // get current element being parsed
+        element.child.push_back(new node(yytext)); // create new child node with tag name
+    }
+    element TOKEN {
+        current = element.top->parent; // move up one level to new element's parent
+        element.child.push_back(new node(yytext)); // create new child node with tag name
+    }
+;
+
+/* match attribute name and value for a tag */
+attribute:
+    SYM_ATTRIBUTE TOKEN {
+        node* current = element.top->child.back(); // get last child node (which is current element being parsed)
+        current.attribute.push_back(make_pair(yytext, "")); // add new attribute name with empty value
+    }
+    !TOKEN {
+        node* current = element.top->child.back(); // get last child node (which is current element being parsed)
+        pair<string, string> last_attribute = current.attribute.back(); // get last attribute added
+        last_attribute.second = yytext; // add value to last attribute
+        current.attribute.pop_back(); // remove last attribute (with empty value)
+        current.attribute.push_back(last_attribute); // add new attribute with value
+    }
+;
+
+%%
+
+/* functions to handle state changes during parsing */
+int execute_state (int new_state) {
+    switch (new_state) {
+        case STATE_TEXT:
+            yyenable_buffer(text_buffer, 1); // enable buffer for text parsing
+            yybegin(new_state);
+            return(TOKEN);
+        case STATE_COMMENT:
+            yyenable_buffer(comment_buffer, 1); // enable buffer for comment parsing
+            yybegin(new_state);
+            return(TOKEN);
+        case STATE_ANOTHER_ATT:
+            yyenable_buffer(attribute_buffer, 1); // enable buffer for attribute parsing
+            yybegin(new_state);
+            return(SYM_ATTRIBUTE);
+        default:
+            yybegin(new_state);
+            return(TOKEN);
+    }
+}
+
+int let_state (int new_state) {
+    switch (new_state) {
+        case STATE_TEXT:
+            yybegin(new_state);
+            yydisable_buffer(text_buffer); // disable buffer for text parsing
+            return(TOKEN);
+        case STATE_COMMENT:
+            yybegin(new_state);
+            yydisable_buffer(comment_buffer); // disable buffer for comment parsing
+            return(TOKEN);
+        case STATE_ANOTHER_ATT:
+            yybegin(new_state);
+            yydisable_buffer(attribute_buffer); // disable buffer for attribute parsing
+            return(SYM_END_TAG);
+        default:
+            yybegin(new_state);
+            return(TOKEN);
+    }
+}
+
+/* function to add new element to parsing stack */
+void push_element (char* name) {
+    element.push(new node(name));
+}
+
+/* function to remove top element from parsing stack */
+void pop_element () {
+    element.pop();
+}
+
+/* function to add new attribute to current element being parsed */
+void push_attrib (char* name) {
+    node* current = element.top->child.back(); // get last child node (which is current element being parsed)
+    current.attribute.push_back(make_pair(name, "")); // add new attribute name with empty value
+}

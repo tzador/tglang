@@ -1,0 +1,45 @@
+# Configure upstream servers
+upstream backend {
+  server backend1.example.com weight=5;
+  server backend2.example.com weight=10;
+  server backend3.example.com;
+}
+
+# Configure server
+server {
+  listen 80;
+  server_name www.example.com;
+
+  # Redirect http requests to https
+  location / {
+    return 301 https://$server_name$request_uri;
+  }
+
+  # Configure ssl
+  ssl_certificate /etc/letsencrypt/live/www.example.com/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/www.example.com/privkey.pem;
+  ssl_protocols TLSv1.2 TLSv1.3;
+
+  # Configure caching
+  proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=my_cache:10m inactive=60m;
+  proxy_cache_key "$scheme$request_method$host$request_uri";
+
+  # Configure load balancing
+  location / {
+    proxy_pass http://backend;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+  }
+
+  # Configure gzip compression
+  gzip on;
+  gzip_types text/plain text/css application/json;
+  gzip_proxied any;
+
+  # Configure security settings
+  add_header X-Frame-Options SAMEORIGIN;
+  add_header X-XSS-Protection "1; mode=block";
+  add_header X-Content-Type-Options nosniff;
+  add_header Referrer-Policy "strict-origin-when-cross-origin";
+  add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:" always;
+}

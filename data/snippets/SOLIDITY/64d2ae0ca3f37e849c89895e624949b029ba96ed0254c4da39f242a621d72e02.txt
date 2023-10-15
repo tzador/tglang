@@ -1,0 +1,56 @@
+pragma solidity ^0.8.0;
+
+contract Voting {
+    struct Voter {
+        bool voted; // boolean value to track if the voter has already voted
+        uint8 vote; // uint8 value to track the index of the candidate voted for
+    }
+
+    struct Candidate {
+        string name; // name of the candidate
+        uint8 voteCount; // uint8 value to track the number of votes received
+    }
+
+    address public electionOwner; // address of the owner of the election
+    mapping(address => Voter) public voters; // mapping to track the voters and their votes
+    Candidate[] public candidates; // array to store the candidates participating in the election
+
+    event NewCandidate(string _name); // event to emit when a new candidate is added
+    event Vote(address _voter, string _candidate); // event to emit when a voter casts a vote
+
+    constructor() {
+        electionOwner = msg.sender; // assigns the address of the contract creator as the election owner
+    }
+
+    function addCandidate(string memory _name) public {
+        require(msg.sender == electionOwner, "Only the election owner can add candidates.");
+        candidates.push(Candidate(_name, 0)); // adds a new candidate to the array of candidates
+        emit NewCandidate(_name); // emits the NewCandidate event
+    }
+
+    function vote(uint8 _candidateIndex) public {
+        require(!voters[msg.sender].voted, "You have already voted."); // checks if the voter has already voted
+        require(_candidateIndex < candidates.length, "Invalid candidate index."); // checks if the candidate index is valid
+        voters[msg.sender].vote = _candidateIndex; // assigns the candidate index voted for to the voter
+        voters[msg.sender].voted = true; // sets voted to true to prevent multiple votes from the same voter
+        candidates[_candidateIndex].voteCount++; // increments the vote count for the candidate
+        emit Vote(msg.sender, candidates[_candidateIndex].name); // emits the Vote event
+    }
+
+    function getWinner() internal view returns (string memory) {
+        uint8 maxVotes = 0; // variable to track the maximum number of votes received by a candidate
+        uint8 winnerIndex; // variable to track the index of the candidate with the maximum votes
+        for (uint8 i = 0; i < candidates.length; i++) {
+            if (candidates[i].voteCount > maxVotes) {
+                maxVotes = candidates[i].voteCount; // updates the maximum vote count
+                winnerIndex = i; // updates the index of the winning candidate
+            }
+        }
+        return candidates[winnerIndex].name; // returns the name of the winning candidate
+    }
+
+    function displayWinner() public view returns (string memory) {
+        require(msg.sender == electionOwner, "Only the election owner can display the winner.");
+        return getWinner(); // calls the getWinner function to determine the winner and returns the name of the winner
+    }
+}

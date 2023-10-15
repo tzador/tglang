@@ -1,0 +1,108 @@
+# Set default location for Nginx to serve files from
+location / {
+  root /var/www/html;
+  # Enable content caching for faster page loads
+  expires 1d;
+  # Set default index file
+  index index.html;
+}
+
+# Redirect http requests to https
+server {
+  listen 80 default_server;
+  listen [::]:80 default_server;
+  server_name _;
+  return 301 https://$host$request_uri;
+}
+
+# Configure SSL with correct SSL certificate and key
+server {
+  listen 443 ssl default_server;
+  listen [::]:443 ssl default_server;
+  server_name _;
+  ssl_certificate /etc/ssl/certs/example.crt;
+  ssl_certificate_key /etc/ssl/private/example.key;
+
+  # Enable HTTP/2 for improved performance
+  http2_push_preload on;
+
+  # Set stricter SSL protocols and cipher suites for increased security
+  ssl_protocols TLSv1.2 TLSv1.3;
+  ssl_ciphers 'TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256';
+
+  # Set gzip compression for smaller file sizes
+  gzip on;
+  gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+  # Configure caching for different types of files
+  location ~* \.(css|js|html|jpg|jpeg|png|gif|ico|svg)$ {
+    expires 7d;
+    add_header Cache-Control "public";
+    access_log off;
+  }
+
+  # Enable HTTP basic authentication for restricted access to site
+  # Replace 'username' and 'password' with desired credentials
+  # To generate encrypted password, use command 'printf "username:password" | openssl passwd -stdin'
+  # To disable authentication, remove this section
+  auth_basic "Restricted Access";
+  auth_basic_user_file /etc/nginx/.htpasswd;
+
+  # Set up redirects for specific URLs
+  # Comment these out if not needed
+  if ($request_uri = /oldurl) {
+    rewrite ^ http://www.example.com/newurl permanent;
+  }
+  if ($request_uri = /secret) {
+    return 403;
+  }
+
+  # Proxy pass for backend server, if needed
+  location /backend {
+    proxy_pass http://127.0.0.1:8080/;
+  }
+
+  # Enable server-side caching for faster page loads
+  proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=backend_cache:10m inactive=60m;
+  proxy_cache_key "$scheme$request_method$host$request_uri";
+  proxy_cache_valid 200 302 10m;
+  proxy_cache_valid 404 1m;
+  proxy_cache_bypass $http_pragma;
+  proxy_cache_revalidate on;
+  proxy_cache_min_uses 1;
+  proxy_cache_methods GET HEAD;
+  proxy_cache_use_stale error timeout invalid_header updating http_500 http_502 http_503 http_504;
+
+  # Enable gzip compression for backend server responses
+  proxy_http_version 1.1;
+  proxy_set_header Upgrade $http_upgrade;
+  proxy_set_header Connection "upgrade";
+  proxy_set_header Host $host;
+  proxy_set_header Accept-Encoding gzip;
+
+  # Set longer keep-alive timeout for backends
+  proxy_read_timeout 3m;
+  proxy_connect_timeout 75s;
+  proxy_send_timeout 100s;
+
+  # Set response headers for security
+  add_header X-XSS-Protection "1; mode=block";
+  add_header X-Content-Type-Options nosniff;
+  add_header X-Frame-Options SAMEORIGIN;
+  add_header Strict-Transport-Security "max-age=63072000; includeSubdomains; preload";
+  add_header X-Content-Security-Policy "frame-ancestors 'self'";
+  add_header Content-Security-Policy "default-src 'self'";
+
+  # Disable server tokens for increased security
+  server_tokens off;
+
+  # Set custom error pages
+  error_page 400 /400.html;
+  location = /400.html {
+    internal;
+  }
+  error_page 500 /500.html;
+  location = /500.html {
+    internal;
+  }
+}

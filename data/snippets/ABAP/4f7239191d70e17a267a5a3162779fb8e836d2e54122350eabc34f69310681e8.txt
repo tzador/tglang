@@ -1,0 +1,51 @@
+*&---------------------------------------------------------------------*
+*& Report Z_EXAMPLE_REPORT
+*&---------------------------------------------------------------------*
+REPORT z_example_report LINE-SIZE 130 LINE-COUNT 65.
+
+* Declarations
+TABLES:
+  mara, " Material Master
+  marc, " Plant Specific Material Data
+  t001w, " Plants
+  t001k, " Sales Organizations
+  t001b. " Distribution Channels
+
+* Selection-Screen
+SELECTION-SCREEN BEGIN OF BLOCK block1 WITH FRAME TITLE text-t01.
+PARAMETERS: p_matnr LIKE mara-matnr OBLIGATORY,
+            p_werks TYPE t001w-werks DEFAULT sy-werks,
+            p_vkorg TYPE t001k-vkorg MATCHCODE OBJECT vkorg.
+SELECTION-SCREEN END OF BLOCK block1.
+
+* Initialization
+INITIALIZATION.
+p_maktx = ' '.
+
+* Start-of-Selection
+START-OF-SELECTION.
+SELECT SINGLE maktx INTO @p_maktx FROM mara WHERE matnr = @p_matnr.
+
+* Main Processing
+SELECT SINGLE werks INTO @gv_werks FROM t001w WHERE werks = @p_werks.
+SELECT SINGLE vkorg INTO @gv_vkorg FROM t001k WHERE vkorg = @p_vkorg.
+SELECT SINGLE vtweg INTO @gv_vtweg FROM t001b WHERE vkorg = @gv_vkorg.
+
+SELECT matnr
+       werks
+       stprs
+       mbwrt
+  FROM marc
+  INTO TABLE @DATA(lt_materials)
+  WHERE matnr = @p_matnr
+    AND werks = @p_werks
+    AND vkorg = @gv_vkorg.
+LOOP AT lt_materials ASSIGNING FIELD-SYMBOL(<fs_material>).
+  SELECT stpwr FROM t001w
+    INTO @<fs_material>-stpwr
+    FOR ALL ENTRIES IN @lt_materials
+    WHERE werks = @<fs_material>-werks.
+ENDLOOP.
+
+* End-of-Selection
+END-OF-SELECTION.

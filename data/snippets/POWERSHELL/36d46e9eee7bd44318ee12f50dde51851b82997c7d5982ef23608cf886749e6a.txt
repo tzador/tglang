@@ -1,0 +1,40 @@
+# Imported necessary modules for authentication and permission
+Import-Module Microsoft.Online.SharePoint.PowerShell
+Import-Module MSOnline
+
+# Get login credentials and connect to SharePoint Online
+$adminUsername = Read-Host -Prompt "Enter admin username"
+$adminPassword = Read-Host -Prompt "Enter admin password" -AsSecureString
+$credentials = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $adminUsername, $adminPassword
+Connect-SPOService -Url https://tenantname-admin.sharepoint.com -Credential $credentials
+
+# Get SharePoint Online site and list information
+$siteUrl = "https://tenantname.sharepoint.com/sites/SiteName"
+$listName = "ListName"
+$site = Get-SPOSite $siteUrl
+$list = Get-SPOList $siteUrl/$listName
+
+# Get user input for new list item
+Write-Host "Enter information for new list item:"
+$title = Read-Host -Prompt "Enter title"
+$description = Read-Host -Prompt "Enter description"
+
+# Create and populate new list item
+$newItem = New-Object Microsoft.SharePoint.Client.ListItemCreationInformation
+$item = $list.AddItem($newItem)
+$item["Title"] = $title
+$item["Description"] = $description
+$item.Update()
+
+# Grant permission to current user for new list item
+$currentUserName = $env:USERNAME+"@"+$env:userdnsdomain
+$permissions = [Microsoft.SharePoint.Client.BasePermissions]::EditListItems
+$listItem = $list.GetItemById($item["Id"])
+$roleDefinition = $list.ParentWeb.RoleDefinitions.GetByName("Contribute")
+$roleDefinitionInstantiation = New-Object Microsoft.SharePoint.Client.RoleDefinitionBindingCollection($clientContext)
+$roleDefinitionInstantiation.Add($roleDefinition)
+$clientContext.Load($listItem.RoleAssignments.Add($currentUserName, $permissions))
+$clientContext.ExecuteQuery()
+
+# Output success message
+Write-Host "New list item successfully created with permissions granted to current user."

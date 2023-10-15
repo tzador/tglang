@@ -1,0 +1,42 @@
+// Module for a multi-stage pipeline processor
+
+`timescale 1ns / 1ps // set the time scale for the module
+
+module processor(input clk, reset, input [7:0] in1, in2, in3, input [31:0] data1, data2, output [31:0] out);
+    
+    parameter NUM_STAGES = 5; // set the number of pipeline stages for the processor
+
+    // Define pipeline registers for each stage
+    reg [7:0] in_reg [NUM_STAGES-1:0]; // input register for each stage, holding 8-bit data
+    reg [31:0] data_reg [NUM_STAGES-1:0]; // data register for each stage, holding 32-bit data
+    wire [31:0] out_reg [NUM_STAGES-1:0]; // output register for each stage, holding 32-bit data
+    wire [NUM_STAGES-1:0] stage_en [NUM_STAGES-1:0]; // stage enable signal, to indicate when each stage has completed
+
+    // Assign values to input registers for stage 0
+    assign in_reg[0] = in1;
+    assign data_reg[0] = data1;
+
+    // Pipeline stages, starting from stage 1
+    genvar i;
+    for (i = 1; i < NUM_STAGES; i = i + 1) begin : STAGES
+        always @(posedge clk or posedge reset) begin
+            if (reset) begin
+                in_reg[i] <= in_reg[i-1];
+                data_reg[i] <= data_reg[i-1];
+                stage_en[i] <= 1'b0;
+            end else if (stage_en[i-1]) begin
+                in_reg[i] <= in_reg[i-1];
+                data_reg[i] <= data_reg[i-1];
+                stage_en[i] <= 1'b0;
+            end else begin
+                in_reg[i] <= out_reg[i-1];
+                data_reg[i] <= out_reg[i-1];
+                stage_en[i] <= 1'b1;
+            end
+        end
+    end
+
+    // Output logic, taking data from the last stage
+    assign out = out_reg[NUM_STAGES-1];
+
+endmodule

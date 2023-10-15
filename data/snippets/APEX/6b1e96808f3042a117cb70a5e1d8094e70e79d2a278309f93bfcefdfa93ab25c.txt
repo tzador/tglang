@@ -1,0 +1,65 @@
+// This code creates a custom object and a custom field in Salesforce
+Schema.DescribeSObjectResult customObj = Schema.SObjectType.My_Custom_Object__c;
+if(customObj == null) {
+    // Create the custom object
+    Schema.SObjectType customObjectType = Schema.getGlobalDescribe().get('My_Custom_Object__c');
+    Schema.DescribeSObjectResult customObjTypeDescribe = customObjectType.getDescribe();
+    Schema.CreateEntityOptions opt = new Schema.CreateEntityOptions();
+    opt.allowInChainedDmlops = true;
+    opt.allowUsingExistingUsernamePassword = true;
+    Schema.CreateEntityEmailCommandResult[] results = Schema.createEntity(new Schema.createEntityEmailCommand[] {
+       new Schema.createEntityEmailCommand(Schema.Action.ADD, customObjTypeDescribe, new String[]{'test@example.com'}),
+       new Schema.createEntityEmailCommand(Schema.Action.SEND, customObjTypeDescribe, 'mailto:test@example.com?subject=New custom object created'),
+       new Schema.createEntityEmailCommand(Schema.Action.SEND_AND_PASSWD, customObjTypeDescribe, new Id[] {UserInfo.getUserId()}, null)
+
+    }, opt);
+    
+    // Check for errors
+    if(results[0].getErrors().size() > 0) {
+        String errorsMsg = '';
+        for(String err : results[0].getErrors()) {
+            errorsMsg += err + '\n';
+        }
+        System.debug(errorsMsg);
+    } else {
+        // Custom object created successfully
+        System.debug('Custom object created successfully');
+    }
+} else {
+    // Custom object already exists
+    System.debug('Custom object already exists');
+}
+
+// Create a custom field
+// Check first if the field already exists
+Schema.DescribeFieldResult customField = customObj.fields.getMap().get('My_Custom_Field__c');
+if(customField != null) {
+    // Custom field already exists
+    System.debug('Custom field already exists');
+} else {
+    // Create the custom field
+    // Create a new field and populate the necessary parameters
+    Schema.SObjectField newField = new Schema.SObjectField();
+    newField.put('Type', 'Text');
+    newField.put('Label', 'My Custom Field');
+    newField.put('Length', 100);
+    newField.put('Required', false);
+    newField.put('Description', 'This is a custom field created through APEX code');
+    newField.put('Precision', 0);
+    newField.put('Scale', 0);
+    newField.put('Formula', null);
+    
+    // Create the field using the Schema class
+    Schema.sObjectType customObjectType = Schema.getGlobalDescribe().get('My_Custom_Object__c');
+    Schema.DescribeSObjectResult customObjTypeDescribe = customObjectType.getDescribe();
+    Schema.sObjectType newFieldType = Schema.createObjectType(customObjTypeDescribe, newField);
+    
+    // Check for errors
+    if(newFieldType != null) {
+        // Custom field created successfully
+        System.debug('Custom field created successfully');
+    } else {
+        // Error creating custom field
+        System.debug('Error creating custom field');
+    }
+}

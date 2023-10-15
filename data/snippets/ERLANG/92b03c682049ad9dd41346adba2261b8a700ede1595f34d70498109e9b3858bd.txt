@@ -1,0 +1,23 @@
+-module(map_reduce).
+-export([map/2, reduce/2]).
+
+%% Parallel map function that takes in a fun (function) and a list
+%% and returns the results of applying the function to each element in parallel.
+map(Fun, List) ->
+    Pids = [spawn(Fun, [E]) || E <- List], % Spawn a process for each element in List
+    [receive {Pid, Result} -> Result end || Pid <- Pids]. % Collect the results from each process
+
+%% Reduce function that takes in a fun (function) and a list
+%% and returns the result of applying the function to the list in parallel.
+reduce(Fun, List) ->
+    [reduce(Fun, [ListElement]) || ListElement <- mapreduce:map(Fun, List)].
+
+%% Helper function for reduce that combines the results of the parallel map function
+%% into a single result.
+reduce(Fun, [First, Second | Rest]) ->
+    Result = spawn(Link, fun(Fun, First, Second) -> Fun(First, Second) end), % Spawn a process to combine two results
+    [reduce(Fun, [RestElement, SecondResult]) || RestElement <- Rest, SecondResult <- Result].
+
+%% Base case for reduce function when there is only one element left in the list.
+reduce(_Fun, [Element]) ->
+    Element.

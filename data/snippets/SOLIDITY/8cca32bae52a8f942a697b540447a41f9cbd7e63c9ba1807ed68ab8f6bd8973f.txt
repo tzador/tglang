@@ -1,0 +1,121 @@
+// This code snippet shows an example of a smart contract in Solidity for creating and managing a decentralized marketplace on the Ethereum blockchain.
+
+// Import necessary libraries
+import "../interfaces/IERC20.sol";
+import "../libraries/SafeMath.sol";
+
+// Set contract owner and marketplace fee percentage
+address contractOwner = msg.sender;
+uint marketplaceFee = 1; // Denoted in percentages
+
+// Create struct to hold listing data
+struct Listing {
+    uint id; // Unique listing ID
+    address seller; // Seller's address
+    address currency; // Address of ERC20 token used for payment
+    uint price; // Listing price in ERC20 token
+    uint quantity; // Available quantity
+    mapping (address => uint) bids; // Mapping of bids by buyers
+    bool active; // Flag to indicate if listing is still available
+}
+
+// Create mapping of listings
+mapping (uint => Listing) listings;
+
+// Create event for successful listing creation
+event ListingCreated(uint indexed id, address indexed seller, address indexed currency, uint price, uint quantity);
+
+// Create modifier to restrict access to only contract owner
+modifier onlyOwner() {
+    require(msg.sender == contractOwner, "Only the contract owner can perform this action");
+    _;
+}
+
+// Create function to create a new listing
+function createListing(uint _id, address _currency, uint _price, uint _quantity) public {
+    require(_currency != address(0), "Currency address cannot be null"); // Make sure currency address is provided
+    require(_price > 0, "Price must be greater than 0"); // Make sure price is greater than 0
+    require(_quantity > 0, "Quantity must be greater than 0"); // Make sure quantity is greater than 0
+
+    // Create new listing with provided information
+    Listing memory newListing = Listing({
+        id: _id,
+        seller: msg.sender,
+        currency: _currency,
+        price: _price,
+        quantity: _quantity,
+        active: true
+    });
+
+    // Add listing to mapping
+    listings[_id] = newListing;
+
+    // Emit event for successful listing creation
+    emit ListingCreated(_id, msg.sender, _currency, _price, _quantity);
+}
+
+// Create function to place a bid on a listing
+function placeBid(uint _id, uint _amount) public {
+    require(_amount > 0, "Bid amount must be greater than 0"); // Make sure bid amount is greater than 0
+    require(listings[_id].active, "Listing is not available"); // Make sure listing is still active
+    require(listings[_id].quantity >= _amount, "Not enough quantity available"); // Make sure there is enough quantity available for the bid
+
+    // Transfer bid amount from buyer to contract
+    transferFrom(listings[_id].currency, msg.sender, address(this), _amount);
+
+    // Add bid to mapping for the specific buyer and listing
+    listings[_id].bids[msg.sender] = _amount;
+
+    // Decrease available quantity for the listing
+    listings[_id].quantity -= _amount;
+}
+
+// Create function to accept a bid and execute transaction
+function acceptBid(uint _id, address _buyer) public onlyOwner {
+    require(listings[_id].active, "Listing is not available"); // Make sure listing is still active
+    require(listings[_id].bids[_buyer] > 0, "Buyer has not placed a bid on this listing"); // Make sure buyer has placed a bid on this listing
+
+    // Calculate marketplace fee
+    uint fee = SafeMath.div(SafeMath.mul(listings[_id].bids[_buyer], marketplaceFee), 100);
+
+    // Calculate final amount to be transferred to seller
+    uint amount = SafeMath.sub(listings[_id].bids[_buyer], fee);
+
+    // Transfer final amount to seller
+    transfer(listings[_id].currency, listings[_id].seller, amount);
+
+    // Transfer marketplace fee to contract owner
+    transfer(listings[_id].currency, contractOwner, fee);
+
+    // Set listing as inactive
+    listings[_id].active = false;
+}
+
+// Create function to cancel a listing
+function cancelListing(uint _id) public {
+    require(listings[_id].seller == msg.sender, "Only the seller can cancel this listing"); // Make sure caller is the seller
+    require(listings[_id].active, "Listing is not available"); // Make sure listing is still active
+
+    // Transfer remaining quantity back to seller
+    transfer(listings[_id].currency, msg.sender, listings[_id].quantity);
+
+    // Set listing as inactive
+    listings[_id].active = false;
+}
+
+// Create function to transfer tokens from contract to a specific address
+function transfer(address _token, address _to, uint _amount) internal {
+    IERC20 token = IERC20(_token); // Create instance of ERC20 token
+    token.transfer(_to, _amount); // Transfer tokens from contract to specified address
+}
+
+// Create function to transfer tokens from a specific address to contract
+function transferFrom(address _token, address _from, address _to, uint _amount) internal {
+    IERC20 token = IERC20(_token); // Create instance of ERC20 token
+
+    // Approve contract to transfer tokens on behalf of specified address
+    token.approve(_from, _amount);
+
+    // Perform transfer from specified address to contract
+    token.transferFrom(_from, _to, _amount);
+}

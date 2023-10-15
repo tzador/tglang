@@ -1,0 +1,48 @@
+#map block
+map $args $category {
+    default         default;
+    ~(^|&)category=([^&]*)   $2;
+}
+
+#location block
+location /category/ {
+    #limit requests to a certain number per second
+    limit_req zone=category burst=20 nodelay;
+
+    #proxy the request to backend server
+    proxy_pass http://backend/$category;
+
+    #pass additional headers to the backend
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header Host $host;
+}
+
+#server block
+server {
+    #listen on port 80
+    listen 80;
+
+    #set the server name
+    server_name example.com;
+
+    #set the root directory
+    root /var/www/html;
+
+    #enable gzip compression
+    gzip on;
+
+    #set additional mime types to be compressed
+    gzip_types text/plain text/css application/json;
+
+    #location block for the root directory
+    location / {
+        #set the default file to serve
+        index index.html;
+
+        #try files in this order before returning 404
+        try_files $uri $uri/ /index.html;
+
+        #enable server-side caching
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+    }
+}

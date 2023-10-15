@@ -1,0 +1,35 @@
+# This code snippet creates a new virtual network in Azure using PowerShell.
+
+# Import AzureRM modules
+Import-Module -Name AzureRM.Network
+
+# Set variables for resource group and virtual network
+$rgName = "MyResourceGroup"
+$vnetName = "MyVirtualNetwork"
+
+# Create a new resource group
+New-AzureRMResourceGroup -Name $rgName -Location "East US"
+
+# Create a new virtual network with address space and subnet
+$vnet = New-AzureRMVirtualNetwork -Name $vnetName -ResourceGroupName $rgName -Location "East US" -AddressPrefix "10.0.0.0/16" -Subnet @(New-AzureRMVirtualNetworkSubnetConfig -Name "Subnet-1" -AddressPrefix "10.0.0.0/24")
+
+# Enable IP forwarding on the virtual network
+Set-AzureRMVirtualNetwork -VirtualNetwork $vnet -EnableIpForwarding $true
+
+# Create a new virtual network gateway subnet and associate it with the virtual network
+Add-AzureRMVirtualNetworkSubnetConfig -Name "GatewaySubnet" -AddressPrefix "10.0.1.0/27" -VirtualNetwork $vnet
+
+# Create a new public IP address for the virtual network gateway
+$gwIp = New-AzureRMPublicIpAddress -Name "MyVnetGatewayIp" -ResourceGroupName $rgName -Location "East US" -AllocationMethod Dynamic
+
+# Create a new virtual network gateway
+$gw = New-AzureRmVirtualNetworkGateway -Name "MyVnetGateway" -ResourceGroupName $rgName -Location "East US" -IpConfigurations @(New-AzureRmVirtualNetworkGatewayIpConfig -Name "GatewayIpConfig" -SubnetId $vnet.Subnets[0].Id -PublicIpAddressId $gwIp.Id) -GatewayType Vpn -VpnType RouteBased -EnableBgp $true -GatewayDefaultSite @(New-AzureRmVirtualNetworkGatewayDefaultSite -Name "MyDefaultSite" -AddressPrefix "10.1.0.0/24")
+
+# Start the virtual network gateway
+Start-AzureRmVirtualNetworkGateway -ResourceGroupName $rgName -Name "MyVnetGateway"
+
+# Create a new local network gateway for the on-premises site
+$lng = New-AzureRmLocalNetworkGateway -Name "MyLocalNetworkGateway" -ResourceGroupName $rgName -Location "East US" -GatewayIpAddress "<on-premises IP address>" -AddressPrefix "<on-premises address prefix>"
+
+# Create a new virtual network gateway connection to establish a VPN connection
+$vpn = New-AzureRmVirtualNetworkGatewayConnection -Name "MyVnetGatewayConnection" -ResourceGroupName $rgName -VirtualNetworkGateway1 $gw -LocalNetworkGateway2 $lng -Location "East US" -ConnectionType IPsec -RoutingWeight 10 -SharedKey "<shared key>"

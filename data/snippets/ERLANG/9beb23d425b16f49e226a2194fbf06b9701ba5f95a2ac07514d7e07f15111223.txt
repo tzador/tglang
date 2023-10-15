@@ -1,0 +1,63 @@
+%% This module simulates a simple chat room server
+
+-module(chat_server).
+
+%% External exported functions
+-export([start/0, reply/2, broadcast/2]).
+
+%% Internal functions
+-define(STATE, #{users => dict:new(), messages => queue:new()}).
+
+%% Public functions
+%% Starts the chat server and initializes the state
+start() ->
+    spawn(fun() ->
+        init(?STATE)
+    end).
+
+% Server state initialization
+init(State) ->
+    Loop = fun() ->
+        receive
+            {join, User, Pid} ->
+                NewState = add_user(User, Pid, State),
+                broadcast({server, User, "has joined the chat."}, State),
+                loop(NewState);
+            {leave, User} ->
+                NewState = remove_user(User, State),
+                broadcast({server, User, "has left the chat."}, State),
+                loop(NewState);
+            {message, User, Msg} ->
+                NewState = add_message(User, Msg, State),
+                broadcast({User, Msg}, State),
+                loop(NewState)
+        end
+    end,
+    loop(Loop, State).
+
+% Loops through incoming messages
+loop(Loop, State) ->
+    Loop(),
+    loop(Loop, State).
+
+% Adds a new user to the server state
+add_user(User, Pid, State) ->
+    dict:update(User, Pid, State#state.users).
+
+% Removes a user from the server state
+remove_user(User, State) ->
+    dict:erase(User, State#state.users).
+
+% Adds a message to the server state
+add_message(User, Msg, State) ->
+    queue:in({User, Msg}, State#state.messages).
+
+% Sends a reply to a specific user
+reply(User, Msg) ->
+    Pid = dict:fetch(User, State#state.users),
+    Pid ! {self(), Msg}.
+
+% Sends a broadcast message to all users
+broadcast(Msg, State) ->
+    Users = dict:keys(State#state.users),
+    [reply(User, Msg) || User <- Users].

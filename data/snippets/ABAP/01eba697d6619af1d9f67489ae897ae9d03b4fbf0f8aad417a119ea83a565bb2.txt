@@ -1,0 +1,57 @@
+*&---------------------------------------------------------------------*
+*& Report ZDEMO_REPORT
+*&
+*&---------------------------------------------------------------------*
+REPORT ZDEMO_REPORT.
+
+TABLES: MARA, MAKT.
+DATA: BEGIN OF IT_MARA OCCURS 0,
+        MATNR TYPE MARA-MATNR,
+        ERSDA TYPE MARA-CREATED_ON,
+      END OF IT_MARA.
+DATA: BEGIN OF IT_MAKT OCCURS 0,
+        MATNR TYPE MAKT-MATNR,
+        SPRAS TYPE MAKT-SPRAS,
+        MAKTX TYPE MAKT-MAKTX,
+      END OF IT_MAKT.
+DATA: IT_OUT LIKE LIST OCCURS 0,
+      WA_OUT LIKE LINE OF IT_OUT,
+      WA_MAKT LIKE MAKT.
+
+*---get data from MARA table
+SELECT MATNR ERSDA FROM MARA INTO TABLE IT_MARA UP TO 100 ROWS.
+IF SY-SUBRC = 0.
+  LOOP AT IT_MARA INTO WA_OUT.
+    MOVE-CORRESPONDING WA_OUT TO WA_MAKT.
+    APPEND WA_MAKT TO IT_MAKT.
+  ENDLOOP.
+
+  *---get data from MAKT table
+  SELECT MATNR, SPRAS, MAKTX FROM MAKT APPENDING TABLE IT_MAKT FOR ALL ENTRIES IN IT_MARA WHERE MATNR = IT_MARA-MATNR.
+  IF SY-SUBRC = 0.
+
+    *---filter data by language
+    DELETE IT_MAKT WHERE SPRAS = 'EN'.
+
+    *---sort data by matnr
+    SORT IT_MAKT BY MATNR.
+
+    *---loop through data and display
+    LOOP AT IT_MAKT INTO WA_MAKT.
+      WA_OUT-MATNR = WA_MAKT-MATNR.
+      WA_OUT-ERSDA = WA_MAKT-ERSDA.
+      WA_OUT-MAKTX = WA_MAKT-MAKTX.
+      APPEND WA_OUT TO IT_OUT.
+    ENDLOOP.
+
+    *---output results
+    DO 3 TIMES.
+      WRITE: / '-------RECORDS IN ENGLISH-------'.
+      SKIP.
+      LOOP AT IT_OUT INTO WA_OUT.
+        WRITE: / WA_OUT-MATNR, WA_OUT-ERSDA, WA_OUT-MAKTX.
+      ENDLOOP.
+    ENDDO.
+
+  ENDIF.
+ENDIF.

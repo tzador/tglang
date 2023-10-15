@@ -1,0 +1,46 @@
+// Create a method to retrieve account information
+// Parameters: accountId - The Id of the account to retrieve information for
+// Returns: A map with account information
+public Map<String, Object> retrieveAccountInfo(String accountId) {
+  // Check if account Id is valid
+  if (accountId == null || accountId == '') {
+    // Throw an exception if account Id is not provided
+    throw new AuraHandledException('Account Id must be provided');
+  }
+  
+  // Query account and related contact and opportunity records
+  List<Account> accounts = [SELECT Id, Name, BillingAddress, (SELECT Id, Name, Email FROM Contacts), (SELECT Id, Name, Amount FROM Opportunities) FROM Account WHERE Id = :accountId];
+  
+  // Create a map to store account information
+  Map<String, Object> accountInfo = new Map<String, Object>();
+  
+  // Add account information to map
+  accountInfo.put('AccountId', accounts[0].Id);
+  accountInfo.put('AccountName', accounts[0].Name);
+  accountInfo.put('AccountBillingAddress', accounts[0].BillingAddress);
+  
+  // Add contact information to map
+  List<Map<String, Object>> contactsList = new List<Map<String, Object>>();
+  for (Contact contact : accounts[0].Contacts) {
+    Map<String, Object> contactInfo = new Map<String, Object>();
+    contactInfo.put('ContactId', contact.Id);
+    contactInfo.put('ContactName', contact.Name);
+    contactInfo.put('ContactEmail', contact.Email);
+    contactsList.add(contactInfo);
+  }
+  accountInfo.put('AccountContacts', contactsList);
+  
+  // Add opportunity information to map
+  List<Map<String, Object>> opportunitiesList = new List<Map<String, Object>>();
+  for (Opportunity opportunity : accounts[0].Opportunities) {
+    Map<String, Object> opportunityInfo = new Map<String, Object>();
+    opportunityInfo.put('OpportunityId', opportunity.Id);
+    opportunityInfo.put('OpportunityName', opportunity.Name);
+    opportunityInfo.put('OpportunityAmount', opportunity.Amount);
+    opportunitiesList.add(opportunityInfo);
+  }
+  accountInfo.put('AccountOpportunities', opportunitiesList);
+  
+  // Return the map with account information
+  return accountInfo;
+}

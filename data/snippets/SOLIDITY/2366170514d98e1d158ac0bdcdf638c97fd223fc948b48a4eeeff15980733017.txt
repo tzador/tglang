@@ -1,0 +1,94 @@
+// This contract demonstrates the use of abstract contracts and function modifiers
+// in Solidity, a programming language used for writing smart contracts on the
+// Ethereum blockchain.
+
+// An abstract contract is a contract that contains undefined functions
+// that must be implemented by derived contracts.
+
+// Abstract contract for a token
+abstract contract Token {
+    // Each token has a name and a symbol
+    string public name;
+    string public symbol;
+    
+    // An event to track the transfer of tokens from one address to another
+    event Transfer(address indexed _from, address indexed _to, uint256 _value);
+    
+    // An empty constructor as tokens cannot be created direclty
+    constructor() {}
+    
+    // A function to get the total supply of tokens
+    function totalSupply() public virtual view returns (uint256);
+    
+    // A function to get the balance of a particular address
+    function balanceOf(address _owner) public virtual view returns (uint256);
+    
+    // A function to transfer tokens from one address to another
+    function transfer(address _to, uint256 _value) public virtual returns (bool);
+}
+
+// A contract that inherits from the abstract contract Token
+contract MyToken is Token {
+    // The constructor sets the name and symbol of the token
+    constructor() {
+        name = "MyToken";
+        symbol = "MTK";
+    }
+    
+    // An internal mapping to store the balance of each address
+    mapping (address => uint256) balances;
+    
+    // Implementing the total supply function from the abstract contract
+    function totalSupply() public override view returns (uint256) {
+        return 100000;
+    }
+    
+    // Implementing the balanceOf function from the abstract contract
+    function balanceOf(address _owner) public override view returns (uint256) {
+        return balances[_owner];
+    }
+    
+    // Implementing the transfer function from the abstract contract
+    function transfer(address _to, uint256 _value) public override returns (bool) {
+        // Checking if the sender has enough balance
+        require(balances[msg.sender] >= _value, "Insufficient balance");
+        // Updating the balances of the sender and receiver
+        balances[msg.sender] = balances[msg.sender] - _value;
+        balances[_to] = balances[_to] + _value;
+        // Emitting the transfer event
+        emit Transfer(msg.sender, _to, _value);
+        
+        return true;
+    }
+    
+    // A function modifier to ensure only the owner of the token can call certain functions
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the owner can call this function");
+        _;
+    }
+    
+    // A variable to store the owner of the token
+    address owner = msg.sender;
+    
+    // A function that can only be called by the owner
+    function burn(uint256 _amount) public onlyOwner returns (bool) {
+        // Checking if the sender has enough balance
+        require(balances[msg.sender] >= _amount, "Insufficient balance");
+        // Updating the balances of the sender and burning the tokens
+        balances[msg.sender] = balances[msg.sender] - _amount;
+        // Emitting the transfer event
+        emit Transfer(msg.sender, address(0), _amount);
+        
+        return true;
+    }
+    
+    // A function that can only be called by the owner
+    function mint(address _to, uint256 _amount) public onlyOwner returns (bool) {
+        // Updating the balance of the receiver
+        balances[_to] = balances[_to] + _amount;
+        // Emitting the transfer event
+        emit Transfer(address(0), _to, _amount);
+        
+        return true;
+    }
+}

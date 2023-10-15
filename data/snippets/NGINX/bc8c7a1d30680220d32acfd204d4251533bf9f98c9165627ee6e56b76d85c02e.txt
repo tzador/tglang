@@ -1,0 +1,95 @@
+# NGINX Config File
+
+# Set user and group for secure permissions
+user www-data;
+worker_processes auto;
+
+# Maximum number of open file descriptors, increase if needed
+worker_rlimit_nofile 100000;
+
+# Start NGINX as daemon process
+daemon off;
+
+# Set error log level to debug
+error_log /var/log/nginx/error.log debug;
+
+# Define events to react on
+events {
+    # Set maximum number of connections
+    worker_connections 1024;
+}
+
+# Define HTTP server configuration
+http {
+    # Enable TCP keepalives to improve performance
+    tcp_nodelay on;
+    tcp_nopush on;
+
+    # Set MIME types to be served
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    # Set log format
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" "$http_user_agent" "$host"';
+
+    # Set access log location and format
+    access_log /var/log/nginx/access.log main;
+
+    # Set client body buffer size
+    client_body_buffer_size 10m;
+
+    # Set server response timeout
+    client_body_timeout 12;
+    send_timeout 10;
+
+    # Set server keepalive timeout
+    keepalive_timeout 15;
+
+    # Set server connection timeout
+    types_hash_max_size 2048;
+    server_names_hash_bucket_size 128;
+
+    # Set server default config
+    server {
+        # Set server port
+        listen 80 default_server;
+        # Set server name
+        server_name _;
+        # Set server root
+        root /var/www/html;
+        # Set index file
+        index index.html;
+        # Set default location
+        location / {
+            # Set proxy pass
+            proxy_pass http://127.0.0.1:3000;
+            # Set proxy redirect
+            proxy_redirect off;
+            # Set proxy buffers
+            proxy_buffering on;
+            proxy_buffer_size 128k;
+            proxy_buffers 8 256k;
+            # Set proxy read and send timeouts
+            proxy_read_timeout 60s;
+            proxy_send_timeout 60s;
+        }
+    }
+
+    # Set custom server configuration for specific domain
+    server {
+        # Set server port
+        listen 80;
+        # Set server name
+        server_name example.com;
+        # Set server root
+        root /var/www/example;
+        # Set custom index file
+        index home.html;
+        # Set error pages
+        error_page 500 502 503 504 /50x.html;
+        location = /50x.html {
+            root /var/www/error_pages;
+        }
+    }
+}

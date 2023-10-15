@@ -1,0 +1,84 @@
+# This is a CMake file that defines a library with several source files and a target executable
+# Define the library
+add_library(my_library
+  src/file1.cpp
+  src/file2.cpp
+  include/file1.h
+)
+
+# Define the target executable
+add_executable(my_executable
+  src/main.cpp
+)
+
+# Link the library and set include directories
+target_link_libraries(my_executable
+  PUBLIC my_library
+)
+
+target_include_directories(my_library
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+# Define installation rules
+install(TARGETS my_library my_executable  # Install both targets
+  RUNTIME DESTINATION bin  # Where to install the executable
+  LIBRARY DESTINATION lib  # Where to install the shared library
+  ARCHIVE DESTINATION lib/static  # Where to install the static library
+)
+
+install(DIRECTORY include/  # Install the header files
+  DESTINATION include  # Where to install the header files
+  FILES_MATCHING  # Match only the specified files
+  PATTERN "*.h"  # Match all header files
+)
+
+# Define tests using Google Test (assume location of gtest is in /usr/local)
+add_executable(my_tests
+  tests/test1.cpp
+  tests/test2.cpp
+)
+
+target_link_libraries(my_tests
+  PUBLIC my_library  # Link to library being tested
+  /usr/local/lib/libgtest.a  # Static version of gtest
+  /usr/local/lib/libgtest_main.a  # Static version of gtest with main() function
+  pthread  # Required for gtest
+)
+
+# Add tests to CTest (automated test runner)
+enable_testing()
+
+add_test(NAME my_test COMMAND my_test)  # Define name and command for test
+
+# Find and include Boost libraries (assume location is in /usr/local)
+set(Boost_USE_STATIC_LIBS ON)  # Use static versions of Boost libraries
+find_package(Boost REQUIRED COMPONENTS regex)  # Find needed Boost libraries
+include_directories(${Boost_INCLUDE_DIRS})  # Add include directories to project
+
+# Define macro to add a binary operator to a class (for demonstration purposes)
+macro(add_operator op class)
+  add_library(${class}-operator INTERFACE)  # Define target as INTERFACE library
+  target_sources(${class}-operator INTERFACE "${class}.${op}.cpp")  # Add source file for operator
+  target_compile_definitions(${class}-operator INTERFACE
+    ${class}_${op}_DEFINED="defined")  # Add compile definition to indicate addition of operator
+  target_link_libraries(${class}-operator INTERFACE my_library)  # Link to my_library
+endmacro()
+
+# Use macro to add '+' and '-' binary operators to MyClass
+add_operator(+, MyClass)
+add_operator(-, MyClass)
+
+# Define a function that takes in a string and converts to uppercase
+function(string_to_upper ARG_STRINGVAR)
+  string(TOUPPER ${ARG_STRINGVAR} ARG_STRINGVAR)  # Use built-in CMake command to convert string to uppercase
+endfunction()
+
+# Use function to convert string to uppercase
+set(input_string "Hello World!")
+string_to_upper(${input_string})
+
+# Print the result
+message(STATUS "Converted string to uppercase: ${input_string}")

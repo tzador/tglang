@@ -1,0 +1,116 @@
+// This code snippet creates a custom player class
+class MyPlayer extends Player;
+    /*
+    The MyPlayer class extends the base Player class from the game.
+    It adds custom functionality to the player, such as a unique player character and custom movement and actions.
+    */
+
+    // Properties
+    var() bool bSuperPowerActive; // Boolean property to track if the player's superpower is active.
+    var() int HealthPoints; // Integer property to track the player's current health points.
+
+    /*
+    Function that handles the player's movement.
+    Includes custom logic for controlling speed and jumping.
+    Parameters:
+        Dir - The direction the player is moving in.
+        Speed - The speed at which the player is moving.
+    */
+    simulated function Move(Dir dir, float speed)
+    {
+        super.Move(dir, speed); // Call the base player class's Move function.
+        
+        if (bSuperPowerActive) // If the player's superpower is active, double the movement speed.
+        {
+            speed *= 2;
+        }
+
+        // Update character movement speed based on player's input from controller.
+        if (dir == EAxis.EA_Forward)
+        {
+            Velocity = speed * Vect(0,1,0);
+        }
+        else if (dir == EAxis.EA_Backward)
+        {
+            Velocity = speed * Vect(0,-1,0);
+        }
+        else if (dir == EAxis.EA_Left)
+        {
+            Velocity = speed * Vect(-1,0,0);
+        }
+        else
+        {
+            Velocity = speed * Vect(1,0,0);
+        }
+        
+        // Check if player is jumping and update movement accordingly.
+        if (Pawn.Physics != PHYS_Falling)
+        {
+            if (Controller.bPressedJump)
+            {
+                Velocity.Z = JumpZ;
+                Pawn.SetPhysics(PHYS_Falling);
+            }
+            else
+            {
+                Velocity.Z = Double(Velocity.Z);
+                if (Velocity.Z < 0)
+                {
+                    Pawn.SetPhysics(PHYS_Falling); // Start falling if player is not jumping anymore.
+                }
+            }
+        }
+    }
+
+    /*
+    Event called when the player takes damage.
+    This function decreases the player's health points and checks if they are out of health.
+    Parameters:
+        Damage - The amount of damage taken.
+        HitLoc - The location where the damage was applied.
+        Momentum - The direction of the momentum from the damage.
+        DamageType - The type of damage received.
+        InstigatedBy - The object that caused the damage.
+    */
+    protected function TakeDamage(int Damage, Vector HitLoc, Vector Momentum, class<Controller> DamageType, actor<Controller> InstigatedBy)
+    {
+        HealthPoints -= Damage; // Decrease player's health points based on amount of damage taken.
+        
+        // Check if player's health is below 0 and if so, destroy the player character.
+        if (HealthPoints <= 0)
+        {
+            Destroy(); // Removes the player character from the game.
+            WorldInfo.Game.BroadcastDeath(this, instigatedBy, DamageType); // Broadcast death event to other players.
+        }
+    }
+
+    /*
+    Function that activates the player's superpower.
+    This function sets the bSuperPowerActive property to true and increases the player's speed.
+    */
+    simulated function ActivateSuperPower()
+    {
+        bSuperPowerActive = true; // Set property to true to indicate that superpower is active.
+        speed *= 2; // Double the player's speed.
+    }
+
+    /*
+    Function that deactivates the player's superpower.
+    This function sets the bSuperPowerActive property to false and resets the player's speed.
+    */
+    simulated function DeactivateSuperPower()
+    {
+        bSuperPowerActive = false; // Set property to false to indicate that superpower is inactive.
+        speed /= 2; // Reset player's speed back to normal.
+    }
+    
+    defaultproperties
+    {
+        // Set initial properties for the player class.
+        HealthPoints=100,
+        JumpZ=320,
+        GroundSpeed=192,
+        AirSpeed=192,
+        bIsPlayer=True
+    }
+}

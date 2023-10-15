@@ -1,0 +1,71 @@
+/* This code snippet generates a report in 1C Enterprise */
+Function GenerateReport()
+    // Get data from database
+    Data = Select * from Table where Date between '01.01.2020' and '01.31.2020'
+
+    // Sort data by date
+    SortedData = SortData(Data)
+
+    // Group data by product code
+    GroupedData = GroupData(SortedData, "Product Code")
+
+    // Calculate total quantity and amount for each product
+    For Each Group in GroupedData
+        Group.TotalQuantity = Sum(Group.Quantity)
+        Group.TotalAmount = Sum(Group.Amount)
+    EndDo
+
+    // Generate report table
+    ReportTable = New Table
+    ReportTable.AddColumn("Product Code")
+    ReportTable.AddColumn("Total Quantity")
+    ReportTable.AddColumn("Total Amount")
+
+    // Fill table with grouped data
+    For Each Group in GroupedData
+        ReportTable.AddRow(Group.ProductCode, Group.TotalQuantity, Group.TotalAmount)
+    EndDo
+
+    // Set report options
+    Options = New ReportOptions
+    Options.Title = "Monthly Report"
+    Options.DateRange = "01.01.2020 - 01.31.2020"
+    Options.SortBy = "Total Amount"
+
+    // Generate report
+    Report = New Report
+    Report.Generate(ReportTable, Options)
+
+    // Save report as PDF
+    Report.SaveAsPDF("MonthlyReport.pdf", "landscape")
+
+    // Print success message
+    Message("Report generated successfully.")
+EndFunction
+
+/* Helper function to sort data by date */
+Function SortData(Data)
+    SortedData = New Array
+    For Each Record in Data
+        SortedData.Add(Record)
+    EndDo
+
+    SortedData.Sort(Record.Date)
+
+    Return SortedData
+EndFunction
+
+/* Helper function to group data by product code */
+Function GroupData(Data, GroupingColumn)
+    GroupedData = New Array
+    For Each Record in Data
+        GroupValue = Record[GroupingColumn]
+        If GroupedData.HasKey(GroupValue) Then
+            GroupedData[GroupValue].Add(Record)
+        Else
+            GroupedData.Add(GroupValue, New Array(Record))
+        EndIf
+    EndDo
+
+    Return GroupedData
+EndFunction

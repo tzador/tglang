@@ -1,0 +1,209 @@
+/* This is a simple BISON code that generates a JSON file */
+
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+ 
+// Structure to store key-value pairs
+struct KeyValue
+{
+    char *key;
+    char *value;
+};
+ 
+// Function to create a new key-value pair
+struct KeyValue *newKeyValue(char *key, char *value)
+{
+    struct KeyValue *kv = malloc(sizeof(struct KeyValue));
+ 
+    kv->key = key;
+    kv->value = value;
+ 
+    return kv;
+}
+ 
+// Function to free allocated memory for key-value pairs
+void freeKeyValue(struct KeyValue *kv)
+{
+    free(kv->key);
+    free(kv->value);
+    free(kv);
+}
+ 
+%}
+ 
+// Declaration section
+%token <key> KEY
+%token <value> STRING
+%token <value> NUMBER
+ 
+// JSON grammar
+JSON : OBJECT | ARRAY;
+ 
+OBJECT: '{' members '}';
+ 
+// The members rule defines a list of key-value pairs separated by commas
+members: members ',' pair
+       | pair;
+ 
+// The pair rule consists of a key and value separated by a colon
+pair: KEY ':' value;
+ 
+// The value rule specifies the possible value types in a JSON file
+value: STRING
+     | NUMBER
+     | OBJECT
+     | ARRAY;
+ 
+ARRAY: '[' elements ']';
+ 
+// The elements rule defines a list of values separated by commas
+elements: elements ',' value
+        | value;
+ 
+// Yacc union types to store token values
+%union
+{
+    char *key;
+    char *value;
+};
+ 
+%start JSON
+ 
+%%
+ 
+/* This section defines the tokenization rules and generates the corresponding tokens */
+ 
+// For Strings, quotes are removed and escape sequences are handled
+\"([^\\\"]|\\.)*\"       { yylval.value = strdup(yytext+1);
+                          yylval.value[strlen(yylval.value)-1] = '\0';
+                          return STRING; }
+ 
+// For Numbers, atoi function is used to convert string to integer
+-?[0-9]+                  { yylval.value = strdup(yytext);
+                          return NUMBER; }
+// For Keys, quotes are removed
+\"([^\\\"]|\\.)*\"       { yylval.key = strdup(yytext+1);
+                          yylval.key[strlen(yylval.key)-1] = '\0';
+                          return KEY; }
+ 
+// For whitespace and new lines, do nothing
+[ \t\n]                  {    /* do nothing */  }
+ 
+.                        { fprintf(stderr, "Error: Unknown character %c\n", yytext[0]);
+                          exit(1); }
+ 
+%% /* this ends the yylval union definition */
+ 
+/* This part is the driver code responsible for calling the lexer and parser */
+ 
+int main(void)
+{
+    int token;
+    // Variable to store key-value pairs
+    struct KeyValue *kv;
+ 
+    printf("Enter a JSON file: ");
+    // Read input from user
+    yylex();
+ 
+    // Call JSON rule
+    yyparse();
+ 
+    // Print the generated JSON file
+    printf("\n---Generated JSON---\n");
+    printf("{\n");
+    // Loop through the key-value pairs
+    for(int i = 0; i < kv_count; i++){
+        kv = kv_list[i];
+        printf("\t\"%s\": \"%s\"", kv->key, kv->value);
+        // Print comma if not last item
+        if(i < kv_count-1)
+            printf(",");
+        printf("\n");
+    }
+    printf("}\n");
+ 
+    // Free allocated memory for key-value pairs
+    for(int i = 0; i < kv_count; i++)
+        freeKeyValue(kv_list[i]);
+ 
+    return 0;
+}
+ 
+/* This section contains the error handling code */
+ 
+// Error function to print error message and exit program
+void yyerror(char *msg)
+{
+    fprintf(stderr, "Error: %s\n", msg);
+    exit(1);
+}
+ 
+// Handler for syntax errors
+int yywrap(void)
+{
+    return 1;
+}
+ 
+/* This section contains the user-defined functions to manipulate the token stack */
+ 
+// Function to push token on the stack
+void push(struct KeyValue *kv)
+{
+    // Increase token stack size
+    tok_stack_size++;
+    // Reallocate enough memory for current size
+    tok_stack = realloc(tok_stack, tok_stack_size * sizeof(struct KeyValue*));
+    // Push token on the stack
+    tok_stack[tok_stack_size - 1] = kv;
+}
+ 
+// Function to pop token from the stack
+struct KeyValue *pop(void)
+{
+    // Check if stack is empty
+    if(tok_stack_size == 0)
+        yyerror("Stack is empty");
+ 
+    // Decrease token stack size
+    tok_stack_size--;
+    // Pop token from the stack
+    struct KeyValue *kv = tok_stack[tok_stack_size];
+    // Reallocate enough memory for current size
+    tok_stack = realloc(tok_stack, tok_stack_size * sizeof(struct KeyValue*));
+ 
+    return kv;
+}
+ 
+// Function to peek at the top of the stack without popping it
+struct KeyValue *peek(void)
+{
+    // Check if stack is empty
+    if(tok_stack_size == 0)
+        yyerror("Stack is empty");
+ 
+    // Return top token without popping it
+    return tok_stack[tok_stack_size - 1];
+}
+ 
+/* This section contains user-defined functions to manipulate the key-value pair list */
+ 
+// Function to add a new key-value pair to the list
+void addKeyValue(struct KeyValue *kv)
+{
+    // Increase key-value pair list size
+    kv_count++;
+    // Reallocate enough memory for current size
+    kv_list = realloc(kv_list, kv_count * sizeof(struct KeyValue*));
+    // Add key-value pair to the list
+    kv_list[kv_count - 1] = kv;
+}
+ 
+// Function to print key-value pairs in human readable format
+void printKeyValueList(void)
+{
+    for(int i = 0; i < kv_count; i++)
+        printf("Key: %s, Value: %s\n", kv_list[i]->key, kv_list[i]->value);
+}

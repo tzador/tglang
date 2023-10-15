@@ -1,0 +1,92 @@
+SUBROUTINE FindRoots(p, n, roots)
+      IMPLICIT NONE
+      INTEGER, INTENT(IN) :: n
+      REAL, DIMENSION(n+1), INTENT(IN) :: p
+      COMPLEX, DIMENSION(n), INTENT(OUT) :: roots
+      
+      COMPLEX :: a(0:n-1)
+      REAL :: b(0:n-1), s(n)
+      REAL :: x, xprev, y, eps
+      INTEGER :: j, iter, MAXITER
+      ! Set maximum number of iterations
+      MAXITER = 1000
+      ! Set error tolerance for convergence
+      eps = 1.e-8
+      
+      ! Set initial guess
+      x = 1.0
+      
+      ! Calculate coefficients for synthetic division
+      a(0) = p(0)
+      b(0) = p(1)
+      DO j = 2, n
+            a(j-1) = b(j-2)
+            b(j-1) = p(j) + x * b(j-2)
+      END DO
+      
+      ! Perform synthetic division and use Newton's method to find roots
+      DO iter = 1, MAXITER
+            xprev = x
+            CALL SyntheticDivision(a, b, x, y)
+            CALL NewtonsMethod(x, y, p, n, s)
+            x = xprev - s(n)
+           
+            ! Test for convergence
+            IF (ABS(y) < eps) THEN
+                  roots(n) = CMPLX(x, 0.0)
+                  EXIT
+            END IF
+      END DO
+      
+      ! Store roots in output array
+      DO j = n-1, 1, -1
+            roots(j) = CMPLX(x, s(j))
+            ! Update synthetic division coefficients for next iteration
+            DO i = 0, n-j-1
+                  a(i) = s(i) + x*a(i+1)
+                  b(i) = s(i)
+            END DO
+      END DO
+            
+CONTAINS
+      ! Subroutine to perform synthetic division on polynomials
+      SUBROUTINE SyntheticDivision(a, b, x, y)
+            IMPLICIT NONE
+            REAL, DIMENSION(:), INTENT(IN) :: a, b ! Coefficients of polynomial
+            REAL, INTENT(IN) :: x ! Point where division is performed
+            REAL, INTENT(OUT) :: y ! Value of polynomial at x
+            REAL :: temp
+            
+            y = a(0)
+            DO j = 2, SIZE(a)
+                  temp = y     ! Save previous value of y
+                  y = a(j) + x*temp  ! Calculate new value of y
+                  DO i = 0, j-2
+                        y = a(j-i) + x*y  ! Update y with synthetic division
+                        a(j-i) = temp  ! Update coefficient for next iteration
+                  END DO
+            END DO
+      END SUBROUTINE
+       
+      ! Subroutine to perform Newton's method on divided polynomials
+      SUBROUTINE NewtonsMethod(x, y, p, n, s)
+            IMPLICIT NONE
+            REAL, INTENT(IN) :: x, y  ! Starting point and value of divided polynomial at x
+            REAL, DIMENSION(n+1), INTENT(IN) :: p    ! Coefficients of polynomial to be divided
+            REAL, DIMENSION(n), INTENT(OUT) :: s    ! Coefficients of divided polynomial
+            REAL :: fx, dfdx  ! Value and derivative of divided polynomial at x
+            
+            fx = p(n+1) + x*p(n)   ! Value of divided polynomial at x
+            dfdx = p(n)  ! Derivative of divided polynomial at x
+            DO j = n-1, 1, -1
+                  ! Use recursive formula to calculate divided polynomial values and derivatives
+                  fx = fx*x + p(j) + x*fx
+                  dfdx = dfdx*x + fx
+            END DO
+            
+            ! Calculate coefficients of divided polynomial using Newton's method
+            DO j = 1, n
+                  s(j) = p(j) - fx/dfdx
+            END DO
+              END SUBROUTINE
+END SUBROUTINE IF

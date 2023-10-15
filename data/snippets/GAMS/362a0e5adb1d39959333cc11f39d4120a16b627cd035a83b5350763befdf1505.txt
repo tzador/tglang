@@ -1,0 +1,55 @@
+Set i 'locations' /1*10/;
+Set j 'warehouses' /1*15/;
+Alias (i,il), (j,jl);
+Set length(i) 'length of roads from locations i to other locations';
+Set cost(j) 'cost of building warehouses at locations j';
+Parameter
+RoadCost(i,j) 'cost of building roads from locations i to warehouses j'
+    /1.7   .8   1  1.6  1.2 /
+    2.3  2.9  1.5   .9  1.4 /
+    1.7  1.4   .6   .4   .9 /
+    1.2   .8   .9   .7   .5 /
+    1.3   .6   .4   .8   .9 /
+    2.5   .4   .9  1.6  1.2 /
+    3.2  1.7  1.1  1.3  1.4 /
+    1.9  2.5   .3   .6   .8 /
+    1.5  1.3   .9   .6   .7 /
+    2.1   .9   .4   .3   .6
+    4.2  2.3  1.8  1.2  1.1 /
+    1.3   .5   .7   .6   .4 /
+    2.4  1.6  1.1  1.4  1.3 /
+    3.1  2.2  1.3  1.1   .8 /
+    2.9   .7   .4   .3   .5
+    /;
+Parameter MaxCost 'maximum cost allowed';
+MaxCost = 150;
+Variable
+X(j) 'build warehouses'
+Y(i,j) 'build roads';
+
+Positive Variable
+W(i,j) 'amount of warehouse space'
+R(i,j) 'length of roads';
+
+Binary Variable
+B(i,j) 'whether to build roads or not';
+
+Equations
+TotalCost  'total cost of building warehouses and roads'
+WarehouseCost 'cost of building warehouses cannot exceed maximum cost'
+Capacity(i) 'total warehouse space available at each location'
+RoadCosts(j) 'assign road cost to warehouse if road is built'
+RoadLength(i) 'assign length of road if road is built'
+RoadMax(i) 'maximum length of road allowed at each location';
+
+TotalCost.. Z =e= sum((i,j), X(j)*cost(j) + Y(i,j)*RoadCost(i,j));
+WarehouseCost.. sum(j, X(j)*cost(j)) =l= MaxCost;
+Capacity(i).. sum(j, W(i,j)) =l= 10;
+RoadCosts(j).. RoadCost(i,j) =e= RoadCost(i,j)*B(i,j);
+RoadLength(i).. R(i,j) =e= W(i,j)*length(i)*B(i,j);
+RoadMax(i).. sum(j, R(i,j)) =l= 20;
+
+Model Transportation 'minimize cost of building warehouses and roads';
+Solve Transportation using MIP minimizing Z;
+
+Display X.l, Z.l, B.l, W.l, RoadCost.l, R.l;

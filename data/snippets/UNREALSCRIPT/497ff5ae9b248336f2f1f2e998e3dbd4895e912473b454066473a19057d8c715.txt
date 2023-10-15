@@ -1,0 +1,278 @@
+class BulletPickup extends Actor;
+
+var int AmmoValue; //declare variable to store ammo value
+var float RespawnTime; //declare variable to store respawn time
+var bool bDestroyed; //declare variable to check if pickup has been destroyed
+
+//set default values for variables
+defaultproperties
+{
+    AmmoValue=10;
+    RespawnTime=30.0;
+    bDestroyed=false;
+    Begin Object Class=DynamicLightEnvironmentComponent Name=MyLightComponent //create light component for pickup
+        bEnabled=true //enable light by default
+        bOnlyAffectNonOwnedComponents=true //only affect components not owned by child actors
+        bOnlyAffectSameOwnerComponents=false //affect components of different actors
+        bAutoActivate=true //automatically activate the light
+        HiddenGame=Never //never hide light in game
+        bUseOnlyAbsoluteStaticLandscapeLighting=false //don't use only static landscape lighting
+        bAllowPreShadow=true //allow pre-shadow for light
+        bUseEditorCompartment=false //don't use editor compartment
+        LightingChannels=(bInitialized=true, Static=true, Dynamic=true, Gameplay=true) //set lighting channels for light
+        ShadowResolutionScale=1500.0 //set shadow resolution scale for light
+        ReplacementPrimitive=Texture //set replacement primitive for light
+        ReplacementLightingChannels=(bInitialized=true, Static=true, Dynamic=true, Gameplay=true) //set replacement lighting channels for light
+        Mobility=Stationary //set mobility for light to stationary
+        CastShadows=true //allow light to cast shadows
+        TranslucencyLightingMode=TL_RandomPerPixel //set translucency lighting mode for light
+        AmbientLightColor=(R=150, G=150, B=150) //set ambient light color for light
+        ShadowBias=0.2 //set shadow bias for light
+        ShadowFilterQuality=0 //set shadow filter quality for light
+        SpecularScale=-1.33333 //set specular scale for light
+    End Object
+    Components.Add(MyLightComponent) //add light component to pickup
+    bStatic=false //make pickup non-static
+    bMovable=true //make pickup movable
+    CollisionComponent=StaticMeshComponent'PickupContent.Meshes.SM_PickupAmmo' //set collision component for pickup
+    MovableComponent=StaticMeshComponent(CollisionComponent) //set movable component for pickup
+    Components(ModInst).bAcceptsDecals=false //disable decals for pickup
+    Components(ModInst).bAllowDynamicShadowCasting=true //allow dynamic shadow casting for pickup
+    Components(ModInst).LightingChannels=(bInitialized=true, Static=true, Dynamic=true, Gameplay=true) //set lighting channels for pickup
+    Components(MyLightComponent).AttachTo=CollisionComponent //attach light component to collision component
+    Components(MyLightComponent).bAllowLightOcclusion=true //allow light occlusion for light
+    Components(MyLightComponent).MinLightResolution=64 //set minimum light resolution for light
+    Components(MyLightComponent).DynamicShadowDistance=2048 //set dynamic shadow distance for light
+    Components(MyLightComponent).ShadowRadiusThreshold=1 //set shadow radius threshold for light
+    Components(MyLightComponent).bEnabled=true //enable light for pickup by default
+    Components(MyLightComponent).bOwnerNoSee=true //don't allow owner of pickup to see light
+    Components(MyLightComponent).bAffectsWorld=false //don't allow light to affect world
+}
+
+//function to handle what happens when a player picks up the pickup
+function PlayerPickedUp(pawn Player)
+{
+    local Controller C;
+    local Inventory NewInv;
+    local PlayerController PC;
+    Player.Log("WeaponPickup: Player picked up pickup " $ GetName());
+    if (OldInv!=None) //if there was a previous inventory
+    {
+        C=Controller(OldInv.Instigator);
+        OldInv.WaitingPawn=None;
+        OldInv.Instigator=None;
+        PC=PlayerController(C);
+        PC.ClientHoldingPickup=None;
+        Shell.Log("WeaponPickup: Returning Pickup to Player ");
+        if (OldInv.PickupViewEffects!=None) //if there was a pickup view effect
+        {
+            Shell.Log("   Destroying effect. ");
+            OldInv.PickupViewEffects.Destroy();
+            OldInv.PickupViewEffects=None;
+        }
+        Player.CheckPawntoss(Player, OldInv, 0.6, `V); //throw previous inventory back to player
+    }
+    else
+    {
+        C=Controller(Player); //assign controller to player
+    }
+    NewInv=NewInventoryType.Spawn(Actor(Location),0,NewInventoryType.class''SpellContent`1.Storage.SP_Chaos`1.NewInventoryType);//spawn new inventory at pickup location
+    NewInv.RespawnTime=RespawnTime; //set respawn time for new inventory
+    if (bDestroyed) //if pickup has been destroyed
+    {
+        NewInv.Counter++; //increment respawn counter for new inventory
+    }
+    C.UseActor(NewInv); //use new inventory
+    MyLightComponent.SetVisible(false,false); //hide light
+    MyLightComponent.SetEnabled(false,false); //disable light
+    PawnWeapon(Player.Owner).AmmoPool[NewInv.GetType()]=AmmoValue; //add ammo value to player's ammo pool for new inventory
+    new static; //create new static mesh component
+    Components.Add(MyStaticComponent); //add component to pickup
+    MyStaticComponent.SetVisible(true,false); //show component
+    MyStaticComponent.SetEnabled(true,false); //enable component
+    MyStaticComponent.SetCullDistance(256); //set cull distance for component
+    if (Sound(SoundComponent)!=None) //if there was a sound component
+    {
+        SoundComponent.Stop(); //stop sound
+        SoundComponent.Stopped=True; //set stopped flag to true
+    }
+    if (NewInventoryType.newInstigator==Camera(Controller).holderPawn) //if player picked up camera
+    {
+        Controller(Controller).PlaySound(SoundComponent,1.0); //play sound for camera pickup
+    }
+    if (Frame>0) //if not first frame
+    {
+        PlayerController(C).SheathEffect(C.SheathWeaponAim,0.3,PC.invMessage); //play sheath effect and show inventory message for player
+    }
+    else //if first frame
+    {
+        PlayerController(C).SheathScaleEffect(0.0,0.01); //play sheath effect with no delay
+    }
+    OldInv.Destroy(); //destroy previous inventory
+    MyStaticComponent.SetCullDistance(256); //set cull distance for component
+}
+
+//function to display a debugging message for pickup
+function DebugMessage()
+{
+    `echo("Ammo Value: "$AmmoValue);
+    `echo("Respawn Time: "$RespawnTime);
+    `echo("Is Destroyed: "$bDestroyed);
+}
+
+//event to handle when pickup is destroyed
+event Destroyed()
+{
+    if (bDestroyed) //if pickup has already been destroyed once
+    {
+        GotoState('');
+    }
+    else
+    {
+        bDestroyed=true; //set destroyed flag to true
+        GotoState('Spawn'); //go to spawn state
+    }
+}
+
+//state to handle when pickup is spawned
+state Spawn
+{
+    Begin: if(StatObj) //if there is a mesh for the pickup
+    {
+        MyMesh=StaticMeshComponent(Components(0)); //get mesh component
+        MyMesh.SetCullDistance(256); //set cull distance for mesh
+    }
+    Sleep(RespawnTime); //wait until respawn time is reached
+    bDestroyed=false; //set destroyed flag to false
+    GotoState('Respawn'); //go to respawn state
+}
+
+//state to handle when pickup is respawning
+state Respawn
+{
+    Begin: if(StatObj) //if there is a mesh for the pickup
+    {
+        MyMesh=StaticMeshComponent(Components(0)); //get mesh component
+        MyMesh.SetCullDistance(0); //set cull distance for mesh
+    }
+    Sleep(0.5); //wait before continuing
+    GotoState('Spawn'); //go back to spawn state
+}
+
+//event to handle when pickup is initialized
+event PostBeginPlay()
+{
+    Super.PostBeginPlay();
+    if (!NetworkMode) //if not in network game
+    {
+        GotoState('Spawn'); //go to spawn state
+    }
+}
+
+//event to handle excess counter ticks
+event Timer()
+{
+    if(TimeLeft>0.2) //if not close to 0 (0.2 is default value in engine)
+    {
+        Shell.Debug("Excess Counter Ticks Happened (" $kr(TimeLeft) ")");
+        Super.Timer();
+    }
+}
+
+//event to handle when pickup is touched by a pawn
+event Touch(PointerEventData EventData)
+{
+    local pawn OtherPawn;
+    if (EventData.EventName=='Touch')
+    {
+        OtherPawn=pawn(OtherActor);
+        if (IsSameTeam(OtherPawn,Instigator)) //if the other pawn is on the same team as the instigator
+        {
+            PlayerPickedUp(OtherPawn); //handle the pickup for the other pawn
+        }
+    }
+    Super.Touch(EventData); 
+}
+class SpellPickup extends Actor;
+
+var float HealthValue; //declare variable to store health value
+var float RespawnTime; //declare variable to store respawn time
+var bool bDestroyed; //declare variable to check if pickup has been destroyed
+
+//set default values for variables
+defaultproperties
+{
+    HealthValue=25.0;
+    RespawnTime=30.0;
+    bDestroyed=false;
+    Begin Object Class=DynamicLightEnvironmentComponent Name=MyLightComponent //create light component for pickup
+        bEnabled=true //enable light by default
+        bOnlyAffectNonOwnedComponents=true //only affect components not owned by child actors
+        bOnlyAffectSameOwnerComponents=false //affect components of different actors
+        bAutoActivate=true //automatically activate the light
+        HiddenGame=Never //never hide light in game
+        bUseOnlyAbsoluteStaticLandscapeLighting=false //don't use only static landscape lighting
+        bAllowPreShadow=true //allow pre-shadow for light
+        bUseEditorCompartment=false //don't use editor compartment
+        LightingChannels=(bInitialized=true, Static=true, Dynamic=true, Gameplay=true) //set lighting channels for light
+        ShadowResolutionScale=1500.0 //set shadow resolution scale for light
+        ReplacementPrimitive=Texture //set replacement primitive for light
+        ReplacementLightingChannels=(bInitialized=true, Static=true, Dynamic=true, Gameplay=true) //set replacement lighting channels for light
+        Mobility=Movable //set mobility for light to movable
+        CastShadows=true //allow light to cast shadows
+        TranslucencyLightingMode=TL_RandomPerPixel //set translucency lighting mode for light
+        AmbientLightColor=(R=150, G=150, B=150) //set ambient light color for light
+        ShadowBias=0.2 //set shadow bias for light
+        ShadowFilterQuality=0 //set shadow filter quality for light
+        SpecularScale=-1.33333 //set specular scale for light
+    End Object
+    Components.Add(MyLightComponent) //add light component to pickup
+    bStatic=false //make pickup non-static
+    bMovable=true //make pickup movable
+    CollisionComponent=StaticMeshComponent'PickupContent.Meshes.SM_PickupHealth' //set collision component for pickup
+    MovableComponent=StaticMeshComponent(CollisionComponent) //set movable component for pickup
+    Components(ModInst).bAcceptsDecals=false //disable decals for pickup
+    Components(ModInst).bAllowDynamicShadowCasting=true //allow dynamic shadow casting for pickup
+    Components(ModInst).LightingChannels=(bInitialized=true, Static=true, Dynamic=true, Gameplay=true) //set lighting channels for pickup
+    Components(MyLightComponent).AttachTo=CollisionComponent //attach light component to collision component
+    Components(MyLightComponent).bAllowLightOcclusion=true //allow light occlusion for light
+    Components(MyLightComponent).MinLightResolution=64 //set minimum light resolution for light
+    Components(MyLightComponent).DynamicShadowDistance=2048 //set dynamic shadow distance for light
+    Components(MyLightComponent).ShadowRadiusThreshold=1 //set shadow radius threshold for light
+    Components(MyLightComponent).bEnabled=true //enable light for pickup by default
+    Components(MyLightComponent).bOwnerNoSee=true //don't allow owner of pickup to see light
+    Components(MyLightComponent).bAffectsWorld=false //don't allow light to affect world
+}
+
+//function to handle what happens when a player picks up the pickup
+function PlayerPickedUp(pawn Player)
+{
+    local Controller C;
+    local Inventory NewInv;
+    local PlayerController PC;
+    Player.Log("HealthPickup: Player picked up pickup " $ GetName());
+    if (OldInv!=None) //if there was a previous inventory
+    {
+        C=Controller(OldInv.Instigator);
+        OldInv.WaitingPawn=None;
+        OldInv.Instigator=None;
+        PC=PlayerController(C);
+        PC.ClientHoldingPickup=None;
+        Shell.Log("HealthPickup: Returning Pickup to Player ");
+        if (OldInv.PickupViewEffects!=None) //if there was a pickup view effect
+        {
+            Shell.Log("   Destroying effect. ");
+            OldInv.PickupViewEffects.Destroy();
+            OldInv.PickupViewEffects=None;
+        }
+        Player.CheckPawntoss(Player, OldInv, 0.6, `V); //throw previous inventory back to player
+    }
+    else
+    {
+        C=Controller(Player); //assign controller to player
+    }
+    NewInv=NewInventoryType.Spawn(Actor(Location),0,NewInventoryType.class''SpellContent`1.Storage.SP_Chaos`1.NewInventoryType);//spawn new inventory at pickup location
+    NewInv.RespawnTime=RespawnTime; //set respawn time for new inventory
+    if (bDestroyed) //if pickup has been destroyed
+    {
+        NewInv.Counter++; //

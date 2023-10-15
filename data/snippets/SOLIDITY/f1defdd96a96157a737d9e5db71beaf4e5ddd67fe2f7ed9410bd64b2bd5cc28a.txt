@@ -1,0 +1,114 @@
+pragma solidity ^0.8.0;
+
+
+contract SimpleCoin {
+    // Variables
+    mapping(address => uint) public balances;
+    address public owner;
+    uint public totalSupply;
+
+    // Events
+    event Transfer(address indexed _from, address indexed _to, uint _value);
+
+    // Constructor
+    constructor(uint _totalSupply) {
+        owner = msg.sender;
+
+        totalSupply = _totalSupply;
+        balances[msg.sender] = totalSupply;
+    }
+
+    // Functions
+    function transfer(address _to, uint _value) public returns (bool) {
+        // Check if sender has enough balance
+        require(balances[msg.sender] >= _value, "Not enough balance");
+
+        // Transfer amount from sender to receiver
+        balances[msg.sender] -= _value;
+        balances[_to] += _value;
+
+        // Emit transfer event
+        emit Transfer(msg.sender, _to, _value);
+
+        return true;
+    }
+
+    // Modifiers
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this function");
+        _;
+    }
+}
+
+// Inheritance and inheritance modifier
+contract AdvancedCoin is SimpleCoin {
+    // Variables
+    mapping(address => uint) public allowances;
+
+    // Functions
+    function approve(address _spender, uint _value) public returns (bool) {
+        // Set allowance for spender
+        allowances[msg.sender][_spender] = _value;
+
+        return true;
+    }
+
+    function transferFrom(address _from, address _to, uint _value) public returns (bool) {
+        // Check if sender has enough allowance
+        require(allowances[_from][msg.sender] >= _value, "Not enough allowance");
+
+        // Check if sender has enough balance
+        require(balances[_from] >= _value, "Not enough balance");
+
+        // Transfer amount from sender to receiver
+        balances[_from] -= _value;
+        balances[_to] += _value;
+
+        // Decrease remaining allowance
+        allowances[_from][msg.sender] -= _value;
+
+        // Emit transfer event
+        emit Transfer(_from, _to, _value);
+
+        return true;
+    }
+
+    // Inheritance modifier
+    modifier onlyOwner() override onlyOwner() {
+        _;
+    }
+}
+
+// Interface and imports
+import "./SimpleCoin.sol";
+
+interface IAdvancedCoin {
+    function approve(address _spender, uint _value) external returns (bool);
+    function transferFrom(address _from, address _to, uint _value) external returns (bool);
+}
+
+// Factory Contract
+contract CoinFactory {
+    // Variables
+    uint public totalCoins;
+
+    // Events
+    event NewCoin(address indexed _owner, uint _totalSupply);
+
+    // Functions
+    function createCoin(uint _initialSupply) public returns (address) {
+        // Create new coin with initial supply
+        SimpleCoin newCoin = new SimpleCoin(_initialSupply);
+
+        // Transfer ownership to sender
+        newCoin.transferOwnership(msg.sender);
+
+        // Increase total coins count
+        totalCoins++;
+
+        // Emit new coin event
+        emit NewCoin(msg.sender, _initialSupply);
+
+        return address(newCoin);
+    }
+}

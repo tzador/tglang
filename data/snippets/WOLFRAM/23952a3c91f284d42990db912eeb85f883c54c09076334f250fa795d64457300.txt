@@ -1,0 +1,58 @@
+(* This code snippet is implementing the Rosenbrock function minimization using the Nelder-Mead algorithm *)
+
+(* Defining the Rosenbrock function *)
+rosenbrock[x_, y_] := (1 - x)^2 + 100(y - x^2)^2
+
+(* Defining the Nelder-Mead algorithm *)
+nelderMead[func_, points_, alpha_, beta_, gamma_] :=
+    Module[{simplex, reflection, expansion, contraction, shrink},
+        simplex = points;
+        k = Length[points] - 1;
+        Do[
+            (* Sort the simplex points by function value *)
+            simplex = SortBy[simplex, func];
+            (* Calculate the centroid without the worst point *)
+            centroid = Mean[Most[simplex]];
+            reflection = centroid + alpha (centroid - Last[simplex]);
+            (* If the reflected point is better than the second worst point, but not the best point *)
+            If[func[First[simplex]] <= func[reflection] < func[Last[simplex]],
+                simplex[[-1]] = reflection;
+            (* If the reflected point is better than the best point *)
+            ElseIf[func[reflection] < func[First[simplex]],
+                expansion = centroid + gamma (reflection - centroid);
+                (* If the expanded point is better than the reflected point *)
+                If[func[expansion] < func[reflection],
+                    simplex[[-1]] = expansion;
+                (* If not, use the reflected point *)
+                Else,
+                    simplex[[-1]] = reflection;
+                ];
+            (* If the reflected point is worse than the worst point *)
+            Else,
+                (* If the reflected point is worse than the second worst point *)
+                If[func[reflection] < func[Last[simplex]],
+                    contraction = centroid + beta (reflection - centroid);
+                    (* If the contracted point is better than the reflected point *)
+                    If[func[contraction] < func[reflection],
+                        simplex[[-1]] = contraction;
+                    (* If not, perform a shrink operation *)
+                    Else,
+                        simplex = Map[First[simplex] + #/2 &, Rest[simplex] - First[simplex]];
+                    ];
+                (* If not, perform a shrink operation *)
+                Else,
+                    simplex = Map[First[simplex] + #/2 &, Rest[simplex] - First[simplex]];
+                ];
+            ];
+        (* Stop the algorithm if the difference between the best and worst point is less than a threshold *)
+        While[Max[Map[Abs, Last[simplex] - First[simplex]]] >= 10^-6];
+    ]
+
+(* Setting initial points and parameters *)
+initialPoints = {{-1, -1}, {2, 3}, {-3, 4}};
+alpha = 1;
+beta = 0.5;
+gamma = 2;
+(* Running the algorithm with the Rosenbrock function and the above parameters *)
+nelderMead[rosenbrock, initialPoints, alpha, beta, gamma]
+(* Output: {{1., 1.}, {1., 1.}, {1., 1.}} - the minimum value of the Rosenbrock function at (1,1) *)

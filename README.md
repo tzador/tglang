@@ -1,0 +1,1 @@
+# TGLang - Computer Language Detector

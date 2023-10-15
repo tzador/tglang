@@ -1,0 +1,62 @@
+/* This is a complex code snippet in SAS */
+/* First we set up the macro variables */
+%let year = 2020;
+%let month = 5;
+%let day = 1;
+
+/* Now we create a data set with random values */
+data random_data;
+	set sashelp.class;
+	variable1 = ranuni(1234); /* first random variable */
+	variable2 = ranuni(4321); /* second random variable */
+	/* Generate a random group variable */
+	if ranuni(2468) > 0.5 then group = "A";
+	else group = "B";
+run;
+
+/* We sort the data by group and then by descending variable1 */
+proc sort data=random_data;
+	by group descending variable1;
+run;
+
+/* Create a format to label group values */
+proc format;
+	value $ group_fmt "A" = "Group A"
+					"B" = "Group B";
+run;
+
+/* Create a macro to calculate the mean of the variables */
+%macro calculate_mean(var);
+	/* Use PROC MEANS to calculate mean and standard deviation */
+	proc means data=random_data mean std;
+		var &var;
+	run;
+
+	/* Label the output data set with the variable name */
+	data mean_&var;
+		set summary;
+		variable = "&var";
+	run;
+%mend;
+
+/* Call the macro for each variable */
+%calculate_mean(variable1);
+%calculate_mean(variable2);
+
+/* Output the results in a table using PROC TABULATE */
+ods listing close;
+ods html file="mean_results.html";
+proc tabulate data=mean_variable1 mean='Mean_Variable1' std='Std_Variable1' missing="N/A";
+	class variable;
+	var Mean_Variable1 Std_Variable1;
+	format group $group_fmt.;
+	table variable="", group all='Total';
+run;
+proc tabulate data=mean_variable2 mean='Mean_Variable2' std='Std_Variable2' missing="N/A";
+	class variable;
+	var Mean_Variable2 Std_Variable2;
+	format group $group_fmt.;
+	table variable="", group all='Total';
+run;
+ods html close;
+ods listing;

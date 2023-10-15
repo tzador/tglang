@@ -1,0 +1,197 @@
+// Contract code to create a token with staking functionality
+pragma solidity ^0.8.0;
+
+// Import SafeMath library for safe mathematical operations
+import "./SafeMath.sol";
+
+// Import Ownable library for ownership functionality
+import "./Ownable.sol";
+
+// Declare contract with staking functionality
+contract StakingToken is Ownable {
+    
+    using SafeMath for uint256; // Use SafeMath library for safe mathematical operations
+    
+    string private _name; // Declare private variable for token name
+    string private _symbol; // Declare private variable for token symbol
+    
+    mapping(address => uint256) private _balances; // Create mapping to store user balances
+    mapping(address => mapping(address => uint256)) private _allowed; // Create mapping to store user allowances
+    
+    uint256 private _totalSupply; // Declare private variable for total token supply
+    
+    uint256 constant private _stakingFee = 2; // Define staking fee percentage as constant with 2%
+    uint256 constant private _unstakingFee = 1; // Define unstaking fee percentage as constant with 1%
+    
+    struct Stake {
+        uint256 amount; // Staked amount
+        uint256 startTime; // Timestamp when staking started
+    }
+    
+    mapping(address => Stake) private _stakes; // Create mapping to store user stakes
+    
+    event Transfer(address indexed from, address indexed to, uint256 value); // Event triggered when tokens are transferred
+    event Approval(address indexed owner, address indexed spender, uint256 value); // Event triggered when token allowance is granted
+    event Staked(address indexed from, uint256 value); // Event triggered when tokens are staked
+    event Unstaked(address indexed from, uint256 value); // Event triggered when tokens are unstaked
+    event FeePaid(address indexed from, uint256 value); // Event triggered when staking or unstaking fee is paid
+    
+    constructor(string memory name, string memory symbol) {
+        _name = name; // Assign token name
+        _symbol = symbol; // Assign token symbol
+        _totalSupply = 1000000000000000; // Assign total supply to 1 million tokens
+        _balances[msg.sender] = _totalSupply; // Assign total supply to contract owner
+        emit Transfer(address(0), msg.sender, _totalSupply); // Emit transfer event
+    }
+    
+    // Function to get token name
+    function name() public view returns (string memory) {
+        return _name;
+    }
+    
+    // Function to get token symbol
+    function symbol() public view returns (string memory) {
+        return _symbol;
+    }
+    
+    // Function to get total token supply
+    function totalSupply() public view returns (uint256) {
+        return _totalSupply;
+    }
+    
+    // Function to get user balance
+    function balanceOf(address owner) public view returns (uint256) {
+        return _balances[owner];
+    }
+    
+    // Function to get user allowance
+    function allowance(address owner, address spender) public view returns (uint256) {
+        return _allowed[owner][spender];
+    }
+    
+    // Function to transfer tokens
+    function transfer(address to, uint256 value) public returns (bool) {
+        require(to != address(0), "Invalid address"); // Check if recipient address is valid
+        require(value <= _balances[msg.sender], "Insufficient balance"); // Check if sender has enough balance
+        
+        _balances[msg.sender] = _balances[msg.sender].sub(value); // Update sender balance
+        _balances[to] = _balances[to].add(value); // Update recipient balance
+        
+        emit Transfer(msg.sender, to, value); // Emit transfer event
+        
+        return true;
+    }
+    
+    // Function to approve token allowance for a specific address
+    function approve(address spender, uint256 value) public returns (bool) {
+        require(spender != address(0), "Invalid address"); // Check if spender address is valid
+        
+        _allowed[msg.sender][spender] = value; // Update allowance
+        
+        emit Approval(msg.sender, spender, value); // Emit approval event
+        
+        return true;
+    }
+    
+    // Function to transfer tokens from an approved allowance
+    function transferFrom(address from, address to, uint256 value) public returns (bool) {
+        require(to != address(0), "Invalid address"); // Check if recipient address is valid
+        require(value <= _balances[from], "Insufficient balance"); // Check if sender has enough balance
+        require(value <= _allowed[from][msg.sender], "Insufficient allowance"); // Check if sender has enough allowance
+        
+        _balances[from] = _balances[from].sub(value); // Update sender balance
+        _balances[to] = _balances[to].add(value); // Update recipient balance
+        _allowed[from][msg.sender] = _allowed[from][msg.sender].sub(value); // Decrease allowance
+        
+        emit Transfer(from, to, value); // Emit transfer event
+        
+        return true;
+    }
+    
+    // Function to stake tokens and earn staking rewards
+    function stake(uint256 value) public returns (bool) {
+        require(value > 0, "Invalid amount"); // Check if staking amount is valid
+        require(value <= _balances[msg.sender], "Insufficient balance"); // Check if sender has enough balance
+        
+        uint256 fee = (value.mul(_stakingFee)).div(100); // Calculate staking fee
+        uint256 netAmount = value.sub(fee); // Calculate net staked amount
+        
+        // Update user's staked amount and start time
+        _stakes[msg.sender].amount = _stakes[msg.sender].amount.add(netAmount); 
+        _stakes[msg.sender].startTime = block.timestamp;
+        
+        // Update user's balance and total supply
+        _balances[msg.sender] = _balances[msg.sender].sub(value); 
+        _totalSupply = _totalSupply.sub(fee);
+        
+        emit Staked(msg.sender, value); // Emit staked event
+        emit FeePaid(msg.sender, fee); // Emit fee paid event
+        
+        return true;
+    }
+    
+    // Function to unstake tokens and claim staking rewards
+    function unstake() public returns (bool) {
+        require(_stakes[msg.sender].amount > 0, "No staked amount to unstake"); // Check if user has staked amount
+        
+        // Calculate unstaking fee and net unstaked amount
+        uint256 fee = (_stakes[msg.sender].amount.mul(_unstakingFee)).div(100);
+        uint256 netAmount = _stakes[msg.sender].amount.sub(fee);
+        
+        // Update user's balance and total supply
+        _balances[msg.sender] = _balances[msg.sender].add(netAmount);
+        _totalSupply = _totalSupply.add(fee);
+        
+        emit Unstaked(msg.sender, _stakes[msg.sender].amount); // Emit unstaked event
+        emit FeePaid(msg.sender, fee); // Emit fee paid event
+        
+        _stakes[msg.sender].amount = 0; // Reset user's staked amount to 0
+        
+        return true;
+    }
+    
+    // Function to claim staking rewards without unstaking
+    function claim() public returns (bool) {
+        require(_stakes[msg.sender].amount > 0, "No staked amount to claim"); // Check if user has staked amount
+        
+        uint256 stakedAmount = _stakes[msg.sender].amount; // Get user's staked amount
+        uint256 elapsedTime = block.timestamp.sub(_stakes[msg.sender].startTime); // Calculate elapsed time since staking
+        
+        uint256 stakingReward = stakedAmount.mul(elapsedTime).div(86400).div(365); // Calculate staking reward for 1 day based on annual staking reward rate
+        stakingReward = stakingReward.mul(100).div(100*(10**18)); // Adjust staking reward based on token decimals
+        
+        // Update user's balance and total supply
+        _balances[msg.sender] = _balances[msg.sender].add(stakingReward);
+        _totalSupply = _totalSupply.add(stakingReward);
+        
+        _stakes[msg.sender].startTime = block.timestamp; // Reset staking start time to current time
+        
+        return true;
+    }
+    
+    // Function to withdraw staking rewards without claiming
+    function withdraw() public onlyOwner returns (bool) {
+        require(_stakes[msg.sender].amount > 0, "No staked amount to withdraw"); // Check if user has staked amount
+        
+        uint256 stakedAmount = _stakes[msg.sender].amount; // Get user's staked amount
+        uint256 elapsedTime = block.timestamp.sub(_stakes[msg.sender].startTime); // Calculate elapsed time since staking
+        
+        uint256 stakingReward = stakedAmount.mul(elapsedTime).div(86400).div(365); // Calculate staking reward for 1 day based on annual staking reward rate
+        stakingReward = stakingReward.mul(100).div(100*(10**18)); // Adjust staking reward based on token decimals
+        
+        // Update user's balance and total supply
+        _balances[msg.sender] = _balances[msg.sender].add(stakingReward);
+        _totalSupply = _totalSupply.add(stakingReward);
+        
+        _stakes[msg.sender].startTime = block.timestamp; // Reset staking start time to current time
+        
+        return true;
+    }
+    
+    // Function to transfer ownership of contract
+    function transferOwnership(address newOwner) public onlyOwner {
+        require(newOwner != address(0), "Invalid address"); // Check if new owner address is valid
+        transferOwnership(newOwner); // Call transferOwnership function from Ownable library
+    }
+    
+}

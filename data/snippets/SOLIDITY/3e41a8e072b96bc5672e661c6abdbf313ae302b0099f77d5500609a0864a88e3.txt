@@ -1,0 +1,49 @@
+pragma solidity ^0.8.4;
+
+/// @title A simple auction contract with bid tracking
+contract Auction {
+    
+   // Variables
+    
+    address payable public highestBidder;
+    uint public highestBid;
+    mapping(address => uint) public bids;
+    
+    // Events
+    
+    event HighestBidIncreased(address bidder, uint amount);
+    event AuctionEnded(address winner, uint amount);
+    
+    // Modifiers
+    
+    modifier onlyAfter(uint _time) {
+        require(block.timestamp > _time, "Auction hasn't ended yet.");
+        _;
+    }
+    
+    // Functions
+    
+    /// @notice Allows a user to place a bid
+    function bid() public payable {
+        require(msg.value > highestBid, "There is already a higher bid.");
+        
+        // Return the previously highest bid
+        if (highestBid != 0) {
+            bids[highestBidder] += highestBid;
+        }
+        
+        highestBidder = msg.sender;
+        highestBid = msg.value;
+        emit HighestBidIncreased(msg.sender, msg.value);
+    }
+    
+    /// @notice Allows contract owner to end the auction and transfer funds to the highest bidder
+    function endAuction() public onlyOwner onlyAfter(block.timestamp + 1 days) {
+        require(msg.sender == highestBidder, "You are not the highest bidder.");
+        
+        // Transfer funds to highest bidder
+        highestBidder.transfer(address(this).balance);
+        
+        emit AuctionEnded(highestBidder, highestBid);
+    }
+}

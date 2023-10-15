@@ -1,0 +1,250 @@
+/**
+This contract manages a decentralized voting system using blockchain technology.
+The contract implements the principles of the SOLID design principles.
+*/
+
+pragma solidity ^0.8.0;
+
+// Single Responsibility Principle
+contract VotingSystem {
+    /**
+    Represents a single voter in the system.
+    */
+    struct Voter {
+        bool isRegistered;
+        bool hasVoted;
+        uint8 vote;
+    }
+
+    // Open-Closed Principle
+    /**
+    Defines the interface for future contract upgrades.
+    */
+    contract Upgradable {
+        /**
+        Checks if the caller has administrative privileges.
+        @return true if caller is admin, otherwise false.
+        */
+        modifier onlyAdmin() {
+            require(msg.sender == admin);
+            _;
+        }
+
+        address public admin;
+    }
+
+    // Liskov Substitution Principle
+    /**
+    Represents a base contract that handles voter registration and basic voting functionality.
+    */
+    contract BaseVoting is Upgradable {
+        mapping(address => Voter) public voters;
+        uint8 public totalVotes;
+        bool public votingOpen;
+
+        constructor() {
+            admin = msg.sender;
+            votingOpen = false;
+        }
+
+        /**
+        Registers a new voter in the system.
+        @param _voterAddress The address of the voter to be registered.
+        */
+        function registerVoter(address _voterAddress) public onlyAdmin {
+            require(!voters[_voterAddress].isRegistered);
+            voters[_voterAddress].isRegistered = true;
+        }
+
+        /**
+        Starts the voting process.
+        */
+        function startVoting() public onlyAdmin {
+            require(!votingOpen);
+            votingOpen = true;
+        }
+
+        /**
+        Handles the voting logic.
+        @param _candidateIndex The index of the candidate to be voted for.
+        */
+        function vote(uint8 _candidateIndex) public {
+            require(votingOpen);
+            require(voters[msg.sender].isRegistered);
+            require(!voters[msg.sender].hasVoted);
+            voters[msg.sender].vote = _candidateIndex;
+            voters[msg.sender].hasVoted = true;
+            totalVotes++;
+        }
+    }
+
+    // Interface Segregation Principle
+    /**
+    Defines the interface for managing voting results.
+    */
+    interface ResultsInterface {
+        /**
+        Gets the total number of votes cast.
+        @return The total votes cast.
+        */
+        function getTotalVotes() external returns (uint8);
+
+        /**
+        Gets the winning candidate index.
+        @return The index of the winning candidate.
+        */
+        function getWinningCandidate() external returns (uint8);
+
+        /**
+        Resets the voting system for a new election.
+        */
+        function resetVoting() external;
+    }
+
+    // Dependency Inversion Principle
+    /**
+    Implements the ResultsInterface and handles the logic for calculating and retrieving voting results.
+    */
+    contract VotingResults is ResultsInterface, BaseVoting {
+        mapping(uint8 => uint8) public candidateVotes;
+
+        constructor() BaseVoting() {}
+
+        function getTotalVotes() external override returns(uint8) {
+            return totalVotes;
+        }
+
+        function getWinningCandidate() external override returns (uint8) {
+            uint8 winningCandidate;
+            uint8 highestVotes;
+
+            for (uint8 i = 0; i < totalVotes; i++) {
+                if (candidateVotes[i] > highestVotes) {
+                    winningCandidate = i;
+                    highestVotes = candidateVotes[i];
+                }
+            }
+
+            return winningCandidate;
+        }
+
+        function resetVoting() external override onlyAdmin {
+            for (uint8 i = 0; i < totalVotes; i++) {
+                candidateVotes[i] = 0;
+            }
+            totalVotes = 0;
+            votingOpen = false;
+        }
+
+        /**
+        Handles the voting logic and updates the candidate's votes.
+        @param _candidateIndex The index of the candidate to be voted for.
+        */
+        function vote(uint8 _candidateIndex) public override {
+            super.vote(_candidateIndex);
+            candidateVotes[_candidateIndex]++;
+        }
+    }
+
+    // Interface Segregation Principle
+    /**
+    Defines the interface for managing administrative tasks.
+    */
+    interface AdminInterface {
+        /**
+        Adds an extra candidate to the list of available candidates.
+        @param _candidateName The name of the candidate to be added.
+        */
+        function addCandidate(string memory _candidateName) external;
+
+        /**
+        Removes a candidate from the list of available candidates.
+        @param _candidateIndex The index of the candidate to be removed.
+        */
+        function removeCandidate(uint8 _candidateIndex) external;
+
+        /**
+        Closes the voting process and calculates the results.
+        @return The index of the winning candidate.
+        */
+        function closeVoting() external returns (uint8);
+    }
+
+    // Dependency Inversion Principle
+    /**
+    Implements the AdminInterface and handles the logic for managing administrative tasks.
+    */
+    contract AdminManagement is AdminInterface, BaseVoting {
+        string[] public candidates;
+
+        constructor() BaseVoting() {}
+
+        function addCandidate(string memory _candidateName) external override onlyAdmin {
+            require(!votingOpen);
+            candidates.push(_candidateName);
+        }
+
+        function removeCandidate(uint8 _candidateIndex) external override onlyAdmin {
+            require(!votingOpen && _candidateIndex < candidates.length);
+            candidates[_candidateIndex] = candidates[candidates.length - 1];
+            candidates.pop();
+        }
+
+        function closeVoting() external override onlyAdmin returns (uint8) {
+            require(votingOpen);
+            votingOpen = false;
+            return VotingResults(this).getWinningCandidate();
+        }
+    }
+
+    // Single Responsibility Principle
+    /**
+    Defines the interface for managing voter information.
+    */
+    interface VoterInterface {
+        /**
+        Gets the voting status of the voter.
+        @return true if the voter has voted, otherwise false.
+        */
+        function getVotingStatus() external returns (bool);
+
+        /**
+        Gets the vote casted by the voter.
+        @return The index of the candidate voted for.
+        */
+        function getVote() external returns (uint8);
+    }
+
+    // Interface Segregation Principle
+    /**
+    Defines the interface for managing voter registration.
+    */
+    interface VoterRegistrationInterface {
+        /**
+        Registers a new voter in the system.
+        @param _voterAddress The address of the voter to be registered.
+        */
+        function registerVoter(address _voterAddress) external;
+    }
+
+    // Dependency Inversion Principle
+    /**
+    Implements the VoterInterface and handles the logic for managing voter information.
+    */
+    contract VoterManagement is VoterInterface, VoterRegistrationInterface, BaseVoting {
+        constructor() BaseVoting() {}
+
+        function getVotingStatus() external override returns(bool) {
+            return voters[msg.sender].hasVoted;
+        }
+
+        function getVote() external override returns (uint8) {
+            require(voters[msg.sender].hasVoted);
+            return voters[msg.sender].vote;
+        }
+
+        function registerVoter(address _voterAddress) external override onlyAdmin {
+            super.registerVoter(_voterAddress);
+        }
+    }
+}

@@ -1,0 +1,94 @@
+// This module implements a 16-bit adder using 4 4-bit sections
+module adder(input [7:0] a, input [7:0] b, output [15:0] sum);
+	// Declare 4 4-bit sections for the adder
+	wire [3:0] a0, a1, a2, a3; // input sections of a
+	wire [3:0] b0, b1, b2, b3; // input sections of b
+	wire [3:0] s0, s1, s2, s3; // output sections of sum
+
+	// instantiate 4 4-bit adders
+	adder4 a0_inst(a[3:0], b[3:0], s0);
+	adder4 a1_inst(a[7:4], b[7:4], s1);
+	adder4 a2_inst(a[11:8], b[11:8], s2);
+	adder4 a3_inst(a[15:12], b[15:12], s3);
+
+	// declare temporary wire for carry out
+	wire cin, cout;
+	assign cin = 1'b0; // set initial carry in to 0
+
+	// instantiate 16-bit carry ripple adder
+	adder_16 adder16_inst (
+		.a0(s0), 
+		.b0(s1), 
+		.cin(cin), 
+		.sum0(sum[3:0]), 
+		.cout(cout)
+	);
+		
+	adder_16 adder16_inst2 (
+		.a0(s2), 
+		.b0(s3), 
+		.cin(cout), 
+		.sum0(sum[7:4]), 
+		.cout(cout)
+	);
+		
+	adder_16 adder16_inst3 (
+		.a0(a0), 
+		.b0(a1), 
+		.cin(cout), 
+		.sum0(sum[11:8]), 
+		.cout(cout)
+	);
+		
+	adder_16 adder16_inst4 (
+		.a0(a2), 
+		.b0(a3), 
+		.cin(cout), 
+		.sum0(sum[15:12]), 
+		.cout(cout)
+	);
+endmodule
+
+// This is a 4-bit adder sub-module
+module adder4(input [3:0] a, input [3:0] b, output [3:0] sum);
+	// Declare inputs and outputs
+	input [3:0] a, b;
+	output [3:0] sum;
+
+	// Declare output of carry
+	wire [3:0] carry;
+
+	// Implement full adder
+	// First bit, no carry in
+	full_adder FA_inst1(a[0], b[0], 1'b0, sum[0], carry[1]);
+	// Second bit and higher, use carry
+	full_adder FA_inst2(a[1], b[1], carry[0], sum[1], carry[2]);
+	full_adder FA_inst3(a[2], b[2], carry[1], sum[2], carry[3]);
+	full_adder FA_inst4(a[3], b[3], carry[2], sum[3], carry[4]);
+endmodule
+
+// This is the full adder module
+module full_adder(input a, input b, input cin, output sum, output carry);
+	// use xor gate to get sum
+	xor (sum, a, b);
+
+	// use and gate to get carry
+	and (carry, a, b);
+
+	// use xor gate to get carry out
+	xor (carry, cin, carry);
+endmodule
+
+// This is the 16-bit carry ripple adder module
+// It takes two 4-bit inputs and outputs a 16-bit sum
+module adder_16(input [3:0] a0, input [3:0] b0, input cin, output [3:0] sum0, output cout);
+	// instantiate 4 4-bit full adders
+	// The first full adder has no carry input
+	full_adder inst1(a0[0], b0[0], cin, sum0[0], carry[0]);
+	full_adder inst2(a0[1], b0[1], carry[0], sum0[1], carry[1]);
+	full_adder inst3(a0[2], b0[2], carry[1], sum0[2], carry[2]);
+	full_adder inst4(a0[3], b0[3], carry[2], sum0[3], carry[3]);
+
+	// assign carry out to the 16th bit
+	assign cout = carry[3];
+endmodule

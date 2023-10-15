@@ -1,0 +1,107 @@
+// Contract to create a decentralized marketplace
+pragma solidity ^0.8.6;
+
+// Importing OpenZeppelin libraries for security and access control
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
+
+// Defining the Marketplace contract
+contract Marketplace is Ownable, Pausable {
+    // Variable to store the address of the marketplace's token
+    address public token;
+
+    // Struct representing a listing of an item in the marketplace
+    struct Listing {
+        address seller; // Address of the seller
+        string name; // Name of the item
+        string description; // Description of the item
+        uint256 price; // Price of the item in wei
+        bool sold; // Whether the item has been sold or not
+    }
+
+    // Mapping to store the listings, with the listing ID as key
+    mapping(uint256 => Listing) public listings;
+
+    // Event emitted when a new listing is created
+    event NewListing(address indexed seller, uint256 indexed id, string name);
+
+    // Event emitted when an item is sold
+    event ItemSold(address indexed buyer, uint256 indexed id);
+
+    // Modifier to check that the caller is the listed item's seller
+    modifier onlySeller(uint256 _id) {
+        require(listings[_id].seller == msg.sender, "You are not the seller.");
+        _;
+    }
+
+    // Constructor function to set the marketplace's token
+    constructor(address _token) {
+        token = _token;
+    }
+
+    // Function to create a new listing
+    function createListing(
+        uint256 _id,
+        string memory _name,
+        string memory _description,
+        uint256 _price
+    ) public {
+        // Checking that the caller owns the item
+        require(
+            ERC721(token).ownerOf(_id) == msg.sender,
+            "You do not own this item."
+        );
+        // Checking that the item is not already listed
+        require(!listings[_id].sold, "Item is already listed.");
+        // Creating the new listing and storing it in the mapping
+        listings[_id] = Listing({
+            seller: msg.sender,
+            name: _name,
+            description: _description,
+            price: _price,
+            sold: false
+        });
+        // Emitting the NewListing event
+        emit NewListing(msg.sender, _id, _name);
+    }
+
+    // Function to purchase an item
+    function purchaseItem(uint256 _id) public payable whenNotPaused {
+        // Checking that the item is listed and not already sold
+        require(listings[_id].seller != address(0), "Item is not listed.");
+        require(!listings[_id].sold, "Item is already sold.");
+        // Checking that the value sent is equal to the listing price
+        require(
+            msg.value == listings[_id].price,
+            "Incorrect amount sent for item."
+        );
+        // Transferring ownership of the item to the buyer
+        ERC721(token).transferFrom(
+            listings[_id].seller,
+            msg.sender,
+            _id
+        );
+        // Marking the item as sold
+        listings[_id].sold = true;
+        // Emitting the ItemSold event
+        emit ItemSold(msg.sender, _id);
+    }
+
+    // Function to withdraw funds from the contract
+    function withdrawFunds() public whenNotPaused onlySeller(_id) {
+        // Calculating the balance of the contract
+        uint256 balance = address(this).balance;
+        // Transferring the funds to the seller
+        payable(msg.sender).transfer(balance);
+    }
+
+    // Function to pause the marketplace
+    function pause() public onlyOwner {
+        _pause();
+    }
+
+    // Function to unpause the marketplace
+    function unpause() public onlyOwner {
+        _unpause();
+    }
+}

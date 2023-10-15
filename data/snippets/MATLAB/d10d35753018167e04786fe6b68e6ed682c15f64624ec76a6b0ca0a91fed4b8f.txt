@@ -1,0 +1,44 @@
+%% Simulink model for controlling a robotic arm
+
+% Define system parameters
+m_arm = 2; % Mass of robotic arm in kilograms 
+m_load = 1; % Mass of load attached to arm in kilograms
+J_arm = 0.1; % Moment of inertia of arm in kilogram-meter squared
+d = 0.5; % Distance between arm rotational axis and load in meters 
+r = 0.1; % Radius of arm in meters 
+g = 9.8; % Acceleration due to gravity in meters per second squared
+
+% Define state-space model
+A = [0 1 0 0; (m_arm * g * d) / (J_arm + m_load * d^2) 0 0 0; 0 0 0 1; (-m_load * g * d) / (J_arm + m_load * d^2) 0 0 0]; % State matrix
+B = [0; 1/(J_arm + m_load * r^2); 0; -1/(J_arm + m_load * r^2)]; % Input matrix
+C = [1 0 0 0; 0 0 1 0]; % Output matrix
+D = [0; 0]; % Feedthrough matrix
+
+% Create Simulink model
+sys = ss(A,B,C,D); % Create state-space model
+simOut = sim('robotic_arm_control', 'SimulationMode', 'normal'); % Run simulation of model
+
+% Plot results
+figure;
+subplot(2,1,1); % Create first subplot for arm angle
+plot(simOut.armAngle);
+ylabel('Arm Angle (rad)');
+subplot(2,1,2); % Create second subplot for load position
+plot(simOut.loadPos);
+ylabel('Load Position (m)');
+xlabel('Time (s)');
+
+% Create controller
+K = place(A,B,[-0.8 -0.9 -1 -1.1]); % Calculate controller gain using pole placement
+sys_cl = ss(A-B*K,B,C,D); % Create closed-loop system with controller
+simOut_cl = sim('robotic_arm_control', 'SimulationMode', 'normal'); % Run simulation of closed-loop system
+
+% Plot results with controller
+figure;
+subplot(2,1,1); % Create first subplot for arm angle
+plot(simOut_cl.armAngle);
+ylabel('Arm Angle (rad)');
+subplot(2,1,2); % Create second subplot for load position
+plot(simOut_cl.loadPos);
+ylabel('Load Position (m)');
+xlabel('Time (s)');

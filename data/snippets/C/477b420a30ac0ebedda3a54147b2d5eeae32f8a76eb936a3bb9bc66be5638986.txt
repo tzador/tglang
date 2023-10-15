@@ -1,0 +1,194 @@
+/**
+ * This is a hashed array data structure in C
+ * It uses linear probing to handle collisions
+ */
+
+/**
+ * Struct representing a key-value pair in the hashed array
+ */
+typedef struct Entry {
+    char *key; // the key used for hashing
+    int value; // the associated value
+} Entry;
+
+/**
+ * Struct representing the hashed array
+ */
+typedef struct HashArray {
+    Entry **array; // array of Entry pointers
+    int size; // current size of array
+    int capacity; // total capacity of array
+    double load_factor; // maximum allowed load factor before resizing
+} HashArray;
+
+/**
+ * Function for hashing a given key
+ * Uses djb2 algorithm for string hashing
+ * @param key the key to hash
+ * @return hashed value
+ */
+int hash(char *key) {
+    unsigned long hash = 5381;
+    int c;
+    while ((c = *key++)) {
+        hash = ((hash << 5) + hash) + c;
+    }
+    return hash;
+}
+
+/**
+ * Function for creating a new entry with given key and value
+ * @param key the key for the new entry
+ * @param value the value for the new entry
+ * @return pointer to the new Entry
+ */
+Entry *create_entry(char *key, int value) {
+    Entry *new_entry = (Entry *) malloc(sizeof(Entry));
+    new_entry->key = key;
+    new_entry->value = value;
+    return new_entry;
+}
+
+/**
+ * Function for creating a new hashed array with given capacity and load factor
+ * @param capacity the initial capacity of the array
+ * @param load_factor the maximum load factor before resizing
+ * @return pointer to the new HashArray
+ */
+HashArray *create_hash_array(int capacity, double load_factor) {
+    HashArray *new_hash_array = (HashArray *) malloc(sizeof(HashArray));
+    new_hash_array->array = (Entry **) malloc(sizeof(Entry *) * capacity);
+    new_hash_array->size = 0;
+    new_hash_array->capacity = capacity;
+    new_hash_array->load_factor = load_factor;
+    return new_hash_array;
+}
+
+/**
+ * Function for adding a new entry to the hashed array
+ * @param hash_array pointer to the HashArray
+ * @param entry pointer to the Entry to add
+ */
+void add(HashArray *hash_array, Entry *entry) {
+    // resize if necessary
+    if ((double) hash_array->size / hash_array->capacity > hash_array->load_factor) {
+        resize(hash_array);
+    }
+    // compute hash index
+    int index = hash(entry->key) % hash_array->capacity;
+
+    // linear probing
+    while (hash_array->array[index] != NULL) {
+        index = (index + 1) % hash_array->capacity;
+    }
+    // add entry at computed index
+    hash_array->array[index] = entry;
+    hash_array->size++;
+}
+
+/**
+ * Function for resizing the hashed array to double its current capacity
+ * Attempts to rehash all existing entries into the new array
+ * @param hash_array pointer to the HashArray
+ */
+void resize(HashArray *hash_array) {
+    // double capacity
+    int new_capacity = hash_array->capacity * 2;
+    // allocate new array
+    Entry **new_array = (Entry **) malloc(sizeof(Entry *) * new_capacity);
+    // rehash existing entries into new array
+    for (int i = 0; i < hash_array->capacity; i++) {
+        if (hash_array->array[i] != NULL) {
+            int index = hash(hash_array->array[i]->key) % new_capacity;
+            while (new_array[index] != NULL) {
+                index = (index + 1) % new_capacity;
+            }
+            new_array[index] = hash_array->array[i];
+        }
+    }
+    // update hash_array properties
+    free(hash_array->array);
+    hash_array->array = new_array;
+    hash_array->capacity = new_capacity;
+}
+
+/**
+ * Function for retrieving the value associated with a given key in the hashed array
+ * Returns -1 if key does not exist
+ * @param hash_array pointer to the HashArray
+ * @param key the key to retrieve value for
+ * @return the value associated with key, or -1 if key does not exist
+ */
+int get(HashArray *hash_array, char *key) {
+    // compute hash index
+    int index = hash(key) % hash_array->capacity;
+
+    // linear probing
+    while (hash_array->array[index] != NULL && strcmp(hash_array->array[index]->key, key) != 0) {
+        index = (index + 1) % hash_array->capacity;
+    }
+    // check if key exists
+    if (hash_array->array[index] == NULL) {
+        return -1;
+    }
+    // return value
+    return hash_array->array[index]->value;
+}
+
+/**
+ * Function for deleting an entry with a given key from the hashed array
+ * @param hash_array pointer to the HashArray
+ * @param key the key to delete
+ */
+void delete(HashArray *hash_array, char *key) {
+    // compute hash index
+    int index = hash(key) % hash_array->capacity;
+
+    // linear probing
+    while (hash_array->array[index] != NULL && strcmp(hash_array->array[index]->key, key) != 0) {
+        index = (index + 1) % hash_array->capacity;
+    }
+    // check if key exists
+    if (hash_array->array[index] == NULL) {
+        printf("Error: Key does not exist in hashed array\n");
+        return;
+    }
+    // delete entry
+    free(hash_array->array[index]->key);
+    free(hash_array->array[index]);
+    hash_array->array[index] = NULL;
+    hash_array->size--;
+}
+
+// ============= EXAMPLE USAGE =============
+
+#include <stdio.h>
+
+int main() {
+    // create hashed array with capacity of 10 and load factor of 0.75
+    HashArray *hash_array = create_hash_array(10, 0.75);
+
+    // add entries to hashed array
+    Entry *entry1 = create_entry("abc", 123);
+    Entry *entry2 = create_entry("def", 456);
+    Entry *entry3 = create_entry("ghi", 789);
+    add(hash_array, entry1);
+    add(hash_array, entry2);
+    add(hash_array, entry3);
+
+    // retrieve values from hashed array
+    printf("Value of 'abc' is: %d\n", get(hash_array, "abc"));
+    printf("Value of 'def' is: %d\n", get(hash_array, "def"));
+    printf("Value of 'ghi' is: %d\n", get(hash_array, "ghi"));
+
+    // delete entry from hashed array
+    delete(hash_array, "def");
+    printf("Value of 'def' after deletion is: %d\n", get(hash_array, "def"));
+
+    // add new entry to hashed array
+    Entry *entry4 = create_entry("jkl", 0);
+    add(hash_array, entry4);
+    printf("Value of 'jkl' after addition is: %d\n", get(hash_array, "jkl"));
+
+    return 0;
+}

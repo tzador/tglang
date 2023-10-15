@@ -1,0 +1,51 @@
+* create internal table with header line
+DATA: lt_customers TYPE TABLE OF scustom,
+      ls_customer TYPE scustom.
+      
+* select data into internal table
+SELECT * FROM scustom INTO TABLE lt_customers.
+* loop over internal table
+LOOP AT lt_customers INTO ls_customer.
+  ls_customer-city = 'New York'.
+  ls_customer-invoice_amount = ls_customer-order_amount * 1.05.
+  MODIFY lt_customers FROM ls_customer INDEX sy-tabix.
+ENDLOOP.
+
+* define exception class
+CLASS lcx_customers DEFINITION INHERITING FROM cx_static_check.
+  PUBLIC SECTION.
+    * define attribute for error message
+    DATA: mv_error_message TYPE string.
+    * define constructor method
+    METHODS constructor
+      IMPORTING iv_message TYPE string.
+    * define method to get error message
+    METHODS get_error_message
+      IMPORTING
+        !iv_field_name TYPE string
+        !iv_table_name TYPE string.
+ENDCLASS.
+
+* implement constructor method
+METHOD lcx_customers=>constructor.
+  super->constructor(
+    iv_message = iv_message ).
+ENDMETHOD.
+
+* implement get_error_message method
+METHOD lcx_customers=>get_error_message.
+  CONCATENATE iv_table_name iv_field_name INTO mv_error_message SEPARATED BY ' - '.
+ENDMETHOD.
+
+* check for erroneous entries in internal table
+LOOP AT lt_customers INTO ls_customer.
+  * check if invoice amount is greater than order amount
+  IF ls_customer-invoice_amount > ls_customer-order_amount.
+    * raise exception
+    RAISE EXCEPTION TYPE lcx_customers
+      EXPORTING
+        iv_field_name = 'invoice_amount'
+        iv_table_name = 'lt_customers'
+        iv_message = 'Invoice amount cannot be greater than order amount'.
+  ENDIF.
+ENDLOOP.

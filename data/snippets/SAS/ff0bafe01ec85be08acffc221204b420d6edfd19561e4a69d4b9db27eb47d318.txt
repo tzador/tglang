@@ -1,0 +1,113 @@
+/* This SAS code snippet performs a logistic regression
+   on a dataset called "diabetes" with the response variable
+   "disease" and explanatory variables "age", "weight", and "bmi". */
+
+/* Set up the SAS macro variables for the dataset name and the variables of interest */
+%let dataset = diabetes;
+%let response_var = disease;
+%let explanatory_vars = age weight bmi;
+
+/* Load the dataset into SAS */
+data &dataset;
+  /* Input statement to read in the data */
+  infile 'C:\Users\Documents\diabetes.csv';
+
+  /* Set up the variable names and types */
+  input id $ age weight bmi disease $;
+
+  /* Create a new variable "overweight" based on the weight and bmi values */
+  overweight = weight / (bmi * bmi);
+
+  /* Keep only the variables of interest */
+  keep &response_var &explanatory_vars overweight;
+
+run;
+
+/* Run the logistic regression */
+proc logistic data = &dataset;
+  /* Specify the model with the response variable and explanatory variables */
+  model &response_var = &explanatory_vars / link = logit;
+
+  /* Output the parameter estimates and corresponding 95% confidence intervals */
+  ods output parameterestimates = param_estimates;
+  ods output confidenceintervals = conf_int;
+
+  /* Run the model and store the results in a new dataset */
+  output out = logistic_out predicted = pred_prob;
+
+run;
+
+/* Create a graph to visualize the predicted probability of disease */
+ods graphics on;
+proc sgplot data = logistic_out;
+  /* Specify the x and y variables to plot */
+  scatter x = weight y = pred_prob / group = disease;
+
+  /* Add a regression line to the plot */
+  reg x = weight y = pred_prob / lineattrs = (color = red);
+
+  /* Add a legend with customized labels */
+  keylegend "excludefill" / location = inside position = bottomright;
+  entry "No Disease" lineattrs = (color = blue);
+  entry "Disease" markerattrs = (symbol = circlefilled color = red);
+
+  /* Add axis labels and title */
+  xaxis label = "Weight (lbs)";
+  yaxis label = "Predicted Probability of Disease";
+  title "Logistic Regression Results for Diabetes Dataset";
+run;
+
+ods graphics off;
+/* Output the results of the logistic regression */
+proc print data = param_estimates;
+  /* Specify the columns to include in the output */
+  var estimate standarderror pvalue;
+run;
+
+/* Output the 95% confidence intervals for the parameter estimates */
+proc print data = conf_int;
+  /* Specify the columns to include in the output */
+  var estimate lower upper;
+run;
+
+/* Evaluate the predictive performance of the model with a confusion matrix */
+ods select confusionmatrix;
+proc logistic data = &dataset;
+  /* Specify the model with the response variable and explanatory variables */
+  model &response_var = &explanatory_vars / link = logit;
+
+  /* Store the predicted values in a new dataset */
+  output out = logistic_out predicted = pred_prob;
+
+  /* Specify the cutoff for determining if a case is classified as diseased */
+  cutoff = 0.5;
+
+  /* Specify the confusion matrix statistics to output */
+  ods output confusionmatrix = conf_matrix;
+run;
+
+/* Output the confusion matrix */
+proc print data = conf_matrix;
+  /* Specify the columns to include in the output */
+  var actual disease pred_disease pred_prob sensitivity specificity accuracy;
+run;
+
+/* Display the ROC curve to evaluate the model's ability to classify cases */
+ods graphics on;
+proc logistic data = &dataset;
+  /* Specify the model with the response variable and explanatory variables */
+  model &response_var = &explanatory_vars / link = logit;
+
+  /* Add the ROC curve to the plot */
+  roc curve (symbol = none);
+
+  /* Customize the axis labels and title */
+  xaxis label = "False Positive Rate";
+  yaxis label = "True Positive Rate";
+  title "ROC Curve for Diabetes Logistic Regression Model";
+run;
+
+ods graphics off;
+/* Output the area under the ROC curve */
+proc print data = _all_;
+run;

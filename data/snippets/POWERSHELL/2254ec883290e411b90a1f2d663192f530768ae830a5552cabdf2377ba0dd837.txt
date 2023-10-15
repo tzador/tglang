@@ -1,0 +1,38 @@
+# This script will install and configure a DHCP server on Windows Server
+
+# Import DHCP and DNS server management modules
+Import-Module DhcpServer,DnsServer
+
+# Ask user for the IP address of the server
+$serverIP = Read-Host "Enter the IP address of the server to host DHCP"
+
+# Create a new DHCP server
+$dhcpServer = Add-DhcpServerInDC -DnsName "$serverIP" -IPAddress "$serverIP"
+
+# Configure DHCP options
+Set-DhcpServerv4OptionValue -ScopeId $serverIP -OptionId 006 -Value "192.168.1.1" # Set DNS servers
+Set-DhcpServerv4OptionValue -ScopeId $serverIP -OptionId 015 -Value "host.test.local" # Set DNS domain name
+Set-DhcpServerv4OptionValue -ScopeId $serverIP -OptionId 003 -Value "192.168.1.1" # Set router IP address
+Set-DhcpServerv4OptionValue -ScopeId $serverIP -OptionId 005 -Value "255.255.255.0" # Set subnet mask
+Set-DhcpServerv4OptionValue -ScopeId $serverIP -OptionId 044 -Value "0.0.0.0" # Set WINS server
+Set-DhcpServerv4OptionValue -ScopeId $serverIP -OptionId 046 -Value "8" -Type Byte # Set netBIOS node type
+Set-DhcpServerv4OptionValue -ScopeId $serverIP -OptionId 031 -Value "yes" -Type Byte # Enable proxy DHCP
+
+# Create a new DHCP scope
+Add-DhcpServerv4Scope -Name "Internal" -StartRange "192.168.1.50" -EndRange "192.168.1.100" -SubnetMask "255.255.255.0" -ScopeId "$serverIP"
+
+# Configure DHCP exclusions
+Add-DhcpServerv4ExclusionRange -ScopeId $serverIP -StartRange "192.168.1.1" -EndRange "192.168.1.49" # Exclude router IP address
+Add-DhcpServerv4ExclusionRange -ScopeId $serverIP -StartRange "192.168.1.101" -EndRange "192.168.1.255" # Exclude reserved addresses
+
+# Set lease duration to 8 hours
+Set-DhcpServerv4Scope -ScopeId $serverIP -LeaseDuration "08:00:00"
+
+# Activate the DHCP server
+Start-DhcpServer
+
+# Register a DHCP scope in DNS
+Add-DhcpServerv4DnsSetting -ScopeId $serverIP -DnsServerIPs "192.168.1.1" -DnsDomain "host.test.local"
+
+# Output success message
+Write-Host "DHCP server successfully installed and configured on $serverIP."

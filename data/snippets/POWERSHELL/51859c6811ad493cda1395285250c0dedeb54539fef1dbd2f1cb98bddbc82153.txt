@@ -1,0 +1,46 @@
+<# This code snippet creates a new virtual machine in Azure using Azure PowerShell #>
+
+# Import AzureRM module
+Import-Module AzureRM
+
+# Set the current location to Azure resource group
+Set-Location -Path "ResourceGroup:\MyResourceGroup"
+
+# Create new virtual machine configuration
+$vmConfig = New-AzureRmVMConfig -VMName "MyVM" -VMSize "Standard_A1" -Location "West US"
+
+# Configure operating system settings for the virtual machine
+$vmConfig = Set-AzureRmVMOperatingSystem -VM $vmConfig -Windows -ComputerName "MyVM" -Credential (Get-Credential) -ProvisionVMAgent -EnableAutoUpdate
+
+# Create a virtual network for the virtual machine
+$vNet = New-AzureRmVirtualNetwork -Name "MyVNet" -ResourceGroupName "MyResourceGroup" -Location "West US" -AddressPrefix "192.168.0.0/16"
+
+# Create a subnet for the virtual network
+$vNetSubnet = New-AzureRmVirtualNetworkSubnetConfig -Name "MySubnet" -AddressPrefix "192.168.1.0/24"
+
+# Add the subnet to the virtual network
+Add-AzureRmVirtualNetworkSubnetConfig -Name "MyVNet" -VirtualNetwork $vNet -AddressPrefix "192.168.0.0/16" -Subnet $vNetSubnet
+
+# Create a network security group for the virtual network
+$nsg = New-AzureRmNetworkSecurityGroup -ResourceGroupName "MyResourceGroup" -Location "West US" -Name "MyNetworkSecurityGroup"
+
+# Create a rule to allow inbound traffic on port 3389 (RDP)
+$nsgRule = New-AzureRmNetworkSecurityRuleConfig -Name "MyNsgRule" -Description "Allow RDP" -Access "Allow" -Protocol "Tcp" -Direction "Inbound" -Priority 100 -SourceAddressPrefix "*" -SourcePortRange "*" -DestinationAddressPrefix "*" -DestinationPortRange "3389"
+
+# Add the rule to the network security group
+Set-AzureRmNetworkSecurityGroup -NetworkSecurityGroup $nsg -SecurityRule $nsgRule
+
+# Create a public IP address for the virtual machine
+$publicIP = New-AzureRmPublicIpAddress -ResourceGroupName "MyResourceGroup" -Location "West US" -Name "MyPublicIP" -AllocationMethod "Dynamic"
+
+# Create an availability set for the virtual machine
+$avSet = New-AzureRmAvailabilitySet -ResourceGroupName "MyResourceGroup" -Location "West US" -Name "MyAvailabilitySet"
+
+# Add the virtual machine to the availability set
+Add-AzureRmVMAvailabilitySet -VM $vmConfig -AvailabilitySetId $avSet.Id
+
+# Create a network interface for the virtual machine
+$nic = New-AzureRmNetworkInterface -ResourceGroupName "MyResourceGroup" -Location "West US" -Name "MyNIC" -SubnetId $vNet.Subnets[0].Id -PublicIpAddressId $publicIP.Id -NetworkSecurityGroupId $nsg.Id
+
+# Create the virtual machine
+New-AzureRmVM -ResourceGroupName "MyResourceGroup" -Location "West US" -VM $vmConfig -NetworkInterface $nic -AvailabilitySetId $avSet.Id

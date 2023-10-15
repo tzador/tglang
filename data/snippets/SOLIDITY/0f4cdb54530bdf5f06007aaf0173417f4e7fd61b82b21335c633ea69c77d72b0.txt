@@ -1,0 +1,160 @@
+// This contract implements a simple ERC-20 token with additional features
+// such as minting, burning, and blacklisting.
+contract Token {
+    // Using the SafeMath library to avoid overflows and underflows.
+    using SafeMath for uint256;
+
+    // Owner of the contract.
+    address public owner;
+
+    // Total supply of the token.
+    uint256 public totalSupply;
+
+    // Mapping of the token balance for each address.
+    mapping(address => uint256) public balanceOf;
+
+    // Mapping of token allowances for each address.
+    mapping(address => mapping(address => uint256)) public allowance;
+
+    // Event emitted when tokens are transferred.
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
+    // Event emitted when tokens are approved for transfer.
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+
+    // Event emitted when tokens are minted.
+    event Mint(address indexed to, uint256 value);
+
+    // Event emitted when tokens are burned.
+    event Burn(address indexed from, uint256 value);
+
+    // Event emitted when an address is blacklisted.
+    event Blacklist(address indexed addr);
+
+    // Event emitted when an address is removed from the blacklist.
+    event Unblacklist(address indexed addr);
+
+    // Constructor function, sets the initial contract owner and total supply.
+    constructor() public {
+        owner = msg.sender;
+        totalSupply = 1000000;
+        balanceOf[msg.sender] = totalSupply;
+    }
+
+    // Transfer tokens from one address to another.
+    function transfer(address _to, uint256 _value) public returns (bool success) {
+        require(_to != address(0)); // Prevent transfer to 0x0 address.
+        require(_value > 0); // Prevent transfer of 0 tokens.
+
+        // Check sender has enough tokens.
+        require(balanceOf[msg.sender] >= _value);
+
+        // Subtract tokens from sender and add to recipient.
+        balanceOf[msg.sender] = balanceOf[msg.sender].sub(_value);
+        balanceOf[_to] = balanceOf[_to].add(_value);
+
+        // Emit transfer event.
+        emit Transfer(msg.sender, _to, _value);
+
+        return true;
+    }
+
+    // Approve another address to spend tokens on your behalf.
+    function approve(address _spender, uint256 _value) public returns (bool success) {
+        require(_spender != address(0)); // Prevent approval for 0x0 address.
+
+        // Set allowance for spender on behalf of owner.
+        allowance[msg.sender][_spender] = _value;
+
+        // Emit approval event.
+        emit Approval(msg.sender, _spender, _value);
+
+        return true;
+    }
+
+    // Transfer tokens from one address to another on behalf of the owner.
+    function transferFrom(address _from, address _to, uint256 _value) public returns (bool success) {
+        require(_to != address(0)); // Prevent transfer to 0x0 address.
+        require(_value > 0); // Prevent transfer of 0 tokens.
+
+        // Check sender has enough tokens.
+        require(allowance[_from][msg.sender] >= _value);
+        require(balanceOf[_from] >= _value);
+
+        // Subtract tokens from sender and add to recipient.
+        allowance[_from][msg.sender] = allowance[_from][msg.sender].sub(_value);
+        balanceOf[_from] = balanceOf[_from].sub(_value);
+        balanceOf[_to] = balanceOf[_to].add(_value);
+
+        // Emit transfer event.
+        emit Transfer(_from, _to, _value);
+
+        return true;
+    }
+
+    // Function to mint new tokens.
+    function mint(address _to, uint256 _value) public {
+        require(msg.sender == owner); // Only the owner can mint tokens.
+        require(_to != address(0)); // Prevent minting to 0x0 address.
+        require(_value > 0); // Prevent minting of 0 tokens.
+
+        // Add new tokens to recipient's balance.
+        balanceOf[_to] = balanceOf[_to].add(_value);
+        totalSupply = totalSupply.add(_value);
+
+        // Emit mint event.
+        emit Mint(_to, _value);
+    }
+
+    // Function to burn tokens from an address.
+    function burn(address _from, uint256 _value) public {
+        require(msg.sender == owner); // Only the owner can burn tokens.
+        require(_from != address(0)); // Prevent burning from 0x0 address.
+        require(_value > 0); // Prevent burning of 0 tokens.
+
+        // Check sender has enough tokens.
+        require(balanceOf[_from] >= _value);
+
+        // Subtract tokens from sender and total supply.
+        balanceOf[_from] = balanceOf[_from].sub(_value);
+        totalSupply = totalSupply.sub(_value);
+
+        // Emit burn event.
+        emit Burn(_from, _value);
+    }
+
+    // Function to blacklist an address.
+    function blacklist(address _addr) public {
+        require(msg.sender == owner); // Only the owner can blacklist addresses.
+        require(_addr != address(0)); // Prevent blacklisting of 0x0 address.
+
+        // Emit blacklist event.
+        emit Blacklist(_addr);
+    }
+
+    // Function to remove an address from the blacklist.
+    function unblacklist(address _addr) public {
+        require(msg.sender == owner); // Only the owner can remove addresses from the blacklist.
+        require(_addr != address(0)); // Prevent removing from 0x0 address.
+
+        // Emit unblacklist event.
+        emit Unblacklist(_addr);
+    }
+}
+
+// SafeMath library for secure mathematical operations.
+// Based on https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/contracts/math/SafeMath.sol
+library SafeMath {
+    // Safe subtraction, throws on overflow.
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        assert(b <= a);
+        return a - b;
+    }
+
+    // Safe addition, throws on overflow.
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        uint256 c = a + b;
+        assert(c >= a);
+        return c;
+    }
+}

@@ -1,0 +1,118 @@
+class FamilyPack extends Mutator;
+//The FamilyPack class inherits from the Mutator class.
+//It allows players to play as multiple characters from the same family in a match.
+
+var int PackSize;
+//Variable to store the number of characters in the pack.
+
+var array<PlayerPawn> FamilyMembers[10];
+//Array to hold the different Family Member characters.
+
+function bool CheckPackSize(int size)
+{
+    //Function to check if the pack size has exceeded the maximum limit of 10.
+    if (size > 10)
+    {
+        //If pack size is greater than 10, return false.
+        return false;
+    }
+    else
+    {
+        //If pack size is within limit, update the PackSize variable and return true.
+        PackSize = size;
+        return true;
+    }
+}
+
+function PlayerPawn GetFamilyMember(int index)
+{
+    //Function to get a specific Family Member from the array based on the index provided.
+    if (index >= 0 && index < PackSize)
+    {
+        //If the index is within the range of valid indices, return the corresponding Family Member.
+        return FamilyMembers[index];
+    }
+    else
+    {
+        //If the index is outside the range, return null.
+        return None;
+    }
+}
+
+function PostBeginPlay()
+{
+    //Function that is called after the game begins.
+    local PlayerController PC;
+    //Local variable to store the PlayerController of the player.
+
+    if (PackSize < 2)
+    {
+        //If pack size is less than 2, set it to 2.
+        PackSize = 2;
+        `Log("Family Pack needs at least 2 members to function, setting pack size to 2.`);
+    }
+    //Loop through the number of players in the game.
+    foreach WorldInfo.GRI.Controllers(Link, PC)
+    {
+        //Create a new Family Member for each player and add it to the array.
+        FamilyMembers[PC.PlayerIndex] = Spawn(class'FamilyMember', PC, , , default);
+    }
+    //Set the remaining slots in the array to None.
+    for (local int i = PackSize; i < 10; ++i)
+    {
+        FamilyMembers[i] = None;
+    }
+    Super.PostBeginPlay();
+}
+
+function Mutator Mutate(string MutateString, actor Other, pawn EventInstigator)
+{
+    //Function that handles the mutation of the game.
+    local Mutator M;
+    local class<FamilyMutator> NewMutatorClass;
+
+    //Check if the MutateString contains the "family" keyword.
+    if (MutateString.Find("family", 0) != -1)
+    {
+        if (PackSize > 2)
+        {
+            //If pack size is greater than 2, create a new instance of the FamilyMutator class.
+            NewMutatorClass = class'FamilyMutator';
+        }
+        else
+        {
+            //If pack size is equal to or less than 2, return null.
+            `Log("Cannot mutate to FamilyMutator with pack size of 2 or less.")`;
+            return None;
+        }
+    }
+    //Check if the MutateString contains the "regular" keyword.
+    else if (MutateString.Find("regular", 0) != -1)
+    {
+        //Create a new instance of the RegularMutator class.
+        NewMutatorClass = class'RegularMutator';
+    }
+    //If none of the above conditions are met, return null.
+    else
+    {
+        `Log("Invalid mutation keyword.")`;
+        return None;
+    }
+    //Determine the player index of the EventInstigator.
+    local int PlayerIndex = Level.Game.PlayerIndex(EventInstigator.Controller);
+
+    if (PlayerIndex < 0 || PlayerIndex >= PackSize || FamilyMembers[PlayerIndex] == None)
+    {
+        //If the EventInstigator is not a member of the family, return null.
+        `Log("Player trying to mutate is not a part of the family.")`;
+        return None;
+    }
+    //Remove the player's existing mutator.
+    FamilyMembers[PlayerIndex].RemoveMutator();
+    //Create a new instance of the chosen mutator class.
+    M = Spawn(NewMutatorClass,, , , default);
+    //Pass the EventInstigator and the player's Family Member to the Mutate function.
+    M.Mutate(MutateString, FamilyMembers[PlayerIndex], Other);
+    //Return the new mutator.
+    return M;
+}

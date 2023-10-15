@@ -1,0 +1,63 @@
+/* This is a SAS code snippet to merge two datasets based on a key variable */
+/* The first dataset is named "data1" and contains variables id, name, and age */
+/* The second dataset is named "data2" and contains variables id, gender, and salary */
+
+/* Sort the datasets by the key variable id */
+PROC SORT DATA = data1;
+	BY id;
+RUN;
+
+PROC SORT DATA = data2;
+	BY id;
+RUN;
+
+/* Merge the datasets using the key variable id */
+DATA merged_data;
+	MERGE data1 data2;
+
+/* Keep only the variables we want in the merged dataset */
+	KEEP id name gender salary;
+
+/* Rename the variables to avoid duplicates */
+	RENAME id = id1
+	name = name1
+	gender = gender2
+	salary = salary2;
+RUN;
+
+/* Check for any duplicate values of the key variable id */
+PROC SORT DATA = merged_data;
+	BY id1;
+RUN;
+
+/* Create a new variable "duplicate" to flag any duplicates */
+DATA merged_data;
+	SET merged_data;
+	BY id1;
+
+/* If there are duplicate values of id1, set the variable "duplicate" to 1 */
+	IF id1 = lag(id1);
+		duplicate = 1;
+	RUN;
+
+/* If there are no duplicate values of id1, set the variable "duplicate" to 0 */
+	ELSE do;
+		duplicate = 0;
+	END;
+RUN;
+
+/* Sort the merged dataset by the key variable id1 and the flag variable duplicate */
+PROC SORT DATA = merged_data;
+	BY id1 duplicate;
+RUN;
+
+/* Remove any duplicate observations (where duplicate = 1) */
+DATA merged_data;
+	SET merged_data;
+	IF duplicate = 0;
+RUN;
+
+/* Sort the final merged dataset by the key variable id */
+PROC SORT DATA = merged_data;
+	BY id;
+RUN;

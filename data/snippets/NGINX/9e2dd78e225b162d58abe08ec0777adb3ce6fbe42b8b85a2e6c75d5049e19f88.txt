@@ -1,0 +1,43 @@
+server {
+    listen 80; //This line specifies the port number that NGINX will listen on
+    server_name example.com; //This line specifies the domain name for which this virtual host will serve requests
+    root /var/www/example.com; //This line specifies the root directory where the website files are located
+    
+    location / {
+        try_files $uri $uri/ /index.html; //This line tells NGINX to first try to serve the requested file, then try to serve the index.html file in case the requested file is not found
+    }
+    
+    location /images/ {
+        alias /var/www/example.com/images/; //This line specifies the directory where all image files for the website are located
+        autoindex on; //This line enables directory listing for the images directory
+    }
+    
+    location ~* \.(jpg|jpeg|png)$ { //This line tells NGINX to only serve files with the specified extensions from this location block
+        root /var/www/example.com/images/; //This line specifies the root directory for the location block
+        expires 1y; //This line sets a 1-year expiry for the images in this location block
+        add_header Cache-Control "public"; //This line tells the browser to cache the images
+    }
+    
+    location /api/ {
+        proxy_pass http://localhost:3000/; //This line tells NGINX to proxy all requests in this location block to the specified backend server
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; //This line adds the client IP address to the X-Forwarded-For header for the backend server to access
+    }
+    
+    location ~ \.(php|html)$ {
+        fastcgi_pass unix:/var/run/php/php7.2-fpm.sock; //This line specifies the PHP-FPM socket for NGINX to pass requests to
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; //This line specifies the path to the requested PHP or HTML file
+        include fastcgi_params; //This line includes the default fastcgi parameters
+    }
+    
+    error_page 404 /error404.html; //This line specifies the custom error page to be shown for 404 errors
+    location = /error404.html { internal; } //This line tells NGINX to only serve the custom error page internally
+    
+    gzip on; //This line enables gzip compression for responses
+    gzip_types text/plain text/css application/json; //This line specifies which file types to gzip
+    gzip_min_length 1000; //This line sets the minimum file size for gzip compression
+    
+    server_tokens off; //This line disables NGINX server tokens to enhance security
+    
+    # -----Additional settings and configurations can be added below-----
+    
+}

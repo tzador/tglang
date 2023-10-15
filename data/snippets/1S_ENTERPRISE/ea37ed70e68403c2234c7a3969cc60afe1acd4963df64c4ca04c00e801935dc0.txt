@@ -1,0 +1,44 @@
+// This code is used to calculate the total cost of goods sold (COGS)
+Procedure CalculateCOGS()
+    // Retrieve all sales orders
+    SalesOrders = SelectFrom SalesOrder
+        Where SalesOrder.Date > '2021-01-01';
+    
+    // Loop through each sales order
+    For Each SalesOrder In SalesOrders Do
+        // Calculate the total cost for each item in the sales order
+        TotalCostSalesOrder = 0;
+        For Each SalesOrderLine In SalesOrder.Lines Do
+            // Retrieve the cost of the item from inventory
+            Item = SelectFrom Item
+                Where Item.ID = SalesOrderLine.ItemID;
+            // Add the item cost multiplied by the quantity sold
+            TotalCostSalesOrder = TotalCostSalesOrder + (Item.Cost * SalesOrderLine.Quantity);
+        EndDo;
+        
+        // Retrieve all purchase orders related to the sales order
+        PurchaseOrders = SelectFrom PurchaseOrder
+            Where PurchaseOrder.RelatedSalesOrder = SalesOrder.ID;
+        //Loop through each purchase order
+        For Each PurchaseOrder In PurchaseOrders Do
+            // Calculate the total cost for each item in the purchase order
+            TotalCostPurchaseOrder = 0;
+            For Each PurchaseOrderLine In PurchaseOrder.Lines Do
+                // Retrieve the cost of the item from inventory
+                Item = SelectFrom Item
+                    Where Item.ID = PurchaseOrderLine.ItemID;
+                // Add the item cost multiplied by the quantity purchased
+                TotalCostPurchaseOrder = TotalCostPurchaseOrder + (Item.Cost * PurchaseOrderLine.Quantity);
+            EndDo;
+            
+            // Calculate the difference between the total cost of items sold and purchased
+            COGS = TotalCostSalesOrder - TotalCostPurchaseOrder;
+            
+            // Update the COGS field in the sales order
+            SalesOrder.COGS = COGS;
+        EndDo;
+    EndDo;
+    
+    // Commit the changes to the database
+    Commit();
+EndProcedure;

@@ -1,0 +1,33 @@
+server {
+    listen 80;
+    server_name www.domain.com;
+
+    location / {
+        root /usr/share/nginx/html;
+        index index.html;
+        try_files $uri $uri/ /index.html; #checks if requested file exists, if not serves index.html instead
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:5000; #proxies requests to a local API server running on port 5000
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; #sets headers for upstream server
+    }
+
+    location /static/ {
+        alias /usr/share/nginx/html/static/; #serves static files from specified directory
+        expires 1d; #sets caching duration for files in this location 
+        add_header Cache-Control "public, max-age=86400"; #adds caching header for browser 
+    }
+
+    location /images/ {
+        rewrite ^/images/(.*) /uploads/images/$1; #rewrites requests for images to a different directory 
+        try_files $uri $uri/ =404; 
+    }
+
+    location /protected/ {
+        internal; #prevents direct access to this location from client 
+        alias /usr/share/nginx/html/protected/; #serves files from specified directory 
+    }
+}

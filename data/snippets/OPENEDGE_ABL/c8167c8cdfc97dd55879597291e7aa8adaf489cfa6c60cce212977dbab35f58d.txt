@@ -1,0 +1,61 @@
+/* This code snippet generates a report of the most purchased items by customers in the past month. */
+
+/* Define the temp-table for storing the data */
+DEFINE TEMP-TABLE tt-purchases
+    FIELD purchase-date AS DATE 
+    FIELD customer AS CHARACTER
+    FIELD item AS CHARACTER
+    FIELD quantity AS INTEGER.
+
+/* Populate the temp-table with data from the database */
+FOR EACH purchase WHERE purchase-date > TODAY - 30:
+    CREATE tt-purchases.
+    ASSIGN
+        tt-purchases.purchase-date = purchase.purchase-date
+        tt-purchases.customer = purchase.customer
+        tt-purchases.item = purchase.item
+        tt-purchases.quantity = purchase.quantity.
+END.
+
+/* Define the output report */
+DEFINE TEMP-TABLE tt-report
+    FIELD customer AS CHARACTER
+    FIELD item AS CHARACTER
+    FIELD total-quantity AS INTEGER
+    INDEX customer-item IS UNIQUE customer item.
+
+/* Populate the report temp-table with customer and item combinations and total quantity */
+FOR EACH tt-purchases NO-LOCK:
+    DO BEGIN:
+        FIND FIRST tt-report
+            WHERE tt-report.customer = tt-purchases.customer
+            AND tt-report.item = tt-purchases.item NO-LOCK NO-ERROR.
+        IF AVAILABLE tt-report THEN 
+            ASSIGN tt-report.total-quantity = tt-report.total-quantity + tt-purchases.quantity. /* Increment quantity if customer and item combination already exists */
+        ELSE 
+            DO: /* Add new customer and item combination */
+                CREATE tt-report.
+                ASSIGN
+                    tt-report.customer = tt-purchases.customer
+                    tt-report.item = tt-purchases.item
+                    tt-report.total-quantity = tt-purchases.quantity.
+            END.
+    END.
+
+/* Sort the report in descending order of total quantity */
+FOR EACH tt-report BY total-quantity DESCENDING:
+    DISPLAY
+        tt-report.customer LABEL "Customer"
+        tt-report.item LABEL "Item"
+        tt-report.total-quantity LABEL "Total Quantity"
+    WITH FRAME f1.
+
+/* Export the report to a text file */
+OUTPUT TO "purchased_items_report.txt" FORMAT "XLS".
+FOR EACH tt-report BY total-quantity DESCENDING:
+    EXPORT DELIMITER "," tt-report.customer tt-report.item tt-report.total-quantity.
+OUTPUT CLOSE.
+
+/* Delete the temp-tables */
+DELETE OBJECT tt-purchases.
+DELETE OBJECT tt-report.

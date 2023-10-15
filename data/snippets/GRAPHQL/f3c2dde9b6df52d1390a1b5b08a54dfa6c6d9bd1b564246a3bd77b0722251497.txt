@@ -1,0 +1,247 @@
+const { GraphQLObjectType, GraphQLSchema, GraphQLString, GraphQLInt, GraphQLList, GraphQLNonNull } = require('graphql');
+
+// Define a GraphQL object type
+const UserType = new GraphQLObjectType({
+  name: 'User',
+  description: 'A user object',
+  fields: () => ({
+    id: {
+      type: GraphQLNonNull(GraphQLInt),
+      description: 'The id of the user',
+    },
+    name: {
+      type: GraphQLNonNull(GraphQLString),
+      description: 'The name of the user',
+    },
+    email: {
+      type: GraphQLString,
+      description: 'The email of the user',
+    },
+    age: {
+      type: GraphQLInt,
+      description: 'The age of the user',
+    },
+    posts: {
+      type: new GraphQLList(PostType),
+      description: 'A list of posts written by the user',
+      resolve: (user) => {
+        return getPostsByUserId(user.id);
+      }
+    }
+  })
+});
+
+// Define a GraphQL object type for posts
+const PostType = new GraphQLObjectType({
+  name: 'Post',
+  description: 'A post object',
+  fields: () => ({
+    id: {
+      type: GraphQLNonNull(GraphQLInt),
+      description: 'The id of the post',
+    },
+    title: {
+      type: GraphQLNonNull(GraphQLString),
+      description: 'The title of the post',
+    },
+    body: {
+      type: GraphQLNonNull(GraphQLString),
+      description: 'The body of the post',
+    },
+    author: {
+      type: UserType,
+      description: 'The author of the post',
+      resolve: (post) => {
+        return getUserById(post.authorId);
+      }
+    },
+    comments: {
+      type: new GraphQLList(CommentType),
+      description: 'A list of comments on the post',
+      resolve: (post) => {
+        return getCommentsByPostId(post.id);
+      }
+    }
+  })
+});
+
+// Define a GraphQL object type for comments
+const CommentType = new GraphQLObjectType({
+  name: 'Comment',
+  description: 'A comment object',
+  fields: () => ({
+    id: {
+      type: GraphQLNonNull(GraphQLInt),
+      description: 'The id of the comment',
+    },
+    text: {
+      type: GraphQLNonNull(GraphQLString),
+      description: 'The text of the comment',
+    },
+    author: {
+      type: UserType,
+      description: 'The author of the comment',
+      resolve: (comment) => {
+        return getUserById(comment.authorId);
+      }
+    },
+    post: {
+      type: PostType,
+      description: 'The post that this comment is on',
+      resolve: (comment) => {
+        return getPostById(comment.postId);
+      }
+    }
+  })
+});
+
+// Define a root query for retrieving data
+const RootQuery = new GraphQLObjectType({
+  name: 'RootQueryType',
+  description: 'A root query',
+  fields: {
+    user: {
+      type: UserType,
+      description: 'Retrieves a user by their id',
+      args: {
+        id: { type: GraphQLNonNull(GraphQLInt) }
+      },
+      resolve: (parent, args) => {
+        return getUserById(args.id);
+      }
+    },
+    post: {
+      type: PostType,
+      description: 'Retrieves a post by its id',
+      args: {
+        id: { type: GraphQLNonNull(GraphQLInt) }
+      },
+      resolve: (parent, args) => {
+        return getPostById(args.id);
+      }
+    },
+    comment: {
+      type: CommentType,
+      description: 'Retrieves a comment by its id',
+      args: {
+        id: { type: GraphQLNonNull(GraphQLInt) }
+      },
+      resolve: (parent, args) => {
+        return getCommentById(args.id);
+      }
+    },
+    allUsers: {
+      type: new GraphQLList(UserType),
+      description: 'Retrieves all users',
+      resolve: () => {
+        return getAllUsers();
+      }
+    },
+    allPosts: {
+      type: new GraphQLList(PostType),
+      description: 'Retrieves all posts',
+      resolve: () => {
+        return getAllPosts();
+      }
+    },
+    allComments: {
+      type: new GraphQLList(CommentType),
+      description: 'Retrieves all comments',
+      resolve: () => {
+        return getAllComments();
+      }
+    }
+  }
+});
+
+// Define a root mutation for creating and updating data
+const RootMutation = new GraphQLObjectType({
+  name: 'RootMutationType',
+  description: 'A root mutation',
+  fields: {
+    addUser: {
+      type: UserType,
+      description: 'Creates a new user',
+      args: {
+        name: { type: GraphQLNonNull(GraphQLString) },
+        email: { type: GraphQLNonNull(GraphQLString) },
+        age: { type: GraphQLInt },
+      },
+      resolve: (parent, args) => {
+        return addUser(args);
+      }
+    },
+    addPost: {
+      type: PostType,
+      description: 'Creates a new post',
+      args: {
+        title: { type: GraphQLNonNull(GraphQLString) },
+        body: { type: GraphQLNonNull(GraphQLString) },
+        authorId: { type: GraphQLNonNull(GraphQLInt) },
+      },
+      resolve: (parent, args) => {
+        return addPost(args);
+      }
+    },
+    addComment: {
+      type: CommentType,
+      description: 'Creates a new comment',
+      args: {
+        text: { type: GraphQLNonNull(GraphQLString) },
+        authorId: { type: GraphQLNonNull(GraphQLInt) },
+        postId: { type: GraphQLInt },
+      },
+      resolve: (parent, args) => {
+        return addComment(args);
+      }
+    },
+    updateUser: {
+      type: UserType,
+      description: 'Updates an existing user by their id',
+      args: {
+        id: { type: GraphQLNonNull(GraphQLInt) },
+        name: { type: GraphQLString },
+        email: { type: GraphQLString },
+        age: { type: GraphQLInt },
+      },
+      resolve: (parent, args) => {
+        return updateUser(args);
+      }
+    },
+    updatePost: {
+      type: PostType,
+      description: 'Updates an existing post by its id',
+      args: {
+        id: { type: GraphQLNonNull(GraphQLInt) },
+        title: { type: GraphQLString },
+        body: { type: GraphQLString },
+        authorId: { type: GraphQLInt },
+      },
+      resolve: (parent, args) => {
+        return updatePost(args);
+      }
+    },
+    updateComment: {
+      type: CommentType,
+      description: 'Updates an existing comment by its id',
+      args: {
+        id: { type: GraphQLNonNull(GraphQLInt) },
+        text: { type: GraphQLString },
+        authorId: { type: GraphQLInt },
+        postId: { type: GraphQLInt },
+      },
+      resolve: (parent, args) => {
+        return updateComment(args);
+      }
+    }
+  }
+});
+
+// Create a schema with the root query and root mutation
+const schema = new GraphQLSchema({
+  query: RootQuery,
+  mutation: RootMutation,
+});
+
+// Export the schema
+module.exports = schema;

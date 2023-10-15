@@ -1,0 +1,90 @@
+unit Unit1;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls;
+
+type
+  TForm1 = class(TForm)
+    Memo1: TMemo;
+    Edit1: TEdit;
+    procedure FormCreate(Sender: TObject);
+    procedure FormResize(Sender: TObject);
+    procedure FormPaint(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+    function GetSystemFonts: TStringList; //A public function to retrieve a list of system fonts
+    procedure DrawTextOnCanvas(Canvas: TCanvas; Font: TFont; Text: string; X, Y: Integer); //A private procedure to draw text on the provided canvas
+  end;
+
+var
+  Form1: TForm1;
+
+implementation
+
+{$R *.dfm} //Link the form resource file
+
+{ TForm1 }
+
+procedure TForm1.FormCreate(Sender: TObject);
+begin
+  Memo1.Lines := GetSystemFonts; //Set the lines of the memo to the list of system fonts
+end;
+
+function TForm1.GetSystemFonts: TStringList;
+var
+  DC: HDC;
+  I: Integer;
+  LogFont: TLogFont;
+begin
+  Result := TStringList.Create; //Create a new string list to store the fonts
+  DC := GetDC(0); //Get the handle to the screen's DC
+  try
+    for I := 0 to 255 do //Loop through all possible fonts
+    begin
+      GetObject(GetStockObject(SYSTEM_FONT), SizeOf(TLogFont), @LogFont); //Get information about the current font
+      Result.Add(LogFont.lfFaceName); //Add the font name to the list
+    end;
+  finally
+    ReleaseDC(0, DC); //Release the DC once we're done with it
+  end;
+end;
+
+procedure TForm1.FormPaint(Sender: TObject);
+var
+  X, Y: Integer;
+begin
+  X := 10; //Define the starting coordinates
+  Y := 10;
+  Canvas.Brush.Color := clWhite; //Set the canvas background color
+  Canvas.FillRect(ClientRect); //Fill the canvas with the background color
+  Canvas.Font.Size := 16; //Set the font size
+  for X := 0 to Memo1.Lines.Count - 1 do //Loop through the list of fonts
+  begin
+    Canvas.Font.Name := Memo1.Lines[X]; //Set the current font
+    DrawTextOnCanvas(Canvas, Canvas.Font, 'Hello World!', X * 20, Y); //Call the drawing procedure
+    Y := Y + 20; //Move down to the next line
+  end;
+end;
+
+procedure TForm1.FormResize(Sender: TObject);
+begin
+  Memo1.Width := ClientWidth / 2; //Resize the memo to half the form's width
+  Memo1.Height := ClientHeight; //Resize the memo to match the form's height
+end;
+
+procedure TForm1.DrawTextOnCanvas(Canvas: TCanvas; Font: TFont; Text: string; X, Y: Integer);
+//Draws the given text on the provided canvas at the given coordinates using the provided font
+var
+  TextMetrics: TTextMetric;
+begin
+  Canvas.Font := Font; //Set the canvas font to the provided font
+  GetTextMetrics(Canvas.Handle, TextMetrics); //Get information about the text metrics for better alignment
+  Canvas.TextOut(X + (TextMetrics.tmMaxCharWidth div 2) - ((Length(Text) * TextMetrics.tmAveCharWidth) div 2), Y, Text); //Draw the text centered at the provided coordinates
+end;
+
+end.

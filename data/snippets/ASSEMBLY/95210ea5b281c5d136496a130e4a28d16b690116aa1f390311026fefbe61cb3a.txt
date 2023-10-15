@@ -1,0 +1,136 @@
+; This code snippet checks if a given number is prime
+
+.386
+.model flat, stdcall
+option casemap:none
+
+extern printf:proc
+
+.data
+PRIME_MSG db "%d is a prime number.", 0
+NOT_PRIME_MSG db "%d is not a prime number.", 0
+
+.code
+main PROC
+
+  ; ask user to input number
+  push offset PRIME_MSG
+  call printf
+  add esp, 4
+
+  xor eax, eax
+  xor edx, edx
+
+  ; get user input and save it in eax
+  lea esi, [eax + 9]
+  call read_num
+  mov eax, esi
+
+  ; save the input in ebx for later comparison
+  mov ebx, eax
+
+  ; divide the input by 2
+  shr eax, 1
+
+  ; loop to check if input is divisible by any number between 2 and half of input
+  mov cx, ax
+  xor ax, ax
+  mov cx, 1
+
+  prime_check:
+  add cx, 2
+  cmp esi, 0
+  je exit
+  mov eax, esi
+  mov edx, cx
+  div cx
+  cmp edx, 0
+  jne is_prime
+  mov esi, 0
+  jmp exit
+
+  is_prime:
+  mov esi, ebx
+
+  ; check if number is prime by comparing against 1 and input
+  cmp cx, 2
+  jne prime_check
+  mov esi, 1
+
+  exit:
+  ; output result based on value of esi
+  cmp esi, 0
+  je not_prime
+  push ebx
+  push offset PRIME_MSG
+  call printf
+  jmp end
+
+  not_prime:
+  push ebx
+  push offset NOT_PRIME_MSG
+  call printf
+  jmp end
+
+  end:
+  ret
+
+  main ENDP
+  END main
+
+  ; subroutine to read user input
+  read_num PROC
+  ; save registers on stack
+  push esi
+  push edi
+
+  mov eax, 0
+  mov edx, 0
+  lea esi, [ebp - 4]
+
+  read_digit:
+  ; get next character from user input
+  push ebp
+  push esi
+  call getchar
+  add esp, 8
+
+  ; exit loop if no input left
+  cmp al, 0
+  je end_read_digit
+
+  ; check if input is digit
+  cmp al, "0"
+  jl not_digit
+  cmp al, "9"
+  jg not_digit
+
+  ; convert character to number
+  sub al, "0"
+  mov edi, 10
+  mul edi
+  movsx edi, al
+  add edx, edi
+
+  ; add number to existing input
+  mov edi, 10
+  mul edi
+  add dword ptr [ebp - 4], edx
+  jmp read_digit
+
+  not_digit:
+  ; exit loop if character is not a digit
+  mov byte ptr [ebp - 1], 0
+  jmp end_read_digit
+
+  end_read_digit:
+  ; restore registers and return input number
+  pop edi
+  pop esi
+  mov eax, dword ptr [ebp - 4]
+  ret
+
+  read_num ENDP
+
+  END main
+END main

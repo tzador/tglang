@@ -1,0 +1,91 @@
+module Main exposing (..)
+
+import Html exposing (..)
+import Http exposing (..)
+import Json.Decode as Decode
+
+
+{-| A custom type representing a User with properties `id`, `name`, and `email`
+-}
+type alias User =
+    { id : Int
+    , name : String
+    , email : String
+    }
+
+
+{-| A custom type representing the possible outcomes of an HTTP request to get a User
+-}
+type GetUserResponse
+    = Success User
+    | NotFound
+    | BadRequest String
+    | ServerError
+
+
+{-| Decodes a JSON response into a `User` if possible, otherwise returns a `BadRequest` error with an informative message
+-}
+decodeUser : String -> Result String User
+decodeUser json =
+    case Decode.decodeString Decode.int json of
+        Ok id ->
+            Ok { id = id, name = "John Smith", email = "john.smith@gmail.com" }
+
+        Err _ ->
+            Err "Could not decode user information."
+
+
+{-| Sends an HTTP request to get a User by their ID.
+-}
+getUser : Int -> Cmd Msg
+getUser userId =
+    let
+        config =
+            Http.get
+                { url = "https://example.com/users/" ++ (String.fromInt userId)
+                , expect = Http.expectJson decodeUser
+                }
+    in
+    Http.send GetUserSuccess config
+
+
+{-| The Msg type for all possible messages that can be sent to our `update` function.
+-}
+type Msg
+    = GetUserSuccess (Result String User)
+    | GetUserError Http.Error
+
+
+{-| Updates the model based on the given message.
+-}
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    case msg of
+        GetUserSuccess (Ok user) ->
+            ( { model | users = (user :: model.users) }, Cmd.none )
+
+        GetUserSuccess (Err error) ->
+            ( model, Cmd.none )
+
+        GetUserError _ ->
+            ( model, Cmd.none )
+
+
+{-| The initial Model for our program.
+-}
+initialModel : Model
+initialModel =
+    { users = []
+    }
+
+
+{-| The main entry point for our ELM program.
+-}
+main : Program Never Model Msg
+main =
+    Html.program
+        { init = ( initialModel, Cmd.none )
+        , update = update
+        , view = view
+        , subscriptions = \_ -> Sub.none
+        }

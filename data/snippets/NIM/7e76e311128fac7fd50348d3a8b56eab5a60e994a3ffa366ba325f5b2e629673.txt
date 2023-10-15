@@ -1,0 +1,108 @@
+# This code generates a random maze using depth-first search algorithm #
+import math
+
+# Create a Maze object with specified dimensions
+let maze = Maze(width=10, height=10)
+
+# Create a Cell object to represent each cell of the maze
+type Cell = object
+    x, y: int             # x and y coordinates of the cell
+    visited: bool         # boolean to track if cell has been visited
+    walls: array[4, bool] # array to track the presence of walls in each direction
+
+# Initialize the maze with all cells having four walls and being unvisited
+for y in 1..maze.height:
+    for x in 1..maze.width:
+        maze.cells[y, x] = Cell(
+            x: x, y: y,
+            visited: false,
+            walls: [true, true, true, true]
+        )
+
+# Create a function to get the neighboring cell coordinates
+func getNeighbors(cell: Cell): seq[(x: int, y: int)] =
+    result = @[]
+    # Add neighboring cells to the result if they are not out of bounds
+    for (xVal, yVal) in [(cell.x-1, cell.y), (cell.x+1, cell.y), (cell.x, cell.y-1), (cell.x, cell.y+1)]:
+        if (0 < xVal < maze.width+1) and (0 < yVal < maze.height+1):
+            result.add((xVal, yVal))
+
+# Create a function to remove walls between two adjacent cells
+func removeWalls(cell1: Cell, cell2: Cell) =
+    # Check the horizontal position of the cells to determine which walls to remove
+    if cell1.x < cell2.x:
+        # cell1 is to the left, so we remove the right wall
+        maze.cells[cell1.y, cell1.x].walls[1] = false
+        maze.cells[cell2.y, cell2.x].walls[3] = false
+    elif cell1.x > cell2.x:
+        # cell1 is to the right, so we remove the left wall
+        maze.cells[cell1.y, cell1.x].walls[3] = false
+        maze.cells[cell2.y, cell2.x].walls[1] = false
+    # Check the vertical position of the cells to determine which walls to remove
+    if cell1.y < cell2.y:
+        # cell1 is above, so we remove the bottom wall
+        maze.cells[cell1.y, cell1.x].walls[2] = false
+        maze.cells[cell2.y, cell2.x].walls[0] = false
+    elif cell1.y > cell2.y:
+        # cell1 is below, so we remove the top wall
+        maze.cells[cell1.y, cell1.x].walls[0] = false
+        maze.cells[cell2.y, cell2.x].walls[2] = false
+
+# Create a stack to keep track of visited cells
+var stack = newStack[Cell]
+
+# Set the starting cell and mark it as visited
+let currentCell = maze.cells[1, 1]
+maze.cells[1, 1].visited = true
+
+# Add the starting cell to the stack
+stack.push(currentCell)
+
+# Use the depth-first search algorithm to generate the maze
+while stack.len > 0:
+    # Get the current cell from the top of the stack
+    let currentCell = stack.top
+    # Get all unvisited neighbors of the current cell
+    var unvisitedNeighbors = @[]
+    for (xVal, yVal) in getNeighbors(currentCell):
+        if not maze.cells[yVal, xVal].visited:
+            unvisitedNeighbors.add((xVal, yVal))
+    # If there are unvisited neighbors, choose one randomly and remove the wall between them
+    if unvisitedNeighbors.len > 0:
+        # Get a random unvisited neighbor
+        let (xVal, yVal) = unvisitedNeighbors[random(unvisitedNeighbors.len)]
+        # Remove the walls between the current cell and the chosen neighbor
+        removeWalls(currentCell, maze.cells[yVal, xVal])
+        # Mark the chosen neighbor as visited
+        maze.cells[yVal, xVal].visited = true
+        # Add the chosen neighbor to the stack
+        stack.push(maze.cells[yVal, xVal])
+    # If there are no unvisited neighbors, remove the current cell from the stack
+    else:
+        stack.pop
+
+# Print out the maze in ASCII
+echo("┌")
+for x in 1..maze.width:
+    echo("───┐")
+for y in 1..maze.height:
+    var row = "│"
+    for x in 1..maze.width:
+        if maze.cells[y, x].walls[2]:
+            row.add("   │")
+        else:
+            row.add("    ")
+    echo(row)
+    var row = "│"
+    for x in 1..maze.width:
+        if maze.cells[y, x].walls[3]:
+            row.add("──")
+        else:
+            row.add("  ")
+    row.add("│")
+    echo(row)
+echo("└")
+var lastRow = ""
+for x in 1..maze.width:
+    lastRow.add("───┘")
+echo(lastRow)

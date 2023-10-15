@@ -1,0 +1,50 @@
+DECLARE
+  -- declare variables
+  v_ID NUMBER;
+  v_name VARCHAR2(50);
+  v_salary NUMBER(10,2);
+BEGIN
+  -- get employee ID
+  SELECT employee_id INTO v_ID
+  FROM employees
+  WHERE last_name = 'Smith' AND first_name = 'John';
+  
+  -- get employee name
+  SELECT first_name || ' ' || last_name INTO v_name
+  FROM employees
+  WHERE employee_id = v_ID;
+  
+  -- calculate employee's total salary
+  v_salary := (SELECT salary FROM employees WHERE employee_id = v_ID) * 1.1;
+  
+  -- insert updated data into salary_history table
+  INSERT INTO salary_history(employee_id, employee_name, salary_before, salary_after, increase_date)
+  VALUES (v_ID, v_name, v_salary/1.1, v_salary, SYSDATE);
+  
+  -- update employee's salary
+  UPDATE employees
+  SET salary = v_salary
+  WHERE employee_id = v_ID;
+  
+  -- commit changes
+  COMMIT; 
+  
+  -- raise salary by 10% for each dependent
+  FOR i IN (SELECT COUNT(*) FROM dependents WHERE employee_id = v_ID)
+  LOOP
+    UPDATE employees
+    SET salary = salary * 1.1
+    WHERE employee_id = v_ID;
+  END LOOP;
+  
+  -- print success message
+  DBMS_OUTPUT.PUT_LINE('Salary updated successfully for employee ' || v_name);
+  
+EXCEPTION
+  -- handle exceptions
+  WHEN NO_DATA_FOUND THEN
+    DBMS_OUTPUT.PUT_LINE('Employee not found.');
+  WHEN OTHERS THEN
+    DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+/

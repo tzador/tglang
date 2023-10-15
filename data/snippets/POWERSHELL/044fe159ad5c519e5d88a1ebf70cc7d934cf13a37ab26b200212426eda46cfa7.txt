@@ -1,0 +1,50 @@
+function Get-User {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Name
+    )
+    # Retrieves information about a user
+    $userInfo = Get-ADUser -Filter "Name -eq '$Name'"
+
+    if($userInfo) { # if user exists
+        # Save user information to an object
+        $user = [PSCustomObject]@{
+            FirstName  = $userInfo.GivenName
+            LastName   = $userInfo.Surname
+            Email      = $userInfo.EmailAddress
+            Department = $userInfo.Department
+            Address    = $userInfo.StreetAddress
+        }
+
+        if($user.Email) { # if email exists
+            # Send an email to the user
+            $emailBody = @"
+            Dear $($user.FirstName),
+
+            This email is to inform you that your account information has been requested.
+            Below are your details that we have on record.
+
+            Name: $($user.FirstName) $($user.LastName)
+            Email: $($user.Email)
+            Department: $($user.Department)
+            Address: $($user.Address)
+
+            Please contact us if you have any concerns.
+
+            Thank you,
+            The Admin Team
+"@
+
+            # Send email to user
+            Send-MailMessage -To $user.Email -Subject "Account Information Request" -Body $emailBody -SmtpServer "mail.contoso.com"
+            Write-Host "Email sent to $($user.Email)"
+        }
+        
+        # Return the user object
+        return $user
+    }
+    else { # if user does not exist
+        Write-Warning "User '$Name' does not exist"
+        return $null
+    }
+}

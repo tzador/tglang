@@ -1,0 +1,63 @@
+// This contract allows users to create and manage auctions for a specific item
+contract Auction {
+
+    // Variables to store auction details
+    address owner; // Address of the creator of the auction
+    string itemName; // Name of the item being auctioned
+    uint startingBid; // Starting bid amount
+    uint reservePrice; // Minimum price for the item to be sold
+    uint auctionEndDate; // End date of the auction
+    address highestBidder; // Address of the highest bidder
+    uint highestBid; // Amount of the highest bid
+
+    // Mapping to track bids for each user
+    mapping(address => uint) bidsByUser;
+
+    // Events to notify users of auction updates
+    event AuctionStarted(string itemName, uint startingBid, uint reservePrice, uint auctionEndDate);
+    event BidPlaced(address bidder, uint bidAmount);
+    event AuctionEnded(address winner, uint winningBid);
+
+    // Constructor function to set initial values
+    constructor(string memory _itemName, uint _startingBid, uint _reservePrice, uint _auctionEndDate) public {
+        owner = msg.sender;
+        itemName = _itemName;
+        startingBid = _startingBid;
+        reservePrice = _reservePrice;
+        auctionEndDate = _auctionEndDate;
+    }
+
+    // Function to place a bid on the auction
+    function placeBid() public payable {
+        // Ensure auction has not ended and bidder is not the owner
+        require(now < auctionEndDate && msg.sender != owner);
+
+        // Check if bid amount is higher than current highest bid and reserve price
+        require(msg.value > highestBid && msg.value >= reservePrice);
+
+        // Update highest bidder and bid amount
+        highestBidder = msg.sender;
+        highestBid = msg.value;
+
+        // Add bid to mapping for user
+        bidsByUser[msg.sender] += msg.value;
+
+        // Emit BidPlaced event
+        emit BidPlaced(msg.sender, msg.value);
+    }
+
+    // Function to end the auction and transfer item to highest bidder
+    function endAuction() public {
+        // Check if auction has ended
+        require(now >= auctionEndDate);
+
+        // Ensure caller is the owner or highest bidder
+        require(msg.sender == owner || msg.sender == highestBidder);
+
+        // Transfer item and highest bid amount to highest bidder
+        highestBidder.transfer(highestBid);
+
+        // Emit AuctionEnded event
+        emit AuctionEnded(highestBidder, highestBid);
+    }
+}

@@ -1,0 +1,41 @@
+# Create a network
+docker network create \
+  --driver=bridge \
+  --subnet=192.168.0.0/16 \
+  --gateway=192.168.0.1 \
+  mynetwork
+
+# Run two containers on the network
+docker container run -d --net=mynetwork \
+  --name container1 \
+  nginx
+
+docker container run -d --net=mynetwork \
+  --name container2 \
+  mysql
+
+# Create a volume for data persistence
+docker volume create appdata
+
+# Run a container with persistent volume and network options
+docker container run -d --net=mynetwork \
+  --name appcontainer \
+  -v appdata:/app \
+  appimage:latest
+
+# List containers on the network
+docker network inspect mynetwork
+
+# Configure container1 to use container2 as mysql database
+docker container exec -it container1 \
+  sed -i 's/localhost/container2/g' \
+  /etc/nginx/conf.d/default.conf
+
+# Connect to container1 and run SQL commands
+docker container exec -it container1 \
+  mysql -h container2 \
+  -u root -ppassword \
+  -e "CREATE DATABASE mydb; \
+    CREATE TABLE mytable (id INT, name VARCHAR(25)); \
+    INSERT INTO mytable VALUES (1, 'John'), (2, 'Jane'), (3, 'Bob'); \
+    SELECT * FROM mytable;"

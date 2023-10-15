@@ -1,0 +1,132 @@
+module Main exposing (main)
+
+{-|
+    This module contains the implementation of a simple chat application 
+    using ELM programming language.
+-}
+
+import Html exposing (Html, div, text)
+import Html.App as Html
+import Html.Events exposing (onClick)
+import Html.Attributes exposing (class, style)
+
+
+-- TYPE ALIASES --
+
+-- Alias for a user in the chat
+type alias User =
+    { username : String
+    , color : String
+    }
+
+-- Alias for a chat message
+type alias Message =
+    { user : User
+    , content : String
+    , timestamp : Int
+    }
+
+
+-- MODEL --
+
+-- Initial model with an empty list of messages and no active users
+initialModel : Int -> Model
+initialModel time =
+    Model
+        { messages = []
+        , users = []
+        , input = ""
+        , time = time
+        }
+
+
+-- UPDATE --
+
+-- Possible actions that can be triggered
+type Action
+    = SendMessage String
+    | UpdateInput String
+    | AddUser String
+    | RemoveUser String
+
+-- Update function that handles all actions
+update : Action -> Model -> (Model, Cmd Msg)
+update action model =
+    case action of
+        SendMessage content ->
+            ( { model | messages = model.messages ++ [ newMessage content model ] }
+            , Cmd.none
+            )
+        
+        UpdateInput input ->
+            ( { model | input = input }
+            , Cmd.none
+            )
+        
+        AddUser username ->
+            ( { model | users = model.users ++ [ newUser username ] }
+            , Cmd.none
+            )
+        
+        RemoveUser username ->
+            ( { model | users = removeUser username model.users }
+            , Cmd.none
+            )
+        
+        where
+            removeUser username users =
+                List.filter (\user -> user.username /= username) users
+
+
+-- VIEW --
+
+-- Function that generates the HTML view
+view : Model -> Html Msg
+view model =
+    div []
+        [ div []
+            [ div [ class "chat-header" ] [ text "Welcome to ELM Chat!" ]
+            , div [ class "chat-body" ] [ viewMessages model.messages ]
+            , div [ class "chat-input" ]
+                [ input [ onInput UpdateInput ] []
+                , button [ onClick (SendMessage model.input) ] [ text "Send" ]
+                ]
+            ]
+        , div []
+            [ div [ class "user-list-header" ] [ text "Active Users:" ]
+            , userListView model.users
+            ]
+        ]
+
+-- Function that generates the HTML view for the list of messages
+viewMessages : List Message -> Html msg
+viewMessages messages =
+    List.map viewMessage messages
+
+-- Function that generates the HTML view for a single chat message
+viewMessage : Message -> Html Msg
+viewMessage message =
+    div
+        [ style [("color", message.user.color)] ]
+        [ text message.user.username, text ": ", text message.content ]
+
+
+-- SUBSCRIPTIONS --
+
+-- Subscriptions that listen for incoming messages
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Sub.none
+
+
+-- MAIN --
+
+-- Main function that starts the app
+main : Program Int Model Msg    
+main =
+    Html.program
+        { init = initialModel
+        , view = view
+        , update = update
+        , subscriptions = subscriptions
+        }

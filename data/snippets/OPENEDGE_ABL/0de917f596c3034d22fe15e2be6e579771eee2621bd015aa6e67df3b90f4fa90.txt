@@ -1,0 +1,26 @@
+/* This is a comment in the code */
+DEFINE TEMP-TABLE customer NO-UNDO SERIALIZE-NAME "Customer" /* A temporary table definition */
+    FIELD custNum AS INTEGER SERIALIZE-NAME "Customer Number" /* A field with an integer data type */
+    FIELD custName AS CHARACTER SERIALIZE-NAME "Customer Name" /* A field with a character data type */
+    FIELD balance AS DECIMAL FORMAT "ZZZZZ9.99" SERIALIZE-NAME "Account Balance" /* A field with a decimal data type and custom format */
+    INDEX custNum IS PRIMARY custNum /* A primary index on the custNum field */
+    INDEX custName IS UNIQUE custName /* A unique index on the custName field */
+    INDEX balance IS ASCENDING balance /* An ascending index on the balance field */
+    INDEX accountSummary IS FULL-TEXT custName /* A full-text index on the custName field for searching */
+    INDEX searchByName IS SEARCH custName /* A search index on the custName field for fast searching */
+    INDEX custNumStatus IS COMPOSITE custNum, status /* A composite index on the custNum and status fields */
+    XML-NODE-NAME "Customer" XML-ROOT-NAME "Customers" /* Serialization options for XML formatted output */
+    TRIGGER ON customer FOR EACH ROW WHEN (customer.balance < 0) DO:
+    /* A trigger that fires for each row in the customer table when the balance is less than 0 */
+        RUN storeProcedure(customer.custNum, "Overdue Customer", customer.balance) /* A call to a stored procedure passing in the custNum, a message, and the balance */
+        MESSAGE customer.custName + " has an overdue balance of " + STRING(customer.balance) /* A message displaying the customer's name and balance */
+    END.
+
+/* This is a procedure that will be called by the trigger */
+PROCEDURE storeProcedure
+    DEFINE INPUT PARAMETER custNum AS INTEGER NO-UNDO.
+    DEFINE INPUT PARAMETER message AS CHARACTER NO-UNDO.
+    DEFINE INPUT PARAMETER balance AS DECIMAL NO-UNDO.
+    DISPLAY "Customer " + STRING(custNum) + ": " + message + " - Balance: " + STRING(balance) /* Displaying the passed in parameters */
+    RETURN.
+END PROCEDURE.

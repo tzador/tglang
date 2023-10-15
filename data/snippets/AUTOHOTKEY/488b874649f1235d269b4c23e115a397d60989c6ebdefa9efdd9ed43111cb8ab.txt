@@ -1,0 +1,149 @@
+; This code snippet is a simple program that simulates a game of blackjack.
+
+; Variables to keep track of game status
+game_in_progress := true
+dealers_turn := true
+player_has_busted := false
+dealer_has_busted := false
+
+; Function to display the initial game board
+init_board() {
+    MsgBox, , BlackJack
+    , % "|--------------Dealer's Hand-------------------|--Player's Hand-------------------------------|" . "`n"
+    . "|--Hidden Card--|--" . dealer_hand[2] . "--|" . "  Current Hand Total: " . dealer_points
+    . "|--" . dealer_hand[1] . "--||--" . player_hand[1] . "--|--" . player_hand[2] . "--|" . "  Current Hand Total: " . player_points . "`n"
+    . "-----------------------------------------------------------------------------------------"
+}
+
+; Function to deal the initial cards
+deal_cards() {
+    dealer_hand := []
+    player_hand := []
+    for i, 2 { ; deal 2 cards each
+        dealer_hand[i] := random(Card_Suits) . " " . random(Card_Ranks)
+        player_hand[i] := random(Card_Suits) . " " . random(Card_Ranks)
+    }
+}
+
+; Function to calculate the points for a given hand
+get_points(hand) {
+    points := 0
+    for i, hand.length { ; go through each card in the hand
+        string := StrSplit(hand[i], " ") ; separate the suit and rank
+        if (string[2] == "A") ; if the card is an Ace
+            points += 11 ; add 11 points
+        else if (InStr(string[2], ["J", "Q", "K"])) ; if the card is a face card
+            points += 10 ; add 10 points
+        else ; if the card is a number card
+            points += string[2] ; add the number as points
+    }
+
+    ; Check for aces
+    for i, hand.length { ; go through each card in the hand
+        if (points > 21 and hand[i] contains "A") ; if the hand is over 21 and contains an Ace
+            points -= 10 ; make the Ace worth 1 point instead of 11
+    }
+
+    return points
+}
+
+; Function to check if a given hand has busted
+check_bust(points) {
+    if (points > 21) ; if the hand's points are over 21
+        return true
+    else
+        return false
+}
+
+; Function for the dealer's turn
+dealer_turn() {
+    dealer_points := get_points(dealer_hand)
+    if (dealer_points < 17) { ; check if dealer should hit or stay
+        dealer_hand.Insert(random(Card_Suits) . " " . random(Card_Ranks))
+    }
+    else
+        dealers_turn := false ; dealer's turn is over
+}
+
+; Function for the player's turn
+player_turn() {
+    player_points := get_points(player_hand)
+
+    ; Ask player for input until they stay or bust
+    loop {
+        MsgBox, 36, Your turn!
+        , % "Your current hand: " . player_hand . "`n" . "Total points: " . player_points . "`nWould you like to hit or stay?"
+        IfMsgBox, No
+            break
+        else
+            player_hand.Insert(random(Card_Suits) . " " . random(Card_Ranks))
+    }
+}
+
+; Game loop
+while (game_in_progress) { ; continue until the game is over
+    init_board()
+    deal_cards()
+
+    ; Calculate initial points
+    dealer_points := get_points(dealer_hand)
+    player_points := get_points(player_hand)
+
+    ; Check if initial hand is a blackjack
+    if (dealer_points = 21 or player_points = 21) {
+        MsgBox, 0, Game Over!
+        , % "Dealer's hand: " . dealer_hand . "`n" . "Player's hand: " . player_hand . "`n"
+        if (dealer_points = player_points)
+            MsgBox, 64, Tie!
+            , % "Both the dealer and player have a Blackjack! It's a tie."
+        else if (dealer_points = 21)
+            MsgBox, 64, Dealer wins!
+            , % "The dealer's hand is a Blackjack, they win."
+        else
+            MsgBox, 64, Player wins!
+            , % "Your hand is a Blackjack, you win!"
+        
+        ; Ask if player wants to play another game
+        IfMsgBox Yes
+            continue
+        else
+            game_in_progress := false
+    }
+    else {
+        ; Player's turn
+        player_turn()
+        player_has_busted := check_bust(player_points)
+
+        ; Dealer's turn
+        if (!player_has_busted) { ; dealer only plays if the player didn't bust
+            dealer_turn()
+            dealer_has_busted := check_bust(dealer_points)
+        }
+
+        ; Check for winner
+        If (dealer_has_busted) {
+            MsgBox, 64, Player wins!
+            , % "Dealer busts with a hand of " . dealer_points . "! You win!"
+        }
+        else if (player_has_busted) {
+            MsgBox, 64, Dealer wins!
+            , % "You bust with a hand of " . player_points . "! The dealer wins."
+        }
+        else if (dealer_points > player_points) {
+            MsgBox, 64, Dealer wins!
+            , % "The dealer has " . dealer_points . " points. You have " . player_points . " points. The dealer wins."
+        }
+        else {
+            MsgBox, 64, Player wins!
+            , % "You have " . player_points . " points. The dealer has " . dealer_points . " points. You win!"
+        }
+
+        ; Ask if player wants to play another game
+        IfMsgBox Yes
+            continue
+        else
+            game_in_progress := false
+    }
+}
+
+; End of program.

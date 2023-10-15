@@ -1,0 +1,228 @@
+{-# OPTIONS_GHC -fglasgow-exts -fallow-undecidable-instances #-}
+ 
+{-|
+Module      : Control.AutoPilot
+Description : Autopilot system for controlling a vehicle.
+Maintainer  : contact@joshuawarner32.com
+Portability : non-portable (GHC extensions)
+ 
+ 
+An autopilot system used to control a vehicle based on input
+from various sensors and user commands.
+-}
+module Control.AutoPilot
+    ( Vehicle(..)
+    , SensorData(..)
+    , Command(..)
+    , AutoPilotState
+    , AutoPilot(..)
+    , runAutoPilot
+    , initialAutoPilotState
+    ) where
+ 
+import Control.Monad.State
+ 
+{-|
+The data type for a vehicle.
+-}
+data Vehicle = Vehicle
+    { vehicleName  :: String -- ^ The name of the vehicle.
+    , vehicleSpeed :: Double -- ^ The current speed of the vehicle in meters per second.
+    , vehicleLat   :: Double -- ^ The current latitude of the vehicle in decimal degrees.
+    , vehicleLon   :: Double -- ^ The current longitude of the vehicle in decimal degrees.
+    , vehicleAlt   :: Double -- ^ The current altitude of the vehicle in meters.
+    } deriving (Show)
+ 
+{-|
+The data type for sensor data.
+-}
+data SensorData = SensorData
+    { sensorSpeed     :: Double -- ^ The current speed of the vehicle from a speedometer in meters per second.
+    , sensorGPS       :: (Double, Double) -- ^ The current GPS coordinates of the vehicle in decimal degrees.
+    , sensorAlt       :: Double -- ^ The current altitude of the vehicle from a barometer in meters.
+    , sensorLIDAR     :: Double -- ^ The current distance to the nearest object from a LIDAR sensor in meters.
+    , sensorFuelLevel :: Double -- ^ The current fuel level in the vehicle's tank as a percentage.
+    } deriving (Show)
+ 
+{-|
+The data type for commands that can be sent to the vehicle.
+-}
+data Command = Command
+    { cmdSpeed :: Double -- ^ The desired speed for the vehicle in meters per second.
+    , cmdLat   :: Double -- ^ The desired latitude for the vehicle in decimal degrees.
+    , cmdLon   :: Double -- ^ The desired longitude for the vehicle in decimal degrees.
+    , cmdAlt   :: Double -- ^ The desired altitude for the vehicle in meters.
+    } deriving (Show)
+ 
+{-|
+The type used for the state of the autopilot system.
+-}
+type AutoPilotState = (Vehicle, SensorData)
+ 
+{-|
+The data type for the autopilot.
+-}
+data AutoPilot = AutoPilot AutoPilotState (Maybe Command -> IO (Maybe Command))
+ 
+{-|
+Function to run the autopilot and update the vehicle's state based on sensor data and user commands.
+-}
+runAutoPilot
+  :: AutoPilot -> IO ()
+runAutoPilot (AutoPilot state update) = do
+    let (vehicle, _) = state
+    putStrLn $ "Starting autopilot for " ++ vehicleName vehicle ++ "..."
+    evalStateT (loop update) state
+  where
+    {-|
+    The loop function recursively gets sensor data, updates the vehicle's state, and sends commands to the vehicle.
+    -}
+    loop update = do
+        sensorData <- liftIO getSensorData
+        oldState <- get
+        let newState = updateState sensorData oldState
+        put newState
+        liftIO $ sendCommands newState oldState
+        loop update
+ 
+{-|
+The initial state for the autopilot using the given vehicle.
+-}
+initialAutoPilotState :: Vehicle -> SensorData
+initialAutoPilotState vehicle = (vehicle, SensorData 0 (0, 0) 0 0 100)
+ 
+{-|
+Function to get sensor data from the vehicle's sensors.
+This function is simulated and not using real sensors.
+-}
+getSensorData :: IO SensorData
+getSensorData = do
+    -- simulate speedometer reading in range of 0 to 30 meters per second
+    speedometer <- getRandom 0 30
+    -- simulate GPS coordinates within a small area
+    -- latitude range: 43.903944 - 43.913217
+    -- longitude range: -79.105878 - -79.117578
+    randomLat <- getRandom 0.00001 0.0001
+    randomLon <- getRandom 0.00001 0.0001
+    let gps = (43.903944 + randomLat, -79.105878 + randomLon)
+    -- simulate barometer reading in range of 0 to 100 meters
+    barometer <- getRandom 0 100
+    -- simulate LIDAR sensor reading in range of 0 to 50 meters
+    lidar <- getRandom 0 50
+    -- simulate fuel level decreasing over time
+    fuelLevel <- decreaseFuelLevel 1
+    return $ SensorData speedometer gps barometer lidar fuelLevel
+ 
+{-|
+Function to generate a random number between the given minimum and maximum values.
+-}
+getRandom :: Double -> Double -> IO Double
+getRandom min max = do
+    rand <- randomRIO (min, max)
+    return $ fromIntegral (round (rand * 100)) / 100
+ 
+{-|
+Function to decrease the fuel level by the given amount (in percentage).
+-}
+decreaseFuelLevel
+  :: Double -- ^ The amount to decrease the fuel level by (in percentage).
+  -> IO Double
+decreaseFuelLevel amount = do
+    seed <- newStdGen
+    let gen = unfoldr (Just . randomR (1, 100)) seed
+    let randIndex = gen !! 0
+    return $ amount * fromIntegral randIndex / 100
+ 
+{-|
+Function to update the vehicle's state using the given sensor data and old state.
+-}
+updateState
+  :: SensorData -- ^ The vehicle's current sensor data.
+  -> AutoPilotState -- ^ The vehicle's current state.
+  -> AutoPilotState -- ^ The vehicle's updated state.
+updateState sensor (vehicle, oldSensor) = (updatedVehicle, sensor)
+  where
+    -- calculate the new vehicle speed by averaging the speed from the speedometer and GPS
+    newSpeed = (sensorSpeed sensor + speedGPS oldSensor vehicle) / 2
+    -- calculate the new vehicle latitude and longitude using the GPS coordinates
+    newLat = fst (sensorGPS sensor)
+    newLon = snd (sensorGPS sensor)
+    -- check if the vehicle is moving closer to the destination
+    -- if it is, decrease the altitude by 1 meter
+    -- if not, increase the altitude by 1 meter
+    newAlt = if isCloser newLat newLon vehicle
+             then vehicleAlt vehicle - 1
+             else vehicleAlt vehicle + 1
+    -- create the updated vehicle with the new information
+    updatedVehicle = vehicle
+        { vehicleSpeed = newSpeed
+        , vehicleLat = newLat
+        , vehicleLon = newLon
+        , vehicleAlt = newAlt
+        }
+ 
+{-|
+Function to calculate the new vehicle speed using the GPS coordinates and old speed.
+-}
+speedGPS
+  :: SensorData -- ^ The vehicle's current sensor data.
+  -> Vehicle -- ^ The vehicle's current state.
+  -> Double -- ^ The vehicle's new speed.
+speedGPS sensor vehicle = speed
+  where
+    -- calculate the distance in meters between the GPS coordinates
+    distance = calculateDistance (vehicleLat vehicle) (fst $ sensorGPS sensor) (vehicleLon vehicle) (snd $ sensorGPS sensor)
+    -- calculate the time difference in seconds between the speedometer reading and GPS reading
+    timeDiff = calculateTimeDiff (sensorSpeed sensor) (vehicleSpeed vehicle)
+    -- calculate the new speed using the formula speed = distance / time
+    speed = distance / timeDiff
+ 
+{-|
+Function to calculate the distance between two GPS coordinates using the haversine formula.
+Reference: http://www.movable-type.co.uk/scripts/latlong.html
+-}
+calculateDistance
+  :: Double -- ^ The latitude of the first coordinate in decimal degrees.
+  -> Double -- ^ The latitude of the second coordinate in decimal degrees.
+  -> Double -- ^ The longitude of the first coordinate in decimal degrees.
+  -> Double -- ^ The longitude of the second coordinate in decimal degrees.
+  -> Double -- ^ The distance between the two coordinates in meters.
+calculateDistance lat1 lat2 lon1 lon2 = 2 * radius * asin (sqrt (a + b))
+  where
+    -- convert degrees to radians
+    (rlat1, rlat2, rlon1, rlon2) = (lat1 * pi / 180, lat2 * pi / 180, lon1 * pi / 180, lon2 * pi / 180)
+    -- calculate haversine
+    sinLat = sin ((rlat2 - rlat1) / 2)
+    sinLon = sin ((rlon2 - rlon1) / 2)
+    a = sinLat * sinLat + cos rlat1 * cos rlat2 * sinLon * sinLon
+    b = cos ((rlat2 + rlat1) / 2) * cos ((rlon2 + rlon1) / 2) * sinLon * sinLon
+    -- radius of Earth in meters
+    radius = 6371000
+ 
+{-|
+Function to calculate the time difference between two speedometer readings using the given speeds.
+-}
+calculateTimeDiff
+  :: Double -- ^ The speed from the GPS.
+  -> Double -- ^ The speed from the speedometer.
+  -> Double -- ^ The time difference in seconds.
+calculateTimeDiff speedGPS speedSpeedometer = distance / speedSpeedometer
+  where
+    -- distance between GPS readings in meters (assume the vehicle travels in a straight line)
+    distance = 1
+ 
+{-|
+Function to check if the vehicle is moving closer to the destination using the given destination coordinates and vehicle information.
+-}
+isCloser
+  :: Double -- ^ The destination latitude in decimal degrees.
+  -> Double -- ^ The destination longitude in decimal degrees.
+  -> Vehicle -- ^ The current vehicle state.
+  -> Bool -- ^ True if the vehicle is moving closer to the destination, False otherwise.
+isCloser destLat destLon vehicle = distance vehicle < distance (vehicle
+    { vehicleLat = destLat
+    , vehicleLon = destLon
+    })
+  where
+    -- calculate the distance between the current location and destination in meters
+    distance v = calculateDistance (vehicleLat v) destLat (vehicleLon v) destLon

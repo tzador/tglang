@@ -1,0 +1,40 @@
+trigger CalloutTrigger on Account (after update) {
+    List<Account> accounts = Trigger.new;
+    List<HttpRequest> requests = new List<HttpRequest>();
+    
+    for (Account acc : accounts) {
+        if (acc.Type == 'Customer' || acc.Type == 'Prospect') {
+            Http http = new Http();
+            HttpRequest request = new HttpRequest();
+            String endpoint = 'https://api.example.com/callout';
+            request.setEndpoint(endpoint);
+            request.setMethod('GET');
+            requests.add(request);
+        }
+    }
+    
+    List<HttpResponse> responses = http.send(requests);
+    List<Object> results = new List<Object>();
+    
+    for (HttpResponse res : responses) {
+        if (res.getStatusCode() == 200) {
+            Object result = JSON.deserializeUntyped(res.getBody());
+            results.add(result);
+        }
+    }
+    
+    for (Integer i = 0; i < accounts.size(); i++) {
+        accounts[i].Name = (String)results[i].get('Name');
+        accounts[i].Industry = (String)results[i].get('Industry');
+        accounts[i].Website = (String)results[i].get('Website');
+        accounts[i].AnnualRevenue = (Decimal)results[i].get('Annual Revenue');
+        accounts[i].Phone = (String)results[i].get('Phone');
+        accounts[i].BillingStreet = (String)results[i].get('Billing Street');
+        accounts[i].BillingCity = (String)results[i].get('Billing City');
+        accounts[i].BillingState = (String)results[i].get('Billing State');
+        accounts[i].BillingPostalCode = (String)results[i].get('Billing Postal Code');
+        accounts[i].BillingCountry = (String)results[i].get('Billing Country');
+    }
+    
+    update accounts;
+}

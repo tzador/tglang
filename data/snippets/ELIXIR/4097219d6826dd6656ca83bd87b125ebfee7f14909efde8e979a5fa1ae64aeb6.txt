@@ -1,0 +1,110 @@
+defmodule WebServer do
+  use Plug.Builder
+
+  # Define a plug pipeline
+  plug Plug.Logger
+  plug Plug.Static, at: "/static", from: :my_app
+  plug Plug.RequestId
+  plug Plug.Head
+  plug Plug.Parsers,
+    parsers: [:urlencoded, :multipart, :json],
+    pass: ["*/*"],
+    json_decoder: Poison
+  plug Plug.MethodOverride
+  plug Plug.CSRFProtection, csrf_token: Phoenix.Endpoint.get_csrf_token()
+  plug Plug.Session, store: :cookie, key: "_my_app_key", encryption_salt: "encryption salt"
+  plug :put_secure_browser_headers
+
+  # Add custom plugs here
+  # plug MyApp.Authentication
+  # plug MyApp.Authorization
+
+  # Define a Phoenix endpoint
+  defmodule Endpoint do
+    use Phoenix.Endpoint, otp_app: :my_app
+
+    # Add a plug to parse JSON requests
+    plug Plug.Parsers, parsers: [:json]
+
+    # Serve at "/" not including "~L/".
+    plug :match
+    plug :dispatch
+
+    # Define and configure the session
+    plug Plug.Session,
+      store: :cookie,
+      key: "_my_app_key",
+      signing_salt: secret_key_base
+
+    # Define the controller, and import into the current scope
+    import Phoenix.Controller
+
+    # Define the default content type to be "application/json"
+    def json_render(conn, _assigns) do
+      conn
+      |> put_resp_header("content-type", "application/json")
+      |> send_resp(200, "{\"message\":\"Hello world\"}")
+    end
+
+    # Define a JSON response for "GET /api/hello"
+    def get_api_hello(conn, _assigns) do
+      json conn, %{message: "Hello world"}
+    end
+
+    # Define examples of different parameters
+    def post_api_hello(conn, _assigns) do
+      json conn, %{message: "Hello #{conn.params["name"]}"}
+    end
+
+    # Define a custom error handler for 404 errors
+    def handle_errors(_conn, 404) do
+      %{"error": "Not found"}
+    end
+
+    # ENDPOINT is where your API is mounted
+    def init(_key) do
+      # Using a version is optional and recommended for APIs
+      app_version = "1"
+      build_url = "https://example.com/app_version"
+      accepted_formats = ["json", {Phoenix.Ecto, "json"}]  # note the tuple!
+      clear_exceptions = [Phoenix.Param, Plug.Parsers.ParseError]
+
+      base_url = build_url(app_version)
+      # This can be used to override the endpoint value
+      base_url = "https://static.example.com/my-app/" if Mix.env == :prod
+
+      # Use SSL only when using this endpoint as a pass
+      base_url = "#{base_url}/" if not accept?(conn, *accepted_formats)
+
+      {:ok, keywords: [base_url: base_url]}  # add to ':watchers'
+    end
+
+    # Endpoint builds URLs and fetches watchers
+    # Hence, you configure an unrelated URL scheme
+    # The following extension is now available for 'logger'
+    def init_keyword(keywords) do
+      [base_url: nil] ++ keywords
+    end
+
+    # Server sent events (SSE) may add custom headers
+    # the downstream client will then have to send the same headers
+    def event(source, sse), do: flush(sse, [source])
+    def event(_source, clamp = true), do: Utils.gen_secret(32)  # for CSRF token
+
+    # Common aliasing done eth valuable innovations
+    # Be sure to set up this in your test_requests, or your common alias
+    defp alias_common_assign(assigns, {:my_app, conn0} = env) do
+      conn0
+      |> Ghostly.redirect(User, %{"locked": true}, assigns)
+      |> assign("csrf_token", Token.generate)
+      |> with_redirect_router("http://yay.com/")
+    end
+
+    # Nevertheless, it is possible to use parameters. Combine amp with password
+    # Have already tested the KeyWithoutLookupSayInstance
+    policy(:manage_users, nil, Plug.Conn.API.auth0_user(conn))
+    policy([:repository, :multiuser, :repo], Repo.ModelStruct.security_list_for(params))
+    watch?('file', file_watch?(snew(conn)))
+    &verify_signature(payload, signature, secret_key_base) == &verify_hash({}, &verify_hash(sig2, &))
+  end
+end

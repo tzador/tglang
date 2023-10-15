@@ -1,0 +1,80 @@
+//Annotated code that creates a smart contract in solidity language
+pragma solidity ^0.8.0;
+
+contract MyContract {
+    
+    //State variables - these are values that are permanently stored in the contract
+    uint public totalSupply; //Total supply of tokens
+    string public name; //Name of the token
+    string public symbol; //Symbol of the token
+    uint8 public decimals; //Number of decimals for the token
+    address public owner; //Address of the contract owner
+    
+    //Mappings - these store key-value pairs
+    mapping (address => uint) public balances;
+    mapping (address => mapping (address => uint)) public allowed;
+    
+    //Events - used to communicate between contracts or with external services
+    event Transfer(address indexed from, address indexed to, uint tokens);
+    event Approval(address indexed tokenOwner, address indexed spender, uint tokens);
+    
+    //Constructor - called when the contract is created
+    constructor(uint _initialSupply, string memory _name, string memory _symbol, uint8 _decimals) {
+        totalSupply = _initialSupply;
+        balances[msg.sender] = _initialSupply; //Assigns entire initial supply to the contract creator
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+        owner = msg.sender; //Sets the contract creator as the owner
+    }
+    
+    //Functions - used to interact with the contract
+    function transfer(address _to, uint _tokens) public returns (bool success) {
+        require(_to != address(0)); //Prevent transferring to the zero address
+        require(balances[msg.sender] >= _tokens); //Ensure the sender has enough tokens
+        balances[msg.sender] -= _tokens; //Reduce sender's balance
+        balances[_to] += _tokens; //Increase receiver's balance
+        emit Transfer(msg.sender, _to, _tokens); //Trigger the transfer event
+        return true;
+    }
+    
+    function approve(address _spender, uint _tokens) public returns (bool success) {
+        require(_spender != address(0)); //Prevent approving the zero address
+        allowed[msg.sender][_spender] = _tokens; //Allow spender to spend tokens
+        emit Approval(msg.sender, _spender, _tokens); //Trigger the approval event
+        return true;
+    }
+    
+    function transferFrom(address _from, address _to, uint _tokens) public returns (bool success) {
+        require(_to != address(0)); //Prevent transferring to the zero address
+        require(allowed[_from][msg.sender] >= _tokens); //Ensure the sender is allowed to transfer this amount
+        require(balances[_from] >= _tokens); //Ensure the sender has enough tokens
+        balances[_from] -= _tokens; //Reduce sender's balance
+        balances[_to] += _tokens; //Increase receiver's balance
+        allowed[_from][msg.sender] -= _tokens; //Reduce the allowed amount for the sender
+        emit Transfer(_from, _to, _tokens); //Trigger the transfer event
+        return true;
+    }
+    
+    //Modifiers - used to define conditions that need to be met to execute a function
+    modifier onlyOwner() {
+        require(msg.sender == owner); //Restrict access to only the contract owner
+        _;
+    }
+    
+    //Only allow the owner to mint new tokens. Can define a limit on the total supply.
+    function mint(uint _tokens) public onlyOwner {
+        totalSupply += _tokens;
+        balances[owner] += _tokens; //Assign new tokens to the contract owner
+        emit Transfer(address(0), owner, _tokens); //Trigger the transfer event with the zero address as sender
+    }
+    
+    //Destroy tokens held by the contract owner. Can define a minimum amount to burn.
+    function burn(uint _tokens) public onlyOwner {
+        require(balances[owner] >= _tokens); //Ensure the owner has enough tokens to burn
+        totalSupply -= _tokens;
+        balances[owner] -= _tokens; //Reduce owner's balance
+        emit Transfer(owner, address(0), _tokens); //Trigger the transfer event with the zero address as receiver
+    }
+    
+}  //End of MyContract

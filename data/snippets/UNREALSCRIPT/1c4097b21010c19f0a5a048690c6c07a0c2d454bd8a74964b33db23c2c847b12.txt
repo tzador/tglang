@@ -1,0 +1,65 @@
+class SensorPawn extends Pawn
+  - var(Sensor)
+    dynamic array(controller) NearbyPlayers;
+
+  - var(Sensor)
+    float MaxSensorRadius;
+
+  + event PostBeginPlay()
+  {
+    //Get the controller for the pawn
+    local Controller controller;
+    controller = GetController();  
+
+    //Find other players in the nearby area
+    local Actor Other;
+    foreach(Actors(class'Pawn', Other, Class'Pawn') Other, max(MaxSensorRadius, 200) * max(MaxSensorRadius, 200))
+    {
+      if (Other != self && Other.Controller != None && controller != None && Other.bCollideActors)
+      {
+        if (VSize(controller.Location - Other.Location) <= MaxSensorRadius)
+          NearbyPlayers.AddItem(controller);
+      }
+    }
+  }
+
+  + event Tick(float DeltaTime)
+  {
+    //Loop through all nearby players and send sensor information
+    foreach(NearbyPlayers, class'controller', controller)
+    {
+      if(controller == None || !controller.bReplicate)
+        continue;
+
+      bool sensorActive = false;
+
+      //Check if pawn can see the other player
+      if(LineOfSightTo(controller.Pawn.Location) && 
+        controller.Pawn.VisibleMesh != None && 
+        (controller.Pawn.VisibleMesh.bHidden == false || 
+        controller.Pawn.VisibleMesh.bOnlyOwnerSees))
+      {
+        controller.MyHUD.DrawActorLocation(controller.Pawn, Vector(0, 0, 100), 0, DrawningColor);
+        sensorActive = true;
+      }
+      
+      //Send sensor information to controller
+      SendSensorData(sensorActive, controller);  
+    }
+  }
+
+  + event ReplicatedEvent(name VarName)
+  {
+    //When controller is replicated, update nearby players array
+    if (VarName == 'NearbyPlayers')
+    {
+      controller = GetController();
+      if (controller != None)
+        NearbyPlayers.AddItem(controller);
+    }
+  }
+
+  //Function to send sensor data to controller
+  function SendSensorData(bool SensorActive, Controller Cont) {
+    Cont.BioHUD.AddData(SensorActive);
+  }

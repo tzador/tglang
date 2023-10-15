@@ -1,0 +1,38 @@
+# This code snippet uses the 'caret' package in R to perform feature selection and classification using the random forest algorithm.
+
+# Import the required libraries
+library(caret)
+
+# Load the dataset
+data <- read.csv("data.csv")
+
+# Check for any missing values
+sum(is.na(data))
+
+# Split the dataset into training and testing data
+set.seed(123)
+trainIndex <- caret::createDataPartition(data$target, p = .7, list = FALSE)
+trainData <- data[trainIndex, ]
+testData <- data[-trainIndex, ]
+
+# Create a training control
+trControl <- trainControl(method = "cv", number = 5)
+
+# Perform feature selection using recursive feature elimination
+rf_rfe <- rfeControl(functions = rfFuncs, method = "repeatedcv", number = 5, repeats = 5)
+rfe_model <- rfe(x = trainData[, -1], y = trainData$target, sizes = c(1:length(trainData)-1), rfeControl = rf_rfe)
+
+# Print the selected features
+print(rfe_model$optVariables)
+
+# Train a random forest model using the selected features
+rf_model <- train(target ~., data = trainData[, c("selected_features", "target")], method = "rf", trControl = trControl)
+
+# Generate predictions on the test data
+predictions <- predict(rf_model, newdata = testData[, c("selected_features")])
+
+# Calculate the accuracy of the model
+acc <- confusionMatrix(predictions, testData$target)$overall["Accuracy"]
+
+# Print the model accuracy
+print(paste0("Random Forest model accuracy: ", round(acc*100, 2), "%"))

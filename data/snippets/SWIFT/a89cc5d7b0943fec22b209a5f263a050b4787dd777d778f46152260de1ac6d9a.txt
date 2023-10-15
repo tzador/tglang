@@ -1,0 +1,332 @@
+/**
+An abstract data type representing a binary tree.
+- Parameter T: The type of elements held in the binary tree.
+- Remarks:
+This binary tree implementation does not allow duplicate elements.
+*/
+public protocol BinaryTree<T: Comparable> {
+    
+    /// Adds a new element to the binary tree.
+    /// - Parameter element: The element to be added to the tree.
+    /// - Returns: A boolean value indicating whether the element was successfully added.
+    @discardableResult
+    mutating func add(_ element: T) -> Bool
+    
+    /// Removes an element from the binary tree.
+    /// - Parameter element: The element to be removed from the tree.
+    /// - Returns: A boolean value indicating whether the element was successfully removed.
+    @discardableResult
+    mutating func remove(_ element: T) -> Bool
+    
+    /// Checks if the binary tree contains a certain element.
+    /// - Parameter element: The element to be checked.
+    /// - Returns: A boolean value indicating whether the element exists in the tree.
+    func contains(_ element: T) -> Bool
+    
+    /// Gets the number of elements currently stored in the binary tree.
+    var count: Int { get }
+    
+    /// Performs an in-order traversal of the binary tree.
+    /// - Parameter operation: A closure that performs an operation on each element in the tree.
+    func inOrderTraversal(perform operation: (T) -> Void)
+    
+    /// Performs a pre-order traversal of the binary tree.
+    /// - Parameter operation: A closure that performs an operation on each element in the tree.
+    func preOrderTraversal(perform operation: (T) -> Void)
+    
+    /// Performs a post-order traversal of the binary tree.
+    /// - Parameter operation: A closure that performs an operation on each element in the tree.
+    func postOrderTraversal(perform operation: (T) -> Void)
+}
+
+/// A concrete implementation of the BinaryTree protocol.
+public struct BinarySearchTree<T: Comparable>: BinaryTree {
+    /// The root node of the tree.
+    private var root: BinaryTreeNode<T>?
+    /// The number of elements currently stored in the tree.
+    public private(set) var count: Int
+    
+    /// Adds a new element to the binary search tree.
+    /// - Parameter element: The element to be added to the tree.
+    /// - Returns: A boolean value indicating whether the element was successfully added.
+    @discardableResult
+    public mutating func add(_ element: T) -> Bool {
+        // If the tree is empty, set the element as the root
+        guard let rootNode = root else {
+            root = BinaryTreeNode(value: element)
+            count += 1
+            return true
+        }
+        // Otherwise, recursively traverse the tree until the correct position is found for the new element
+        return addHelper(element: element, currentNode: rootNode)
+    }
+    
+    /// A recursive helper function for the add(_:) method.
+    /// - Parameters:
+    ///     - element: The element to be added to the tree.
+    ///     - currentNode: The current node being traversed.
+    /// - Returns: A boolean value indicating whether the element was successfully added.
+    @discardableResult
+    private mutating func addHelper(element: T, currentNode: BinaryTreeNode<T>) -> Bool {
+        // Check if the element is already in the tree (duplicate elements are not allowed)
+        if element == currentNode.value {
+            return false
+        }
+        // If the element is less than the current node, traverse the left subtree
+        if element < currentNode.value {
+            // If the left child is nil, set the element as the left child
+            if currentNode.leftChild == nil {
+                currentNode.leftChild = BinaryTreeNode(value: element)
+                count += 1
+                return true
+            } else {
+                // Otherwise, recursively traverse the left subtree
+                return addHelper(element: element, currentNode: currentNode.leftChild!)
+            }
+        } else {
+            // If the element is greater than the current node, traverse the right subtree
+            // If the right child is nil, set the element as the right child
+            if currentNode.rightChild == nil {
+                currentNode.rightChild = BinaryTreeNode(value: element)
+                count += 1
+                return true
+            } else {
+                // Otherwise, recursively traverse the right subtree
+                return addHelper(element: element, currentNode: currentNode.rightChild!)
+            }
+        }
+    }
+    
+    /// Removes an element from the binary search tree.
+    /// - Parameter element: The element to be removed from the tree.
+    /// - Returns: A boolean value indicating whether the element was successfully removed.
+    @discardableResult
+    public mutating func remove(_ element: T) -> Bool {
+        // If the tree is empty, there is nothing to remove
+        guard let rootNode = root else {
+            return false
+        }
+        // Recursively find the node containing the element to be removed
+        if let nodeToRemove = find(element, currentNode: rootNode) {
+            return remove(nodeToRemove)
+        }
+        return false
+    }
+    
+    /// A recursive helper function for the remove(_:) method.
+    /// - Parameters:
+    ///     - element: The element to be removed from the tree.
+    ///     - currentNode: The current node being traversed.
+    /// - Returns: The node containing the element to be removed, or nil if it is not found.
+    private func find(_ element: T, currentNode: BinaryTreeNode<T>?) -> BinaryTreeNode<T>? {
+        guard let currentNode = currentNode else {
+            return nil
+        }
+        // If the element is found, return the current node
+        if element == currentNode.value {
+            return currentNode
+        }
+        // If the element is less than the current node, traverse the left subtree
+        if element < currentNode.value {
+            return find(element, currentNode: currentNode.leftChild)
+        } else {
+            // Otherwise, traverse the right subtree
+            return find(element, currentNode: currentNode.rightChild)
+        }
+    }
+    
+    /// Removes a given node from the tree.
+    /// - Parameter node: The node to be removed.
+    /// - Returns: A boolean value indicating whether the node was successfully removed.
+    @discardableResult
+    private mutating func remove(_ node: BinaryTreeNode<T>) -> Bool {
+        // If the node has no children, simply remove it from the tree
+        if node.leftChild == nil && node.rightChild == nil {
+            return removeLeafNode(node)
+        }
+        
+        // If the node has one child, replace it with its child
+        if node.leftChild == nil || node.rightChild == nil {
+            return removeNodeWithSingleChild(node)
+        }
+        
+        // Otherwise, replace the node with the minimum value in its right subtree
+        return removeNodeWithTwoChildren(node)
+    }
+    
+    /// Removes a leaf node from the tree.
+    /// - Parameter node: The leaf node to be removed.
+    /// - Returns: A boolean value indicating whether the node was successfully removed.
+    @discardableResult
+    private mutating func removeLeafNode(_ node: BinaryTreeNode<T>) -> Bool {
+        guard let parent = findParent(of: node) else {
+            // If the node is the root, set the root to nil and decrease the count
+            root = nil
+            count -= 1
+            return true
+        }
+        // If the node is the left child of its parent, set its parent's left child to nil
+        if node.value < parent.value {
+            parent.leftChild = nil
+            count -= 1
+            return true
+        } else {
+            // Otherwise, set its parent's right child to nil
+            parent.rightChild = nil
+            count -= 1
+            return true
+        }
+    }
+    
+    /// Removes a node with a single child from the tree.
+    /// - Parameter node: The node to be removed.
+    /// - Returns: A boolean value indicating whether the node was successfully removed.
+    @discardableResult
+    private mutating func removeNodeWithSingleChild(_ node: BinaryTreeNode<T>) -> Bool {
+        guard let nodeToReplaceWith = (node.leftChild ?? node.rightChild) else {
+            return false
+        }
+        guard let parent = findParent(of: node) else {
+            // If the node is the root, set the child as the new root
+            root = nodeToReplaceWith
+            count -= 1
+            return true
+        }
+        // If the node is the left child of its parent, replace it with its child
+        if node.value < parent.value {
+            parent.leftChild = nodeToReplaceWith
+            count -= 1
+            return true
+        } else {
+            // Otherwise, replace it with its child
+            parent.rightChild = nodeToReplaceWith
+            count -= 1
+            return true
+        }
+    }
+    
+    /// Removes a node with two children from the tree.
+    /// - Parameter node: The node to be removed.
+    /// - Returns: A boolean value indicating whether the node was successfully removed.
+    @discardableResult
+    private mutating func removeNodeWithTwoChildren(_ node: BinaryTreeNode<T>) -> Bool {
+        // Find the minimum value in the node's right subtree
+        let minimumValue = findMinimumValue(in: node.rightChild!)
+        // Replace the node's value with the minimum value
+        node.value = minimumValue
+        // Remove the minimum value from its original position (guaranteed to be a leaf node)
+        return remove(minimumValue)
+    }
+    
+    /// Finds the parent node of a given node in the tree.
+    /// - Parameter node: The node for which to find the parent.
+    /// - Returns: The parent node of the given node.
+    private func findParent(of node: BinaryTreeNode<T>) -> BinaryTreeNode<T>? {
+        // Start at the root
+        guard var currentNode = root else {
+            return nil
+        }
+        // Traverse the tree until the parent of the given node is found
+        while true {
+            // If the element is less than the current node, traverse the left subtree
+            if node.value < currentNode.value {
+                // If the left child is the given node, return the current node
+                if let leftChild = currentNode.leftChild, leftChild.value == node.value {
+                    return currentNode
+                } else {
+                    // Otherwise, set the left child as the current node and continue traversing
+                    currentNode = currentNode.leftChild!
+                }
+            } else {
+                // Otherwise, traverse the right subtree
+                // If the right child is the given node, return the current node
+                if let rightChild = currentNode.rightChild, rightChild.value == node.value {
+                    return currentNode
+                } else {
+                    // Otherwise, set the right child as the current node and continue traversing
+                    currentNode = currentNode.rightChild!
+                }
+            }
+        }
+    }
+    
+    /// Finds the minimum value in a given subtree.
+    /// - Parameter subtreeRoot: The target subtree.
+    /// - Returns: The minimum value in the subtree.
+    private func findMinimumValue(in subtreeRoot: BinaryTreeNode<T>) -> T {
+        var currentNode = subtreeRoot
+        while let nextNode = currentNode.leftChild {
+            currentNode = nextNode
+        }
+        return currentNode.value
+    }
+    
+    /// Checks if the binary tree contains a certain element.
+    /// - Parameter element: The element to be checked.
+    /// - Returns: A boolean value indicating whether the element exists in the tree.
+    public func contains(_ element: T) -> Bool {
+        return find(element, currentNode: root) != nil
+    }
+    
+    /// Performs an in-order traversal of the binary tree.
+    /// - Parameter operation: A closure that performs an operation on each element in the tree.
+    public func inOrderTraversal(perform operation: (T) -> Void) {
+        inOrderTraversalHelper(root, perform: operation)
+    }
+    
+    /// A recursive helper function for the inOrderTraversal(perform:) method.
+    /// - Parameters:
+    ///     - node: The current node being traversed.
+    ///     - operation: The closure that performs an operation on each element in the tree.
+    private func inOrderTraversalHelper(_ node: BinaryTreeNode<T>?, perform operation: (T) -> Void) {
+        guard let node = node else {
+            return
+        }
+        // Traverse the left subtree
+        inOrderTraversalHelper(node.leftChild, perform: operation)
+        // Perform the operation on the current node
+        operation(node.value)
+        // Traverse the right subtree
+        inOrderTraversalHelper(node.rightChild, perform: operation)
+    }
+    
+    /// Performs a pre-order traversal of the binary tree.
+    /// - Parameter operation: A closure that performs an operation on each element in the tree.
+    public func preOrderTraversal(perform operation: (T) -> Void) {
+        preOrderTraversalHelper(root, perform: operation)
+    }
+    
+    /// A recursive helper function for the preOrderTraversal(perform:) method.
+    /// - Parameters:
+    ///     - node: The current node being traversed.
+    ///     - operation: The closure that performs an operation on each element in the tree.
+    private func preOrderTraversalHelper(_ node: BinaryTreeNode<T>?, perform operation: (T) -> Void) {
+        guard let node = node else {
+            return
+        }
+        // Perform the operation on the current node
+        operation(node.value)
+        // Traverse the left subtree
+        preOrderTraversalHelper(node.leftChild, perform: operation)
+        // Traverse the right subtree
+        preOrderTraversalHelper(node.rightChild, perform: operation)
+    }
+    
+    /// Performs a post-order traversal of the binary tree.
+    /// - Parameter operation: A closure that performs an operation on each element in the tree.
+    public func postOrderTraversal(perform operation: (T) -> Void) {
+        postOrderTraversalHelper(root, perform: operation)
+    }
+    
+    /// A recursive helper function for the postOrderTraversal(perform:) method.
+    /// - Parameters:
+    ///     - node: The current node being traversed.
+    ///     - operation: The closure that performs an operation on each element in the tree.
+    private func postOrderTraversalHelper(_ node: BinaryTreeNode<T>?, perform operation: (T) -> Void) {
+        guard let node = node else {
+            return
+        }
+        // Traverse the left subtree
+        postOrderTraversalHelper(node.leftChild, perform: operation)
+        // Traverse the right subtree
+        postOrderTraversalHelper

@@ -1,0 +1,48 @@
+/*-----------------------------------------------------------------------------------------*/
+/* This is a complex SAS program that calculates the average age of a group of individuals.  */
+/* It takes in a dataset containing the individuals' names, ages, and genders.              */
+/* Then it performs various data manipulations and calculations to obtain the desired output.*/
+/*-----------------------------------------------------------------------------------------*/
+
+/* First, we create a macro variable to store the desired age range for our analysis */
+%let age_range = 25-35;
+
+/* We then create a macro program to filter the dataset based on the age range */
+%macro filter_data(data=, age_range=);
+    /* Define the variables to be used in the macro */
+    %let dataset = &data;
+    %let lower_age = %scan(&age_range, 1, -);
+    %let upper_age = %scan(&age_range, 2, -);
+    /* Filter the dataset using the input age range */
+    data &dataset._filtered;
+        set &dataset;
+        where age between &lower_age and &upper_age;
+    run;
+    
+    /* Update the dataset name to reflect the filtered dataset */
+    %let dataset = &dataset._filtered;
+%mend;
+
+/* We then call the macro program to filter our dataset */
+%filter_data(data=individuals, age_range=&age_range);
+
+/* Next, we create a summary dataset that contains the average age for each gender */
+proc summary data=individuals;
+    class gender;
+    var age;
+    output out=age_summary mean=avg_age;
+run;
+
+/* We then merge this summary dataset back to our original dataset */
+data individuals;
+    merge individuals(in=a) age_summary(in=b);
+    by gender;
+    /* We assign the average age to a new variable based on the gender of the individual */
+    if a and b then avg_age = avg_age;
+run;
+
+/* Finally, we print the results to the SAS log */
+proc print data=individuals noobs;
+    /* We only print the average age for each gender and exclude all other variables */
+    var gender avg_age;
+run;

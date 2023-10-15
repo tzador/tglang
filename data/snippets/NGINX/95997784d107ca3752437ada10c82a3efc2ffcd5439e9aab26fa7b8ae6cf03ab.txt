@@ -1,0 +1,71 @@
+# NGINX Configuration
+
+# Set user and group
+user www-data;
+worker_processes auto; # automatically set the number of worker processes based on the number of CPU cores
+
+# Error log file
+error_log /var/log/nginx/error.log;
+
+# Specify events section
+events {
+    worker_connections 1024; # maximum number of connections per worker process
+}
+
+# Create HTTP server context
+http {
+    include /etc/nginx/mime.types; # include MIME types
+    # set log format
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"';
+    access_log /var/log/nginx/access.log main; # specify the log file and format
+    # set gzip compression
+    gzip on; # enable gzip compression
+    gzip_types text/plain text/css application/json; # specify the types of files to compress
+    # specify server section
+    server {
+        listen 80; # listen on port 80
+        server_name example.com; # specify server name
+        root /var/www/example; # specify root directory
+        index index.html index.php; # specify index files
+        # set error pages
+        error_page 404 /404.html; # specify error page for 404 error
+        error_page 500 502 503 504 /50x.html; # specify error page for 500 errors
+        # specify location for static files
+        location /static/ {
+            alias /var/www/example/static; # specify the directory that contains static files
+            expires 1d; # set expiration time for the cached files
+            add_header Cache-Control "public"; # add cache control header
+        }
+        # specify location for PHP files
+        location ~ \.php$ {
+            fastcgi_pass unix:/var/run/php/php7.4-fpm.sock; # specify the PHP fastcgi socket
+            fastcgi_index index.php; # specify index file
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; # specify the script file
+            include fastcgi_params; # include fastcgi parameters
+        }
+        # set security headers
+        add_header X-Frame-Options "SAMEORIGIN"; # set X-Frame-Options header to prevent clickjacking attacks
+        add_header X-XSS-Protection "1; mode=block"; # enable cross-site scripting (XSS) protection
+        add_header X-Content-Type-Options "nosniff"; # prevent the browser from attempting to guess MIME type
+        add_header Referrer-Policy "strict-origin"; # set a strict referrer policy
+        # enable SSL/TLS
+        listen 443 ssl;
+        ssl_certificate /etc/ssl/private/example.com.crt; # specify SSL certificate
+        ssl_certificate_key /etc/ssl/private/example.com.key; # specify SSL certificate key
+        # enable OCSP stapling
+        ssl_stapling on; # enable OCSP stapling
+        ssl_stapling_verify on; # enable OCSP stapling verification
+        # enable HSTS
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always; # enable HSTS with a 1 year max-age and include subdomains
+        # enable HTTP/2
+        http2_push preload; # enable HTTP/2 server push
+        http2_header_table_size 4k; # set the maximum size of the HPACK dynamic table
+        http2_max_field_size 16k; # set the maximum size of HTTP/2 headers
+        http2_max_header_size 128k; # set the maximum size of HTTP request and response headers
+        http2_max_concurrent_streams 64; # set the maximum number of concurrent requests per connection
+        # optimize TCP settings
+        tcp_nopush on; # optimize TCP sending of files
+        tcp_nodelay on; # optimize TCP connection for best performance
+        keepalive_timeout 15; # set the keepalive timeout
+    }
+}

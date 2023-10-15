@@ -1,0 +1,138 @@
+/*
+This is a long and complex code snippet in UNREALSCRIPT.
+Below is the implementation of a custom player character class with multiple functions and variables.
+*/
+
+class MyPlayerCharacter extends UTPawn; //Define class with inheritance from UTPawn
+
+var() int Health; //Player's health variable
+const int MAX_HEALTH = 100; //Constant value for maximum health
+
+var() float Speed; //Player's movement speed variable
+const float MAX_SPEED = 100.0; //Constant value for maximum movement speed
+
+var() float TurnRate; //Player's turning rate variable
+const float MAX_TURN_RATE = 10.0; //Constant value for maximum turning rate
+
+//Function to initialize variables and set default values
+function InitDefaults()
+{
+    Super.InitDefaults(); //Call superclass function to initialize default values
+    Health = MAX_HEALTH; //Set player's health to maximum health value
+    Speed = 0.0; //Set player's movement speed to 0
+    TurnRate = 0.0; //Set player's turning rate to 0
+}
+
+//Function to handle player input for movement
+function ProcessInput(float DeltaTime, rotator NewRotation, out float OutSpeed, out rotator OutRotation)
+{
+    Super.ProcessInput(DeltaTime, NewRotation, OutSpeed, OutRotation); //Call superclass function to handle basic movement
+    //Get player's input for movement direction and speed
+    local vector InputDir = GetInputAxisDelta('MoveForward') + GetInputAxisDelta('MoveRight');
+    local float InputSpeed = VSize(InputDir); //Get magnitude of movement direction vector
+
+    if (InputSpeed > 1.0) //If the player is not standing still (minimum input value is 0 and maximum is 1)
+    {
+        InputDir = Normal(InputDir); //Normalize movement direction vector
+        InputSpeed = Clamp(InputSpeed, 0.0, 1.0); //Clamp input speed to be between 0 and 1
+    }
+
+    //Calculate player's desired speed and rotation based on input
+    OutSpeed = Speed * FInterpTo(OutSpeed, InputSpeed, DeltaTime, MAX_SPEED);
+    OutRotation = Rotation * FInterpTo(OutRotation, InputDir, DeltaTime, MAX_TURN_RATE);
+}
+
+//Function to handle player taking damage
+function TakeDamage(int DamageAmount, Pawn instigatedBy, vector HitLocation, vector Momentum, name damageType)
+{
+    Health -= DamageAmount; //Reduce health by damage amount
+    if (Health <= 0) //If the player's health falls below or equal to 0
+    {
+        //Call superclass function to handle player's death
+        Super.TakeDamage(DamageAmount, instigatedBy, HitLocation, Momentum, damageType);
+        //Restart level or show game over screen
+        Level.Game.SetGameSpeed(0); //Pause the game
+        Level.Game.ShowMidGameMenu(); //Show game over screen
+    }
+}
+
+//Function to handle player being killed
+function KilledBy(Pawn eventInstigator)
+{
+    Health = 0; //Set player's health to 0
+    TakeFallingDamage(); //Call function to handle falling damage
+    //Call superclass function to handle player's death
+    Super.KilledBy(eventInstigator);
+}
+
+//Function to handle player respawning
+function Restart()
+{
+    Super.Restart(); //Call superclass function to handle player's respawn
+    Health = MAX_HEALTH; //Reset player's health to maximum health value
+    Speed = 0.0; //Reset player's movement speed to 0
+    TurnRate = 0.0; //Reset player's turning rate to 0
+}
+
+//Function to handle player changing weapons
+function ChangeWeapon(byte newGroup)
+{
+    //Use input variable to determine which weapon group the player wants to switch to
+    if (newGroup == 1) //If new group is 1
+    {
+        SetWeapon(0); //Change to first weapon in group 1 (Pistol)
+    }
+    else if (newGroup == 2) //If new group is 2
+    {
+        SetWeapon(1); //Change to first weapon in group 2 (Shotgun)
+    }
+    else if (newGroup == 3) //If new group is 3
+    {
+        SetWeapon(2); //Change to first weapon in group 3 (Rocket Launcher)
+    }
+    else if (newGroup == 4) //If new group is 4
+    {
+        SetWeapon(3); //Change to first weapon in group 4 (Sniper Rifle)
+    }
+}
+
+//Function to handle player using a trigger volume
+function ActivateTrigger(Actor Other, Pawn EventInstigator)
+{
+    if (Other.IsA('TriggerVolume')) //If the trigger volume is of type TriggerVolume
+    {
+        //Get the trigger volume's specific properties and perform an action based on those properties
+        local TriggerVolume T = TriggerVolume(Other);
+        //Check if the trigger volume is set to make the player jump
+        if (T.bPlayerJumpVolume)
+        {
+            Jump();
+        }
+        //Check if the trigger volume is set to damage the player
+        if (T.bPlayerDamageVolume)
+        {
+            TakeDamage(T.DamageAmount, EventInstigator, Location, vect(0,0,0), 'None');
+        }
+    }
+}
+
+//Function to handle player being hit by projectiles
+function PostHit(PhysActor Other)
+{
+    if (Other.IsA('Projectile')) //If the actor that hit the player is of type Projectile
+    {
+        //Get the projectile's specific properties and perform an action based on those properties
+        local Projectile P = Projectile(Other);
+        if (P.bExplodeOnImpact) //If the projectile is set to explode on impact
+        {
+            //Cause an explosion at the projectile's impact location
+            Spawn(class'UTExplosionLight', P.Location);
+            Spawn(class'UTDamageMuzzleFlash', P.Location);
+            Spawn(class'UTDamageHitWallEffect', P.Location + vect(0,0,2));
+            //Damage the player at the explosion's location
+            TakeDamage(P.Damage, Other.EventInstigator, P.Location + vect(0,0,2), vect(0,0,0), 'UTProj_' @ P.self.vfTag);
+            //Destroy the projectile
+            P.Destroy();
+        }
+    }
+}

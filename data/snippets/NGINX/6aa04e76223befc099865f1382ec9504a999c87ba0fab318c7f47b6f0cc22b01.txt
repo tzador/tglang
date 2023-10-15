@@ -1,0 +1,106 @@
+# Annotated configuration file for NGINX server
+# This is a complex server configuration with multiple directives and variables
+
+# Define the 'http' block which is the main context of the server's configuration
+http {
+  # Set the value of the 'worker_processes' directive to auto,
+  # which will automatically determine the number of worker processes to run
+  worker_processes auto;
+
+  # Enable the use of multi-threading and set the maximum number of connections per worker process to 1024
+  # This will allow for better handling of simultaneous requests
+  multi_accept on;
+  worker_connections 1024;
+
+  # Set the timeout for connections to 60 seconds
+  # This will allow for more efficient handling of slow connections
+  keepalive_timeout 60s;
+
+  # Specify the MIME types to be handled by the server
+  # In this case, we only want to handle text/html and application/json
+  # This is done using the 'types' directive
+  types {
+    text/html                     html htm shtml;
+    application/json              json;
+  }
+
+  # Enable gzip compression for all file types,
+  # with a minimum compression level of 3
+  gzip on;
+  gzip_min_length 1000;
+  gzip_types *;
+
+  # Define a 'server' block for the main domain
+  server {
+    # Specify the domain name and port number to listen on
+    server_name example.com;
+    listen 80;
+
+    # Set the root directory for all requests to the server
+    root /var/www/example;
+
+    # Define the index page for the server,
+    # in this case, index.html is the default
+    index index.html;
+
+    # Enable caching for certain file types to improve server performance
+    location ~* \.(jpg|jpeg|png|gif|ico)$ {
+      expires 30d;
+    }
+
+    # Serve static files directly without passing requests to the backend server
+    # This will improve performance for static content
+    location ~* \.(css|js|less|scss)$ {
+      try_files $uri @backend;
+      expires 7d;
+    }
+
+    # Pass all other requests to the backend server
+    # This is where the dynamic content will be handled
+    location / {
+      # Specify the upstream server where requests will be forwarded to
+      # In this case, it is a Node.js server running on port 3000
+      proxy_pass http://localhost:3000;
+      
+      # Enable caching for dynamic content to improve performance
+      proxy_cache_bypass $http_pragma;
+      proxy_cache_revalidate on;
+      proxy_cache_valid 200 302 60m;
+      proxy_cache_valid 403 404 1m;
+    }
+
+    # Enable HTTPS for the server using a self-signed certificate
+    # This is done using the 'ssl' directive
+    ssl on;
+    ssl_certificate /etc/nginx/ssl/example.crt;
+    ssl_certificate_key /etc/nginx/ssl/example.key;
+  }
+
+  # Define a 'server' block for a subdomain
+  server {
+    # Specify the subdomain and port number to listen on
+    server_name subdomain.example.com;
+    listen 80;
+
+    # Set the root directory for all requests to the server
+    root /var/www/subdomain;
+
+    # Define the index page for the server,
+    # in this case, index.php is the default
+    index index.php;
+
+    # Enable caching for certain file types to improve server performance
+    location ~* \.(jpg|jpeg|png|gif|ico)$ {
+      expires 30d;
+    }
+
+    # Serve PHP files using a FastCGI backend
+    location ~* \.php$ {
+      fastcgi_pass unix:/var/run/php/php7.0-fpm.sock;
+      fastcgi_index index.php;
+      include fastcgi_params;
+      fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+      fastcgi_param PATH_INFO $fastcgi_path_info;
+    }
+  }
+}

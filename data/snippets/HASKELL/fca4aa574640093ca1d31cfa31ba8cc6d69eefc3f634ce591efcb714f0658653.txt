@@ -1,0 +1,35 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
+
+module Main where
+
+import Data.IntMap (IntMap, (!))
+import Data.Tree (Tree(..), forest)
+import Control.Monad.Reader (MonadReader, runReader,asks, local)
+import Control.Monad.State (MonadState, runState, get, put, modify)
+import Data.Map (Map)
+import qualified Data.Map as Map
+
+-- | An example function that generates a fibonnaci tree of a given depth
+fibTree :: (MonadReader Int m, MonadState (Map Int Integer) m) => Int -> m (Tree Integer)
+fibTree 0 = return $ Node 0 []
+fibTree 1 = return $ Node 1 []
+fibTree n = do
+  memo <- get
+  case Map.lookup n memo of
+    Just val -> return $ Node val []
+    Nothing -> do
+      first <- fibTree (n-1)
+      second <- fibTree (n-2)
+      let newVal = rootLabel first + rootLabel second
+      modify (Map.insert n newVal)
+      return $ Node newVal [first, second]
+
+-- | An example main function that runs the fibTree function with a depth of 10
+main :: IO ()
+main = do
+  let depth = 10
+      fibTreeReader = runReader (fibTree depth) depth
+      fibTreeState = runState fibTreeReader Map.empty
+      result = fst fibTreeState
+  putStrLn $ "The " ++ show depth ++ "th number in the Fibonacci sequence is: " ++ show (result ! depth)

@@ -1,0 +1,76 @@
+const {GraphQLSchema, GraphQLObjectType, GraphQLString, GraphQLInt, GraphQLList, GraphQLNonNull, GraphQLBoolean} = require('graphql');
+
+// Define a GraphQLObjectType for a user
+const UserType = new GraphQLObjectType({
+  name: 'User',
+  fields: () => ({
+    id: {type: GraphQLNonNull(GraphQLInt)},
+    name: {type: GraphQLNonNull(GraphQLString)},
+    age: {type: GraphQLInt},
+    email: {type: GraphQLNonNull(GraphQLString)},
+    friends: {
+      type: new GraphQLList(UserType),
+      resolve(parent, args, context, info) {
+        // Make a call to fetch the user's friends from database
+        const friends = getUsersFriends(parent.id);
+        return friends;
+      }
+    },
+    isAdmin: {
+      type: GraphQLNonNull(GraphQLBoolean),
+      resolve(parent, args, context, info) {
+        // Check if the user is an admin
+        const isAdmin = checkIfUserIsAdmin(parent.id);
+        return isAdmin;
+      }
+    }
+  })
+});
+
+// Define a GraphQLQueryType for querying the user
+const RootQuery = new GraphQLObjectType({
+  name: 'Query',
+  fields: {
+    user: {
+      type: UserType,
+      args: {
+        id: {type: GraphQLNonNull(GraphQLInt)}
+      },
+      resolve(parent, args, context, info) {
+        // Make a call to fetch the user from database
+        const user = getUserById(args.id);
+        return user;
+      }
+    }
+  }
+});
+
+// Define a GraphQLMutationType for creating a new user
+const UserMutation = new GraphQLObjectType({
+  name: 'Mutation',
+  fields: {
+    createUser: {
+      type: UserType,
+      args: {
+        name: {type: GraphQLNonNull(GraphQLString)},
+        age: {type: GraphQLInt},
+        email: {type: GraphQLNonNull(GraphQLString)},
+        isAdmin: {type: GraphQLNonNull(GraphQLBoolean)}
+      },
+      resolve(parent, args, context, info) {
+        // Create user in the database
+        const newUser = createNewUser(args.name, args.age, args.email, args.isAdmin);
+        return newUser;
+      }
+    }
+  }
+});
+
+// Create a GraphQL schema with the defined Query and Mutation types
+const schema = new GraphQLSchema({
+  query: RootQuery,
+  mutation: UserMutation
+});
+
+// Export the schema for use in other files
+module.exports = schema;

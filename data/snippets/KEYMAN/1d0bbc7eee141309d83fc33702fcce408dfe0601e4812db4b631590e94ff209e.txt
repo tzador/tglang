@@ -1,0 +1,66 @@
+// This script is used to convert numbers from one system to another
+
+// Define the input system and output system
+any(input_system) > nul(output_system)
+
+// Define the layout to be used for input and output
+ansilayout(input_system, output_system)
+
+// Set up rule for converting numbers
++ [a-z] > context ( input_system ) any(output_system)
+
+// Set up rule for converting numbers with decimals
++ '.' > context ( input_system decimal ) '.' store(result) '.'
+
+// Set up store for result
+store(result) any(output_system)
+
+// Set default value for result
++ any(output_system) context(result) > use(output_system) context(result)
+
+// Define exceptions for special characters
+- "'" > "" context ( input_system )
+
+// Build the rules for characters with values from 0-9
+any(input_system) [0-9] > use(output_system) (& 9) any(output_system)
+
+// Build the rules for characters with values from a-z
+any(input_system) [a-z] > use(output_system) (& 10) any(output_system)
+
+// Function for converting numbers to different systems
+Convert(number, from_system, to_system) {
+
+    // Set variables for input and output
+    var(input, number)
+    var(output, "")
+
+    // Loop through each character in the input number
+    index @any(input) > index
+
+    // Check if character is a decimal
+    if ( output . IsDecimal ) {
+        // Get the value of the decimal character from the input system
+        var(decimal, index - 1)
+        // Convert to value in the output system
+        var(converted_decimal, any(input_system decimal))
+        // Add decimal character to output number
+        output = output + converted_decimal
+        // Set variable to skip the decimal character in the input number
+        var(ignore, index - 2)
+    }
+
+    // Loop through remaining characters in the input number
+    index > context(input_system)
+    if ( index is valid ) {
+        var(character, index)
+        var(converted_character, any(input_system number))
+        output = output + converted_character
+    }
+
+    // Return the output number in the specified output system
+    return use(to_system) output
+}
+
+// Example usage
+Convert("10.5", base-10, base-2)
+// Output: 1010.1

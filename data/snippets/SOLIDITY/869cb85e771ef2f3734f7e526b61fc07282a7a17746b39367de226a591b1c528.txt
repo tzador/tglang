@@ -1,0 +1,114 @@
+// Example contract
+contract MultiSigWallet {
+
+    // Declare state variables
+    address[] owners;
+    uint required;
+    mapping(address => bool) isOwner;
+    uint numConfirmations;
+
+    // Constructor function
+    constructor(address[] memory _owners, uint _required) public {
+        // Initialize state variables
+        owners = _owners;
+        required = _required;
+        
+        // Set owners in the isOwner mapping
+        for (uint i = 0; i < owners.length; i++) {
+            isOwner[owners[i]] = true;
+        }
+    }
+
+    // Function modifiers
+    modifier onlyOwner() {
+        require(isOwner[msg.sender], "Only owners can call this function");
+        _;
+    }
+
+    modifier onlyConfirmed() {
+        require(numConfirmations >= required, "Not enough confirmations");
+        _;
+    }
+
+    // Function to get number of owners
+    function getNumOwners() public view returns(uint) {
+        return owners.length;
+    }
+
+    // Function to add a new owner
+    function addOwner(address newOwner) public onlyOwner {
+        owners.push(newOwner);
+        isOwner[newOwner] = true;
+    }
+
+    // Function to remove an owner
+    function removeOwner(address ownerToRemove) public onlyOwner onlyConfirmed {
+        // Check if removal would result in minimum required number of owners
+        require(owners.length - 1 >= required, "Cannot remove enough owners");
+        
+        // Check if owner exists and is not the one calling the function
+        require(isOwner[ownerToRemove], "Owner does not exist");
+        require(ownerToRemove != msg.sender, "Cannot remove yourself");
+
+        // Remove owner from owners array and set isOwner mapping to false
+        for (uint i = 0; i < owners.length; i++) {
+            if(owners[i] == ownerToRemove) {
+                owners[i] = owners[owners.length - 1];
+                break;
+            }
+        }
+        owners.pop();
+        isOwner[ownerToRemove] = false;
+    }
+
+    // Function to submit a transaction to be approved by owners
+    function submitTransaction(address payable recipient, uint amount) public onlyOwner {
+        // Create transaction object
+        Transaction memory newTx = Transaction({
+            recipient: recipient,
+            amount: amount,
+            isExecuted: false
+        });
+
+        // Add transaction to transactions array
+        transactions.push(newTx);
+        uint txIndex = transactions.length - 1;
+
+        // Emit event for new transaction
+        emit NewTransaction(txIndex, msg.sender, recipient, amount, false);
+    }
+
+    // Function to confirm a transaction
+    function confirmTransaction(uint txIndex) public onlyOwner {
+        // Check if transaction index is valid and hasn't already been executed
+        require(txIndex < transactions.length, "Invalid transaction index");
+        require(!transactions[txIndex].isExecuted, "Transaction already executed");
+        
+        // Increment confirmations counter and check if enough confirmations have been made
+        numConfirmations++;
+        require(numConfirmations >= required, "Not enough confirmations");
+
+        // Update isExecuted field of transaction to true
+        transactions[txIndex].isExecuted = true;
+
+        // Transfer funds to recipient
+        transactions[txIndex].recipient.transfer(transactions[txIndex].amount);
+
+        // Emit event for transaction being executed
+        emit TransactionExecuted(txIndex, msg.sender);
+    }
+
+    // Declaring events
+    event NewTransaction(uint txIndex, address from, address to, uint amount, bool executed);
+    event TransactionExecuted(uint txIndex, address executedBy);
+
+    // Declaring struct for transactions
+    struct Transaction {
+        address payable recipient;
+        uint amount;
+        bool isExecuted;
+    }
+
+    // Declaring state variables
+    Transaction[] transactions;
+}

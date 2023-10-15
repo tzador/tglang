@@ -1,0 +1,60 @@
+worker_processes auto; # sets the number of worker processes to be used
+events {
+    worker_connections 1024; # sets the maximum number of simultaneous connections per worker process
+}
+
+http {
+    server {
+        listen 80; # sets the listening port to 80
+        server_name example.com; # sets the server name
+
+        location / {
+            proxy_pass http://backend; # sends requests to the specified upstream server
+            proxy_set_header Host $host; # sets the Host header field for forwarded requests
+            proxy_set_header X-Real-IP $remote_addr; # sets the client's real IP address
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # appends the client's IP address to the X-Forwarded-For header field
+        }
+
+        location /assets/ {
+            root /var/www; # sets the root directory for serving static files
+            index index.html index.htm; # sets the default index file
+            autoindex on; # turns on directory listing
+        }
+
+        error_page 404 /404.html; # sets the custom error page for 404 errors
+
+        location = /404.html {
+            root /var/www/errors; # sets the root directory for error pages
+        }
+
+        error_page 500 502 503 504 /50x.html; # sets the custom error page for 500 errors
+
+        location = /50x.html {
+            root /var/www/errors; # sets the root directory for error pages
+        }
+
+        gzip on; # enables gzip compression
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript; # sets the file types to be compressed
+        gzip_min_length 1000; # sets the minimum length of a response for it to be gzipped
+        gzip_vary on; # adds the "Vary: Accept-Encoding" header to responses
+
+        server_tokens off; # disables sending nginx version number in the "Server" response header
+        client_max_body_size 10m; # sets the maximum size of the client request body
+        client_body_timeout 12s; # sets the timeout for receiving the client request body
+
+        limit_req zone=mylimit burst=100 nodelay; # sets rate limiting for requests
+        limit_conn_zone $binary_remote_addr zone=addr:10m; # sets connection rate limiting based on the client's IP address
+        limit_conn addr 5; # sets the maximum number of connections from a single IP address
+
+        ssl_certificate /etc/ssl/certs/example.com.crt; # sets the path to the SSL certificate file
+        ssl_certificate_key /etc/ssl/private/example.com.key; # sets the path to the SSL certificate key file
+        ssl_protocols TLSv1.2; # sets the protocols that are allowed for SSL connections
+
+        include /etc/nginx/mime.types; # includes additional mime types for serving files
+        default_type application/octet-stream; # sets the default mime type for files
+
+        keepalive_timeout 65; # sets the timeout for keepalive connections
+        send_timeout 10; # sets the timeout for sending a response to the client
+        reset_timedout_connection on; # resets connections that have timed out
+    }
+}

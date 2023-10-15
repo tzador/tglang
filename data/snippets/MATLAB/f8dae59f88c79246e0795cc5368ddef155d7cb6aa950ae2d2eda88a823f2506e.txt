@@ -1,0 +1,70 @@
+%% Gaussian Mixture Model Clustering
+
+% Load dataset
+load fisheriris
+
+% Set number of clusters
+k = 3;
+
+% Initialize cluster means randomly
+cluster_means = datasample(meas,k);
+
+% Initialize cluster covariances as diagonal matrices
+cluster_covs = zeros(size(meas,2),size(meas,2),k);
+for i = 1:k
+    cluster_covs(:,:,i) = diag(rand(size(meas,2),1));
+end
+
+% Initialize mixing proportions
+priors = ones(k,1)/k;
+
+% Expectation-Maximization Algorithm
+for iter = 1:100
+    % Expectation step
+    % Compute responsibilities for each data point
+    resp = zeros(size(meas,1),k);
+    for i = 1:k
+        resp(:,i) = mvnpdf(meas,cluster_means(i,:),cluster_covs(:,:,i));
+    end
+    resp = resp .* repmat(priors',size(meas,1),1);
+    resp = resp ./ repmat(sum(resp,2),1,k);
+    
+    % Maximization step
+    % Update cluster means
+    N = sum(resp,1);
+    for i = 1:k
+        cluster_means(i,:) = (1/N(i))*sum(repmat(resp(:,i),1,size(meas,2)).*meas,1);
+    end
+    
+    % Update cluster covariances
+    for i = 1:k
+        dist = meas - repmat(cluster_means(i,:),size(meas,1),1);
+        cluster_covs(:,:,i) = (1/N(i))*sum(repmat(resp(:,i),1,size(meas,2)).*dist.^2,1);
+    end
+    
+    % Update mixing proportions
+    priors = N./sum(N,2);
+    
+    % Check for convergence
+    % Compute log-likelihood
+    ll(iter) = sum(log(sum(repmat(priors',size(meas,1),1).*mvnpdf(meas,cluster_means,cluster_covs),2)));
+    if iter > 1
+        if abs(ll(iter)-ll(iter-1)) < 1e-6
+            break;
+        end
+    end
+end
+
+% Plot results
+figure;
+colors = {'r','g','b'};
+markers = {'o','s','d'};
+for i = 1:k
+    idx = resp(:,i) > 0.5;
+    scatter3(meas(idx,1),meas(idx,2),meas(idx,3),50,colors{i},markers{i},'filled');
+    hold on;
+end
+xlabel('Sepal Length');
+ylabel('Sepal Width');
+zlabel('Petal Length');
+legend({'Cluster 1','Cluster 2','Cluster 3'})

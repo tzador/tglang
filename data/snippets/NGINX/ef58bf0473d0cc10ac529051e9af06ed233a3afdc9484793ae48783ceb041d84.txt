@@ -1,0 +1,69 @@
+# Default server configuration
+server {
+    # Listen on port 80
+    listen 80;
+    # Server name
+    server_name example.com;
+    # Serve static files from /var/www/example.com directory
+    root /var/www/example.com;
+
+    # Specifies the default URL for all named locations
+    location / {
+        # First try the requested URL as a file, then
+        # as a directory, and finally fall back to index.html
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Handle HTTP requests to /images
+    location /images/ {
+        # Enable directory listing
+        autoindex on;
+        # Serve files from /var/www/example.com/images directory
+        alias /var/www/example.com/images/;
+    }
+
+    # Handle proxy requests to upstream server
+    location /api/ {
+        # Pass requests to upstream server at http://127.0.0.1:8000
+        proxy_pass http://127.0.0.1:8000/;
+        # Set HTTP headers
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # Handle errors
+    error_page 404 /errors/404.html;
+    error_page 500 502 503 504 /errors/500.html;
+    # Serve error pages from /var/www/example.com/errors directory
+    location /errors/ {
+        internal;
+        root /var/www/example.com;
+    }
+
+    # Enable gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json;
+
+    # Enable HTTPS
+    listen 443 ssl;
+    ssl_certificate /etc/nginx/certs/example.com.crt;
+    ssl_certificate_key /etc/nginx/certs/example.com.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers "EECDH+AESGCM:EDH+AESGCM:EECDH+AES256:EDH+AES256:AES256-SHA:!aNULL:!eNULL:!EXPORT:!DES:!MD5:!PSK:!RC4";
+
+    # Restrict access to certain files
+    location ~* \.(env|log)$ {
+        deny all;
+        return 403;
+    }
+
+    # Cache images for 1 day
+    location ~* \.(png|jpg|jpeg|gif|svg|ico)$ {
+        expires 1d;
+        add_header Cache-Control "public, no-transform";
+    }
+
+    # Enable rate limiting
+    limit_req zone=one burst=50 nodelay;
+}

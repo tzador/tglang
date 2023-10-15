@@ -1,0 +1,43 @@
+* Declaration:
+SETS
+    i 'index for buses'
+    j 'index for lines'
+    k, k1, k2 'auxiliary indices'
+
+PARAMETER
+    R(i,j) 'impedance of a line'
+    P(i) 'active power at each bus'
+    Q(i) 'reactive power at each bus'
+    Pd(i) 'active power demand at each bus'
+    Cf(i) 'variable cost of generating electricity'
+    H(i) 'parameter for linear cost function'
+
+* Optimization:
+VARIABLES
+    delta(i) 'phase angle at each bus'
+    V(i) 'voltage magnitude at each bus'
+    Pg(i) 'active power generated at each bus'
+    Qg(i) 'reactive power generated at each bus'
+
+EQUATIONS
+    KCL(i) 'Kirchhoff's Current Law'
+    KVL(j) 'Kirchhoff's Voltage Law'
+    P_active(i) 'active power balance'
+    Q_reactive(i) 'reactive power balance'
+    Gen_limit(i) 'generation capacity limit'
+    Vol_limit(i) 'voltage magnitude limit'
+    Bus_balance(i) 'bus power balance'
+    Cost 'total cost function'
+
+
+* Objective function:
+Cost.. SUM(i,Cf(i)*Pg(i) + H(i)*Pg(i)*Pg(i)) =E= z;
+
+* Constraints:
+Bus_balance(i).. P(i) - Pd(i) + SUM(j,R(i,j)*(Pg(i)-Pg(j))) =E= 0;
+KCL(i).. P(i) =E= V(i)*sum{k1,sum{k2, R(i,k1)*V(i)*V(k2)*(cos(delta(i)-delta(k2))-cos(delta(i)))+R(i,k1)*V(i)*V(k2)*(sin(delta(i)-delta(k2))-sin(delta(i)))}};
+KVL(j).. delta(j) =E= sum{i,delta(i) - sum{k, R(i,k)*V(i)*(cos(delta(i)-delta(k))-cos(delta(i))) + R(i,k)*V(i)*sin(delta(i)-delta(k))}};
+P_active(i).. P(i) =E= Pg(i) + Pd(i);
+Q_reactive(i).. Q(i) =E= Qg(i) - V(i)*sum{j, R(i,j)*(sin(delta(i)-delta(j))-sin(delta(i)))};
+Gen_limit(i).. Pg(i) =L= P_max(i);
+Vol_limit(i).. V(i) =G= V_min(i);

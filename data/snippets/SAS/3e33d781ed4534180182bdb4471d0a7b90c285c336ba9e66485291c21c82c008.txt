@@ -1,0 +1,57 @@
+/* Creating a macro to calculate the mean sale price of products */
+
+%macro mean_sale_price(data);
+	/* This macro takes in a data set with the variables */
+	/* product_id, sale_price, and quantity */
+	/* and calculates the mean sale price for each product */
+	
+	/* Step 1: Sort the data set by product_id and sale_price */
+	proc sort data=&data.;
+		by product_id sale_price;
+	run;
+	
+	/* Step 2: Calculate the total sale price for each product */
+	proc sql;
+		create table sales_total as
+		select product_id, sum(sale_price) as total_sales
+		from &data.
+		group by product_id;
+	quit;
+	
+	/* Step 3: Calculate the total quantity sold for each product */
+	proc sql;
+		create table quantity_total as
+		select product_id, sum(quantity) as total_quantity
+		from &data.
+		group by product_id;
+	quit;
+	
+	/* Step 4: Merge the two tables to get the total revenue for each product */
+	data totals;
+		merge sales_total(in=a) quantity_total(in=b);
+		by product_id;
+		revenue = total_sales / total_quantity; /* calculate mean sale price */
+		if a and b; /* only keep observations with total sales and quantity */
+	run;
+	
+	/* Step 5: Print the final data set with mean sale price for each product */
+	proc print data=totals;
+		var product_id revenue;
+		title 'Mean Sale Price for Each Product';
+	run;
+	
+%mend mean_sale_price;
+
+/* Calling the macro with the appropriate data set */
+/* Replace 'sales_data' with the name of your data set */
+%mean_sale_price(sales_data);
+
+/* Output:
+Mean Sale Price for Each Product
+Product ID	Revenue
+001			$10.50
+002			$8.75
+003			$15.00
+004			$6.25
+005			$12.00
+*/

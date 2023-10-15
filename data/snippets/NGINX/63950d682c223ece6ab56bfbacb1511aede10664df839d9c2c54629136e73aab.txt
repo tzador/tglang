@@ -1,0 +1,61 @@
+#This is a complex NGINX configuration file
+#This section defines the upstream server
+upstream backend {
+    server 127.0.0.1:8080; #Defines the IP address and port of the backend server
+    server 127.0.0.1:8081;
+    server 127.0.0.1:8082;
+}
+
+server {
+    listen 80; #Defines the port on which NGINX will listen for HTTP requests
+
+    #This section defines the location of the website's static files
+    location /static/ {
+        alias /app/public/static/; #Defines the directory where the static files are located
+        expires 7d; #Sets the cache expiration time for the static files
+    }
+
+    #This section defines the location of the website's media files
+    location /media/ {
+        alias /app/public/media/; #Defines the directory where the media files are located
+    }
+
+    location / {
+        proxy_set_header Host $host; #Sets the Host header to the virtual host being requested
+        proxy_set_header X-Real-IP $remote_addr; #Sets the client's real IP address as a value for the X-Real-IP header
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; #Appends the client's IP address to the X-Forwarded-For header
+
+        #This section defines the proxy_pass configuration for the backend server
+        proxy_pass http://backend/;
+        proxy_redirect off; #Disables the rewriting of redirects by the proxy
+    }
+}
+
+#This section defines the virtual host for HTTPS requests
+server {
+    listen 443 ssl; #Defines the port on which NGINX will listen for HTTPS requests
+    ssl_certificate /path/to/certificate; #Specifies the path to the SSL certificate file
+    ssl_certificate_key /path/to/private/key; #Specifies the path to the private key for the SSL certificate
+
+    #This section defines the location of the website's static files for HTTP2 support
+    location /static/ {
+        root /app/public/static/; #Defines the root directory where the static files are located
+        http2_push_preload on; #Enables HTTP/2 server push for the specified location
+    }
+
+    #This section defines the location of the website's media files for HTTP2 support
+    location /media/ {
+        root /app/public/media/; #Defines the root directory where the media files are located
+        http2_push off; #Disables HTTP/2 server push for the specified location
+    }
+
+    location / {
+        proxy_set_header Host $host; #Sets the Host header to the virtual host being requested
+        proxy_set_header X-Real-IP $remote_addr; #Sets the client's real IP address as a value for the X-Real-IP header
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; #Appends the client's IP address to the X-Forwarded-For header
+
+        #This section defines the proxy_pass configuration for the backend server using HTTPS
+        proxy_pass https://backend/;
+        proxy_redirect off;
+    }
+}

@@ -1,0 +1,49 @@
+TYPES:
+      BEGIN OF ty_test,
+        username TYPE string,
+        password TYPE string,
+      END OF ty_test.
+
+      DATA(lt_test) = VALUE ty_test_tab( FOR j = 1 THEN j + 1
+                                              WHILE j LT 100
+                                         ( uname = 'user' && sy-index,
+                                           pwd   = 'pw' && sy-index
+                                         ) ).
+
+      TRY.
+        DATA(lr_http_client) = cl_http_client=>create( ).
+        lr_http_client->request->set_header_field( name = '~request_line' value = 'POST /api/login HTTP/1.1' ).
+        lr_http_client->request->set_header_field( name = '~request_header_fields' value =
+          'Accept = application/json
+          Content-Type = application/json
+          x-csrf-token = fetch' ).
+        lr_http_client->request->set_form_field( name = 'username' value = lt_test-username ).
+        lr_http_client->request->set_form_field( name = 'password' value = lt_test-password ).
+        lr_http_client->send( ).
+        DATA(lv_status_code) = lr_http_client->response->get_status( ).
+        IF lv_status_code NE '200'.
+          RAISE EXCEPTION TYPE cx_sy_http_client_failed
+            EXPORTING code                 = lv_status_code
+                      error_message        = lr_http_client->response->get_status_text( )
+                      http_client          = lr_http_client
+                      http_request         = lr_http_client->request
+                      http_response        = lr_http_client->response
+                      http_secure_access   = abap_true
+                      http_address         = 'https://example.com'.
+        ENDIF.
+
+      CATCH cx_sy_http_client_timeout.
+        WRITE: / 'HTTP connection timed out'.
+      CATCH cx_sy_http_client_unsupported_protocol.
+        WRITE: / 'Unsupported protocol'.
+      CATCH cx_sy_http_client_invalid_state.
+        WRITE: / 'Cannot be called in this state'.
+      CATCH cx_sy_http_client_protocol_error.
+        WRITE: / lr_http_client->response->get_text( ).
+      CATCH cx_sy_http_client_http_version.
+        WRITE: / 'Unknown protocol version'.
+      CATCH cx_sy_http_client_no_message.
+        WRITE: / 'No response received'.
+      CATCH cx_sy_http_client .
+        WRITE: / 'HTTP connection failed'.
+      ENDTRY.

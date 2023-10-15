@@ -1,0 +1,35 @@
+* A dynamically generated select statement
+DATA: ls_where_clause TYPE string,
+      ls_order_clause TYPE string.
+
+LOOP AT gt_filter_fields ASSIGNING FIELD-SYMBOL(<fs_field>).
+  CONCATENATE ls_where_clause <fs_field>-key <fs_field>-value 'AND'
+              INTO ls_where_clause SEPARATED BY space.
+  CONCATENATE ls_order_clause <fs_field>-key 'ASC'
+              INTO ls_order_clause SEPARATED BY space.
+ENDLOOP.
+
+IF ls_where_clause IS INITIAL.
+  ls_where_clause = 'WHERE'.
+  DELETE ls_where_clause trailing space.
+  CONDENSE ls_where_clause.
+ELSE.
+  SPLIT ls_where_clause AT 'AND' INTO TABLE gt_where_conditions.
+  WRITE: / 'The following conditions are applied:'.
+  LOOP AT gt_where_conditions ASSIGNING FIELD-SYMBOL(<fs_condition>).
+    WRITE: / <fs_condition>.
+  ENDLOOP.
+ENDIF.
+
+DATA(lo_query_builder) = cl_dbi_query=>create( ).
+lo_query_builder->add_columns( iv_column_names      = iv_query_fields
+                              iv_with_exceptions   = abap_true
+                              iv_column_formatting = abap_true ).
+lo_query_builder->add_from( iv_table_names       = iv_query_tables ).
+lo_query_builder->add_orders( iv_ordering         = ls_order_clause ).
+lo_query_builder->add_up_to( iv_line_no           = iv_max_rows ).
+lo_query_builder->add_where( iv_condition_string = ls_where_clause ).
+lo_select_statement = lo_query_builder->get_select_statement( ).
+
+CLEAR: ls_where_clause,
+       ls_order_clause.

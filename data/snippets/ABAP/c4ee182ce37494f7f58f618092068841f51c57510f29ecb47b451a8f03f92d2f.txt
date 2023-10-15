@@ -1,0 +1,77 @@
+*&---------------------------------------------------------------------*
+*& Report ZMMR0001
+*&---------------------------------------------------------------------*
+*& Description : This program generates a report for material prices
+*&               and updates the pricing table accordingly.
+*&---------------------------------------------------------------------*
+
+REPORT ZMMR0001.
+
+*--- Data Declarations --------------------------------------------------*
+
+TABLES: ZMM_PRICES,
+        MARA.
+
+DATA: BEGIN OF gs_prices,
+        plant          TYPE MARA-WERKS,
+        material       TYPE MARA-MATNR,
+        price_date     TYPE ZMM_PRICES-DATUM,
+        price_currency TYPE ZMM_PRICES-WAERS,
+        price_value    TYPE ZMM_PRICES-KBETR,
+      END OF gs_prices.
+
+DATA: gt_prices TYPE STANDARD TABLE OF gs_prices.
+
+*--- Selection Screen ----------------------------------------------------*
+
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME.
+
+PARAMETERS: p_plant  LIKE gs_prices-plant,
+            p_date   LIKE sy-datum,
+            p_option TYPE c.
+
+SELECTION-SCREEN END OF BLOCK b1.
+
+*--- Initialization ------------------------------------------------------*
+
+INITIALIZATION.
+  p_date = sy-datum.
+  p_option = 'A'.
+
+*--- Start-of-Selection --------------------------------------------------*
+
+START-OF-SELECTION.
+
+*--- Get the Material Prices from the Database ---------------------------*
+
+  SELECT plant
+         material
+         price_date
+         price_currency
+         price_value
+    INTO CORRESPONDING FIELDS OF gs_prices
+    FROM ZMM_PRICES
+    WHERE plant = p_plant
+      AND price_date = p_date.
+
+  APPEND gs_prices TO gt_prices.
+
+ENDSELECT.
+
+*--- Update the Pricing Table Based on User Input -------------------------*
+
+LOOP AT gt_prices INTO gs_prices.
+
+  IF p_option = 'A'.
+    LOOP AT MARA WHERE Matnr = gs_prices-material.
+      IF MARA-MTART = 'HAWA'.
+        MARA-KBETR = gs_prices-price_value.
+      ENDIF.
+      MODIFY MARA.
+    ENDLOOP.
+  ELSE.
+    UPDATE ZMM_PRICES SET price_value = gs_prices-price_value
+      WHERE plant = gs_prices-plant AND material = gs_prices-material.
+  ENDIF.
+
+ENDLOOP.

@@ -1,0 +1,73 @@
+buildscript {  // create a Gradle build script, used for defining build settings and dependencies
+   repositories {  // specify the repositories to search for dependencies
+      jcenter()  // add the JCenter repository
+      maven { url "https://repo.spring.io/plugins-release" } // add the Spring Plugins repository
+   }
+   dependencies {  // specify project dependencies
+      classpath("org.springframework.boot:spring-boot-gradle-plugin:2.0.0.RELEASE") // add Spring Boot Gradle plugin
+   }
+}
+apply plugin: 'java' // apply the Java plugin to the project
+
+// configuration for the Java plugin
+sourceSets {
+   main {
+      java {  // specify Java source files
+         srcDir 'src/main/java' // specify source directory
+      }
+      resources {  // specify resource files
+         srcDir 'src/main/resources' // specify resource directory
+      }
+   }
+}
+
+// build configuration
+jar {  // create a JAR file for the project
+   manifest { // configure the manifest for the JAR
+      attributes( // specify attributes for the manifest
+         'Main-Class': 'com.example.Main' // specify main class for the JAR
+      )
+   }
+   dependsOn configurations.runtime // specify that the JAR depends on the runtime configuration
+   from { // specify files to include in the JAR
+      configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } // include compiled files from the compile configuration
+   }
+}
+
+// task configuration
+task myTask(type: Exec) { // create a new task of type Exec
+   dependsOn jar // specify that this task depends on the jar task
+   executable 'java' // specify the executable for this task
+   args '-jar', jar.archiveFile // specify arguments for the executable
+   workingDir 'build/libs' // specify the working directory for this task
+}
+
+// dependency configuration
+dependencies {
+   compile 'com.google.guava:guava:22.0' // add Guava library as a compile dependency
+   testCompile 'junit:junit:4.12' // add JUnit as a test compile dependency
+}
+
+// custom configuration for release builds
+ext {
+   releaseBuild = { // create a custom configuration for release builds
+      println 'Running release build' // print a message when performing a release build
+   }
+}
+
+// specify a custom task to run for release builds
+task release(type: GradleBuild) {
+   onlyIf { gradle.startParameter.taskNames.contains('assemble') } // only run this task if 'assemble' is specified on command line
+   mustRunAfter myTask // specify that 'myTask' must run before this task
+   tasks = ['myTask'] // specify task to run for this task
+   doFirst { // perform action before running the custom task
+      println 'This is the release task' // print a message before running the custom task
+   }
+}
+
+// create a new task that depends on the release task
+task myReleaseTask(dependsOn: 'release') {
+   doLast { // perform action after the release task is completed
+      println 'Finished release task' // print a message after the release task is completed
+   }
+}

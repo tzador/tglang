@@ -1,0 +1,45 @@
+/* Create a temp-table with multiple indexes and fields */
+
+/* Define a temp-table with a unique key and two indexes */
+DEFINE TEMP-TABLE ttEmployee 
+  FIELD EmpNum AS INT 
+  FIELD EmpName AS CHARACTER 
+  FIELD EmpDept AS CHARACTER 
+  INDEX ttEmpNum UNIQUE EmpNum 
+  INDEX ttEmpName EmpName 
+  INDEX ttEmpDept EmpDept. 
+
+/* Define a query to populate the temp-table */
+DEFINE QUERY qEmp 
+FOR Emp 
+SCROLLING
+WHERE Emp.DeptNum = 100 
+BUFFER-SIZE 100. 
+
+/* Open the query for browsing */
+OPEN QUERY qEmp FOR EACH ttEmployee EXCLUSIVE.
+
+/* Loop through the results and add them to the temp-table */
+REPEAT: 
+  FIND FIRST Emp EXCLUSIVE NO-LOCK NO-ERROR. 
+  IF NOT AVAILABLE Emp THEN 
+    LEAVE. 
+  
+  /* Populate the fields in the temp-table */
+  CREATE ttEmployee. 
+  ASSIGN 
+    ttEmployee.EmpNum = Emp.EmpNum 
+    ttEmployee.EmpName = Emp.EmpName 
+    ttEmployee.EmpDept = Emp.EmpDept. 
+  
+  /* Add the record to the temp-table */
+  ASSIGN ttEmployee.ttEmpNum = ttEmployee.EmpNum 
+    ttEmployee.ttEmpName = ttEmployee.EmpName 
+    ttEmployee.ttEmpDept = ttEmployee.EmpDept. 
+END.
+
+/* Close the query and display the results from the temp-table */
+CLOSE QUERY qEmp. 
+FOR EACH ttEmployee BY ttEmpNum: 
+  DISPLAY ttEmpNum ttEmpName ttEmpDept.
+END.

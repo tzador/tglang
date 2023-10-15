@@ -1,0 +1,84 @@
+/*
+This code is part of a custom player controller class in the UnrealScript programming language.
+It handles respawning of the player character and manages their interactions with the game environment.
+*/
+
+class MyClass extends PlayerController;
+
+#exec class=Class'myProject.myPlayerPawn';
+var const MY_GAME_CLASS MyGame;
+
+/*
+Setup parameters for the player controller, including starting location and rotation.
+*/
+simulated function InitPlayerReplicationInfo() {
+	local Vector StartLocation;
+	local Rotator StartRotation;
+ 
+ 	// Set starting location and rotation based on game type
+	if (Game.GameType != none) {
+		StartLocation = Game.GameType.DefaultPlayerClass.Location;
+		StartRotation = Game.GameType.DefaultPlayerClass.Rotation;
+	} else {
+		StartLocation = Level.StartSpot.Location;
+		StartRotation = Level.StartSpot.Rotation;
+	}
+ 
+ 	// Spawn the player character at the specified location and rotation
+	local myPlayerPawn PlayerPawn;
+	PlayerPawn = Spawn(class'MyPlayerPawn', Self,, StartLocation, StartRotation);
+	if (PlayerPawn != none) {
+		PlayerPawn.Player = self;
+		SetViewTarget(PlayerPawn);
+	}
+}
+
+/*
+Respawns the player character after death.
+@param Killer The actor that caused the player's death
+@param DamageType The type of damage the player received
+*/
+simulated function Died(Actor Killer, DamageType DamageType) {
+ 	// Set a delay before respawning the player
+	setTimer(1.0, false, 'RespawnPlayer', Killer, DamageType);
+}
+
+/*
+Respawns the player character at the closest spawn point to their death location.
+@param Killer The actor that caused the player's death
+@param DamageType The type of damage the player received
+*/
+simulated function RespawnPlayer(Actor Killer, DamageType DamageType) {
+	local Vector SpawnLocation;
+ 
+ 	// Find the closest spawn point to the player's death location
+	local myTrigger ActivateSpawn;
+	foreach Level.AllActors(class 'PlayerStart', ActivateSpawn) {
+		if (VSize(ActivateSpawn.Location - LastDamageInfo.HitLocation) <= 100.0) {
+			SpawnLocation = ActivateSpawn.Location;
+			break;
+		}
+	}
+ 
+ 	// Spawn the player character at the closest spawn point and associate it with the player controller
+	local myPlayerPawn PlayerPawn;
+	PlayerPawn = Spawn(class'MyPlayerPawn', Self,, SpawnLocation);
+	if (PlayerPawn != none) {
+		PlayerPawn.Player = Self;
+		SetViewTarget(PlayerPawn);
+	}
+ 
+ 	// Notify the player pawn of their respawn
+	PlayerPawn.Respawned(Killer, LastDamageType);
+ 
+ 	// Set the player's invincibility timer
+	bIsInvulnerable = true;
+	setTimer(3.0, false, 'StopInvulnerability');
+}
+
+/*
+Disables the player's invincibility after a set amount of time.
+*/
+simulated event StopInvulnerability() {
+	bIsInvulnerable = false;
+}

@@ -1,0 +1,47 @@
+# Global configuration
+worker_processes auto; # assigns number of processors automatically
+
+# Events module
+events {
+  worker_connections 1024; # sets the maximum number of simultaneous connections per worker process
+}
+
+# HTTP module
+http {
+  include mime.types; # includes a list of known MIME types
+  default_type application/octet-stream; # sets the default MIME type for responses
+
+  sendfile on; # allows for direct sending of files without copying to nginx first
+
+  # TCP proxying with the built-in ngx_http_proxy_module
+  upstream backend {
+    server 10.0.0.1 weight=1;
+    server 10.0.0.2 weight=2;
+    server 10.0.0.3 weight=3;
+  }
+
+  server {
+    listen 80;
+    server_name example.com www.example.com;
+
+    location / {
+      proxy_pass http://backend; # sends requests to the defined upstream server
+      proxy_set_header Host $host; # sets the Host header to the original request value
+      proxy_set_header X-Real-IP $remote_addr; # sets the X-Real-IP header
+    }
+  }
+
+  # HTTPS server
+  server {
+    listen 443 ssl;
+    server_name example.com;
+
+    ssl_certificate /path/to/cert.crt; # location of the SSL certificate file
+    ssl_certificate_key /path/to/cert.key; # location of the SSL certificate key file
+
+    location / {
+      root /var/www/example.com; # sets the root directory for all requests
+      try_files $uri $uri/ /index.html; # tries to serve the requested file, then index.html, and then returns a 404 error if not found
+    }
+  }      
+}

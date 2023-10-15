@@ -1,0 +1,95 @@
+defmodule ChatServer do
+  # A map to store chat room names and their corresponding pid
+  @rooms_map %{}
+
+  # Function to start the server and handle incoming connections
+  def start do
+    # Spawn a new process to handle incoming connections
+    spawn(fn -> handle_connections() end)
+  end
+
+  # Function to handle incoming connections
+  def handle_connections do
+    # Listen for incoming connections on port 8888
+    {:ok, socket} = :gen_tcp.listen(8888)
+
+    # Start accepting incoming connections
+    accept_connections(socket)
+  end
+
+  # Function to accept incoming connections
+  def accept_connections(socket) do
+    # Accept incoming connections and spawn a new process to handle each one
+    {:ok, client} = :gen_tcp.accept(socket)
+    spawn(fn -> handle_connection(client) end)
+
+    # Once a connection is accepted, continue accepting more
+    accept_connections(socket)
+  end
+
+  # Function to handle a single connection
+  def handle_connection(client) do
+    # Receive a request from the client
+    request = :gen_tcp.recv(client, 0)
+
+    # Parse the request and get the chat room name and message 
+    {room, message} = parse_request(request)
+
+    # Create or get the chat room's pid
+    room_pid = get_chat_room_pid(room)
+
+    # Send the message to the chat room
+    send_message(room_pid, message)
+
+    # Close the connection
+    :gen_tcp.close(client)
+  end
+
+  # Function to parse the request and get the chat room name and message
+  defp parse_request(request) do
+    # Split the request into two parts - the room name and the message
+    [room, message] = String.split(request, "|")
+
+    # Return the room name and message as a tuple
+    {room, message}
+  end
+
+  # Function to get the chat room's pid
+  defp get_chat_room_pid(room) do
+    # If the chat room already exists, get its pid from the map
+    case Map.get(@rooms_map, room) do
+      pid -> pid
+      # If the chat room does not exist, create a new one and add it to the map
+      _ ->
+        pid = spawn(fn -> chat_room(room) end)
+        Map.put(@rooms_map, room, pid)
+        pid
+    end
+  end
+
+  # Function to handle messages sent to the chat room
+  defp chat_room(room) do
+    # Print a message that the chat room has been created
+    IO.puts "Chat room: #{room} has been created."
+
+    # Keep listening for messages and broadcasting them to connected clients
+    loop()
+  end
+
+  # Function to send a message to the chat room
+  defp send_message(room_pid, message) do
+    # Send a message to the chat room's pid
+    send(room_pid, message)
+  end
+
+  # Function to continuously listen for messages and broadcast them to connected clients
+  defp loop do
+    receive do
+      # When a message is received, broadcast it to connected clients and continue listening
+      msg ->
+        IO.puts "Broadcasting message: #{msg}"
+        :gen_tcp.broadcast(@socket, msg)
+        loop()
+    end
+  end
+end

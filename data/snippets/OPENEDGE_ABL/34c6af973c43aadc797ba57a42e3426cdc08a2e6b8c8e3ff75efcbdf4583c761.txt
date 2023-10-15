@@ -1,0 +1,45 @@
+/* This is a complex code snippet in OPENEDGE_ABL */
+DEFINE VARIABLE order-num AS INTEGER NO-UNDO INITIAL 100.
+DEFINE VARIABLE item-num AS INTEGER NO-UNDO INITIAL 1.
+DEFINE VARIABLE item-name AS CHARACTER NO-UNDO INITIAL "Widget A".
+
+/* Loop through items and update order information */
+DO WHILE item-num < 10:
+
+/* Query item information from database */
+FIND FIRST item WHERE item.item_id = item-num NO-ERROR.
+IF AVAILABLE item THEN DO:
+    /* Update order history with item information */
+    ASSIGN
+        order.item_id = item.item_id
+        order.item_name = item.item_name
+        order.quantity = 5
+        order.status = "Shipped"
+        order.date = TODAY
+        order.time = NOW.
+    /* Save changes to database */
+    APPLY "update" TO order.
+END.
+END. /* End of item loop */
+
+/* Display order number and total cost */
+MESSAGE "Order number: " order-num SKIP
+    "Total cost: $" ROUND(order.quantity * item.price, 2)
+    VIEW-AS ALERT-BOX INFO BUTTONS OK.
+
+/* Generate invoice for order */
+EXPORT invoice TO "C:/Invoices/Orders/" + STRING(order-num) + ".pdf"
+    FORMAT "PDF" WRITE-EXCEL-CELLS("A1:D6") OBJECT-TYPE report.
+
+/* Calculate average shipping time for orders */
+DEFINE VARIABLE total-time AS INTEGER NO-UNDO INITIAL 0.
+DEFINE VARIABLE average AS DECIMAL FORMAT "99.99" NO-UNDO.
+DEFINE VARIABLE order-counter AS INTEGER NO-UNDO INITIAL 0.
+/* Loop through orders and calculate average shipping time */
+FOR EACH order WHERE order.status = "Shipped" NO-LOCK:
+    ADD order.time TO total-time.
+    ADD 1 TO order-counter.
+END.
+average = total-time / order-counter.
+MESSAGE "Average shipping time: " ROUND(average, 2) "days"
+    VIEW-AS ALERT-BOX INFO BUTTONS OK.

@@ -1,0 +1,139 @@
+{-# LANGUAGE TypeFamilies, EmptyDataDecls, MultiParamTypeClasses, TypeSynonymInstances #-}
+
+module Main (main) where
+
+import Prelude hiding (zipWith, foldr)
+
+-- Declare a new type 'List'
+data List a = Nil | Cons a (List a)
+
+-- Make List an instance of the type class 'Functor'
+instance Functor List where
+  fmap f Nil        = Nil
+  fmap f (Cons x xs) = Cons (f x) (fmap f xs)
+
+-- Make List an instance of the type class 'Applicative'
+instance Applicative List where
+  pure x            = Cons x Nil
+  (<*>) Nil        = Nil
+  (<*>) (Cons f fs) = fmap f fs
+
+-- Make List an instance of the type class 'Monad'
+instance Monad List where
+  return x          = Cons x Nil
+  (>>=) Nil _      = Nil
+  (>>=) (Cons x xs) f = f x `append` (xs >>= f)
+    where
+      append Nil ys           = ys
+      append (Cons x xs) ys   = Cons x (xs `append` ys)
+
+-- Create a new data type 'Tree'
+data Tree a = Leaf a | Node (Tree a) (Tree a)
+
+-- Make Tree an instance of the type class 'Functor'
+instance Functor Tree where
+  fmap f (Leaf x)   = Leaf (f x)
+  fmap f (Node l r) = Node (fmap f l) (fmap f r)
+
+-- Make Tree an instance of the type class 'Applicative'
+instance Applicative Tree where
+  pure x            = Leaf x
+  (<*>) (Leaf f) t   = fmap f t
+  (<*>) (Node l r) t = Node (l <*> t) (r <*> t)
+
+-- Make Tree an instance of the type class 'Monad'
+instance Monad Tree where
+  return x          = Leaf x
+  (>>=) (Leaf x) f  = f x
+  (>>=) (Node l r) f = Node (l >>= f) (r >>= f)
+
+-- Declare a new type synonym 'Func' for functions that take in a and return b
+type Func a b = a -> b
+
+-- Create a function that recursively doubles a list
+doubleList :: Func List Int
+doubleList Nil        = Nil
+doubleList (Cons x xs) = Cons (2 * x) (doubleList xs)
+
+-- Create a function that recursively sums a Tree
+sumTree :: Func Tree Int
+sumTree (Leaf x)     = x
+sumTree (Node l r)   = sumTree l + sumTree r
+
+-- Create a function that recursively multiplies a List by a given factor
+multiplyList :: Int -> Func List Int
+multiplyList n Nil         = Nil
+multiplyList n (Cons x xs) = Cons (n * x) (multiplyList n xs)
+
+-- Create a function that recursively multiplies a Tree by a given factor
+multiplyTree :: Int -> Func Tree Int
+multiplyTree n (Leaf x)    = Leaf (n * x)
+multiplyTree n (Node l r)  = Node (multiplyTree n l) (multiplyTree n r)
+
+-- Create a function that recursively removes duplicates from a list
+removeDuplicates :: Eq a => Func (List a) (List a)
+removeDuplicates Nil      = Nil
+removeDuplicates (Cons x xs) = if x `elem` xs then removeDuplicates xs else Cons x (removeDuplicates xs)
+
+-- Create a function that recursively creates a list of fibonacci numbers up to a given number
+fibonacciList :: Int -> Func Int (List Int)
+fibonacciList n
+  | n <= 0    = Nil
+  | n == 1    = Cons 0 Nil
+  | n == 2    = Cons 0 (Cons 1 Nil)
+  | otherwise = Cons (n1 + n2) (fibonacciList (n-1))
+  where
+    n1 = length $ fibonacciList (n-2)
+    n2 = length $ fibonacciList (n-1)
+
+-- Create a function that recursively folds a list using a specified function
+foldrList :: (a -> b -> a) -> a -> Func (List b) a
+foldrList _ acc Nil         = acc
+foldrList f acc (Cons x xs) = f x (foldrList f acc xs)
+
+-- Create a function that recursively zips two lists together using a specified function
+zipWithList :: (a -> b -> c) -> Func (List a) (Func (List b) (List c))
+zipWithList _ Nil _          = Nil
+zipWithList _ _ Nil          = Nil
+zipWithList f (Cons x xs) (Cons y ys) = Cons (f x y) (zipWithList f xs ys)
+
+main :: IO ()
+main = do
+  let l1 = Cons 1 (Cons 2 (Cons 3 Nil))
+      l2 = Cons 4 (Cons 5 (Cons 6 Nil))
+      t1 = Node (Leaf 1) (Node (Leaf 2) (Leaf 3))
+      t2 = Node (Leaf 4) (Node (Leaf 5) (Leaf 6))
+  putStrLn "List Functor:"
+  print $ fmap (+1) l1
+  putStrLn "List Applicative:"
+  print $ (*) <$> l1 <*> l2
+  putStrLn "List Monad:"
+  print $ do
+    x <- l1
+    y <- l2
+    return (x + y)
+  putStrLn "List Fold:"
+  print $ foldrList (\x acc -> x + acc) 0 l1
+  putStrLn "List ZipWith:"
+  print $ zipWithList (*) l1 l2
+  putStrLn "Tree Functor:"
+  print $ fmap (+1) t1
+  putStrLn "Tree Applicative:"
+  print $ (*) <$> t1 <*> t2
+  putStrLn "Tree Monad:"
+  print $ do
+    x <- t1
+    y <- t2
+    return (x + y)
+  putStrLn "Tree Sum:"
+  print $ sumTree t1
+  putStrLn "Double List:"
+  print $ doubleList l1
+  putStrLn "Multiply List:"
+  print $ multiplyList 2 l2
+  putStrLn "Multiply Tree:"
+  print $ multiplyTree 3 t2
+  putStrLn "Remove Duplicates:"
+  print $ removeDuplicates (Cons 1 (Cons 2 (Cons 1 (Cons 3 (Cons 3 Nil)))))
+  putStrLn "Fibonacci List:"
+  print $ fibonacciList 8

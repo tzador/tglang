@@ -1,0 +1,156 @@
+{-|
+Module      : Data.Graph
+Description : This module provides functions for working with graphs. 
+Maintainer  : example@haskell.org
+Stability   : stable
+Portability : portable
+
+This module provides a generic interface for working with graphs,
+including functions for creating, manipulating and querying graphs.
+
+-}
+
+module Data.Graph 
+    (
+      -- * Graph type
+      Graph
+    , Edge(..)
+    , Vertex(..)
+
+      -- * Construction
+    , empty
+    , vertex
+    , edge
+    , overlay
+    , connect
+    , vertices
+    , edges
+    , overlays
+    , edges
+
+      -- * Properties
+    , vertices3
+    , vertices4
+    , edges3
+    , edges4
+
+      -- * Decomposition
+    , isSimple
+    , isEmpty
+    , hasEdge
+    , hasVertex
+    , decompose
+    , decomp'
+
+      -- * Transformation
+    , transpose
+    , induce
+    , induceJust
+    , gmap
+    ) where
+
+import Data.Maybe
+
+-- | Representation of a directed graph as an adjacency map of vertices and edges
+data Graph v e = Graph { 
+    graphVertices :: [(Int, v)], -- ^ the list of vertices with their respective IDs
+    graphEdges :: [Edge e] -- ^ the list of edges
+    } deriving (Ord, Show)
+
+-- | Representation of an edge in a graph
+data Edge e = Edge {
+    fromVertex :: Int, -- ^ the ID of the from vertex
+    toVertex :: Int, -- ^ the ID of the to vertex
+    edgeLabel :: Maybe e -- ^ the optional label of the edge
+    } deriving (Ord, Show)
+
+-- | Representation of a vertex in a graph
+data Vertex = Vertex {
+    vertexId :: Int, -- ^ the ID of the vertex
+    vertexLabel :: String -- ^ the label of the vertex
+    } deriving (Eq, Ord, Show)
+
+empty :: Graph v e
+empty = Graph [] []
+
+vertex :: v -> Graph v e
+vertex v = Graph [(0, v)] []
+
+edge :: v -> v -> e -> Graph v e
+edge v1 v2 l = Graph [(0, v1), (1, v2)] [Edge 0 1 (Just l)]
+
+overlay :: Graph v e -> Graph v e -> Graph v e
+overlay g1 g2 = Graph (graphVertices g1 ++ graphVertices g2) (graphEdges g1 ++ graphEdges g2)
+
+connect :: Graph v e -> Graph v e -> Graph v e
+connect g1 g2 = Graph (graphVertices g1 ++ graphVertices g2) (graphEdges g1 ++ graphEdges g2 ++ [Edge (lastVertex g1) (firstVertex g2) Nothing])
+
+vertices :: Graph v e -> [Vertex]
+vertices g = map (\(id, label) -> Vertex id label) (graphVertices g)
+
+edges :: Graph v e -> [Edge e]
+edges g = graphEdges g
+
+overlays :: [Graph v e] -> Graph v e
+overlays [] = empty
+overlays (g:gs) = overlay g (overlays gs)
+
+edges :: [Edge e] -> [Edge e]
+edges [] = []
+edges (e:es) = e : edges es
+
+vertices3 :: Graph v e -> [Vertex]
+vertices3 g = map (\(id, label) -> Vertex id label) (filter (\(x,_) -> (x `mod` 3) == 0) (graphVertices g))
+
+vertices4 :: Graph v e -> [Vertex]
+vertices4 g = map (\(id, label) -> Vertex id label) (filter (\(x, _) -> (x `mod` 4) == 0) (graphVertices g))
+
+edges3 :: Graph v e -> [Edge e]
+edges3 g = filter (\(Edge fromVertex _ _) -> fromVertex `mod` 3 == 0) (graphEdges g)
+
+edges4 :: Graph v e -> [Edge e]
+edges4 g = filter (\(Edge fromVertex _ _) -> fromVertex `mod` 4 == 0) (graphEdges g)
+
+isSimple :: Graph v e -> Bool
+isSimple g = all (\(Edge fromVertex toVertex label) -> fromVertex /= toVertex) (graphEdges g)
+
+isEmpty :: Graph v e -> Bool
+isEmpty g = null $ graphVertices g
+
+hasEdge :: Graph v e -> Edge e -> Bool
+hasEdge g e = e `elem` graphEdges g
+
+hasVertex :: Graph v e -> Int -> Bool
+hasVertex g id = (id, Nothing) `elem` graphVertices g
+
+decompose :: Graph v e -> Either (Graph v e) (Graph v e)
+decompose g = decomp' (vertices g) (edges g) empty empty
+
+decomp' :: [Vertex] -> [Edge e] -> Graph v e -> Graph v e -> Either (Graph v e) (Graph v e)
+decomp' [] es g1 g2 = Left (overlay g1 g2)
+decomp' (v:vs) (e:es) g1 g2 = let (Graph vs2 es2) = induce v (edge (fromJust $ vertexLabel v) (fromJust $ vertexLabel v) (edgeLabel e)) in
+    if hasVertex vs2 (fromVertex e) 
+        then decomp' vs es (overlay g1 (gmap (\(Edge _ _ label) -> Edge (vertexId v) (vertexId v) label) (Graph vs2 es2))) g2 
+        else decomp' vs es g1 (overlay g2 (gmap (\(Edge _ _ label) -> Edge (vertexId v) (vertexId v) label) (Graph vs2 es2)))
+
+transpose :: Graph v e -> Graph v e
+transpose g = let (Graph vs es) = g in Graph (map (\(id, label) -> (id, label)) $ reverse vs) (map (\(Edge fromVertex toVertex label) -> (Edge toVertex fromVertex label)) es)
+
+induce :: Vertex -> Graph v e -> Graph v e
+induce v g = let (Graph vs1 es1) = g in Graph (filter (\(id, _) -> elem id $ map vertexId (vertices g)) vs1) (filter (\(Edge fromVertex toVertex _) -> elem fromVertex vs2 && elem toVertex vs2) es1) 
+    where
+        vs2 = [(vertexId v), (vertexId $ fromJust $ head $ vertices g), (vertexId $ fromJust $ last $ vertices g)]
+
+induceJust :: Vertex -> Graph v e -> Maybe (Graph v e)
+induceJust v g 
+    | fromJust (vertexLabel v) == "" = Nothing
+    | otherwise = Just (induce v g)
+
+gmap :: (Edge e -> Edge e) -> Graph v e -> Graph v e
+gmap f g = let (Graph vs es) = g in Graph vs (map f es)
+
+firstVertex :: Graph v e -> Int
+firstVertex g = vertexId $ head $ vertices g
+
+lastVertex :: Graph v e -> Int
+lastVertex g = vertexId $ last $ vertices g

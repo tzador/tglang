@@ -1,0 +1,73 @@
+% This is a Prolog program that implements a naive Bayes classifier
+
+% Define predicates
+:- dynamic count/3.
+:- dynamic attribute/2.
+:- dynamic prob/3.
+
+% Calculate probability of a class given a list of attributes
+prob_class(Class, Prob) :-
+    class_count(Class, Count),
+    total_records(CountTotal),
+    Prob is Count / CountTotal.
+
+% Get all unique values for an attribute
+unique_vals(Attribute, Vals) :-
+    findall(Val, record(_,Attribute,Val), ValsList),
+    sort(ValsList, Vals).
+
+% Calculate probability of an attribute given a class
+prob_attr(Class, Attribute, Val, Prob) :-
+    class_count(Class, Count),
+    attribute_count(Attribute, Val, Class, AttrCount),
+    Prob is AttrCount / Count.
+
+% Calculate probability of an attribute given a list of attributes
+prob_attr_list([],_,_,_).
+prob_attr_list([A|R], Class, Attributes, Prob) :-
+    attribute_count(A, Attributes, Class, Count),
+    prob_attr_list(R, Class, Attributes, NextProb),
+    Prob is NextProb * (Count / Attributes).
+
+% Calculate probability of a class given a list of attributes
+prob_class_attributes(Class, Attributes, Prob) :-
+    prob_class(Class, ClassProb),
+    prob_attr_list(Attributes, Class, Attributes, AttrProb),
+    Prob is ClassProb * AttrProb.
+
+% Classify a record and return the predicted class
+classify(Record, Class) :-
+    unique_vals(class, Classes),
+    prob_class(class, Record, Class, Prob),
+    Prob > 0,
+    !.
+
+% Increment count of a class
+increment_count(Class) :-
+    (count(Class,TotalCount) -> retract(count(Class,TotalCount)) ; TotalCount = 0),
+    !,
+    NewCount is TotalCount + 1,
+    asserta(count(Class,NewCount)).
+
+% Increment count of an attribute for a class
+increment_count(Attribute, Value, Class) :-
+    (attribute(Attribute, Value) -> assertz(attribute(Attribute, Value)) ; true),
+    !,
+    (count(Attribute, TotalCount, Class) -> retract(count(Attribute, TotalCount, Class)) ; TotalCount = 0),
+    !,
+    NewCount is TotalCount + 1,
+    asserta(count(Attribute, NewCount, Class)).
+
+% Initialize the classifier - count number of records and attributes
+initialize :-
+    findall(_, record(_,_,_), List),
+    length(List, TotalRecords),
+    asserta(total_records(TotalRecords)),
+    findall(Attribute, attribute(Attribute,_), AttrList),
+    list_to_set(AttrList, AttrSet),
+    maplist(unique_vals, AttrSet).
+
+% Reset the classifier - retract counted predicates
+reset :-
+    retractall(count(_,_,_)),
+    retractall(attribute(_,_)).

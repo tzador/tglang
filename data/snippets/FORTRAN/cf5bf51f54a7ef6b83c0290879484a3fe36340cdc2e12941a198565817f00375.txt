@@ -1,0 +1,36 @@
+subroutine newton(p, n, iter, tol, x, f, fj, soln)
+! This subroutine implements the Newton's method for solving a nonlinear system of equations.
+! Inputs:
+  implicit none                                  ! use explicit declarations for variables
+  integer, intent(in)  :: p, n, iter             ! p = number of equations, n = number of unknowns, iter = max number of iterations
+  double precision, intent(in) :: tol             ! tolerance level for convergence
+  double precision :: x(n,p), f(n), fj(n,n), soln(p) ! variables for storing x, f(x), f'(x), and solution
+! Local variables:
+  double precision :: df(n,n), delx(n), x0(n), invfj(n,n) ! variables for calculating jacobian, delta x, initial x, and inverse of f'(x)
+  integer :: i, j, it                             ! loop variables
+  logical :: notconverged                          ! flag for checking convergence
+! Initialize variables:
+  x = 0.0_dp                                      ! initial guess for x
+  notconverged = .TRUE.                            ! set convergence flag to true
+  it = 0                                          ! initialize iteration count
+! Newton's method loop:
+  do while (it < iter .and. notconverged)          ! loop until max iterations or convergence
+      it = it + 1                                  ! increment iteration count
+      call jacob(p, n, x, fj)                      ! calculate jacobian matrix using subroutine jacob
+      df = fj                                      ! store copy of jacobian
+      do i = 1, n                                  ! loop over rows
+          df(i,i) = df(i,i) + 1.0_dp               ! add identity matrix to jacobian
+      enddo
+      call invmat(n,df,invfj)                      ! calculate inverse of f'(x)
+      call func(p, n, x, f)                        ! calculate f(x) using subroutine func
+      call invmat(n,invfj,invfj)                   ! calculate inverse of inverse of f'(x) using subroutine invmat
+      delx = matmul(invfj,f)                       ! calculate delta x using inverse of inverse of f'(x)
+      x0 = x + delx                                ! update x
+      if (abs(matmul(f,f)) < tol) then             ! check for convergence using tolerance level
+          notconverged = .FALSE.                   ! set flag to false
+      end if
+      x = x0                                       ! update x for next iteration
+  end do                                           ! end of loop
+! Output:
+  soln = x                                        ! store solution in soln
+end subroutine newton

@@ -1,0 +1,57 @@
+# Import necessary libraries
+using CSV, DataFrames
+
+# Define function to read and clean data
+function read_and_clean_data(file_name)
+    # Read csv file into a dataframe
+    df = CSV.read(file_name)
+    
+    # Replace missing values with median of column
+    for col in names(df)
+        df[!, col] = coalesce.(df[!, col], median(dropmissing(df[!, col])))
+    end
+    
+    # Convert categorical variables to dummy variables
+    df = transform(df, :Category => categorical => :Category)
+    dummy_df = get_dummies(df[:, :Category])
+    df = hcat(df, dummy_df)
+    select!(df, Not(:Category))
+    
+    # Remove outliers using Tukey's method
+    Q1 = quantile(df[:Price], 0.25)
+    Q3 = quantile(df[:Price], 0.75)
+    IQR = Q3 - Q1
+    outliers = (df[:Price] .< (Q1 - 1.5*IQR)) .| (df[:Price] .> (Q3 + 1.5*IQR))
+    df = df[.!outliers, :]
+    
+    # Return cleaned dataframe
+    return df
+end
+
+# Read and clean data
+cleaned_df = read_and_clean_data("data.csv")
+
+# Define function to fit linear regression model
+function fit_linear_model(X, y)
+    # Add intercept term to design matrix
+    X = hcat(ones(size(X)[1]), X)
+    
+    # Solve for regression coefficients using normal equation
+    theta = pinv(X'X) * (X'y)
+    
+    # Return regression coefficients
+    return theta
+end
+
+# Separate features and target variable
+X = Matrix(cleaned_df[:, Not(:Price)])
+y = cleaned_df[:, :Price]
+
+# Fit linear model
+theta = fit_linear_model(X, y)
+
+# Print regression coefficients
+println("Regression coefficients:")
+for i in 1:length(theta)
+    println("β", i-1, ": ", theta[i])
+end

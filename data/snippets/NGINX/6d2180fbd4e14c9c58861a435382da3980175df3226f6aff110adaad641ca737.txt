@@ -1,0 +1,88 @@
+http {
+    server {
+        listen 80;
+        server_name example.com;
+
+        # nginx will first try to serve the requested file,
+        # if it doesn't exist, it will pass the request to the proxy server
+        # at the specified address
+        try_files $uri @proxy;
+
+        location / {
+            # set cache control headers for static files
+            expires 30d;
+
+            # enable gzip compression for faster transmission
+            gzip on;
+
+            # set the Vary header to inform proxies and caches
+            # that the response can vary depending on the Accept-Encoding header
+            # preventing accidental compressed content from being served to clients
+            # that do not support compression
+            gzip_vary on;
+
+            # set the Content-Encoding header to inform clients that the response is compressed
+            gzip_proxied any;
+
+            # enable aggressive caching of static files in the browsers
+            # <temptime> can be replaced with a time interval, eg. 1h
+            add_header Cache-Control "public, max-age=<temptime>";
+
+            # if the requested file is not found, return a 404 error
+            error_page 404 = /404.html;
+            log_not_found off;
+
+            # include common configs for all nginx servers
+            # can be used to set up security headers, redirects, etc.
+            include common.conf;
+        }
+
+        location @proxy {
+            # set the X-Forwarded-For header to inform the proxied server
+            # of the original client IP address
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+            # pass the Host header received from the client
+            # so the proxied server knows which domain was requested
+            proxy_set_header Host $host;
+
+            # pass the original scheme (http or https) from the client
+            proxy_set_header X-Forwarded-Proto $scheme;
+
+            # set a longer timeout for connections to the proxied server
+            proxy_connect_timeout 90;
+
+            # set a longer timeout for receiving a response from the proxied server
+            proxy_send_timeout 90;
+
+            # set a longer timeout for reading a response from the proxied server
+            proxy_read_timeout 90;
+
+            # enable buffering of responses to reduce the load on the proxied server
+            proxy_buffering on;
+
+            # set the proxy buffer size to 8k
+            proxy_buffers 8 16k;
+
+            # enable gzip compression for faster transmission
+            gzip on;
+
+            # set the Vary header to inform proxies and caches
+            # that the response can vary depending on the Accept-Encoding header
+            # preventing accidental compressed content from being served to clients
+            # that do not support compression
+            gzip_vary on;
+
+            # enable caching of responses from the proxied server based on the URL
+            # this can improve performance for frequently requested resources
+            proxy_cache_key "$scheme$request_method$host$request_uri";
+
+            # set the maximum size of the cached response to 4MB
+            proxy_cache_max_size 4m;
+
+            # set the location of the proxy cache on the server
+            # <proxy_cache_path> should be replaced with a valid directory
+            proxy_cache_path <proxy_cache_path> levels=1:2 keys_zone=cache_one:10m inactive=60m;
+        }
+    }
+}

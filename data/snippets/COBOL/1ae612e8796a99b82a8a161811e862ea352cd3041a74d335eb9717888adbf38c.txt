@@ -1,0 +1,79 @@
+IDENTIFICATION DIVISION.                                // start of identification division
+      PROGRAM-ID. TAXCALCULATOR.                               // declare program name
+      AUTHOR. JOHN SMITH.                                       // declare author name
+	
+      ENVIRONMENT DIVISION.                                     // start of environment division
+      INPUT-OUTPUT SECTION.                                     // declare input-output section
+      FILE-CONTROL.                                             // declare file control section
+      SELECT SALES-FILE ASSIGN TO DISK                          // declare file name and assign to disk
+         ORGANIZATION IS SEQUENTIAL.                            // specify file organization
+      SELECT TAX-FILE ASSIGN TO DISK                            // declare file name and assign to disk
+         ORGANIZATION IS SEQUENTIAL.                            // specify file organization
+	
+      DATA DIVISION.                                            // start of data division
+      FILE SECTION.                                             // declare file section
+      FD SALES-FILE.                                            // file descriptor for sales file
+      01 SALES-RECORD.                                          // declare sales record
+         05 SALESDATE     PIC X(8).                             // sales date field
+         05 CUSTOMERNO    PIC X(10).                            // customer number field
+         05 AMOUNT        PIC 9(5)V9(2).                        // sales amount field
+	
+      FD TAX-FILE.                                              // file descriptor for tax file
+      01 TAX-RECORD.                                            // declare tax record
+         05 SALESDATE     PIC X(8).                             // sales date field
+         05 SALESTAX      PIC 9(4)V9(2).                        // sales tax amount field
+         05 TOTALSALES    PIC 9(5)V9(2).                        // total sales amount field
+	
+      WORKING-STORAGE SECTION.                                  // declare working storage section
+      01 WS-TOTALSALES         PIC 9(5)V9(2) VALUE 0.           // working variable for total sales amount
+      01 WS-TOTALSALES-TAX     PIC 9(4)V9(2) VALUE 0.           // working variable for total sales tax
+      01 WS-BEGIN-DATE         PIC X(8).                        // variable for beginning date of sales period
+      01 WS-END-DATE           PIC X(8).                        // variable for end date of sales period
+      01 WS-CURRENT-DATE       PIC X(8).                        // variable for current date
+	
+      PROCEDURE DIVISION.                                       // start of procedure division
+      MAIN-PARA.
+            DISPLAY "Enter beginning of sales period (yyyymmdd):".   // prompt user to enter beginning date
+            ACCEPT WS-BEGIN-DATE.                                    // accept input into variable
+            MOVE WS-BEGIN-DATE TO SALESDATE.                         // move value to sales date field in record
+            DISPLAY "Enter end of sales period (yyyymmdd):".         // prompt user to enter end date
+            ACCEPT WS-END-DATE.                                      // accept input into variable
+            MOVE WS-END-DATE TO SALESDATE.                           // move value to sales date field in record
+	
+            OPEN INPUT SALES-FILE.                                  // open sales file for reading
+            OPEN OUTPUT TAX-FILE.                                   // open tax file for writing
+	
+            PERFORM READ-FILE THRU READ-FILE-EXIT.                   // perform read loop to read each record in sales file
+	
+            CLOSE SALES-FILE.                                       // close sales file
+            CLOSE TAX-FILE.                                         // close tax file
+            STOP RUN.
+	
+      READ-FILE.                                                   // read loop
+            READ SALES-RECORD                                        // read record from sales file
+               AT END                                               // at end of file
+                  MOVE WS-CURRENT-DATE TO SALESDATE                   // move current date to sales date field in record
+                  PERFORM CALCULATE-TAX.                              // perform calculate tax subroutine
+                  EXIT.                                               // exit loop
+               NOT AT END                                            // if not at end of file
+                  IF SALESDATE IS >= WS-BEGIN-DATE                   // check if sales date is greater than or equal to beginning date
+                     AND SALESDATE IS <= WS-END-DATE                 // and less than or equal to end date
+                     ADD AMOUNT TO WS-TOTALSALES                     // add sales amount to total sales variable
+                     IF SALESDATE IS >= "yyyymm00"                   // check if sales date is within previous month
+                        ADD AMOUNT TO WS-TOTALSALES-TAX              // add amount to total sales tax variable
+                     END-IF.
+                     WRITE TAX-RECORD.                               // write record to tax file
+                     MOVE SALESDATE TO TAX-RECORD.                   // move sales date to sales date field in record
+                     MOVE WS-TOTALSALES-TAX TO SALESTAX.             // move total sales tax variable to sales tax field in record
+                     MOVE WS-TOTALSALES TO TOTALSALES.               // move total sales variable to total sales field in record
+                     PERFORM CALCULATE-TAX.                           // perform calculate tax subroutine
+                  END-IF.
+            END-READ.
+	
+      READ-FILE-EXIT.                                             // exit loop
+            EXIT.                                                  // exit READ-FILE paragraph
+	
+      CALCULATE-TAX.                                              // sub-routine to calculate sales tax
+            MULTIPLY WS-TOTALSALES BY 0.07                         // calculate sales tax at 7% rate
+               GIVING WS-TOTALSALES-TAX.                           // give result to total sales tax variable
+       END-CALCULATE-TAX.

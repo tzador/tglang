@@ -1,0 +1,128 @@
+unit DemoForm;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
+  StdCtrls, ExtCtrls, db, ADODB, DBGrids, Grids, Contnrs;
+
+type
+  TfrmDemo = class(TForm)
+    pnlTop: TPanel;
+    lblTitle: TLabel;
+    btnStart: TButton;
+    grdData: TDBGrid;
+    pnlBottom: TPanel;
+    btnExit: TButton;
+    qryData: TADOQuery;
+    dsData: TDataSource;
+    procedure btnStartClick(Sender: TObject);
+    procedure btnExitClick(Sender: TObject);
+  private
+    FDataList: TObjectList;
+    procedure LoadData;
+    procedure DisplayData;
+    procedure SaveData;
+  public
+    { Public declarations }
+  end;
+
+var
+  frmDemo: TfrmDemo;
+
+implementation
+
+{$R *.DFM}
+
+procedure TfrmDemo.btnStartClick(Sender: TObject);
+begin
+  LoadData;
+  DisplayData;
+end;
+
+procedure TfrmDemo.btnExitClick(Sender: TObject);
+begin
+  SaveData;
+  Close;
+end;
+
+procedure TfrmDemo.LoadData;
+var
+  i: Integer;
+begin
+  qryData.Close;
+  qryData.SQL.Clear;
+  qryData.SQL.Add('SELECT * FROM Customers');
+  qryData.Open;
+
+  FDataList := TObjectList.Create;
+  while not qryData.Eof do
+  begin
+    // create custom data object
+    with qryData do
+    begin
+      FDataList.Add(TCustomer.Create(FieldByName('Name').AsString, FieldByName('Address').AsString, FieldByName('City').AsString, FieldByName('Country').AsString));
+    end;
+    qryData.Next;
+  end;
+end;
+
+procedure TfrmDemo.DisplayData;
+var
+  i: Integer;
+begin
+  grdData.DataSource := dsData;
+  grdData.Columns[0].FieldName := 'Name';
+  grdData.Columns[1].FieldName := 'Address';
+  grdData.Columns[2].FieldName := 'City';
+  grdData.Columns[3].FieldName := 'Country';
+end;
+
+procedure TfrmDemo.SaveData;
+var
+  i: Integer;
+begin
+  for i := 0 to FDataList.Count - 1 do
+  begin
+    // get custom data object from list
+    with TCustomer(FDataList[i]) do
+    begin
+      // update record in query
+      if not qryData.Locate('Name', Name, []) then
+        qryData.Append
+      else
+        qryData.Edit;
+      qryData.FieldByName('Name').AsString := Name;
+      qryData.FieldByName('Address').AsString := Address;
+      qryData.FieldByName('City').AsString := City;
+      qryData.FieldByName('Country').AsString := Country;
+      qryData.Post;
+    end;
+  end;
+end;
+
+// custom data object
+type
+  TCustomer = class
+  private
+    FName: string;
+    FAddress: string;
+    FCity: string;
+    FCountry: string;
+  public
+    constructor Create(Name, Address, City, Country: string);
+    property Name: string read FName write FName;
+    property Address: string read FAddress write FAddress;
+    property City: string read FCity write FCity;
+    property Country: string read FCountry write FCountry;
+  end;
+
+constructor TCustomer.Create(Name, Address, City, Country: string);
+begin
+  FName := Name;
+  FAddress := Address;
+  FCity := City;
+  FCountry := Country;
+end;
+
+end.

@@ -1,0 +1,83 @@
+pragma solidity ^0.8.0;
+
+// Contract for managing a crowdfunding campaign
+contract Crowdfunding {
+    
+    // Variables
+    address public owner;
+    mapping(address => uint256) public contributions;
+    uint256 public totalFunds;
+    uint256 public target;
+    uint256 public minContribution;
+    uint256 public deadline;
+    
+    // Events
+    event ContributionMade(address indexed contributor, uint256 amount);
+    event FundsWithdrawn(address indexed recipient, uint256 amount);
+    event CampaignSuccessful();
+    event CampaignFailed();
+    
+    // Constructor function
+    constructor(uint256 _target, uint256 _minContribution, uint256 _deadline) {
+        owner = msg.sender;
+        target = _target;
+        minContribution = _minContribution;
+        deadline = _deadline;
+    }
+    
+    // Modifier to check if the sender is the owner of the contract
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the contract owner can call this function.");
+        _;
+    }
+    
+    // Modifier to check if the campaign has already ended
+    modifier campaignActive() {
+        require(block.timestamp < deadline, "The campaign has ended.");
+        _;
+    }
+    
+    // Function for contributors to make a contribution to the campaign
+    function contribute() public payable campaignActive {
+        require(msg.value >= minContribution, "The contribution amount is too low.");
+        contributions[msg.sender] += msg.value;
+        totalFunds += msg.value;
+        emit ContributionMade(msg.sender, msg.value);
+    }
+    
+    // Function for the owner to withdraw funds from the campaign
+    function withdrawFunds(uint256 amount) public onlyOwner {
+        require(amount <= address(this).balance, "The requested amount exceeds the contract balance.");
+        require(block.timestamp > deadline, "The campaign has not ended yet.");
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "Transfer failed.");
+        emit FundsWithdrawn(msg.sender, amount);
+        if (totalFunds >= target) {
+            emit CampaignSuccessful();
+        }
+        else {
+            emit CampaignFailed();
+        }
+    }
+    
+    // Function for contributors to withdraw their contributions if the campaign has failed
+    function withdrawContribution() external {
+        require(!campaignActive(), "The campaign is still active.");
+        require(contributions[msg.sender] > 0, "You have not made any contributions.");
+        uint256 amount = contributions[msg.sender];
+        contributions[msg.sender] = 0;
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "Transfer failed.");
+        emit FundsWithdrawn(msg.sender, amount);
+    }
+    
+    // Function for the owner to end the campaign if the target amount has not been reached
+    function endCampaign() external onlyOwner {
+        require(!campaignActive(), "The campaign is still active.");
+        require(totalFunds < target, "The target amount has been reached.");
+        (bool success, ) = msg.sender.call{value: address(this).balance}("");
+        require(success, "Transfer failed.");
+        emit FundsWithdrawn(msg.sender, address(this).balance);
+        emit CampaignFailed();
+    }
+}

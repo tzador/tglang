@@ -1,0 +1,73 @@
+#nginx.conf
+
+# Global Settings
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+
+# Basic Settings
+events {
+  worker_connections 768;
+}
+
+http {
+  #Configurations for Virtual Hosts
+  server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    root /var/www/html;
+
+    index index.html index.htm index.nginx-debian.html;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    # Enable Gzip Compression
+    gzip on;
+    gzip_types application/javascript image/* text/css;
+
+    # Configure Caching
+    # Set cache expiration for static files
+    location ~* \.(js|css|jpg|jpeg|png)$ {
+    expires 2d;
+    add_header Vary Accept-Encoding;
+    }
+
+    # Enable SSL
+    listen 443 ssl;
+    ssl_certificate /path/to/certificate.crt;
+    ssl_certificate_key /path/to/private.key;
+
+    # Enable HTTP/2
+    # Note: Must have an SSL certificate configured to enable HTTP/2
+    listen 443 ssl http2;
+
+    # Configure Reverse Proxy
+    location /api/ {
+      proxy_pass http://localhost:8000/;
+    }
+
+    # Error Pages
+    # Custom 404 error page
+    error_page 404 /404.html;
+    location = /404.html {
+      internal;
+    }
+  }
+
+  # Configurations for Second Virtual Host
+  server {
+    listen 8000;
+    server_name example.com;
+    root /var/www/html/example;
+
+    # Enable HTTP/2
+    listen 80 http2;
+
+    # Disable SSL
+    listen 80;
+    ssl off;
+  }
+}

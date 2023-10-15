@@ -1,0 +1,38 @@
+# This code snippet performs a Monte Carlo simulation of a logistic regression model with multiple explanatory variables
+
+# Setting up data
+n <- 1000 # number of observations
+m <- 5 # number of explanatory variables
+x <- matrix(rnorm(n*m), ncol = m) # matrix of explanatory variables
+b <- c(2, 3, 1, 4, 5) # true coefficients
+y <- rbinom(n, 1, plogis(x %*% b)) # response variable
+
+# Function to perform one iteration of the Monte Carlo simulation
+monte_carlo <- function(x, y) {
+  # Creating training and testing data sets
+  train_idx <- sample(n, n/2) # randomly selecting half of the observations for training
+  train_x <- x[train_idx, ] # training data matrix
+  train_y <- y[train_idx] # training response vector
+  test_x <- x[-train_idx, ] # testing data matrix
+  test_y <- y[-train_idx] # testing response vector
+  
+  # Fitting logistic regression model
+  fit <- glm(train_y ~ train_x, family = binomial(link = "logit")) 
+  
+  # Cross-validation
+  pred <- predict(fit, newdata = test_x, type = "response") # generating predicted probabilities
+  error_rate <- sum((pred > 0.5) != test_y)/length(test_y) # calculating error rate
+  
+  # Returning results
+  return(list(coef = coef(fit), error = error_rate))
+}
+
+# Performing Monte Carlo simulation with 100 iterations
+results <- replicate(100, monte_carlo(x, y))
+
+# Visualizing results
+par(mfrow = c(2, 3)) # setting up a 2x3 grid for plots
+for (i in 1:m) {
+  hist(results[1, ], main = paste0("Distribution of Coefficient ", i)) # histogram of coefficient distribution
+  boxplot(results[2, ] ~ results[1, ], main = paste0("Relationship Between Coefficient ", i, " and Error Rate")) # boxplot of coefficient vs. error rate
+}

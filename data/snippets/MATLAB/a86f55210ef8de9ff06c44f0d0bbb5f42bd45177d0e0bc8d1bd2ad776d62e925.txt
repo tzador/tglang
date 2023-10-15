@@ -1,0 +1,58 @@
+%% Trajectory Tracking with Reinforcement Learning
+clear all; close all; clc;
+
+%% Define Environment
+env = rlPredefinedEnv("DoubleIntegratorDiscrete");
+
+%% Define Agent
+numStates = numel(env.LowerLimits); 
+numActions = numel(env.ActionInfo.Elements); 
+statePath = [ ...
+    imageInputLayer([numStates 1 1],"Normalization","none","Name","state")
+    ];
+actionPath = [ ...
+    imageInputLayer([1 1 1],"Normalization","none","Name","action")
+    fullyConnectedLayer(numActions,"Name","CriticStateFC1")
+    reluLayer("Name","CriticRelu1")
+    fullyConnectedLayer(1,"Name","CriticStateFC2")];
+commonPath = [additionLayer(2,"Name","add")
+    reluLayer("Name","CriticCommonRelu")
+    fullyConnectedLayer(1,"Name","output")];
+criticNetwork = layerGraph(statePath);
+criticNetwork = addLayers(criticNetwork,commonPath);
+criticNetwork = connectLayers(criticNetwork,"CriticStateFC2","add/in2");
+actorNetwork = layerGraph(statePath);
+actorNetwork = addLayers(actorNetwork,actionPath);
+actorOptions = rlRepresentationOptions("LearnRate",4e-3,"GradientThreshold",1);
+actor = rlRepresentation(actorNetwork,env.ObservationInfo,env.ActionInfo,'Observation',{'state'},actorOptions);
+criticOptions = rlRepresentationOptions("LearnRate",1e-3,"GradientThreshold",1);
+critic = rlRepresentation(criticNetwork,env.ObservationInfo,env.ActionInfo,'Observation',{'state'},actorOptions);
+agentOptions = rlDQNAgentOptions("SampleTime",env.Ts,"TargetUpdateFrequency",4,"ExperienceBufferLength",1e6,"DiscountFactor",0.99,"MiniBatchSize",64);
+agent = rlDQNAgent(actor,critic,agentOptions);
+
+%% Train Agent
+doTraining = true;
+if doTraining
+    trainOpts = rlTrainingOptions;
+    trainOpts.MaxEpisodes = 5000;
+    trainOpts.MaxStepsPerEpisode = 500;
+    trainOpts.StopOnError = "off";
+    trainOpts.Verbose = true;
+    trainOpts.Plots = "training-progress";
+    trainOpts.ScoreAveragingWindowLength = 50;
+    trainingStats = train(agent,env,trainOpts);
+else
+    load('trainedAgent.mat','agent');
+end
+
+%% Test Agent
+% Load the environment
+envTest = rlPredefinedEnv("DoubleIntegratorDiscrete");
+% Remove maximum episode steps limit
+envTest.MaxStepsPerEpisode = inf;
+% Reset the environment to use initial state
+reset(envTest)
+% Test the trained agent
+experience = sim(envTest,agent);
+totalReward = sum(experience.Reward);
+disp(char("Total reward: " + totalReward));

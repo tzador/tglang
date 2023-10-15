@@ -1,0 +1,65 @@
+server {
+    listen 443 ssl;
+
+    # Redirect all traffic from HTTP to HTTPS
+    server {
+        listen 80;
+        server_name example.com;
+        return 301 https://example.com$request_uri;
+    }
+
+    # SSL configuration
+    ssl_certificate /etc/ssl/certs/example.com/fullchain.pem; # path to your certificate
+    ssl_certificate_key /etc/ssl/private/example.com/privkey.pem; # path to your private key
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:50m;
+
+    # Enable HTTP/2
+    http2_max_field_size 16k;
+    http2_max_header_size 32k;
+    http2_max_requests 1000;
+    
+    # Set HTTPS strict transport security
+    add_header Strict-Transport-Security "max-age=31536000; includeSubdomains" always;
+    
+    # Serve static files directly
+    location /static/ {
+        alias /var/www/example.com/static/;
+        expires 1y;
+        add_header Cache-Control "public";
+    }
+    
+    # Reverse proxy configuration
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # Enable buffering of responses from the proxied server
+        proxy_buffering on;
+
+        # Enable the HTTP/1.1 protocol for proxy requests
+        proxy_http_version 1.1;
+
+        # Disable proxy request header fields that are not needed
+        proxy_set_header Connection "";
+        proxy_set_header Authorization "";
+
+        # Configure timeouts
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+
+        # Enable proxy request buffering
+        proxy_buffer_size 64k;
+        proxy_buffers 16 32k;
+        proxy_busy_buffers_size 64k;
+        proxy_temp_file_write_size 64k;
+
+        # Enable websocket support
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}

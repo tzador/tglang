@@ -1,0 +1,73 @@
+// Contract represents a user's share of a crowdfunding campaign
+contract Crowdfunding {
+    // Variables
+    mapping(address => uint) public contributions;
+    uint public totalContributions;
+    uint public minimumContribution;
+    uint public goalAmount;
+    address payable public creator;
+    address payable[] public contributors;
+    uint public deadline;
+    bool public ended;
+
+    // Events
+    event ContributionMade(address contributor, uint amount);
+
+    // Constructor
+    // Takes in minimum contribution amount, goal amount, and deadline for campaign
+    constructor(uint minimum, uint goal, uint durationInDays) public {
+        minimumContribution = minimum;
+        goalAmount = goal;
+        deadline = now + (durationInDays * 1 days);
+        creator = msg.sender;
+    }
+
+    // Modifiers
+    modifier onlyCreator() {
+        require(msg.sender == creator);
+        _;
+    }
+
+    modifier onlyContributor() {
+        require(contributions[msg.sender] > 0);
+        _;
+    }
+
+    // Functions
+    // Allows a user to contribute to the campaign
+    function contribute() public payable {
+        require(!ended);
+        require(msg.value >= minimumContribution);
+        totalContributions += msg.value;
+        contributions[msg.sender] += msg.value;
+        contributors.push(msg.sender);
+        emit ContributionMade(msg.sender, msg.value);
+    }
+
+    // Ends the campaign and sends funds to creator if goal is met
+    function endCampaign() public onlyCreator {
+        require(now >= deadline);
+        ended = true;
+        if (totalContributions >= goalAmount) {
+            creator.transfer(totalContributions);
+        } else {
+            // Refund each contributor their contribution
+            for (uint i = 0; i < contributors.length; i++) {
+                contributors[i].transfer(contributions[contributors[i]]);
+            }
+        }
+    }
+
+    // Withdraws contributions from user's share of campaign
+    function withdraw() public onlyContributor {
+        require(now >= deadline);
+        uint amount = contributions[msg.sender];
+        contributions[msg.sender] = 0;
+        msg.sender.transfer(amount);
+    }
+
+    // Returns the list of contributors to the campaign
+    function getContributors() public view returns (address payable[] memory) {
+        return contributors;
+    }
+}

@@ -1,0 +1,76 @@
+-- | Custom data type for a binary tree
+data Tree a = EmptyTree | Node a (Tree a) (Tree a) deriving (Show, Eq)
+
+-- | Function to insert a new element into a binary tree
+insert :: (Ord a) => a -> Tree a -> Tree a
+insert value EmptyTree = Node value EmptyTree EmptyTree -- If tree is empty, create a new node with value
+insert value (Node a left right) 
+  | value == a = Node value left right -- If value already exists in tree, do not insert
+  | value < a = Node a (insert value left) right -- If value is less than current node, insert into left subtree
+  | value > a = Node a left (insert value right) -- If value is greater than current node, insert into right subtree
+
+-- | Function to create a binary tree from a list of values
+treeFromList :: (Ord a) => [a] -> Tree a
+treeFromList values = foldl (\acc x -> insert x acc) EmptyTree values
+
+-- | Function to check if a value exists in a binary tree
+exists :: (Ord a) => a -> Tree a -> Bool
+exists _ EmptyTree = False -- If tree is empty, value does not exist
+exists value (Node a left right)
+  | value == a = True -- If value is found in current node, return True
+  | value < a = exists value left -- If value is less than current node, search in left subtree
+  | value > a = exists value right -- If value is greater than current node, search in right subtree
+
+-- | Function to delete a value from a binary tree
+delete :: (Ord a) => a -> Tree a -> Tree a
+delete _ EmptyTree = EmptyTree -- If tree is empty, no need to delete
+delete value (Node a left right)
+  | value == a = case (left, right) of
+                (EmptyTree, EmptyTree) -> EmptyTree -- If current node has no child nodes, delete it
+                (EmptyTree, _) -> right -- If current node has only a right child node, replace it with the right subtree
+                (_, EmptyTree) -> left -- If current node has only a left child node, replace it with the left subtree
+                (_, _) -> let (minValue, newLeft) = deleteMin right -- Find the minimum value in the right subtree and remove it
+                          in Node minValue left newLeft -- Replace current node with minimum value and updated right subtree
+  | value < a = Node a (delete value left) right -- If value is less than current node, delete from left subtree
+  | value > a = Node a left (delete value right) -- If value is greater than current node, delete from right subtree
+
+-- | Function to find and delete the minimum value in a binary tree
+deleteMin :: (Ord a) => Tree a -> (a, Tree a)
+deleteMin (Node a EmptyTree right) = (a, right) -- If current node has no left child node, return its value and the right subtree
+deleteMin (Node a left right) = let (minValue, newLeft) = deleteMin left -- Otherwise, recursively find the minimum value in left subtree
+                                in (minValue, Node a newLeft right) -- Replace current node's left subtree with updated version
+
+-- | Function to sort a list using a binary tree
+treeSort :: (Ord a) => [a] -> [a]
+treeSort values = let tree = treeFromList values -- Create a binary tree from the list
+                  in inorderTraversal tree [] -- Perform an inorder traversal to get a sorted list
+
+-- | Function to perform an inorder traversal of a binary tree
+inorderTraversal :: Tree a -> [a] -> [a]
+inorderTraversal EmptyTree acc = acc -- If tree is empty, return accumulated list
+inorderTraversal (Node a left right) acc = inorderTraversal left (a : inorderTraversal right acc) -- Recursively traverse left subtree, add current node's value to list, then traverse right subtree and accumulate the list
+
+-- | Testing with sample tree
+sampleTree = treeFromList [5,3,2,4,7,6,8]
+-- | >> sampleTree
+-- | Node 5 (Node 3 (Node 2 EmptyTree EmptyTree) (Node 4 EmptyTree EmptyTree)) (Node 7 (Node 6 EmptyTree EmptyTree) (Node 8 EmptyTree EmptyTree))
+
+-- | Testing insert function
+-- | >> let newTree = insert 1 sampleTree
+-- | >> newTree
+-- | Node 5 (Node 3 (Node 2 (Node 1 EmptyTree EmptyTree) EmptyTree) (Node 4 EmptyTree EmptyTree)) (Node 7 (Node 6 EmptyTree EmptyTree) (Node 8 EmptyTree EmptyTree))
+
+-- | Testing exists function
+-- | >> exists 6 sampleTree
+-- | True
+-- | >> exists 9 sampleTree
+-- | False
+
+-- | Testing delete function
+-- | >> let updatedTree = delete 2 sampleTree
+-- | >> updatedTree
+-- | Node 5 (Node 3 EmptyTree (Node 4 EmptyTree EmptyTree)) (Node 7 (Node 6 EmptyTree EmptyTree) (Node 8 EmptyTree EmptyTree))
+
+-- | Testing treeSort function
+-- | >> treeSort [9,2,7,4,6,3,1]
+-- | [1,2,3,4,6,7,9]

@@ -1,0 +1,163 @@
+// Define GraphQL Schema
+const { buildSchema } = require('graphql');
+
+// Construct a schema
+var schema = buildSchema(`
+  type Query {
+    people(id: Int, name: String): [Person]
+  }
+
+  type Person {
+    id: Int
+    name: String
+    age: Int
+    occupation: String
+    friends: [Person]
+  }
+
+  type Mutation {
+    createPerson(name: String!, age: Int!, occupation: String!): Person
+    updatePerson(id: Int!, age: Int, occupation: String): Person
+    deletePerson(id: Int!): Person
+  }
+`);
+
+// Define Resolver Functions
+var persons = [
+  {
+    id: 1,
+    name: 'John Smith',
+    age: 25,
+    occupation: 'Software Engineer',
+    friends: [2, 3]
+  },
+  {
+    id: 2,
+    name: 'Jane Doe',
+    age: 28,
+    occupation: 'Data Analyst',
+    friends: [1]
+  },
+  {
+    id: 3,
+    name: 'Bob Johnson',
+    age: 22,
+    occupation: 'Web Developer',
+    friends: [1, 2]
+  }
+];
+
+var root = {
+  people: (args) => {
+    if (args.id) {
+      return persons.filter(person => person.id === args.id);
+    }
+    if (args.name) {
+      return persons.filter(person => person.name.includes(args.name));
+    }
+    return persons;
+  },
+  createPerson: (args) => {
+    const newPerson = {
+      id: Math.floor(Math.random() * 100),
+      name: args.name,
+      age: args.age,
+      occupation: args.occupation
+    };
+    persons.push(newPerson);
+    return newPerson;
+  },
+  updatePerson: (args) => {
+    let targetPerson = persons.find(person => person.id === args.id);
+
+    if (!targetPerson) {
+      throw new Error('Person not found');
+    }
+
+    if (args.age) {
+      targetPerson.age = args.age;
+    }
+    if (args.occupation) {
+      targetPerson.occupation = args.occupation;
+    }
+
+    return targetPerson;
+  },
+  deletePerson: (args) => {
+    let targetPerson = persons.find(person => person.id === args.id);
+
+    if (!targetPerson) {
+      throw new Error('Person not found');
+    }
+
+    persons = persons.filter(person => person.id !== args.id);
+
+    return targetPerson;
+  }
+};
+
+// Execute GraphQL Queries
+var query1 = `
+  query {
+    people {
+      name
+      age
+      occupation
+      friends {
+        name
+      }
+    }
+  }
+`;
+
+var query2 = `
+  query {
+    people(name: "Jane") {
+      name
+      occupation
+    }
+  }
+`;
+
+var query3 = `
+  mutation {
+    createPerson(name: "Alexa", age: 31, occupation: "UI/UX Designer") {
+      name
+      age
+      occupation
+    }
+  }
+`;
+
+var query4 = `
+  mutation {
+    updatePerson(id: 1, age: 26) {
+      name
+      age
+    }
+  }
+`;
+
+var query5 = `
+  mutation {
+    deletePerson(id: 3) {
+      name
+    }
+  }
+`;
+
+// Print Results
+console.log('--- Query #1 ---')
+console.log(graphql(schema, query1, root));
+
+console.log('--- Query #2 ---')
+console.log(graphql(schema, query2, root));
+
+console.log('--- Query #3 ---')
+console.log(graphql(schema, query3, root));
+
+console.log('--- Query #4 ---')
+console.log(graphql(schema, query4, root));
+
+console.log('--- Query #5 ---')
+console.log(graphql(schema, query5, root));

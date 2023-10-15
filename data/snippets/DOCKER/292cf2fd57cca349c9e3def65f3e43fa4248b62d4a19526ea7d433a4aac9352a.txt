@@ -1,0 +1,37 @@
+# Define a multi-stage Dockerfile for building a Node.js application
+FROM node:14.15.4-alpine AS build
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the package.json and package-lock.json files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy application source code
+COPY . .
+
+# Build the application
+RUN npm run build
+
+# Production stage, use a lightweight image
+FROM node:14.15.4-alpine AS production
+
+# Set the working directory
+WORKDIR /app
+
+# Copy only the necessary files from the build stage
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package*.json ./
+
+# Install production dependencies only
+RUN npm install --production
+
+# Expose the application port
+EXPOSE 3000
+
+# Start the application
+CMD ["npm", "start"]

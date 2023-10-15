@@ -1,0 +1,46 @@
+// This code snippet generates a shift register with parallel load functionality
+module shift_register (
+  input logic [3:0] data_in, // input data to be loaded into the register
+  input logic load, // signal to enable parallel loading
+  input logic clk, // clock signal
+  output logic [3:0] data_out, // output data from the register
+  output logic output_ready // flag to indicate when data is available at the output
+);
+
+logic [3:0] register [0:6]; // declare an array of 7 registers, each with 4 bits
+logic [2:0] index = 0; // variable to keep track of which register to load data into
+logic [2:0] next_index = 0; // variable to keep track of which register to output data from
+logic parallel_load; // logic variable to hold the load signal during parallel loading
+
+// always block sensitive to the clock signal
+always_ff @ (posedge clk) begin
+  if (load) begin // if load signal is high, parallel loading is enabled
+    register[index] <= data_in; // load input data into the current register
+    parallel_load <= 1; // set parallel_load to high to indicate parallel loading is in progress
+  end
+end
+
+always_comb begin
+  data_out <= register[next_index]; // always output data from the current register
+  if (index == next_index && !parallel_load) begin // if parallel loading is complete and next_index and index are equal
+    output_ready = 1; // set output_ready flag to indicate data is available at the output
+  end else begin
+    output_ready = 0; // otherwise, data is still being loaded, so set flag to 0
+  end
+end
+
+always_comb begin
+  next_index = index + 1; // always set next_index to be one register ahead of current index
+end
+
+always_ff @ (posedge clk) begin
+  if (load) begin // if load signal is high, parallel loading is enabled
+    index <= index + 1; // increment index to load data into the next register
+    parallel_load <= 1; // set parallel_load to high to indicate parallel loading is in progress
+  end else if (parallel_load) begin // otherwise, if parallel loading is in progress
+    index <= index; // do nothing with the index variable
+    parallel_load <= 0; // set parallel_load to low to indicate parallel loading is complete
+  end
+end
+
+endmodule

@@ -1,0 +1,84 @@
+pragma solidity ^0.8.0;
+
+// Solidity contract for a SkillToken
+contract SkillToken{
+
+    //State variables
+    address public owner;
+    string public name;
+    string public symbol;
+    uint8 public decimals;
+    uint256 public totalSupply;
+
+    //Mappings
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+
+    //Events
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+
+    //Constructor
+    constructor(string memory _name, string memory _symbol, uint8 _decimals, uint256 _initialSupply){
+        owner = msg.sender;
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+        totalSupply = _initialSupply;
+        balanceOf[msg.sender] = _initialSupply; //Assign the initial supply to the owner's balance
+    }
+
+    //Modifier to only allow the owner to perform certain functions
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the owner can perform this function!");
+        _;
+    }
+
+    //Function to transfer tokens
+    function transfer(address _to, uint256 _value) public returns (bool success){
+        require(balanceOf[msg.sender] >= _value, "Not enough tokens in sender's account!"); //Check if sender has enough tokens
+        require(balanceOf[_to] + _value >= balanceOf[_to], "Integer overflow!"); //Prevent integer overflow
+        balanceOf[msg.sender] -= _value; //Subtract tokens from sender's account
+        balanceOf[_to] += _value; //Add tokens to receiver's account
+        emit Transfer(msg.sender, _to, _value); //Emit Transfer event
+        return true;
+    }
+
+    //Function to approve tokens to be spent by another address
+    function approve(address _spender, uint256 _value) public returns (bool success){
+        allowance[msg.sender][_spender] = _value; //Assign the allowance for the spender
+        emit Approval(msg.sender, _spender, _value); //Emit Approval event
+        return true;
+    }
+
+    //Function to transfer tokens on behalf of another address
+    function transferFrom(address _from, address _to, uint256 _value) public returns (bool success){
+        require(_value <= balanceOf[_from], "Not enough tokens in sender's account!"); //Check if sender has enough tokens
+        require(_value <= allowance[_from][msg.sender], "Allowance exceeded!"); //Check if allowance is enough
+        require(balanceOf[_to] + _value >= balanceOf[_to], "Integer overflow!"); //Prevent integer overflow
+        balanceOf[_from] -= _value; //Subtract tokens from from address
+        balanceOf[_to] += _value; //Add tokens to receiver's account
+        allowance[_from][msg.sender] -= _value; //Subtract from spender's allowance
+        emit Transfer(_from, _to, _value); //Emit Transfer event
+        return true;
+    }
+
+    //Function to mint new tokens (only owner can call this)
+    function mint(address _to, uint256 _value) public onlyOwner returns (bool success){
+        require(totalSupply + _value >= totalSupply, "Integer overflow!"); //Prevent integer overflow
+        balanceOf[_to] += _value; //Add tokens to receiver's account
+        totalSupply += _value; //Increase total supply
+        emit Transfer(address(0), _to, _value); //Emit Transfer event
+        return true;
+    }
+
+    //Function to burn tokens (only owner can call this)
+    function burn(address _from, uint256 _value) public onlyOwner returns (bool success){
+        require(balanceOf[_from] >= _value, "Not enough tokens in sender's account!"); //Check if sender has enough tokens
+        require(totalSupply >= _value, "Cannot burn more than total supply!"); //Check if total supply is enough
+        balanceOf[_from] -= _value; //Subtract tokens from from address
+        totalSupply -= _value; //Decrease total supply
+        emit Transfer(_from, address(0), _value); //Emit Transfer event
+        return true;
+    }
+}

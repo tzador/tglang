@@ -1,0 +1,39 @@
+defmodule User do              # create a module named User
+  @moduledoc """
+  User module for managing user accounts.
+  """
+
+  require Logger              # import the Logger module
+  
+  @type struct t = %{
+    name: String.t,           # define a struct type with a name field
+    age: non_neg_integer()    # and an age field
+  }
+
+  @spec register_user(map) :: User.t()   # function spec for registering a user
+
+  def register_user(user_info) do   # function definition
+    with
+      {:ok, user} <- validate_user_information(user_info),   # validate user information
+      {:ok, _pid} <- spawn_monitor(fn -> create_user(user) end),   # spawn a process to create user
+      do: {:ok, user}      # return the user struct
+    else
+      {:error, reason} -> 
+        Logger.error("User registration failed, reason: #{inspect(reason)}")   # log the error
+        {:error, reason}
+    end
+  end
+
+  defp validate_user_information(%{name: nil}), do: {:error, :missing_name}    # helper function to validate user information
+
+  defp validate_user_information(%{name: name, age: age}) when is_binary(name) and is_integer(age), do: {:ok, %{name: name, age: age}}
+
+  defp create_user(user = %User{name: name, age: age}) do    # helper function to create a user and return their struct
+    user
+    |> update_name(name)
+    |> update_age(age)
+  end
+
+  defp update_name(user, name) when is_binary(name), do: %{user | name: name}    # helper function to update user's name
+  defp update_age(user, age) when is_integer(age), do: %{user | age: age}       # helper function to update user's age
+end

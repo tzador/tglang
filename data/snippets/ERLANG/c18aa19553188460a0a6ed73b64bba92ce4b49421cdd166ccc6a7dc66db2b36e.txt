@@ -1,0 +1,153 @@
+%% -*- mode: erlang -*-
+-module(gen_server_registry).
+%% This module implements a generic server process registry.
+%% It is based on the gen_server behavior.
+
+-behaviour(gen_server).
+%% Include all the necessary headers.
+%% This ensures that all the required functions are available.
+%% Add a brief description of the module.
+%% This module provides functions for registering and managing gen_server processes.
+
+-export([start_link/2, register/3, unregister/2, get_name/2, get_info/2, get_all_names/1]).
+%% Export the important functions.
+%% This ensures that they can be used by other modules.
+
+-record(gs_state, {server_table}).
+%% Define a record to store the state of the registry.
+%% This record contains a table of registered servers.
+
+%% The init function is called when the gen_server is started.
+%% It initializes the state of the registry by creating an empty table. 
+%% The state is stored in the record defined above.
+%% Add a brief description of the function and its arguments.
+%% This function takes in the arguments 'Name' and 'Options'.
+%% 'Name' is the name of the registry and 'Options' contains any additional options.
+
+init(Name, Options) ->
+    io:format("Initializing gen_server registry.~n"),
+    {ok, #gs_state{server_table = gb_trees:empty()}}.
+%% Return a tuple containing 'ok' and the initialized state.
+%% The table is initialized as an empty gb_trees data structure.
+
+%% The handle_call function is used to handle synchronous calls to the server.
+%% The first argument is the incoming request, which can be any term.
+%% The second argument is the current state of the registry.
+%% The third argument is a tuple containing the caller's process id, the caller's reference and the arguments.
+handle_call({register, Name, Pid}, State) ->
+    io:format("Registering process with name ~p~n", [Name]),
+    NewTable = gb_trees:insert(Name, Pid, State#gs_state.server_table),
+    {reply, {ok, Pid}, State#gs_state{server_table = NewTable}};
+%% Add a new server process to the registry by inserting it into the table.
+%% The name is used as the key and the pid as the value.
+%% Return a tuple containing 'ok' and the pid.
+%% Update the state with the new table.
+
+handle_call({unregister, Name}, State) ->
+    io:format("Unregistering process with name ~p~n", [Name]),
+    NewTable = gb_trees:delete(Name, State#gs_state.server_table),
+    {reply, ok, State#gs_state{server_table = NewTable}};
+%% Remove a server process from the registry by deleting it from the table.
+%% The name is used as the key.
+%% Return 'ok'.
+%% Update the state with the new table.
+
+handle_call({get_name, Pid}, State) ->
+    Name = gb_trees:select(State#gs_state.server_table, Pid),
+    {reply, Name, State};
+%% Get the name of a registered server process by searching for its pid in the table.
+%% Return the name and the current state.
+
+handle_call({get_info, Name}, State) ->
+    Info = gb_trees:get(Name, State#gs_state.server_table),
+    {reply, Info, State};
+%% Get the info of a registered server process by searching for its name in the table.
+%% Return the info and the current state.
+
+handle_call(get_all_names, State) ->
+    Names = gb_trees:keys(State#gs_state.server_table),
+    {reply, Names, State}.
+%% Get the names of all registered server processes by retrieving the keys from the table.
+%% Return the names and the current state.
+
+%% The handle_info function is used to handle asynchronous messages sent to the server.
+%% These are typically used for notifications or events.
+%% In this case, we do not handle any asynchronous messages so we just return the unchanged state.
+%% Add a brief description of the function and its arguments.
+%% This function takes in the arguments 'Msg' and 'State'.
+%% 'Msg' is the incoming message and 'State' is the current state.
+handle_info(Msg, State) ->
+    {noreply, State}.
+%% Return the unchanged state.
+
+%% The handle_cast function is similar to handle_info, but it is used to handle non-blocking calls to the server.
+%% These are typically used for updating the state of the server.
+%% In this case, we do not handle any casts so we just return the unchanged state.
+%% Add a brief description of the function and its arguments.
+%% This function takes in the arguments 'Msg' and 'State'.
+%% 'Msg' is the incoming message and 'State' is the current state.
+%% Since we do not handle any casts, we simply return the unchanged state.
+handle_cast(Msg, State) ->
+    {noreply, State}.
+%% Return the unchanged state.
+
+%% The code below specifies the callbacks to be used for the gen_server behavior.
+%% Add a brief description of the callbacks and their purpose.
+%% The first callback, 'init', is used to initialize the state of the server.
+%% The second callback, 'handle_call', is used to handle synchronous calls.
+%% The third callback, 'handle_info', is used to handle asynchronous messages.
+%% The fourth callback, 'handle_cast', is used to handle non-blocking calls.
+%% The last callback, 'terminate', is used to clean up when the server is stopped.
+%% Add a brief description of the 'terminate' callback and its arguments.
+%% This function takes in the arguments 'Reason' and 'State'.
+%% 'Reason' is the reason for termination and 'State' is the current state.
+%% In this case, we do not have any cleanup to do so we simply return 'ok'.
+%% This prevents the server from crashing if it receives a 'shutdown' message.
+%% If you have any cleanup to do, you can add it here.
+
+%% The shutdown function is called by the gen_server when it is stopping.
+%% In this case, we do not need to do anything so we simply return 'ok'.
+%% However, you can add any additional shutdown tasks here.
+%% Add a brief description of the function and its arguments.
+%% This function takes in the arguments 'Reason' and 'State'.
+%% 'Reason' is the reason for shutdown and 'State' is the current state.
+%% If you have any additional tasks, you can add them here.
+%% In this snippet, we do not have any additional tasks so we just return 'ok'.
+terminate(Reason, State) ->
+    io:format("Stopping gen_server registry.~n"),
+    ok.
+%% Return 'ok'.
+
+%% This function is used to start the gen_server.
+%% It takes in the same arguments as the init function.
+%% Add a brief description of the function and its arguments.
+%% This function takes in the arguments 'Args' and 'Opts'.
+%% 'Args' contains the arguments to be passed to the init function.
+%% 'Opts' contains any additional options.
+%% This function starts the gen_server and returns the pid.
+%% The pid can be used to call the server functions.
+%% It is usually started using the convenience function 'start_link'.
+start_link(Args, Opts) ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, Args, Opts).
+%% Start the gen_server with the specified name and using this module as the callback module.
+
+%% Use a macro to define the logging function.
+%% This function can be used to log any messages from the server.
+%% Add a brief description of the function and its arguments.
+%% This function takes in the arguments 'Format' and 'Args'.
+%% 'Format' is the format of the log message and 'Args' contains any variables to be inserted.
+-define(LOG(Format, Args), io:format("~p: " ++ Format, [?MODULE | Args])).
+%% Log the message with the module name included.
+
+%% Define macros for each of the exported functions.
+%% These macros can be used to call the functions without specifying the module name.
+%% This makes the code more readable and easier to maintain.
+-define(EXPORT(Suffix), fun ?MODULE:Suffix/2).
+
+%% Define the export functions using the define macro.
+%% These functions are called using the macros defined above.
+register = ?EXPORT(register),
+unregister = ?EXPORT(unregister),
+get_name = ?EXPORT(get_name),
+get_info = ?EXPORT(get_info),
+get_all_names = ?EXPORT(get_all_names).

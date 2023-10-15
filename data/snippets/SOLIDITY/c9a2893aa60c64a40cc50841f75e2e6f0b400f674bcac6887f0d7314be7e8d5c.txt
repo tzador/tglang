@@ -1,0 +1,56 @@
+/* 
+This is a complex code snippet in Solidity,
+a programming language used for writing smart contracts on the Ethereum blockchain.
+It implements a simple crowdfunding contract.
+*/
+
+pragma solidity ^0.8.0; //specifies the version of Solidity to be used
+
+contract Crowdfunding { //declares the contract and its name
+
+    //variables for storing relevant information    
+    address payable public creator; //the creator of the crowdfunding campaign
+    uint public projectBalance; //the total amount raised so far
+    uint public deadline; //the deadline for the campaign
+    string public projectName; //the name of the project being funded
+    mapping (address => uint) public contributors; //keeps track of how much each contributor has donated
+    uint public numContributors; //the total number of contributors to the campaign
+    uint public minimumContribution; //the minimum amount allowed for donations
+    
+    //event for tracking contributions
+    event LogContribution(address contributor, uint amount);
+    
+    //constructor function to initialize the contract with relevant information
+    constructor (
+        uint campaignDuration,
+        string memory campaignName,
+        uint minimumDonation
+    ) {
+        creator = payable(msg.sender);
+        deadline = block.timestamp + campaignDuration;
+        projectName = campaignName;
+        minimumContribution = minimumDonation;
+    }
+    
+    //modifier for checking if the caller is the creator of the campaign
+    modifier onlyCreator {
+        require(msg.sender == creator);
+        _;
+    }
+
+    //function for donating to the campaign
+    function contribute() public payable {
+        require(msg.value >= minimumContribution); //checks if the amount donated meets the minimum required
+        contributors[msg.sender] += msg.value; //adds the amount donated to the contributor's address in the mapping
+        projectBalance += msg.value; //updates the total amount raised
+        numContributors++; //increases the total number of contributors
+        emit LogContribution(msg.sender, msg.value); //emits an event to track the contribution
+    }
+    
+    //function for the creator to withdraw funds from the campaign
+    function withdraw() public onlyCreator {
+        require(block.timestamp >= deadline); //checks if the campaign has ended
+        creator.transfer(projectBalance); //transfers the funds to the creator's address
+        projectBalance = 0; //resets the project balance to zero
+    }
+}

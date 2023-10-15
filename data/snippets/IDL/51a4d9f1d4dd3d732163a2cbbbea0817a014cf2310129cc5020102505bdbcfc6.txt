@@ -1,0 +1,46 @@
+;; This code snippet creates and plots a Levenberg-Marquardt minimization procedure
+
+;; Define necessary variables
+data = [[1,2,3], [4,5,6], [7,8,9]] ;; sample data
+N_param = 3 ;; number of parameters
+use_jacobian = 1 ;; flag for using Jacobian matrix
+jac = create_jacobian(data) ;; create Jacobian matrix from data
+
+;; Define the forward function to be fitted
+function func, param, data, jac
+  ;; param - input parameters, data - input data, jac - Jacobian matrix
+  result = param[0]*data[0] + param[1]*data[1] + param[2]*data[2]
+  return, result
+end
+
+;; Define the residual function to be minimized
+function res_func, param, data, jac
+  ;; param - input parameters, data - input data, jac - Jacobian matrix
+  predicted = func(param, data, jac) ;; calculate predicted values using forward function
+  residuals = data - predicted ;; calculate residuals
+  return, residuals
+end
+
+;; Define the Levenberg-Marquardt algorithm
+procedure LM, param, data, jac, N_iter
+  ;; param - input parameters, data - input data, jac - Jacobian matrix, N_iter - number of iterations
+  chi_sq = 0.0 ;; initialize chi-square value
+  lambda = 0.001 ;; initialize lambda value
+  for i=0, N_iter-1 do begin ;; loop over the number of iterations
+    predicted = func(param, data, jac) ;; calculate predicted values using forward function
+    residuals = res_func(param, data, jac) ;; calculate residuals
+    delta_param = solve(jac, residuals) ;; solve for the parameter updates
+    new_param = param + delta_param ;; update the parameter values
+    new_chi_sq = sum(residuals^2) ;; calculate the new chi-square value
+    if (new_chi_sq >= chi_sq) then lambda = lambda*10.0 ;; increase lambda value if chi-square worsens
+    else lambda = lambda/10.0 ;; decrease lambda value if chi-square improves
+    param = new_param ;; update the parameter values
+    chi_sq = new_chi_sq ;; update the chi-square value
+  endfor
+  return, param ;; return the final parameter values
+end
+
+;; Call the Levenberg-Marquardt procedure and plot the results
+best_fit = LM([1,2,3], data, jac, 50) ;; perform 50 iterations of LM algorithm
+plot, data, title='Levenberg-Marquardt Fit' ;; plot original data
+oplot, func(best_fit, data, jac), color='red', linestyle='solid' ;; overlay predicted values in red

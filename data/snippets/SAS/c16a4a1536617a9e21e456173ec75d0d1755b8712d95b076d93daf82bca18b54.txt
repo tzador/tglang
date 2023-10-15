@@ -1,0 +1,50 @@
+/* This is a SAS code snippet for performing multiple linear regression analysis */
+/* Import data from a CSV file */
+data work.mydata;
+    infile "C:\Users\my_folder\data.csv" dlm=",";
+    input var1 var2 var3 var4;
+run;
+
+/* Check for missing values */
+proc means data=work.mydata n nmiss;
+run;
+
+/* Split data into training and testing sets */
+proc surveyselect data=work.mydata out=work.train train=0.75 test=0.25 seed=1234;
+    strata var1 var2;
+run;
+
+/* Perform multiple linear regression */
+proc glm data=work.train;
+    model var4 = var1 var2 var3 / selection=backward vif;
+run;
+
+/* Check for outliers */
+proc univariate data=work.train;
+    var var4;
+    output out=work.outliers pctlpts=10 to 90 by 10;
+run;
+
+/* Remove outliers from training data */
+data work.train_no_outliers;
+    set work.train;
+    if var4 not in (work.outliers);
+run;
+
+/* Assess model performance on testing data */
+proc reg data=work.train_no_outliers;
+    model var4 = var1 var2 var3;
+    ods select ModelInformation;
+    output out=work.predicted P=pred_y r=r_pred;
+run;
+
+/* Calculate mean squared error for model validation */
+data work.mse;
+    set work.predicted;
+    err = var4 - pred_y;
+    mse = err**2;
+run;
+
+/* Print final model results */
+proc print data=work.mse;
+run;

@@ -1,0 +1,86 @@
+/**
+* Custom class for creating interactive doors in the game.
+*/
+class InteractiveDoor extends Actor placeable
+    placeablecomponent; // Placeable component for visual representation of the door
+
+    var(Spawn){
+        DoorTag Tag; // Tag used to specify which door this is to other actors
+    }
+
+    var() int OpenSpeed; // Speed at which the door opens
+    var() int CloseSpeed; // Speed at which the door closes
+
+    var() float MaxOpenTime; // Maximum amount of time the door will stay open before closing automatically
+    var() float AutoCloseDelay; // Delay before door will automatically close after being triggered
+
+    var() bool bLocked; // Determines if the door is locked or not
+
+    var() bool bAutoClose; // Determines if the door automatically closes after being triggered
+
+    var() float InitialYaw; // Initial yaw rotation of the door
+
+    var() float TotalOpenTime; // Total time the door has been open since last trigger
+    var() bool bIsOpening; // Determines if the door is currently opening
+
+    var() float LastTriggerTime; // Time when the door was last triggered
+
+    function TriggerDoor(){
+        if(!bLocked){
+            bIsOpening = true; // Set the door to start opening
+            TotalOpenTime = 0; // Reset the total open time
+            LastTriggerTime = Level.TimeSeconds; // Set the time when the door was last triggered
+        }
+    }
+
+    // Called every tick
+    simulated function Tick(float Delta){
+        Super.Tick(Delta);
+        if(bIsOpening){ // If the door is currently opening
+            TotalOpenTime += Delta; // Add the delta time to the total open time
+            float OpenPct = Clamp(TotalOpenTime / MaxOpenTime, 0.0, 1.0); // Calculate the percentage of how much the door is open
+            float Yaw = InitialYaw + (OpenPct * 90); // Calculate the current yaw rotation of the door
+            SetActorRotation(Rot(x, InitialYaw + Yaw, z)); // Set the rotation of the door
+            if(TotalOpenTime > MaxOpenTime){ // If the total open time has exceeded the maximum open time
+                CloseDoor(); // Close the door
+            }
+        }
+    }
+
+    function CloseDoor(){
+        bIsOpening = false; // Set the door to stop opening
+        SetActorRotation(Rot(x, InitialYaw, z)); // Set the rotation of the door to its initial yaw
+        if(bAutoClose){
+            // Wait for the specified auto close delay and then close the door
+            Finish.LatentActionTimer(AutoCloseDelay,'LatSync_CloseDoor');
+        }
+    }
+
+    function RemoveSwitchTag(Tag RemoveTag){
+        if(DoorTag == RemoveTag){
+            DoorTag = 'None';
+        }
+    }
+
+    function AddSwitchTag(Tag NewTag){
+        DoorTag = NewTag;
+    }
+
+    // Called from the client when the door is triggered by the player
+    replication(reliable){
+        function LatSync_CloseDoor(){
+            CloseDoor();
+        }
+
+        function TriggerDoor(){
+            // If the player triggers the door while it is currently closing, stop the closing animation and start opening again
+            if(!bIsOpening){
+                bIsOpening = true;
+                TotalOpenTime = 0;
+                if(DoorTag != 'None'){
+                    SetTimer(Delta,'CloseDoor',CloseSpeed,false);
+                }
+            }
+        }
+    }
+}

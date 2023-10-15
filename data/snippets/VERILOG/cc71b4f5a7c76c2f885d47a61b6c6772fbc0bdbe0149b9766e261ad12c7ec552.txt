@@ -1,0 +1,71 @@
+/**
+ * This is a complex Verilog code snippet that implements a 64-bit AES encryption algorithm using the Galois counter mode (GCM).
+ * It involves various modules and submodules, including an AES core, a universal polynomial GF multiplier, and a GCM controller.
+ */
+module AES_GCM ( // top-level module declaration
+  input clk, // input clock signal
+  input rst, // reset signal
+  input [127:0] msg, // input message to be encrypted
+  input [127:0] nonce, // input nonce value for GCM
+  output reg [127:0] cipher // output encrypted message
+);
+ 
+wire [127:0] key; // wire for AES key generation, must be provided in the testbench
+ 
+// instantiate submodules
+AESCore #(.SIZE(8), .ROUNDS(14)) aesCore (
+  .clk(clk),
+  .rst(rst),
+  .input(msg),
+  .key(key),
+  .output(cipher)
+);
+ 
+GFMultiplier #(.SIZE(8), .POLY(0x1b)) gfMult ( // instantiate GF multiplier for GCM
+  .clk(clk),
+  .input(cipher),
+  .output(cipher_poly)
+);
+ 
+Wire [127:0] iv, tag_in, data_in, aad_in; // wires for intermediate values in GCM
+Wire iv_len, msg_len, aad_len; // wires for lengths of iv, message, and additional authenticated data (aad)
+Wire [127:0] hmac_out; // wire for final output HMAC tag
+wire inCall, outCall; // wires for input and output calls to GCM controller
+ 
+GCMController gcmCtrl ( // instantiate GCM controller module
+  .clk(clk),
+  .rst(rst),
+  .enable(enable),
+  .iv(iv),
+  .iv_len(iv_len),
+  .key(key),
+  .msg(data_in),
+  .msg_len(msg_len),
+  .aad(aad_in),
+  .aad_len(aad_len),
+  .cipher(cipher),
+  .cipher_poly(cipher_poly),
+  .auth_tag(hmac_out),
+  .inCall(inCall),
+  .outCall(outCall)
+);
+ 
+assign data_in = msg; // assign input message to data_in wire
+assign aad_in = {iv, nonce}; // concatenate iv and nonce values for additional authenticated data
+ 
+always @(posedge clk) begin // always block for handling input and output calls
+  if (reset) begin
+    enable <= 0; // disable GCM controller
+    inCall <= 0;
+    outCall <= 0;
+  end else if (inCall == 1) begin // if input call is received
+    enable <= 1; // enable GCM controller
+    data_in <= msg; // assign input message to data_in wire
+    aad_in <= {iv, nonce}; // concatenate iv and nonce values for additional authenticated data
+  end else if (outCall == 1) begin // if output call is received
+    enable <= 1; // enable GCM controller
+    cipher <= cipher; // assign ciphertext wire value to output
+    hmac_out <= hmac_out; // assign HMAC tag wire value to output
+  end
+end
+endmodule

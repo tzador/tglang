@@ -1,0 +1,37 @@
+using Pkg
+Pkg.add("JuMP")
+using JuMP, Clp, Random
+
+# Create a model
+model = Model(with_optimizer(Clp.Optimizer))
+n = 10 # number of variables
+m = 5 # number of constraints
+
+# Create variables
+@variable(model, x[1:n] >= 0, Int) # n integer variables
+@variable(model, y[1:m] >= 0)
+@variable(model, z[1:n, 1:m] >= 0) # n by m matrix of non-negative variables
+
+# Create constraints
+for i in 1:m
+    @constraint(model, sum(z[:, i]) <= y[i]) # sum of matrix column less than or equal to y variables
+end
+@constraint(model, sum(y) <= 2) # sum of y variables less than or equal to 2
+for i in 1:n
+    @constraint(model, sum(z[i, :]) <= x[i]) # sum of matrix row less than or equal to x variables
+end
+
+# Set objective function
+@objective(model, Max, sum(x)) # maximize sum of x variables
+
+# Solve the model
+JuMP.optimize!(model)
+
+# Print status and objective value
+println("Status: ", JuMP.termination_status(model))
+println("Objective value: ", JuMP.objective_value(model))
+
+# Print solutions
+println("x variables: ", JuMP.value.(x))
+println("y variables: ", JuMP.value.(y))
+println("z matrix: ", JuMP.value.(z))

@@ -1,0 +1,69 @@
+"Declare program name
+PROGRAM zprogram_abap.
+
+"Define main select options
+SELECTION-SCREEN BEGIN OF BLOCK main WITH FRAME TITLE text-001.
+PARAMETERS:
+    p_matnr TYPE matnr OBLIGATORY,
+    p_werks TYPE werks OBLIGATORY,
+    p_bukrs TYPE bukrs,
+    p_kostl TYPE kostl,
+    p_lifnr TYPE lifnr.
+SELECTION-SCREEN END OF BLOCK main.
+
+"Define inner select options
+SELECTION-SCREEN BEGIN OF BLOCK inner WITH FRAME TITLE text-002.
+PARAMETERS:
+    p_date TYPE sy-datum OBLIGATORY,
+    p_status TYPE sdokc-stage DEFAULT 'X'.
+SELECTION-SCREEN END OF BLOCK inner.
+
+"Start of start-of-selection event
+START-OF-SELECTION.
+
+"Perform checks for mandatory fields
+IF p_matnr IS INITIAL
+OR p_werks IS INITIAL.
+  MESSAGE e004(text-003) WITH 'Material' 'Plant'.
+ELSE.
+  "Retrieve data from database using select statement
+  SELECT * FROM maakt INTO TABLE @DATA(ls_maakt)
+      WHERE matnr = @p_matnr
+      AND werks = @p_werks.
+
+  IF sy-subrc = 0.
+    "Retrieve additional data using two table joins
+    SELECT bukrs kostl FROM marj_ed To (p_matnr = @p_matnr) 
+        INNER JOIN marc ON marj_ed matnr = marc matnr
+        FOR ALL ENTRIES IN @ls_maakt
+        WHERE matnr = @ls_maakt-matnr
+        AND werks = P_WERKS.
+  ELSE.
+    MESSAGE e007(text-004) WITH p_matnr.
+  ENDIF.
+ENDIF.
+
+"Start of end-of-selection event
+END-OF-SELECTION.
+
+"Loop through the retrieved data for processing
+LOOP AT ls_maakt ASSIGNING FIELD-SYMBOL(<ls_maakt>).
+
+  "Check if additional data was retrieved
+  IF ls_maakt-bukrs IS NOT INITIAL AND
+    ls_maakt-kostl IS NOT INITIAL.
+    "Retrieve vendor data from database using lookup table
+    SELECT * FROM lfa1 INTO @DATA(ls_lfa1)
+        WHERE lifnr = @p_lifnr.
+    IF sy-subrc = 0.
+      "Output data in formatted table
+      WRITE / 'Material:' , p_matnr.
+      WRITE / 'Plant:' , p_werks.
+      WRITE / 'Additional data:' , ls_maakt-bukrs, ls_maakt-kostl.
+      WRITE / 'Vendor details after lookup:' , ls_lfa1-name1, ls_lfa1-ort01.
+    ELSE.
+      WRITE / 'No vendor data available for this material'.
+    ENDIF.
+  ENDIF.
+
+ENDLOOP.

@@ -1,0 +1,154 @@
+//=============================================================================
+//Name: GamePlayController.uc
+//Description: This is the base class for all gameplay controllers in the game.
+//Author: John Smith
+//=============================================================================
+
+class GamePlayController extends Object;
+
+var const float MAX_HEALTH = 1000.0;                                  //maximum health for the player
+var const float MAX_ARMOR = 500.0;                                    //maximum armor for the player
+var const float HEALTH_REGEN_RATE = 10.0;                             //rate at which health is regenerated
+var const float ARMOR_REGEN_RATE = 5.0;                               //rate at which armor is regenerated
+var const float MAX_SPEED = 1200;                                     //maximum speed of the player
+var const float GRAVITY = 800;                                        //gravity affecting the player
+var const float JUMP_HEIGHT = 500;                                    //height of player's jump
+var const int MAX_AMMO = 200;                                         //maximum ammo for player's weapon
+var const float WEAPON_DAMAGE = 50.0;                                 //damage done by player's weapon
+var const float WEAPON_FIRE_RATE = 0.2;                               //rate at which the weapon can fire
+
+var int currentHealth;                                                //current health of the player
+var int currentArmor;                                                 //current armor of the player
+var float currentSpeed;                                               //current speed of the player
+var float currentAmmo;                                                //current ammo for player's weapon
+var float currentFireRate;                                            //current fire rate of player's weapon
+var float currentWeaponDamage;                                        //current damage of player's weapon
+var float currentGravity;                                             //current gravity affecting the player
+
+var bool isDead;                                                      //flag to check if the player is dead
+var bool hasArmor;                                                    //flag to check if the player has armor
+var bool isFiring;                                                    //flag to check if the player is firing
+
+var GameUI UI;                                                        //reference to the game's user interface
+
+//initialize all variables and flags
+simulated function InitController()
+{
+    currentHealth = MAX_HEALTH;
+    currentArmor = MAX_ARMOR;
+    currentSpeed = MAX_SPEED;
+    currentAmmo = MAX_AMMO;
+    currentWeaponDamage = WEAPON_DAMAGE;
+    currentFireRate = WEAPON_FIRE_RATE;
+    currentGravity = GRAVITY;
+    isDead = false;
+    hasArmor = true;
+    isFiring = false;
+    UI = GetGameUI();
+}
+
+//calculate and update player's health based on damage taken
+function UpdateHealth(int damage)
+{
+    currentHealth -= damage;
+
+    if(currentHealth <= 0)
+    {
+        isDead = true;
+        //show game over screen
+        UI.ShowGameOver();
+    }
+    //update health bar in UI
+    UI.UpdateHealthBar(currentHealth / MAX_HEALTH);
+}
+
+//calculate and update player's armor based on damage taken
+function UpdateArmor(int damage)
+{
+    currentArmor -= damage;
+
+    if(currentArmor <= 0)
+    {
+        hasArmor = false;
+    }
+
+    //update armor bar in UI
+    UI.UpdateArmorBar(currentArmor / MAX_ARMOR);
+}
+
+//calculate and update player's speed based on armor and ammo
+function UpdateSpeed()
+{
+    //player's speed is reduced while carrying less ammo and armor
+    currentSpeed = MAX_SPEED * (currentAmmo / MAX_AMMO) * (currentArmor/ MAX_ARMOR) * 0.8;
+    UI.UpdateSpeedometer(currentSpeed);
+}
+
+//function to regenerate health and armor over time
+simulated function RegenerateValues()
+{
+    if(isDead)
+        return;
+
+    //regenerate health
+    if(currentHealth < MAX_HEALTH)
+        currentHealth = FMath.Min(MAX_HEALTH, currentHealth + HEALTH_REGEN_RATE);
+
+    //regenerate armor if the player has armor
+    if(hasArmor)
+    {
+        if(currentArmor < MAX_ARMOR)
+            currentArmor = FMath.Min(MAX_ARMOR, currentArmor + ARMOR_REGEN_RATE);
+        
+        //update armor bar in UI
+        UI.UpdateArmorBar(currentArmor / MAX_ARMOR);
+    }
+}
+
+//function to handle player's jump
+simulated function PlayerJump()
+{
+    if(isDead)
+        return;
+
+    //only allow the player to jump if they are on the ground
+    if(IsOnGround())
+    {
+        SetPhysics(PHYS_RigidBody);
+        Velocity.Z = JUMP_HEIGHT;
+    }
+}
+
+//called every tick to update player's movement and other gameplay elements
+event Tick(float DeltaTime)
+{
+    //regenerate health and armor over time
+    RegenerateValues();
+
+    //if the player is firing, update weapon's fire rate
+    if(isFiring)
+    {
+        currentFireRate -= DeltaTime;
+
+        //when the fire rate reaches 0, the player can fire again
+        if(currentFireRate <= 0)
+        {
+            isFiring = false;
+            currentFireRate = WEAPON_FIRE_RATE;
+        }
+    }
+
+    //update player's speed based on armor and ammo
+    UpdateSpeed();
+}
+
+//function to handle player's death and end the game
+function PlayerDied()
+{
+    //set player's health to 0
+    currentHealth = 0;
+    isDead = true;
+
+    //show game over screen
+    UI.ShowGameOver();
+}

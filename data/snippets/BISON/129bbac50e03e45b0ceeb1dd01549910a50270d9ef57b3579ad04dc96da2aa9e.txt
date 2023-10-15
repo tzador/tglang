@@ -1,0 +1,76 @@
+/* Definition section */
+%token END       /* Defining a token END */
+%token BEGIN     /* Defining a token BEGIN */
+%token INT       /* Defining a token INT */
+%token STRING    /* Defining a token STRING */
+%token SEMICOLON /* Defining a token SEMICOLON */
+
+%% /* Grammar section */
+program: BEGIN expr_list END;
+
+expr_list: expr_list expr
+         | expr
+         ;
+
+expr: INT
+    | STRING
+    | VARIABLE
+    | for_loop
+    ;
+
+for_loop: FOR expr SEMICOLON expr SEMICOLON expr DO expr_list DONE;
+
+/* Input section */
+%{
+#include <stdio.h> /* Including libraries */
+#include <stdlib.h> 
+%}
+
+%% /* Rules section */
+/* Simple assignment statement */
+stmt: VARIABLE '=' expr ';' { printf("%s = %d\n", $1, $3); };
+
+/* for loop statement */
+for_loop: FOR stmt ',' stmt ',' stmt DO stmt_list DONE
+        | FOR stmt ',' stmt DO stmt_list DONE
+        | FOR stmt DO stmt_list DONE
+        ;
+
+%% /* Lexer section */
+/* Reading character by character */
+%x COMMENT /* Defining states for comments */
+%%
+[ \t]+        /* Ignore whitespace */
+\n            /* Ignore newlines */
+"/*"          BEGIN(COMMENT);
+
+<COMMENT>"*/" BEGIN(INITIAL);
+<COMMENT>.    /* Ignore comment characters */
+
+[A-Za-z]+     { /* If a string of characters is matched */
+               printf("STRING %s\n", yytext);
+               }
+
+[0-9]+        { /* If a string of numbers is matched */
+               printf("INT %s\n", yytext);
+               }
+
+=             { printf("ASSIGN\n"); /* If an equals sign is matched */
+               return ASSIGN;
+               }
+
+"for"         { printf("FOR\n"); /* If for keyword is matched */
+               return FOR;
+               }
+
+,             { printf("COMMA\n"); /* If a comma is matched */
+               return COMMA;
+               }
+
+";"           { printf("SEMICOLON\n"); /* If a semicolon is matched */
+               return SEMICOLON;
+               }
+
+.             { printf("INVALID\n"); /* If any other character is matched */
+               return 0;
+               }

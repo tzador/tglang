@@ -1,0 +1,40 @@
+/* Apex code snippet for processing large dataset from Salesforce */
+// Define custom settings to track dataset processing status
+Custom_Settings__c customSettings = Custom_Settings__c.getOrgDefaults();
+// Check if dataset processing is already in progress
+if (customSettings.Status__c == 'In Progress') {
+  System.debug('Dataset processing already in progress.');
+  return;
+}
+// Set dataset processing status to in progress
+customSettings.Status__c = 'In Progress';
+Database.SaveResult saveResult;
+JobTracker__c tracker;
+// Query large dataset from Salesforce object
+List<Salesforce_Object__c> dataList = [SELECT Id, Name, Field1__c, Field2__c, Field3__c FROM Salesforce_Object__c WHERE Field1__c = 'Condition1' AND Field2__c = 'Condition2' AND Field3__c = 'Condition3' LIMIT 50000];
+// Create a batch job to process the dataset
+Database.Batchable<Object> batchJob = new ProcessDataBatch(dataList);
+// Execute the batch job and track the results
+Database.executeBatch(batchJob, 200);
+List<JobTracker__c> trackerList = [SELECT Id, Status__c FROM JobTracker__c WHERE Name = 'ProcessDataBatch' LIMIT 1];
+if (!trackerList.isEmpty()) {
+  // Update job status
+  tracker = trackerList[0];
+  tracker.Status__c = 'Completed';
+  Database.UpdateResult updateResult = Database.update(tracker);
+  if (!updateResult.isSuccess()) {
+    // Log any errors
+    System.debug('Update failed with errors: ' + updateResult.getErrors()[0]);
+    return;
+  }
+  System.debug('Job completed successfully.');
+}
+// Set dataset processing status to completed
+customSettings.Status__c = 'Completed';
+Database.SaveResult saveResult = Database.Update(customSettings, false);
+if (!saveResult.isSuccess()) {
+  // Log any errors
+  System.debug('Update failed with errors: ' + saveResult.getErrors()[0]);
+  return;
+}
+System.debug('Dataset processing completed successfully.');

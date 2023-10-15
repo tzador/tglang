@@ -1,0 +1,51 @@
+/* This code snippet generates a report of sales data for a specific time period */
+
+/* Declare variables and set defaults */
+DEFINE VARIABLE cStore AS CHARACTER NO-UNDO.
+ASSIGN cStore = "Main Store".
+DEFINE VARIABLE dBeginDate AS DATE NO-UNDO.
+DEFINE VARIABLE dEndDate AS DATE NO-UNDO.
+DEFINE VARIABLE iSalesCount AS INTEGER NO-UNDO.
+DEFINE VARIABLE dSalesTotal AS DECIMAL NO-UNDO.
+
+/* Prompt user for start and end dates */
+PROMPT-FOR dBeginDate WITH FRAME "Select Date Range" ROW 1 COLUMN 1 LABEL "Begin Date: ".
+PROMPT-FOR dEndDate WITH FRAME "Select Date Range" ROW 2 COLUMN 1 LABEL "End Date: ".
+
+/* Validate input dates */
+IF dBeginDate > dEndDate THEN
+    DO:
+        MESSAGE "The Begin Date must be prior to the End Date." VIEW-AS ALERT-BOX ERROR.
+        QUIT.
+    END.
+
+/* SET the buffer sort order to the order needed by the report */
+SET-SORT-LIST FOR cStore BY dBeginDate.
+
+/* Find and process sales records within the specified date range */
+FIND FIRST Sales WHERE Sales.Store = cStore AND Sales.TransDate >= dBeginDate AND Sales.TransDate <= dEndDate NO-LOCK.
+/* Loop through all found records and calculate the total sales for the period and the number of sales */
+REPEAT:
+    ASSIGN iSalesCount = iSalesCount + 1.
+    ASSIGN dSalesTotal = dSalesTotal + Sales.Amount.
+END.
+
+/* Output the results to a report format */
+DEFINE TEMP-TABLE ttReport NO-UNDO
+    FIELD Store AS CHARACTER
+    FIELD BeginDate AS DATE
+    FIELD EndDate AS DATE
+    FIELD SalesCount AS INTEGER
+    FIELD SalesTotal AS DECIMAL.
+
+CREATE ttReport.
+ASSIGN ttReport.Store = cStore.
+ASSIGN ttReport.BeginDate = dBeginDate.
+ASSIGN ttReport.EndDate = dEndDate.
+ASSIGN ttReport.SalesCount = iSalesCount.
+ASSIGN ttReport.SalesTotal = dSalesTotal.
+
+EXPORT ttReport TO "SalesReport.xls" format "EXCEL" WITH FIELD-TITLES LABEL "Sales Report for Store " + cStore.
+
+/* Display success message to user */
+MESSAGE "Sales report successfully generated for store " + cStore + " for the period between " + STRING(dBeginDate, "MM/DD/YYYY") + " and " + STRING(dEndDate, "MM/DD/YYYY"). VIEW-AS ALERT-BOX INFORMATION.

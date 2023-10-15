@@ -1,0 +1,51 @@
+### Stage 1: Base image
+FROM ubuntu:18.04 as base
+
+# Install dependencies
+RUN apt-get update \
+  && apt-get install -y \
+  git \
+  curl \
+  wget
+
+# Expose port 3000
+EXPOSE 3000
+
+# Set default environment variables
+ENV NODE_VERSION 12.16.1
+ENV NPM_VERSION 6.14.4
+
+### Stage 2: Build
+FROM base as build
+
+# Create a working directory
+RUN mkdir -p /usr/src/app
+WORKDIR /usr/src/app
+
+# Install node.js
+RUN curl -sL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
+  && apt-get install -y nodejs
+
+# Install npm
+RUN npm install -g npm@${NPM_VERSION}
+
+# Copy source files
+COPY . .
+
+# Install dependencies
+RUN npm install
+
+# Build the application
+RUN npm run build
+
+### Stage 3: Production image
+FROM nginx:1.17.9 AS prod
+
+# Copy build artifacts from previous stage
+COPY --from=build /usr/src/app/build /usr/share/nginx/html
+
+# Expose port 80
+EXPOSE 80
+
+# Set the default command to start nginx
+CMD ["nginx", "-g", "daemon off;"]

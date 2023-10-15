@@ -1,0 +1,308 @@
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity 0.8.6;
+
+/**
+ * @title ERC721NonFungible Token Standard, basic interface
+ * @dev See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-721.md
+ */
+interface ERC721 /* is ERC165 */ {
+    event Transfer(address indexed _from, address indexed _to, uint256 indexed _tokenId);
+    event Approval(address indexed _owner, address indexed _approved, uint256 indexed _tokenId);
+    event ApprovalForAll(address indexed _owner, address indexed _operator, bool _approved);
+
+    function balanceOf(address _owner) external view returns (uint256);
+    function ownerOf(uint256 _tokenId) external view returns (address);
+    function safeTransferFrom(address _from, address _to, uint256 _tokenId, bytes calldata _data) external payable;
+    function safeTransferFrom(address _from, address _to, uint256 _tokenId) external payable;
+    function transferFrom(address _from, address _to, uint256 _tokenId) external payable;
+    function approve(address _approved, uint256 _tokenId) external payable;
+    function setApprovalForAll(address _operator, bool _approved) external;
+    function getApproved(uint256 _tokenId) external view returns (address);
+    function isApprovedForAll(address _owner, address _operator) external view returns (bool);
+}
+
+/**
+ * @title ERC721NonFungibleTokenReceiver
+ * @dev ERC721 transfer receiver interface
+ */
+interface ERC721Receiver {
+    /**
+     * @dev Magic value to be returned upon successful reception of an NFT
+     *  Equals to `bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"))`,
+     *  which can be also obtained as `ERC721Receiver(0).onERC721Received.selector`
+     */
+    function onERC721Received(address _operator, address _from, uint256 _tokenId, bytes calldata _data) external returns(bytes4);
+}
+
+/**
+ * @title SafeMath
+ * @dev Math operations with safety checks that revert on error
+ */
+library SafeMath {
+    /**
+     * @dev Multiplies two numbers, reverts on overflow.
+     */
+    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+        if (a == 0) {
+            return 0;
+        }
+        uint256 c = a * b;
+        require(c / a == b, "SafeMath: multiplication overflow");
+
+        return c;
+    }
+
+    /**
+     * @dev Integer division of two numbers truncated, reverts on division by zero.
+     */
+    function div(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b > 0, "SafeMath: division by zero");
+        uint256 c = a / b;
+        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
+
+        return c;
+    }
+
+    /**
+     * @dev Subtracts two numbers, reverts on overflow (i.e. if subtrahend is greater than minuend).
+     */
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b <= a, "SafeMath: subtraction overflow");
+        uint256 c = a - b;
+
+        return c;
+    }
+
+    /**
+     * @dev Adds two numbers, reverts on overflow.
+     */
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        uint256 c = a + b;
+        require(c >= a, "SafeMath: addition overflow");
+
+        return c;
+    }
+
+    /**
+     * @dev Divides two numbers and returns the remainder (unsigned integer modulo),
+     * reverts when dividing by zero.
+     */
+    function mod(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b != 0, "SafeMath: modulo by zero");
+        return a % b;
+    }
+}
+
+/**
+ * @title Address
+ * @dev Collection of functions related to the address type
+ */
+library Address {
+    /**
+     * @dev Returns true if `account` is a contract.
+     *
+     * This test is non-exhaustive, and there may be false-negatives: during the execution of a contract's constructor,
+     * its address will be reported as not containing a contract.
+     *
+     * > This function does not check that the code behind `account` is valid (i.e. whether it is a contract or not).
+     * Callers are responsible for verifying that `account` contains contract code if they care about it.
+     */
+    function isContract(address account) internal view returns (bool) {
+        // According to EIP-1052, 0x0 is the value returned for not-yet created accounts
+        // and 0xca35b7d915458ef540ade6068dfe2f44e8fa733c is the value returned for accounts without code, i.e. `keccak256('')`
+        bytes32 codehash;
+        bytes32 accountHash = 0x4411a9ec7c191ca46164aab24503d6a39a4d062e20339ed4c78e3a75733c0981; // inlined assembly
+        
+        // solhint-disable-next-line no-inline-assembly
+        assembly { codehash := extcodehash(account) }
+        return (codehash != accountHash && codehash != 0x0);
+    }
+
+    /**
+     * @dev Replacement for Solidity's `transfer`: sends `amount` wei to `recipient`, forwarding all available gas and reverting on errors.
+     *
+     * https://eips.ethereum.org/EIPS/eip-1884[EIP1884] increases the gas cost of certain opcodes, possibly making contracts go over the 2300 gas limit
+     * imposed by `transfer`, making them unable to receive funds via `transfer`. {sendValue} removes this limitation.
+     *
+     * https://diligence.consensys.net/posts/2019/09/stop-using-soliditys-transfer-now/[Learn more].
+     *
+     * IMPORTANT: because control is transferred to `recipient`, care must be taken to not create reentrancy vulnerabilities. Consider using
+     * {ReentrancyGuard} or the EIP-2300 patterns described in https://diligence.consensys.net/posts/2019/09/stop-using-soliditys-transfer-now/
+     * instead.
+     */
+    function sendValue(address payable recipient, uint256 amount) internal {
+        require(address(this).balance >= amount, "Address: insufficient balance");
+
+        // solhint-disable-next-line avoid-call-value
+        (bool success,) = recipient.call{ value: amount }("");
+        require(success, "Address: unable to send value");
+    }
+}
+
+/**
+ * @title ERC721NonFungibleToken
+ * @dev Implementation of ERC-721 non-fungible token standard.
+ */
+contract ERC721NonFungibleToken is ERC721 {
+    using SafeMath for uint256;
+    using Address for address;
+
+    // Equals to `bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"))`
+    bytes4 private constant _INTERFACE_ID_ERC721_RECEIVED = 0x150b7a02;
+
+    // Mapping from token ID to owner
+    mapping (uint256 => address) private _tokenOwner;
+
+    // Mapping from token ID to approved address
+    mapping (uint256 => address) private _tokenApprovals;
+
+    // Mapping from owner to number of owned token
+    mapping (address => uint256) private _ownedTokensCount;
+
+    // Mapping from owner to operator approvals
+    mapping (address => mapping (address => bool)) private _operatorApprovals;
+
+    /**
+     * @dev Prevents a contract from calling itself, directly or indirectly.
+     * If you set this to `false`, you should replace this protected version with an
+     * external call to the public `safeTransferFrom` function.
+     */
+    bool internal _selfCalling;
+    
+    // Constructor
+    constructor() {
+        _selfCalling = true;
+    }
+
+    /**
+     * @dev Gets the balance of the specified address.
+     * @param _owner address to query the balance of
+     * @return uint256 representing the amount owned by the passed address
+     */
+    function balanceOf(address _owner) public view override returns (uint256) {
+        require(_owner != address(0), "ERC721: balance query for the zero address");
+        return _ownedTokensCount[_owner];
+    }
+
+    /**
+     * @dev Gets the owner of the specified token ID.
+     * @param _tokenId uint256 ID of the token to query the owner of
+     * @return owner address currently marked as the owner of the given token ID
+     */
+    function ownerOf(uint256 _tokenId) public view override returns (address) {
+        address _owner = _tokenOwner[_tokenId];
+        require(_owner != address(0), "ERC721: owner query for nonexistent token");
+        return _owner;
+    }
+
+    /**
+     * @dev Gets the approved address for a token ID, or zero if no address set
+     * @param _tokenId uint256 ID of the token to query the approval of
+     * @return address currently approved for the given token ID
+     */
+    function getApproved(uint256 _tokenId) public view override returns (address) {
+        require(_exists(_tokenId), "ERC721: approved query for nonexistent token");
+        return _tokenApprovals[_tokenId];
+    }
+
+    /**
+     * @dev Returns if the given spender is approved to transfer on behalf of the given owner.
+     * @param _owner owner address which you want to query the approval of
+     * @param _spender address which you want to transfer from
+     * @return bool true if the passed address is approved for the given owner, false otherwise
+     */
+    function isApprovedForAll(address _owner, address _spender) public view override returns (bool) {
+        return _operatorApprovals[_owner][_spender];
+    }
+
+    /**
+     * @dev Approves another address to transfer the given token ID
+     * The zero address indicates there is no approved address.
+     * There can only be one approved address per token at a given time.
+     * Can only be called by the token owner or an approved operator.
+     * @param _approved address to be approved for the given token ID
+     * @param _tokenId uint256 ID of the token to be approved for transfer
+     */
+    function approve(address _approved, uint256 _tokenId) public override payable {
+        require(_exists(_tokenId), "ERC721: approve for nonexistent token");
+        address _owner = ownerOf(_tokenId);
+        require(_approved != _owner, "ERC721: approval to current owner");
+        require(msg.sender == _owner || isApprovedForAll(_owner, msg.sender),
+            "ERC721: approve caller is not owner nor approved for all"
+        );
+
+        _tokenApprovals[_tokenId] = _approved;
+        emit Approval(_owner, _approved, _tokenId);
+    }
+
+    /**
+     * @dev Sets or unsets the approval of a given operator
+     * An operator is allowed to transfer all tokens of the sender on their behalf.
+     * @param _to operator address to set the approval
+     * @param _approved representing the status of the approval to be set
+     */
+    function setApprovalForAll(address _to, bool _approved) public override {
+        require(_to != msg.sender, "ERC721: approve to caller");
+        _operatorApprovals[msg.sender][_to] = _approved;
+        emit ApprovalForAll(msg.sender, _to, _approved);
+    }
+
+    /**
+     * @dev Tells whether a given token ID exists
+     * @param _tokenId uint256 ID of the token to query the existence of
+     * @return bool whether the token exists
+     */
+    function _exists(uint256 _tokenId) internal view returns (bool) {
+        address _owner = _tokenOwner[_tokenId];
+        return _owner != address(0);
+    }
+
+    /**
+     * @dev Internal function to mint a new token
+     * Reverts if the given token ID already exists
+     * @param _to The address that will own the minted token
+     * @param _tokenId uint256 ID of the token to be minted
+     */
+    function _mint(address _to, uint256 _tokenId) internal {
+        require(_to != address(0), "ERC721: mint to the zero address");
+        require(!_exists(_tokenId), "ERC721: token already minted");
+
+        _tokenOwner[_tokenId] = _to;
+        _ownedTokensCount[_to] = _ownedTokensCount[_to].add(1);
+
+        emit Transfer(address(0), _to, _tokenId);
+    }
+
+    /**
+     * @dev Internal function to burn a specific token
+     * Reverts if the token does not exist.
+     * Deprecated, use _burn(uint256) instead.
+     *
+     * @param _owner owner address of the token to burn
+     * @param _tokenId uint256 ID of the token being burned by the msg.sender
+     */
+    function _burn(address _owner, uint256 _tokenId) internal {
+        _burn(_owner, _tokenId);
+
+        emit Transfer(_owner, address(0), _tokenId);
+    }
+
+    /**
+     * @dev Internal function to burn a specific token
+     * Reverts if the token does not exist.
+     * @param _owner owner address of the token to burn
+     * @param _tokenId uint256 ID of the token being burned by the msg.sender
+     */
+    function _burn(address _owner, uint256 _tokenId) private {
+        require(ownerOf(_tokenId) == _owner, "ERC721: burn of token that is not own");
+        require(!_selfCalling, "ERC721: cannot call burn() within external contract");
+
+        delete _tokenOwner[_tokenId];
+        // Since _tokenId will be deleted, delete enum returned uint array
+        bytes memory b = new bytes(0);
+        emit PushAsset(_tokenId, b);
+        emit Transfer(_owner, address(0), _tokenId);
+    }
+
+    /**
+     * @dev

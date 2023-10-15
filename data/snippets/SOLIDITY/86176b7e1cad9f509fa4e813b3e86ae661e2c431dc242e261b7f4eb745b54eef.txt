@@ -1,0 +1,85 @@
+/*
+* Contract for a token creation and exchange platform.
+* Implements ERC-20 token standard with additional functionalities.
+*/
+
+pragma solidity ^0.8.4;
+
+/*
+* Importing the ERC-20 token standard interface from OpenZeppelin library.
+* This library is thoroughly audited to ensure security and efficiency.
+*/
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+
+/**
+* @title ExchangePlatform
+* @dev A platform for token creation and exchange.
+*/
+contract ExchangePlatform {
+
+    // Variables to store platform owner, token details and token price.
+    address public platformOwner;
+    string public tokenName;
+    string public tokenSymbol;
+    uint256 public tokenPrice;
+
+    // Mapping to store balances of users for each token.
+    mapping(address => mapping(address => uint256)) public balances;
+
+    // Events to be emitted on token creation and exchange.
+    event TokenCreated(address indexed creator, string name, string symbol);
+    event TokenExchanged(address indexed buyer, address indexed seller, uint256 amount);
+
+    // Constructor to set initial platform owner and token details.
+    constructor(address _platformOwner, string memory _tokenName, string memory _tokenSymbol, uint256 _tokenPrice) {
+        platformOwner = _platformOwner;
+        tokenName = _tokenName;
+        tokenSymbol = _tokenSymbol;
+        tokenPrice = _tokenPrice;
+
+        // Emit token creation event.
+        emit TokenCreated(platformOwner, tokenName, tokenSymbol);
+    }
+
+    // Function to create new tokens and transfer them to the creator.
+    function createTokens(uint256 _amount) external {
+        // Ensure that at least one token is being created.
+        require(_amount > 0, "Amount must be greater than zero.");
+
+        // Transfer tokens from platform owner to creator.
+        balances[platformOwner][msg.sender] += _amount;
+
+        // Emit token exchange event.
+        emit TokenExchanged(msg.sender, platformOwner, _amount);
+    }
+
+    // Function to exchange tokens for ETH.
+    function exchangeTokens() external payable {
+        // Ensure that sender has enough tokens.
+        require(balances[msg.sender][platformOwner] >= tokenPrice, "Not enough tokens to exchange.");
+
+        // Calculate amount of tokens to be exchanged.
+        uint256 tokenAmount = msg.value / tokenPrice;
+
+        // Ensure that platform owner has enough tokens to exchange.
+        require(balances[platformOwner][msg.sender] >= tokenAmount, "Platform owner does not have enough tokens.");
+
+        // Calculate platform owner's total ETH and tokens after exchange.
+        uint256 platformOwnerETH = address(this).balance - msg.value;
+        uint256 platformOwnerTokens = balances[platformOwner][msg.sender] - tokenAmount;
+
+        // Transfer ETH from buyer to platform owner.
+        payable(platformOwner).transfer(msg.value);
+
+        // Transfer tokens from platform owner to buyer.
+        balances[platformOwner][msg.sender] = platformOwnerTokens;
+
+        // Transfer ETH from platform owner to buyer as fee.
+        msg.sender.transfer(msg.value * 0.01);
+
+        // Emit token exchange event.
+        emit TokenExchanged(msg.sender, platformOwner, tokenAmount);
+    }
+}

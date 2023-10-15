@@ -1,0 +1,65 @@
+/* This is a sample procedure that sorts an input table based on a given field */
+
+/* Declaration section */
+
+DEFINE TEMP-TABLE ttInput NO-UNDO
+    FIELD SortField AS CHARACTER
+    FIELD Field1 AS CHARACTER
+    FIELD Field2 AS CHARACTER.
+
+DEFINE VARIABLE cInputField AS CHARACTER NO-UNDO.
+DEFINE VARIABLE cOrder AS CHARACTER NO-UNDO.
+DEFINE VARIABLE cOrderArray AS CHARACTER EXTENT 10 NO-UNDO.
+DEFINE VARIABLE i AS INTEGER NO-UNDO.
+DEFINE VARIABLE j AS INTEGER NO-UNDO.
+DEFINE VARIABLE nSortedFieldCount AS INTEGER NO-UNDO.
+DEFINE VARIABLE cSortStatement AS CHARACTER NO-UNDO.
+DEFINE VARIABLE hStatement AS HANDLE NO-UNDO.
+DEFINE QUERY qSortTable FOR ttInput.
+
+DEFINE FRAME fFrame
+    ttInput ttInput:WIDTH ttInput:WIDTH-CHARS = 120 WITH NO-ERROR.
+
+DEFINE CANVAS cvMain WITH WIDTH 120 HEIGHT 60.
+
+/* Input section */
+
+cInputField = 'SortField'. /* Input field to be sorted on */
+cOrder = 'ASC'. /* Sorting order, can be either ASC or DESC */
+
+/* Code section */
+
+/* Get the name of the first field to be sorted */
+nSortedFieldCount = qSortTable:NUM-SORT-FIELDS + 1.
+cSortStatement = "SORT ttInput BY ttInput." + STRING(nSortedFieldCount) + " " + cOrder.
+hStatement = PREPARE QUERY qSortTable FOR "FOR EACH ttInput WHERE " + cSortStatement.
+
+/* Loop through the input table to populate order array */
+DO i = 1 TO qSortTable:NUM-SORT-FIELDS:
+    cOrderArray[i] = qSortTable:SORT-FIELD(i):BUFFER-FIELD:NAME.
+END.
+
+/* Execute the sort */
+FOR EACH ttInput USE-INDEX ttInput:
+    RUN hStatement (.cOrderArray).
+    /* Sort the table based on the given field and order */
+    IF ttInput:SORTFIELD EQ cInputField THEN DO:
+        FIND ttInput PRIMARY FIRST NO-ERROR.
+        IF AVAILABLE(ttInput) THEN DO:
+            ASSIGN ttInput:SORTFIELD = cInputField
+                WITH FRAME fFrame, CANVAS cvMain.
+        END.
+    END.
+    ELSE DO:
+        FIND ttInput PRIMARY LAST NO-ERROR.
+        IF AVAILABLE(ttInput) THEN DO:
+            ASSIGN ttInput:SORTFIELD = ''
+                WITH FRAME fFrame, CANVAS cvMain.
+        END.
+    END.
+END.
+
+/* Output section */
+
+/* Display the sorted table */
+DISPLAY ttInput FIELD1 FIELD2 WITH FRAME fFrame, CANVAS cvMain.

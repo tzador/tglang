@@ -1,0 +1,48 @@
+METHOD update_order_totals.
+
+  DATA(lo_calc_service) = cl_abc_calc_service=>create( iv_calc_type = cl_abc_calc_constants=>totals
+                                                      it_calc_params = et_calc_params ).
+  " Calculate totals for each order item
+  lo_calc_service->add( iv_name         = 'base'         ##SHOULD_BE_REPLACED
+                       iv_expression   = 'unit_price * quantity'
+                       iv_group_by     = 'order_item'    ).
+  lo_calc_service->add( iv_name         = 'discount'     ##SHOULD_BE_REPLACED
+                       iv_expression   = 'IF discount_amount IS INITIAL THEN 0 ELSE discount_amount'
+                       iv_group_by     = 'order_item'    ).
+
+  " Calculate totals for each order
+  lo_calc_service->add( iv_name         = 'totals'
+                       iv_expression   = 'order_item_total + order_discount_total'
+                       iv_group_by     = 'order'        ).
+  " Sum up by order
+  lo_calc_service->add( iv_name         = 'grand_total'
+                       iv_expression   = 'SUM'
+                       iv_group_by     = 'order'        ).
+
+  " Get the results and use them
+  lo_calc_service->calculate( ).
+  DATA(et_results) = lo_calc_service->get_results( ).
+  LOOP AT et_results INTO DATA(ls_result).
+    CASE ls_result-name.
+      WHEN 'base'.
+        MODIFY it_order_item
+          FROM ls_result-value
+          IN CLASS cl_abc_calc_constants=>totals
+          INDEX cl_abc_calc_constants=>totals-incl_rec_key.
+      WHEN 'discount'.
+        MODIFY it_order_item
+          FROM ls_result-value
+          IN CLASS cl_abc_calc_constants=>totals
+          INDEX cl_abc_calc_constants=>totals-incl_rec_key.
+      WHEN 'totals'.
+        MODIFY it_order
+          FROM ls_result-value
+          IN CLASS cl_abc_calc_constants=>totals
+          INDEX cl_abc_calc_constants=>totals-incl_rec_key.
+      WHEN 'grand_total'.
+        MODIFY it_order
+          FROM ls_result-value
+          IN CLASS cl_abc_calc_constants=>totals.
+    ENDCASE.
+  ENDLOOP.
+ENDMETHOD.

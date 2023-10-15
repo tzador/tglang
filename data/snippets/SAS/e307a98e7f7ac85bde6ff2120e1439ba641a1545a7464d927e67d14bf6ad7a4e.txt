@@ -1,0 +1,47 @@
+/* This code segment retrieves all records from the "sales" table
+ * and calculates the total sales for each month between January 2019
+ * and June 2019.
+ */
+
+/* Create a macro variable to hold the start and end dates */
+%let start_date = '01JAN2019'd;
+%let end_date = '30JUN2019'd;
+
+/* Create a macro loop to iterate through each month between the start and end dates */
+%macro sales_by_month;
+	/* Set initial values for month and total sales */
+	%let month = "&start_date";
+	%let total_sales = 0;
+
+	/* Set up a do-while loop to iterate through each month */
+	%do %while (&month <= "&end_date");
+
+		/* Retrieve all records for the current month */
+		proc sql;
+			create table temp_sales as
+			select *
+			from sales
+			where transaction_date between &month and intnx('month', &month, 1, 'end');
+		quit;
+
+		/* Calculate the total sales for the current month */
+		proc sql noprint;
+			select sum(sales_amount) into :total_sales
+			from temp_sales;
+		quit;
+
+		/* Print the month and total sales in the log */
+		%put Month: &month, Total Sales: &total_sales;
+
+		/* Update the month for the next iteration */
+		%let month = intnx('month', &month, 1, 'end');
+	%end;
+
+	/* Drop the temporary table */
+	proc sql;
+		drop table temp_sales;
+	quit;
+%mend;
+
+/* Call the macro */
+%sales_by_month;

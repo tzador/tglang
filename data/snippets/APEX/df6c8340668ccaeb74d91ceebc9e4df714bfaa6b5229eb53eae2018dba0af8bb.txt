@@ -1,0 +1,40 @@
+public class ProductController {
+    @AuraEnabled(cacheable=true)
+    public static List<Product__c> getProducts() {
+        List<Product__c> products = [SELECT Id, Name, Price__c, Quantity__c FROM Product__c];
+        return products;
+    }
+
+    //this method updates the quantity of a product and recalculates the total price
+    @AuraEnabled
+    public static void updateQuantity(Id productId, Integer newQuantity) {
+        Product__c product = [SELECT Id, Name, Price__c, Quantity__c FROM Product__c WHERE Id = :productId];
+        product.Quantity__c = newQuantity;
+        product.Total_Price__c = product.Price__c * product.Quantity__c;
+        update product;
+    }
+
+    //this method creates a new product record
+    @AuraEnabled
+    public static void createProduct(String name, Double price, Integer quantity) {
+        Product__c newProduct = new Product__c(Name = name, Price__c = price, Quantity__c = quantity, Total_Price__c = price * quantity);
+        insert newProduct;
+    }
+
+    //this method deletes a product record along with its related records
+    @AuraEnabled
+    public static void deleteProduct(Id productId) {
+        //delete related records first
+        List<Related_Record__c> relatedRecords = [SELECT Id FROM Related_Record__c WHERE Product__c = :productId];
+        delete relatedRecords;
+        
+        delete [SELECT Id FROM Product__c WHERE Id = :productId];
+    }
+
+    //this method returns a list of products based on the search keyword
+    @AuraEnabled(cacheable=true)
+    public static List<Product__c> searchProducts(String keyword) {
+        List<Product__c> products = [SELECT Id, Name, Price__c, Quantity__c FROM Product__c WHERE Name LIKE :('%' + keyword + '%')];
+        return products;
+    }
+}

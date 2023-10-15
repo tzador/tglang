@@ -1,0 +1,14 @@
+# This script gets all the running processes and creates a CSV file with the process name, owner, and memory usage
+$processes = Get-Process # Gets all running processes
+$csv = @() # Creates an empty array to store process information
+foreach ($p in $processes) { # Loops through each process
+    # Uses WMI to get process owner information
+    $owner = @(Get-WmiObject -Class Win32_Process -Filter "Handle = $($p.Handle)" -ErrorAction SilentlyContinue)[0].GetOwner()
+    $processInfo = [PSCustomObject] @{ # Creates a custom PowerShell object with the following properties
+        'ProcessName' = $p.ProcessName # Process name
+        'Owner' = "$($owner.Domain)\$($owner.User)" # Process owner (domain\username format)
+        'MemoryUsage (MB)' = ($p.WorkingSet64 / 1MB) # Memory usage in MB
+    }
+    $csv += $processInfo # Adds the process information to the array
+}
+$csv | Export-Csv -Path "process_info.csv" -NoTypeInformation # Exports the array to a CSV file without type information

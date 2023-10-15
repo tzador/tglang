@@ -1,0 +1,104 @@
+/** 
+This class handles the creation of procedural meshes in UnrealScript.
+*/
+class ProceduralMeshActor extends Actor
+	placeable;
+
+var array<Vector> Vertices;
+var array<int> Triangles;
+
+/** 
+Adds a vertex to the procedural mesh.
+@param Vertex	The world location to add as a new vertex.
+*/
+function void AddVertex(Vector Vertex) {
+	Vertices.AddItem(Vertex);
+}
+
+/** 
+Adds a triangle to the procedural mesh.
+@param VertA, VertB, VertC	The indices of the vertices in the ProceduralMeshActor Vertices array.
+*/
+function void AddTriangle(int VertA, int VertB, int VertC) {
+	Triangles.AddItem(VertA);
+	Triangles.AddItem(VertB);
+	Triangles.AddItem(VertC);
+}
+
+/** 
+Clears all vertices and triangles from the procedural mesh.
+*/
+function void ClearMesh() {
+	Vertices.Empty();
+	Triangles.Empty();
+}
+
+/**
+Override to update the procedural mesh section. 
+Called during the component's Tick cycle (if bSmoothUpdates is true).
+@param SectionIndex	The section to update.
+@param bShouldRegenerateBools	Whether we just need to update collision and render, or all of the above.
+@param bShouldResetElements	If true will empty all geometry for this section, if false will append to existing geometry.
+@param bUseHighPrecisionTCoords	Whether or not to use high precision UVs.
+@param UpdatedVertices		The new vertices array to use for this section of the procedural mesh.
+@param UpdatedIndices		The array of indices pointing into the UpdatedVertices array.
+@param UpdatedNormals		The array of vertex normals, one per vertex in UpdatedVertices.
+@param UpdatedUVs			The array of texture coordinate, one UV per vertex in UpdatedVertices.
+*/
+event CustomUpdateRenderState(
+	int SectionIndex,
+	bool bShouldRegenerateBools,
+	bool bShouldResetElements,
+	bool bUseHighPrecisionTCoords,
+	array<Vector> UpdatedVertices,
+	array<int> UpdatedIndices,
+	array<Vector> UpdatedNormals,
+	array<Vector2D> UpdatedUVs		
+)
+{
+	// Update procedural mesh component's vertex buffer.
+	MyProceduralMeshComponent.SetVertexBufferVertices(UpdatedVertices, bShouldRegenerateBools);
+	// Update procedural mesh component's index buffer	.
+	MyProceduralMeshComponent.SetIndexBufferIndices(UpdatedIndices, bShouldResetElements);
+	
+	if (bShouldRegenerateBools) {
+		// Update procedural mesh collision.
+		MyProceduralMeshComponent.RecreateCollision();
+	}
+
+	if (Material) {
+		// Update procedural mesh materials.
+		MyProceduralMeshComponent.SetMaterial(0, Material);
+	}
+}
+
+/** Overrides default behavior to load the procedural mesh. */
+event PostLoad()
+{
+	Super.PostLoad();
+
+	// Create new procedural mesh component
+	MyProceduralMeshComponent = Spawn(class'MyCustomProceduralComponent', self);
+	MyProceduralMeshComponent.SetAbsolute(true, true, true);
+	MyProceduralMeshComponent.UpdateMeshPosition(self.Location, self.Rotation, false);
+	
+	// Update procedural mesh section with stored vertices and triangles
+	CustomUpdateRenderState(0, true, false, false, Vertices, Triangles, None, None);
+}
+
+/** Override to properly destroy the procedural mesh component on deletion. */
+event Destroyed()
+{
+	if (MyProceduralMeshComponent != None) {
+		MyProceduralMeshComponent.Destroy();
+	}
+	Super.Destroyed();
+}
+
+defaultproperties
+{
+	Begin Object Name=ProceduralComponentDummy
+	End Object
+
+	Components.Add(ProceduralComponentDummy)
+}

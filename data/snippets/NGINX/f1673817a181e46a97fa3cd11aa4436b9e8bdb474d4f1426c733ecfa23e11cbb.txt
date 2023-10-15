@@ -1,0 +1,91 @@
+server {
+    listen 80;
+    server_name example.com www.example.com;
+
+    # Redirect all HTTP requests to HTTPS with 301 permanent redirect
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name example.com www.example.com;
+
+    # Configure SSL
+    ssl_certificate /path/to/ssl/cert;
+    ssl_certificate_key /path/to/ssl/private/key;
+
+    # Enable OCSP stapling for improved performance
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    ssl_trusted_certificate /path/to/ssl/trusted/cert;
+
+    # Disable TLSv1 and TLSv1.1
+    ssl_protocols TLSv1.2;
+
+    # Enable HTTP/2 support
+    http2_max_concurrent_streams 200;
+
+    # Configure caching of static assets
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+        expires 7d;
+        add_header Cache-Control "public";
+    }
+
+    # Configure gzip compression
+    gzip on;
+    gzip_static on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    # Block access to sensitive files
+    location ~* /(wp-config\.php|phpmyadmin|\.env) {
+        deny all;
+    }
+
+    # Configure reverse proxy for backend application
+    location /api {
+        proxy_pass http://localhost:3000;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Host $host;
+        proxy_redirect off;
+    }
+
+    # Configure rate limiting to prevent DDoS attacks
+    limit_req_zone $binary_remote_addr zone=one:10m rate=1r/s;
+    limit_req zone=one burst=10 nodelay;
+
+    # Configure blocklist for known malicious IP addresses
+    include /path/to/blocklist.conf;
+
+    # Block access to all hidden files and directories
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # Serve static HTML files from the /static directory
+    location /static/ {
+        root /var/www/example/public;
+        try_files $uri $uri/ =404;
+    }
+
+    # Reverse proxy for load balancing of backend servers
+    upstream backend {
+        server 127.0.0.1:8000;
+        server 127.0.0.1:8001;
+        server 127.0.0.1:8002;
+    }
+
+    location / {
+        try_files $uri @backend;
+    }
+
+    location @backend {
+        proxy_pass http://backend;
+        proxy_set_header Host $host;
+        proxy_next_upstream error timeout http_502 http_503 http_504;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}

@@ -1,0 +1,87 @@
+pragma solidity ^0.7.0; // Indicates the compiler version to be used
+
+/// @title A smart contract that implements multiple inheritance using interfaces
+
+interface IEmployee { // Interface for employee functions
+    event SalaryPaid(address employee, uint salary); // Event that is emitted when salary is paid
+    
+    function getInfo() external view returns (string memory name, uint age); // Function to get employee's information
+    function setAge(uint newAge) external; // Function to set employee's age
+    function getSalary() external view returns (uint); // Function to get employee's salary
+    function paySalary() external; // Function to pay employee's salary
+}
+
+interface IManager { // Interface for manager functions
+    function promoteEmployee(address employee) external; // Function to promote an employee
+    function removeEmployee(address employee) external; // Function to remove an employee
+}
+
+contract Employee is IEmployee { // Contract that implements the IEmployee interface
+    
+    string private employeeName; // Private variable to store employee's name
+    uint private employeeAge; // Private variable to store employee's age
+    uint private salary; // Private variable to store employee's salary
+    
+    function getInfo() external view override returns (string memory name, uint age) { // Function to get employee's information
+        return (employeeName, employeeAge);
+    }
+    
+    function setAge(uint newAge) external override { // Function to set employee's age
+        employeeAge = newAge;
+    }
+    
+    function getSalary() external view override returns (uint) { // Function to get employee's salary
+        return salary;
+    }
+    
+    function paySalary() external override { // Function to pay employee's salary
+        // Implementation to transfer salary to employee's address
+        emit SalaryPaid(msg.sender, salary); // Emitting the SalaryPaid event
+    }
+}
+
+contract Manager is IManager { // Contract that implements the IManager interface
+    
+    address private owner; // Private variable to store contract owner's address
+    
+    mapping(address => bool) private employees; // Mapping to keep track of current employees
+    
+    constructor() { // Constructor function to set owner as contract creator
+        owner = msg.sender;
+    }
+    
+    modifier onlyOwner() { // Modifier to restrict access to only contract owner
+        require(msg.sender == owner, "Only contract owner can call this function");
+        _;
+    }
+    
+    function promoteEmployee(address employee) external override onlyOwner { // Function to promote an employee
+        employees[employee] = true; // Setting the employee's status to true
+    }
+    
+    function removeEmployee(address employee) external override onlyOwner { // Function to remove an employee
+        delete employees[employee]; // Deleting the employee from the mapping
+    }
+}
+
+contract HR is Employee, Manager { // Contract that inherits from both Employee and Manager contracts
+    
+    function manageEmployee(address employee) external { // Function to manage an employee
+        if (!employees[employee]) { // Checking if employee is not already registered
+            _addEmployee(employee); // Calling internal function to add employee
+        }
+        if (employees[employee]) { // Checking if employee is already registered
+            _removeEmployee(employee); // Calling internal function to remove employee
+        }
+    }
+    
+    function _addEmployee(address employee) internal { // Internal function to add employee
+        employees[employee] = true; // Setting the employee's status to true
+    }
+    
+    function _removeEmployee(address employee) internal { // Internal function to remove employee
+        delete employees[employee]; // Deleting the employee from the mapping
+    }
+    
+    // Inherited functions from IEmployee and IManager interfaces can be called here
+}

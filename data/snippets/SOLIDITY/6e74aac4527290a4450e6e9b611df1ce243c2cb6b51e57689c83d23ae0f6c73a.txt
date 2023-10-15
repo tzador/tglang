@@ -1,0 +1,82 @@
+//Contract for a decentralized voting system
+pragma solidity ^0.5.0;
+
+//Interface for the voter registry
+interface VoterRegistry {
+    function register(address _voter, uint _voterId) external;
+    function getVoterId(address _voter) external returns(uint);
+    function checkRegistered(uint _voterId) external returns(bool);
+}
+
+//Interface for the ballot
+interface Ballot {
+    function addCandidate(string memory _name, uint _candidateId) external;
+    function submitVote(uint _candidateId) external returns(bool);
+    function getWinningCandidate() external returns(uint);
+}
+
+contract VotingSystem {
+    
+    //State variables
+    address public voterRegistryAddress;
+    address public ballotAddress;
+    address public owner;
+    mapping(address => bool) private admins;
+    mapping(uint => bool) private voters;
+    mapping(uint => bool) private registeredVoters;
+    
+    //Modifiers
+    modifier onlyAdmin() {
+        require(admins[msg.sender], "Only admin can call this function.");
+        _;
+    }
+    
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only contract owner can call this function.");
+        _;
+    }
+    
+    //Events
+    event Voted(uint _candidateId, address _voter);
+    
+    //Constructor function
+    constructor(address _voterRegistryAddress, address _ballotAddress) public {
+        voterRegistryAddress = _voterRegistryAddress;
+        ballotAddress = _ballotAddress;
+        owner = msg.sender;
+    }
+    
+    //Admin functions
+    function addAdmin(address _newAdmin) public onlyOwner {
+        admins[_newAdmin] = true;
+    }
+    
+    function removeAdmin(address _admin) public onlyOwner {
+        require(_admin != msg.sender, "Owner cannot remove themselves as admin.");
+        admins[_admin] = false;
+    }
+    
+    //Voter functions
+    function registerVoter(address _voter, uint _voterId) public onlyAdmin {
+        VoterRegistry(voterRegistryAddress).register(_voter, _voterId);
+        voters[_voter] = true;
+        registeredVoters[_voterId] = true;
+    }
+    
+    function vote(uint _candidateId) public {
+        require(voters[msg.sender], "Only registered voters can vote.");
+        require(registeredVoters[VoterRegistry(voterRegistryAddress).getVoterId(msg.sender)], "Voter must be registered to vote.");
+        require(Ballot(ballotAddress).submitVote(_candidateId), "Vote submission failed.");
+        emit Voted(_candidateId, msg.sender);
+    }
+    
+    //Delegate functions to the ballot contract
+    function addCandidate(string memory _name, uint _candidateId) public onlyAdmin {
+        Ballot(ballotAddress).addCandidate(_name, _candidateId);
+    }
+    
+    //Get winning candidate from the ballot contract
+    function getWinningCandidate() public onlyAdmin returns(uint) {
+        return Ballot(ballotAddress).getWinningCandidate();
+    }
+}

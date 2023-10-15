@@ -1,0 +1,106 @@
+# Sets the path to the root directory
+root /var/www/html;
+
+# Enables server tokens for easier troubleshooting
+server_tokens on;
+
+# Set the default server block
+server {
+    # Listen on port 80 for all traffic
+    listen 80;
+
+    # Server name is the URL for the website
+    server_name example.com www.example.com;
+
+    # Set access and error log locations
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+
+    # Set the location of the index.html file
+    index index.html;
+
+    # Set caching parameters
+    # Cache all files for 1 hour
+    expires 1h;
+    # Allow cache revalidation
+    add_header Cache-Control "public";
+    # Enable gzip compression
+    gzip on;
+    gzip_comp_level 5;
+    gzip_types text/plain text/css application/javascript;
+
+    # Set server-side includes for dynamic content
+    # Enable SSI
+    ssi on;
+    # Define where to look for SSI files
+    ssi_silent_errors on;
+    ssi_types text/shtml;
+
+    # Set up location blocks for specific paths
+    location / {
+        # If path is a directory, look for index.html first
+        try_files $uri $uri/ /index.html;
+    }
+    location /images/ {
+        # Set up file caching for images, allowing cache revalidation
+        expires 7d;
+        add_header Cache-Control "public";
+        # Allow access to only specific image file types
+        # Pattern matching with regex
+        if ($request_filename ~*  "^/images/.*\.(jpg|jpeg|png|gif|ico|svg|webp)") {
+            expires 1y;
+            add_header Cache-Control "public";
+        }
+    }
+    location ~ /\.ht {
+        # Deny access to .ht files
+        deny all;
+    }
+
+    # Set up error page
+    error_page 404 /404.html;
+    location = /404.html {
+        internal;
+    }
+
+    # Allow access to robots.txt file for SEO purposes
+    location = /robots.txt {
+        allow all;
+        log_not_found off;
+        access_log off;
+    }
+}
+
+# Additional server block for example2.com
+server {
+    listen 80;
+    server_name example2.com www.example2.com;
+    root /var/www/example2;
+    index index.html;
+
+    # Set up redirects
+    # 301 = Permanent redirect
+    # 302 = Temporary redirect
+    location / {
+        # Redirect all traffic to example.com
+        return 302 http://example.com$request_uri;
+    }
+
+    # Set up caching
+    expires 1d;
+    add_header Cache-Control "public";
+    
+    # Disable access to .ht files
+    location ~ /\.ht {
+        deny all;
+    }
+
+    # Add additional location blocks as needed
+    location /static/ {
+        # Allow access to static files only for example2.com
+        root /var/www/example2;
+        # Set specific caching parameters for these files
+        expires 1w;
+        add_header Cache-Control "public";
+    }
+}

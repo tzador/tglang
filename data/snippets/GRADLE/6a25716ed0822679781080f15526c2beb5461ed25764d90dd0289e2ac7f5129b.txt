@@ -1,0 +1,55 @@
+plugins {
+    id 'java-library'
+    id 'application'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.apache.commons:commons-lang3:3.11'
+    implementation 'com.google.guava:guava:27.0.1-jre'
+    testImplementation 'junit:junit:4.13'
+
+    compileOnly 'org.projectlombok:lombok:1.18.10'
+}
+
+// Define a task to generate Javadoc for the project
+task generateJavadoc(type: Javadoc) {
+    source = sourceSets.main.allJava
+    destinationDir = "${buildDir}/docs/javadoc"
+
+    // Add custom tags to Javadoc
+    options.memberLevel = JavadocMemberLevel.PRIVATE
+    options.links("https://commons.apache.org/proper/commons-lang/javadocs/api-release")
+    options.linksOffline([
+            "https://github.com/google/guava/releases/download/v27.0.1/guava-27.0.1-javadoc.jar",
+            "https://projectlombok.org/api/index.html"
+    ], "javadoc")
+}
+
+// Define a custom task to run JUnit tests
+task customTest(type: Test) {
+    include '**/*Test.class'
+    reports {
+        // Generate HTML and XML reports for test results
+        html.destination = "$reportsDir/html/test-results"
+        junitXml.destination = "$reportsDir/test-results.xml"
+    }
+}
+
+// Define a custom task to build a runnable JAR file
+task buildJar(type: Jar, dependsOn: build) {
+    archiveClassifier.set('executable')
+    from { configurations.compileClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
+}
+
+// Define default tasks to run when 'gradle' command is executed
+defaultTasks 'build', 'generateJavadoc'
+application {
+    mainClassName = 'com.example.Main'
+    // Pass in project version as argument to the application
+    args project.version
+}

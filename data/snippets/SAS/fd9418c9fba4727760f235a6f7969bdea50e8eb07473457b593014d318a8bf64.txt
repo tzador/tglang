@@ -1,0 +1,58 @@
+/* This is a complex SAS code snippet that generates a random dataset with missing data values */
+
+/* This first section redefines the default SAS date format to DDMMYY using the 'data' and 'attrib' statements*/
+data _null_;
+  informat date DDMMYY10.;
+  attrib date format=DDMMYY10.;
+run;
+
+/* This second section creates a temporary table with 10 variables and 1000 observations */
+data temp;
+  array vars[10];
+  do i = 1 to 1000;
+    do j = 1 to 10;
+      if ranuni(0) > 0.5 then vars[j] = ranuni(0);
+      else vars[j] = .; /* This creates missing values with a 50% probability */
+    end;
+    output;
+  end;
+run;
+
+/* This third section merges the temporary table with itself in order to create missing values that are not correlated with any specific variable. */
+data missing_data;
+  merge temp temp;
+run;
+
+/* This fourth section randomly substitutes missing values with non-missing values from the same variable in the same observation */
+data final_dataset;
+  set missing_data;
+  array vars[10];
+  n = 1; /* This variable will be used to keep track of the number of non-missing values */
+  do j = 1 to 10;
+    if vars[j] ^= . then n + 1; /* If the value is not missing, increase n by 1 */
+  end;
+  do j = 1 to 10;
+    if vars[j] = . then do; /* For missing values, select a random non-missing value from the same observation and variable */
+      index = ceil(ranuni(0)*n);
+      do k = 1 to 10;
+        if vars[k] ^= . then index = index - 1; /* Keep track of the number of non-missing values */
+        if index = 0 then do;
+          vars[j] = vars[k]; /* Substitute missing value with non-missing value */
+          leave; /* Exit do loop */
+        end;
+      end;
+    end;
+  end;
+run;
+
+/* Finally, we sort the dataset by descending date and export it to a csv file named 'random_data_missing.csv' */
+proc sort data=final_dataset
+          out=random_data_missing (drop=n index i j index k);
+  by descending date;
+run;
+
+proc export data=random_data_missing
+            outfile='random_data_missing.csv'
+            dbms=csv
+            replace;
+run;

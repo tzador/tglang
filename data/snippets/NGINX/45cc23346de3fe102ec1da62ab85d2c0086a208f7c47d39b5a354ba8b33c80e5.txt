@@ -1,0 +1,36 @@
+# Define upstream server blocks
+upstream backend_servers {
+    server 10.10.10.1:80 max_fails=3;
+    server 10.10.10.2:80 max_fails=3;
+    server 10.10.10.3:80 max_fails=3;
+    server 10.10.10.4:80 max_fails=3;
+    server 10.10.10.5:80 max_fails=3;
+}
+
+# Define variable for load balancing method
+set $upstream_endpoint $upstream_random;
+
+# Configure proxy server
+server {
+    listen 8080;
+    server_name my-website.com;
+
+    # Set locations for static content
+    location = /logo.png {
+        root /var/www/images;
+        expires 30d;
+    }
+
+    # Define proxy pass for load balancing
+    location / {
+        proxy_pass http://$upstream_endpoint/backend_servers/;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+	  # Add proxy IP for tracking
+        proxy_set_header Proxy-IP $proxy_add_x_forwarded_for;
+    }
+
+    # Enable gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml;
+}

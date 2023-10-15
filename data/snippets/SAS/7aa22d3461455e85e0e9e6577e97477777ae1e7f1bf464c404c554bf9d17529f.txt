@@ -1,0 +1,50 @@
+/* This code snippet uses a SAS macro to create a report with multiple tables */
+
+/*Define macro*/
+%macro create_report(data, var1, var2);
+	
+	/*Create report header*/
+	title "Report for &data";
+	
+	/*Create first table*/
+	proc tabulate data = &data;
+		var &var1;
+		class &var2;
+		table &var1, &var2;
+		keylabel all "Total";
+		label &var1 = "Variable 1";
+		format &var1 comma12.2;
+		run;
+	
+	/*Create second table*/
+	proc freq data = &data;
+		table &var2;
+		weight weight;
+		format &var2 $20.;
+		format percent percent10.1;
+		run;
+	
+	/*Create third table*/
+	proc means data = &data;
+		var &var1;
+		class &var2;
+		weight weight;
+		output out = summary n = count mean = average;
+		run;
+	
+	/*Combine tables into one report*/
+	ods listing close;
+	ods html file = "report.html" style = meadow;
+	proc report data = summary;
+		column &var2 average count;
+		define &var2 / group "Variable 2" order = data;
+		define count / display "Count";
+		define average / display "Average";
+		title "Summary Table";
+		run;
+	ods html close;
+	ods listing;
+%mend;
+	
+/*Call macro to generate report*/
+%create_report(data = mydata, var1 = x, var2 = y);

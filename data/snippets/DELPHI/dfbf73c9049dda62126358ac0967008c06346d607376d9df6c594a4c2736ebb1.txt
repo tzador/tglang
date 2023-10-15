@@ -1,0 +1,134 @@
+function solveSudoku(const puzzle : string; var answer : string) : boolean;
+var
+  invalidChars : set of char = ['A'..'G', 'I', 'J'..'Z'];
+
+  // Checks if the given character is a valid symbol for Sudoku (1-9 or blank)
+  function isValidSymbol(const c : char) : boolean;
+  begin
+    Result := False;
+    if (c = ' ') or (c in ['1'..'9']) then // Checks if character is a space or number 1-9
+      Result := True;
+  end;
+
+  // Checks if the given string has the valid length and characters for a Sudoku puzzle
+  function isValidPuzzle(const s : string) : boolean;
+  var
+    i : integer;
+  begin
+    Result := False;
+    if Length(s) = 81 then // Checks if length of string is 81 (9x9 grid)
+    begin
+      Result := True;
+      for i := 1 to 81 do
+      begin
+        if s[i] <> ' ' then
+        begin
+          if not isValidSymbol(s[i]) then // Checks if each character is valid
+          begin
+            Result := False;
+            Break;
+          end;
+        end;
+      end;
+    end;
+  end;
+
+  // Checks if the given number can be placed at the given row and column in the Sudoku grid
+  function canPlace(const num : integer; const grid : array of array of integer; const i, j : integer) : boolean;
+  var
+    x, y, m, n : integer;
+  begin
+    x := Trunc((i - 1) div 3); // Calculates which 3x3 grid the number will be placed in
+    y := Trunc((j - 1) div 3);
+    for m := x * 3 + 1 to x * 3 + 3 do // Loops through the 3x3 grid
+    begin
+      for n := y * 3 + 1 to y * 3 + 3 do
+      begin
+        if grid[m, n] = num then // Checks if the number already exists in the 3x3 grid
+        begin
+          Result := False;
+          Exit;
+        end; 
+      end;
+    end;
+
+    for m := 1 to 9 do
+    begin
+      if grid[m, j] = num then // Checks if the number already exists in the same column
+      begin
+        Result := False;
+        Exit;
+      end;
+    end;
+
+    for n := 1 to 9 do
+    begin
+      if grid[i, n] = num then // Checks if the number already exists in the same row
+      begin
+        Result := False;
+        Exit;
+      end;
+    end;
+
+    Result := True; // Returns True if the number can be placed in the given position
+  end;
+
+  // Recursive function that solves the Sudoku puzzle using backtracking
+  function solve(const s : string; var grid : array of array of integer; const index : integer) : boolean;
+  var
+    i, j, num : integer;
+  begin
+    i := index div 9 + 1; // Calculates the row and column of the current number being checked
+    j := index mod 9 + 1;
+    if index = 81 then // Checks if all numbers have been placed (base case)
+    begin
+      for i := 1 to 9 do // Creates the solution string from the solved grid
+        for j := 1 to 9 do
+          answer := answer + IntToStr(grid[i, j]);
+      Result := True;
+      Exit;
+    end;
+
+    if s[index] = ' ' then // Placeholder for empty spaces in the puzzle
+    begin
+      for num := 1 to 9 do // Loops through numbers 1-9 and checks if they can be placed in current position
+      begin
+        if canPlace(num, grid, i, j) then
+        begin
+          grid[i, j] := num; // Places the number in the grid if it can be placed
+          if solve(s, grid, index + 1) then // Recursively calls solve function for next index
+            Exit(True); // Exits with True if puzzle is solved
+        end;
+      end;
+      grid[i, j] := 0; // Resets the current position if puzzle cannot be solved
+      Result := False;
+    end
+    else // If the current position already has a number, moves on to the next index
+      Result := solve(s, grid, index + 1);
+  end;
+
+var
+  grid : array [1..9, 1..9] of integer;
+  i, j, index : integer;
+begin
+  if not isValidPuzzle(puzzle) then // Checks if the given puzzle is valid
+    Exit(False);
+
+  index := 0;
+  answer := ''; // Initializes answer string
+  // Creates the grid from the given puzzle string
+  for i := 1 to 9 do
+    for j := 1 to 9 do
+    begin
+      index := (i - 1) * 9 + j;
+      if puzzle[index] = ' ' then // Replaces spaces with 0 in the grid
+        grid[i, j] := 0
+      else
+        grid[i, j] := StrToInt(puzzle[index]); // Converts characters to integers
+    end;
+
+  if solve(puzzle, grid, index) then // Calls recursive solve function
+    Result := True
+  else
+    Result := False;
+end; // End of solveSudoku function

@@ -1,0 +1,49 @@
+{-# LANGUAGE DataKinds, ConstraintKinds, TypeFamilies #-}
+-- Define a type-level list datatype
+data List a = Nil | Cons a (List a)
+
+-- Define a type-level function to append two lists
+type family Append (list1 :: List a) (list2 :: List a) :: List a where
+  Append 'Nil list2 = list2
+  Append ('Cons x rest) list2 = 'Cons x (Append rest list2)
+
+-- Define a typeclass for testing list membership
+class Member (x :: a) (list :: List a) where
+  isMember :: proxy x -> proxy list -> Bool
+
+-- Define instances for the empty list and non-empty list
+instance Member x ('Cons x rest) where
+  isMember _ _ = True
+
+instance {-# OVERLAPPABLE #-} Member x rest => Member x ('Cons y rest) where
+  isMember x _ = isMember x (Proxy :: Proxy rest)
+ 
+-- Define a type-level function to remove an element from a list
+type family Remove (x :: a) (list :: List a) :: List a where
+  Remove _ 'Nil = 'Nil
+  Remove x ('Cons x rest) = Remove x rest
+  Remove x ('Cons y rest) = 'Cons y (Remove x rest)
+
+-- Define a type-level constraint for a list to be unique
+type IsUnique list = forall x. Not (Member x (Remove x list))
+  where Not True = False
+        Not _ = True
+ 
+-- Define a type-level function to remove duplicates from a list
+type family RemoveDuplicates (list :: List a) :: List a where
+  RemoveDuplicates 'Nil = 'Nil
+  RemoveDuplicates ('Cons x rest) = 'Cons x (RemoveDuplicates (Remove x rest :: List a))
+
+-- Define a type-level constraint for a list to be a permutation of another list
+type IsPerm list1 list2 = IsUnique list1 && IsUnique list2 && Append list1 list2 == RemoveDuplicates list1
+
+-- Example usage
+-- Let's define two lists and check if they are permutations of each other
+list1 :: List Int
+list1 = 'Cons 1 ('Cons 2 ('Cons 3 'Nil))
+ 
+list2 :: List Int
+list2 = 'Cons 2 ('Cons 1 ('Cons 3 'Nil))
+ 
+isPerm :: IsPerm list1 list2 => Bool
+isPerm = True

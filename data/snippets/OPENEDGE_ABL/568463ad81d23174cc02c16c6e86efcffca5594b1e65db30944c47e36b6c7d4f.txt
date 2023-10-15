@@ -1,0 +1,54 @@
+/* This code snippet demonstrates a complex data retrieval and processing in OPENEDGE_ABL */
+
+/* Define the temp-table to store the retrieved data */
+DEFINE TEMP-TABLE tt_customer
+    FIELD cust_num AS INTEGER
+    FIELD cust_name AS CHARACTER
+    FIELD cust_address AS CHARACTER
+    FIELD cust_phone AS CHARACTER
+    FIELD cust_balance AS DECIMAL
+    FIELD cust_credit_limit AS DECIMAL
+    FIELD cust_status AS CHARACTER.
+
+/* Define variables to store user input */
+DEFINE VARIABLE v_cust_num AS INTEGER NO-UNDO.
+DEFINE VARIABLE v_cust_name AS CHARACTER FORMAT "x(25)" NO-UNDO.
+DEFINE VARIABLE v_cust_address AS CHARACTER FORMAT "x(100)" NO-UNDO.
+
+/* Prompt user for input */
+PROMPT-FOR v_cust_num LABEL "Enter customer number:".
+PROMPT-FOR v_cust_name LABEL "Enter customer name:".
+PROMPT-FOR v_cust_address LABEL "Enter customer address:".
+
+/* Define query to retrieve data from database based on user input */
+DEFINE QUERY qr_customer FOR
+    tt_customer, tt_customer.cust_num, tt_customer.cust_name, tt_customer.cust_address,
+    tt_customer.cust_phone, tt_customer.cust_balance, tt_customer.cust_credit_limit,
+    tt_customer.cust_status
+    WHERE tt_customer.cust_num = INPUT v_cust_num
+    AND tt_customer.cust_name LIKE INPUT v_cust_name + "%"
+    AND tt_customer.cust_address LIKE INPUT v_cust_address + "%".
+
+/* Open query and start retrieving data */
+OPEN QUERY qr_customer.
+GET FIRST qr_customer.
+
+/* Loop through the results and perform calculations */
+DO WHILE AVAILABLE tt_customer:
+    /* Calculate new balance based on credit limit and current balance */
+    ASSIGN tt_customer.cust_balance = tt_customer.cust_credit_limit - tt_customer.cust_balance.
+    /* Update customer status based on balance */
+    IF tt_customer.cust_balance > 0 THEN
+        ASSIGN tt_customer.cust_status = "Active".
+    ELSE
+        ASSIGN tt_customer.cust_status = "Overdue".
+    /* Display customer information */
+    DISPLAY tt_customer WITH NO-LOCK.
+    /* Move to the next result */
+    GET NEXT qr_customer.
+END.
+
+/* Close the query */
+CLOSE QUERY qr_customer.
+/* Display total number of results retrieved */
+DISPLAY "Total number of customers retrieved:" SKIP tt_customer:NUM-RECORDS WITH NO-LOCK.

@@ -1,0 +1,78 @@
+!This is a program that solves the Schrodinger equation using the finite difference method.
+program Schrodinger
+
+  implicit none                   !ensures all variables must be defined before use
+  integer, parameter :: SIZE=100  !number of grid points
+  integer :: i,j                  !loop counters
+  real, parameter :: PI=3.141592  !value of pi
+  real :: x                       !position variable
+  real :: dx                      !grid spacing
+  real :: V(SIZE)                 !potential array
+  real :: psi(SIZE,SIZE)          !wave function array
+  real :: psi_new(SIZE,SIZE)      !new wave function array 
+  real :: psi_old(SIZE,SIZE)      !old wave function array 
+  real :: H(SIZE,SIZE)            !Hamiltonian matrix
+  real :: E,SUM                   !energy and sum variables
+  real :: accuracy=0.0001         !desired accuracy for energy convergence
+  real :: alpha=0.05              !tuning parameter for potential
+  
+  !initialize position variable x and grid spacing dx
+  x=0.0
+  dx=2.0/SIZE
+  
+  !initialize potential array V
+  do i=1, SIZE
+    V(i) = alpha*sin(2*PI*x)       !potential barrier with a sin shape
+    x = x + dx                     !move to next grid point
+  end do
+  
+  !initialize wave function arrays psi and psi_old with random values
+  call random_number(psi)
+  call random_number(psi_old)
+  
+  !normalize psi and psi_old
+  do i=1, SIZE
+    SUM = 0.0
+    do j=1, SIZE
+      SUM = SUM + psi(i,j)**2      !sum of squared values of psi
+    end do
+    psi(i,:) = psi(i,:) / SQRT(SUM) !normalize psi
+    psi_old(i,:) = psi_old(i,:) / SQRT(SUM) !normalize psi_old
+  end do
+  
+  !begin energy convergence loop
+  do while (abs(E-sum(diag(H))) > accuracy)  !check if energy converges
+    !construct the Hamiltonian matrix
+    do i=2,SIZE-1
+      H(i,i) = -2.0/dx**2 + V(i)      !diagonal elements
+      H(i,i-1) = 1.0/dx**2             !off-diagonal elements
+      H(i,i+1) = 1.0/dx**2             !off-diagonal elements
+    end do
+    
+    !multiply psi_old with H and store in psi_new
+    psi_new = MATMUL(psi_old,H)
+    !normalize psi_new
+    do i=1, SIZE
+      SUM = 0.0
+      do j=1, SIZE
+        SUM = SUM + psi_new(i,j)**2    !sum of squared values of psi_new
+      end do
+      psi_new(i,:) = psi_new(i,:) / SQRT(SUM) !normalize psi_new
+    end do
+    
+    !update psi_old with psi_new
+    psi_old = psi_new    
+    !calculate energy 
+    E = sum(diag(H))
+  end do
+  
+  !print out final wave function and energy
+  write(*,*) "Final wave function:"
+  do i=1, SIZE
+    do j=1, SIZE
+      write(*,*) psi(i,j)
+    end do
+  end do
+  write(*,*) "Energy: ", E
+  
+end program Schrodinger

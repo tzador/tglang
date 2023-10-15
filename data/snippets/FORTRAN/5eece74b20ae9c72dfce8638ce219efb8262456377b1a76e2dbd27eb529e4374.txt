@@ -1,0 +1,77 @@
+subroutine kmeans(X, k, N, centroids, clusters)
+  ! This subroutine implements the k-means clustering algorithm in FORTRAN.
+  ! Inputs:
+  !    X - array of data points
+  !    k - the number of clusters to create
+  !    N - the number of data points
+  ! Outputs:
+  !    centroids - array of final centroids
+  !    clusters - array of cluster assignments for each data point
+
+  implicit none  ! ensures all variables must be declared
+
+  ! declare input and output arrays
+  real(8), intent(in) :: X(N, 2)  ! data points
+  real(8), intent(in) :: k  ! number of clusters
+  integer, intent(in) :: N  ! number of data points
+  real(8), intent(out) :: centroids(k, 2)  ! final centroids array
+  integer, intent(out) :: clusters(N)  ! cluster assignments array
+
+  ! declare local variables
+  integer :: i, j, iter, index, min_index  ! loop variables
+  real(8) :: rand  ! random number
+  real(8) :: dist, min_dist  ! distance variables
+  real(8) :: average(2)  ! used to calculate centroids
+  real(8) :: old_centroids(k, 2)  ! used to store old centroids
+  logical :: changed  ! checks if centroids have changed
+
+  ! initialize cluster assignments randomly
+  do i = 1, N
+    clusters(i) = int(k * rand()) + 1  ! randomly assign each point to a cluster
+  end do
+
+  ! loop until centroids converge
+  do iter = 1, 100
+    ! compute centroids
+    do i = 1, k
+      average(:) = 0  ! reset average each iteration
+      index = 0
+      do j = 1, N
+        if (clusters(j) == i) then  ! points belong to this cluster
+          average = average + X(j, :)  ! add coordinates to average
+          index = index + 1  ! count number of points in cluster
+        end if
+      end do
+      if (index > 0) then  ! cluster not empty
+        centroids(i, :) = average / index  ! calculate centroid
+      end if
+    end do
+
+    ! check if centroids have changed
+    changed = .false.  ! reset to false each iteration
+    do i = 1, k
+      if (centroids(i, :) /= old_centroids(i, :)) then
+        changed = .true.  ! centroids have changed
+        old_centroids(i, :) = centroids(i, :)  ! update old centroids
+      end if
+    end do
+    if (.not. changed) then
+      exit  ! centroids have converged, exit loop
+    end if
+
+    ! assign data points to clusters based on distance to centroids
+    do i = 1, N
+      min_dist = 9999.99  ! initialize minimum distance to a large value
+      min_index = 0
+      do j = 1, k
+        dist = sqrt((X(i, 1) - centroids(j, 1))**2 + (X(i, 2) - centroids(j, 2))**2)  ! euclidean distance
+        if (dist < min_dist) then
+          min_dist = dist  ! update minimum distance
+          min_index = j  ! update cluster index
+        end if
+      end do
+      clusters(i) = min_index  ! assign point to nearest cluster
+    end do
+  end do
+
+end subroutine kmeans

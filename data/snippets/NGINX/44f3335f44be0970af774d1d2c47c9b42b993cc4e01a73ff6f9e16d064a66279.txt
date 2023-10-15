@@ -1,0 +1,46 @@
+server {
+    listen 80;
+    server_name example.com;
+    
+    location / {
+        root /var/www/html;
+        index index.html;
+        
+        if ($request_method = GET) {
+            add_header 'Hello' 'World';
+            return 200;
+        }
+        
+        if ($http_user_agent ~* 'curl') {
+            add_header 'Content-Type' 'text/plain';
+            return 403;
+        }
+        
+        if ($arg_admin) {
+            return 301 https://example.com/admin/;
+        }
+    }
+    
+    location /admin {
+        root /var/www/html;
+        index admin.html;
+        
+        if ($cookie_admin_session) {
+            proxy_pass http://example.com/admin/;
+        }
+    }
+    
+    error_page 404 = @missing;
+    
+    location @missing {
+        return 404;
+    }
+    
+    location ~ \.php$ {
+        root /var/www/html;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_index index.php;
+        fastcgi_pass unix:/run/php/php7.2-fpm.sock;
+    }
+}

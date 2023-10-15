@@ -1,0 +1,38 @@
+* This is a comment in GAMS code
+Sets
+       i    set of locations /New York, London, Tokyo, Paris/;
+Scalar distance / distance between locations in kilometers /;
+Table travel_costs(i,i) / Cost of traveling between locations in thousands of dollars /
+* Generating random travel costs for each location combination
+                   New York     London    Tokyo     Paris
+ New York          $(uniform(500,2000))  $(uniform(1200,2500))  $(uniform(3000,5000))  $(uniform(2500,4000))
+ London            $(uniform(1200,2500))  $(uniform(500,2000))   $(uniform(2500,4000))  $(uniform(2000,3000))
+ Tokyo             $(uniform(3000,5000))  $(uniform(2500,4000))  $(uniform(500,2000))   $(uniform(2000,3000))
+ Paris             $(uniform(2000,3000))  $(uniform(1500,3000))  $(uniform(2000,3000))  $(uniform(500,2000));
+
+Parameters
+     cost(i,i)  Total travel cost from one location to another;
+* Filling in the total travel cost parameters by adding the two-way travel costs
+cost(i,i) = travel_costs(i,i) + travel_costs(i,i)$travel_costs(i,i);
+
+Variables
+     x(i)       Binary variable indicating if a location is visited or not;
+     y(i,i)     Amount of travel between locations;
+Binary Variables x,y;
+
+Equations
+     obj       Objective function to minimize total cost
+     start(i)  Constraint that the starting location must be visited;
+     visit(i)  Constraint that all other locations must be visited;
+     
+obj.. cost =e= sum((i,j), travel_costs(i,j)*y(i,j));
+
+start(i).. x(i) =e= sum(j, y(i,j));
+
+visit(i).. sum(j, y(j,i)) =e=  sum(j, y(i,j));
+
+Model travel_optimization /all/;
+
+Solve travel_optimization using MIP minimizing cost;
+
+Display x.l, y.l;

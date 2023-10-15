@@ -1,0 +1,168 @@
+-- Asteroids game simulation written in ADA
+
+with Ada.Text_IO; use Ada.Text_IO;
+with Ada.Integer_Text_IO; use Ada.Integer_Text_IO;
+with Ada.Float_Text_IO; use Ada.Float_Text_IO;
+with Ada.Real_Time; use Ada.Real_Time;
+with Ada.Numerics; -- For mathematical operations
+
+procedure Asteroids is
+
+    type Vector is record
+        x : Float; -- X coordinate
+        y : Float; -- Y coordinate
+    end record;
+    
+    type GameObject is abstract tagged record
+        position : Vector;
+        velocity : Vector;
+    end record;
+    
+    type Asteroid is new GameObject with record
+        size : Integer := 100; -- asteroid size in pixels 
+    end record;
+    
+    type Bullet is new GameObject with record
+        speed : Float := 500.0; -- bullet speed in pixels per second
+        lifespan : Time := Milliseconds(2000); -- bullet lifespan
+    end record;
+    
+    type Ship is new GameObject with record
+        speed : Float := 200.0; -- ship speed in pixels per second
+        angle : Float := 0.0; -- ship rotation angle
+    end record;
+    
+    type Object_List is access all GameObject;
+    
+    type Object_Node is record
+        data : Object_List;
+        next : access Object_Node;
+    end record;
+    
+    type Object_List_Ptr is access Object_Node;
+    
+    type Object_List_Ptr_Ptr is access Object_List_Ptr;
+    
+    -- Function to create a new object and add it to the list
+    procedure Add_Object (List : in out Object_List_Ptr; New_Object : in GameObject'Class) is
+        New_Node : Object_List_Ptr_Ptr;
+    begin
+        New (New_Node);
+        New_Node.all.data := new New_Object;
+        New_Node.all.next := List;
+        List := New_Node.all;
+    end Add_Object;
+    
+    -- Function to destroy an object and remove it from the list
+    procedure Destroy_Object (List : in out Object_List_Ptr; Object : in GameObject'Class) is
+        Current : access Object_Node := List;
+        Previous : access Object_Node;
+    begin
+        loop
+            if Current.data = Object then
+                exit;
+            else
+                Previous := Current;
+                Current := Current.next;
+            end if;
+        end loop;
+        Previous.next := Current.next;
+        Current := null;
+    end Destroy_Object;
+    
+    -- Function to update the position of an object
+    procedure Update_Position (Object : in out GameObject) is
+        Delta_Time : Time_Span := Clock_Delta * 0.001; -- Convert clock delta to seconds
+    begin
+        Object.position.x := Object.position.x + (Object.velocity.x * Delta_Time);
+        Object.position.y := Object.position.y + (Object.velocity.y * Delta_Time);
+    end Update_Position;
+    
+    -- Function to check for collisions between two objects
+    function Check_Collision (Object1 : in GameObject; Object2 : in GameObject) return Boolean is
+        Distance : Float := Sqrt(((Object1.position.x - Object2.position.x) ** 2) + ((Object1.position.y - Object2.position.y) ** 2));
+    begin
+        if Distance < (Object1.size + Object2.size) then
+            return True;
+        else
+            return False;
+        end if;
+    end Check_Collision;
+    
+    -- Function to render an object to the screen
+    procedure Render (Object : in GameObject) is
+    begin
+        -- Code to render object to screen
+        Put_Line("Rendering Object...");
+    end Render;
+    
+    -- Function to update the game state
+    procedure Update (Object_List : in out Object_List_Ptr) is
+        New_Bullet : Bullet;
+    begin
+        for Object in Object_List.all.data loop
+            Update_Position(Object);
+            Render(Object);
+        end loop;
+        
+        if Keyboard_Input = 'S' then -- When user presses 'S' key, create a new bullet
+            New_Bullet.position := Ship.position;
+            New_Bullet.velocity := (1.0, Ship.angle); -- Convert ship angle to vector
+            Add_Object(Object_List, New_Bullet);
+        end if;
+        
+        for Object in Object_List.all.data loop
+            if Object = Ship then -- Check for collisions between the ship and any other object
+                for Other_Object in Object_List.all.data loop
+                    if Other_Object /= Object then
+                        if Check_Collision(Object, Other_Object) then -- If collision detected, destroy both objects
+                            Destroy_Object(Object_List, Object);
+                            Destroy_Object(Object_List, Other_Object);
+                        end if;
+                    end if;
+                end loop;
+            elsif Object instanceof Bullet then -- Check for collisions between bullets and other objects
+                for Other_Object in Object_List.all.data loop
+                    if Other_Object /= Object then
+                        if Check_Collision(Object, Other_Object) then -- If collision detected, destroy both objects
+                            Destroy_Object(Object_List, Object);
+                            Destroy_Object(Object_List, Other_Object);
+                        end if;
+                    end if;
+                end loop;
+            else -- If object is not a ship or a bullet, it must be an asteroid
+                -- Check for collisions between the asteroid and the ship
+                if Check_Collision(Object, Ship) then
+                    -- Code for handling ship destruction
+                    Put_Line("SHIP DESTROYED!");
+                    Destroy_Object(Object_List, Ship);
+                end if;
+            end if;
+        end loop;
+    end Update;
+    
+    -- Create list of objects
+    Objects : Object_List_Ptr := null;
+    
+    -- Create and initialize ship
+    Player_Ship : Ship;
+    Player_Ship.speed := 200.0;
+    Player_Ship.angle := 0.0;
+    Player_Ship.position := (500.0, 500.0);
+    Player_Ship.velocity := (0.0, 0.0);
+    Add_Object(Objects, Player_Ship);
+    
+    -- Create and initialize asteroids
+    for I in 1..10 loop
+        New_Asteroid : Asteroid;
+        New_Asteroid.size := 100;
+        New_Asteroid.position := (Float(400 * I), Float(100 * I));
+        New_Asteroid.velocity := (Float(Random(360)), Float(Random(360)));
+        Add_Object(Objects, New_Asteroid);
+    end loop;
+    
+    loop
+        Update(Objects);
+    end loop;
+    
+end Asteroids;

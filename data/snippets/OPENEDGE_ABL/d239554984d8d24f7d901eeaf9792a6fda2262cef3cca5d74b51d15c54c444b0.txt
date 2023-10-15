@@ -1,0 +1,50 @@
+DEFINE TEMP-TABLE tt-sales NO-UNDO
+  FIELD date KEY "PRIMARY" /* the primary key for the table */
+  FIELD amount DECIMAL /* holds the sales amount */
+  FIELD product LONGCHAR /* holds the name of the product */
+  FIELD customer REFERENCES "Customer" /* references the Customer table */
+  INDEX date IS UNIQUE /* creates a unique index on the date field */
+
+DEFINE VARIABLE cSalesRep AS CHARACTER NO-UNDO. /* holds the name of the sales representative */
+
+DO WHILE NOT END-KEY: /* loop through each record in the temp-table */
+  CREATE "SalesOrder" /* create an instance of the SalesOrder class */
+    ASSIGN
+      cust-num = tt-sales.customer.cust-num /* assign the customer number from the temp-table */
+      sales-rep = cSalesRep /* assign the sales representative name from the defined variable */
+      order-date = tt-sales.date /* assign the date from the temp-table */
+      order-amount = tt-sales.amount /* assign the sales amount from the temp-table */
+      order-product = tt-sales.product. /* assign the product name from the temp-table */
+
+  IF tt-sales.customer.cust-type = "Corporate" THEN /* if the customer is a corporate customer */
+    DO:
+      cSalesRep = "Corporate Sales" /* assign the sales representative name to "Corporate Sales" */
+      MESSAGE "Assigned Corporate Sales Representative."
+        VIEW-AS ALERT-BOX INFO BUTTONS OK.
+    END.
+
+  ELSE IF tt-sales.customer.cust-type = "Individual" THEN /* if the customer is an individual customer */
+    DO:
+      cSalesRep = "Individual Sales" /* assign the sales representative name to "Individual Sales" */
+      MESSAGE "Assigned Individual Sales Representative."
+        VIEW-AS ALERT-BOX INFO BUTTONS OK.
+    END.
+
+  /* insert the new sales order record into the SalesOrder table */
+  CREATE "SalesOrder" /* create an instance of the SalesOrder class */
+    ASSIGN
+      cust-num = tt-sales.customer.cust-num /* assign the customer number from the temp-table */
+      sales-rep = cSalesRep /* assign the sales representative name from the defined variable */
+      order-date = tt-sales.date /* assign the date from the temp-table */
+      order-amount = tt-sales.amount /* assign the sales amount from the temp-table */
+      order-product = tt-sales.product. /* assign the product name from the temp-table */
+    NO-ERROR. /* suppress any errors */
+
+  IF ERROR-STATUS:ERROR OR CREATE "SalesOrder":ERROR-STATUS:ERROR THEN /* if any errors occurred during the insert */
+    DO:
+      MESSAGE "Sales order creation failed."
+        VIEW-AS ALERT-BOX ERROR BUTTONS OK.
+    END.
+
+  NEXT tt-sales. /* move to the next record in the temp-table */
+END. /* end of DO WHILE loop */

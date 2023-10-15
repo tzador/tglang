@@ -1,0 +1,101 @@
+// Contract for a decentralized car rental system
+
+pragma solidity ^0.8.0;
+
+// Importing OpenZeppelin's SafeMath library
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/math/SafeMath.sol";
+
+contract CarRental {
+
+    using SafeMath for uint256;
+
+    // State variables
+    address private owner;
+    uint256 private rentalRate;
+    uint256 private totalRevenue;
+    mapping(address => uint256) private userBalance;
+    mapping(uint256 => Car) private cars;
+    uint256 private carCount;
+
+    // Struct representing a car details
+    struct Car {
+        string name;
+        string model;
+        uint256 rentalPrice;
+        address renter;
+        uint256 startTime;
+        uint256 endTime;
+        bool available;
+    }
+
+    // Events
+    event CarRented(address indexed renter, uint256 indexed carId, uint256 startTime, uint256 endTime);
+    event CarReturned(address indexed renter, uint256 indexed carId, uint256 endTime);
+
+    // Modifier to check if caller is the owner of the contract
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can perform this action");
+        _;
+    }
+
+    // Modifier to check if a car is available for rent
+    modifier carAvailable(uint256 _carId) {
+        require(cars[_carId].available == true, "Car is not available for rent");
+        _;
+    }
+
+    // Constructor to set the owner and rental rate
+    constructor() {
+        owner = msg.sender;
+        rentalRate = 1 ether;
+    }
+
+    // Function to add a new car to the rental system
+    function addCar(string memory _name, string memory _model, uint256 _rentalPrice) public onlyOwner {
+        Car memory newCar = Car(_name, _model, _rentalPrice, address(0), 0, 0, true);
+        cars[carCount] = newCar;
+        carCount = carCount.add(1);
+    }
+
+    // Function to rent a car
+    function rentCar(uint256 _carId, uint256 _duration) public payable carAvailable(_carId) {
+        require(msg.value >= rentalRate.mul(_duration), "Insufficient funds to rent the car");
+        cars[_carId].renter = msg.sender;
+        cars[_carId].startTime = block.timestamp;
+        cars[_carId].endTime = block.timestamp.add(_duration);
+        cars[_carId].available = false;
+        totalRevenue = totalRevenue.add(msg.value);
+        userBalance[msg.sender] = userBalance[msg.sender].add(msg.value);
+        emit CarRented(msg.sender, _carId, block.timestamp, block.timestamp.add(_duration));
+    }
+
+    // Function to return a car
+    function returnCar(uint256 _carId) public carAvailable(_carId) {
+        require(cars[_carId].renter == msg.sender, "Only the renter can return the car");
+        require(block.timestamp >= cars[_carId].endTime, "The return time has not arrived yet");
+        cars[_carId].available = true;
+        emit CarReturned(msg.sender, _carId, block.timestamp);
+    }
+
+    // Function to withdraw balance
+    function withdrawBalance() public payable {
+        require(userBalance[msg.sender] > 0, "Insufficient balance to withdraw");
+        msg.sender.transfer(userBalance[msg.sender]);
+        userBalance[msg.sender] = 0;
+    }
+
+    // Function to change the rental rate
+    function setRentalRate(uint256 _newRate) public onlyOwner {
+        rentalRate = _newRate;
+    }
+
+    // Function to check the total revenue
+    function getRevenue() public view onlyOwner returns (uint256) {
+        return totalRevenue;
+    }
+
+    // Function to check user balance
+    function getUserBalance() public view returns (uint256) {
+        return userBalance[msg.sender];
+    }
+}

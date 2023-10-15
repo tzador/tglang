@@ -1,0 +1,56 @@
+%% A server that accepts multiple connections
+-module(multiserver).
+-export([start/0, init/0, handle_connection/2, handle_recv/2, broadcast/1]).
+
+%% Start the server
+start() ->
+  %% Spawn the process and initialize it
+  spawn(fun() -> init() end).
+
+%% Initialize the server
+init() ->
+  %% Start listening on port 3000
+  {ok, Socket} = gen_tcp:listen(3000, [binary, {packet, 0}, {active, once}]),
+  %% Generate a reference number for this server
+  Ref = make_ref(),
+  %% Start accepting incoming connections
+  accept(Socket, Ref).
+
+%% Accept incoming connections
+accept(Socket, Ref) ->
+  receive
+    %% Start a new process for each connection
+    {ok, ClientSocket} = gen_tcp:accept(Socket),
+    spawn(fun() -> handle_connection(ClientSocket, Ref) end),
+    %% Keep accepting connections
+    accept(Socket, Ref)
+  end.
+
+%% Handle each connection
+handle_connection(Socket, Ref) ->
+  %% Set the socket in active mode
+  inet:setopts(Socket, [{active, once}]),
+  %% Start receiving data from the socket
+  recv(Socket, Ref).
+
+%% Recieve data from the client
+recv(Socket, Ref) ->
+  receive
+    %% Read data from the socket and send back a response
+    {tcp, Socket, Data} ->
+      gen_tcp:send(Socket, Data),
+      %% Call broadcast to send the data to all other connected clients
+      broadcast({Socket, Data}),
+      %% Keep receiving data
+      recv(Socket, Ref);
+    %% If the connection is closed, terminate the process
+    {tcp_closed, Socket} ->
+      exit({closed, {tcp_closed, Socket}})
+  end.
+
+%% Broadcast data to all other connected clients
+broadcast({From, Data}) ->
+  %% Get all connected clients
+  Clients = [Pid || Pid <- processes(), is_pid(Pid)],
+  %% Send the data to each client excluding the sender
+  [gen_tcp:send(Pid, Data) || Pid <- Clients, Pid /= self(), Pid /= From].

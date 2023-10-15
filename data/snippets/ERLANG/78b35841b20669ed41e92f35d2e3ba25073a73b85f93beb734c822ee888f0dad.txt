@@ -1,0 +1,57 @@
+-module(maze).
+-compile(export_all).
+
+%% Function for creating a maze with given dimensions
+create_maze(Rows, Cols) ->
+	create_maze(Rows, Cols, [], []).
+
+create_maze(0, _, Walls, Visited) ->
+	Walls;
+
+create_maze(R, 0, Walls, Visited) ->
+	Walls;
+
+create_maze(R, C, Walls, Visited) ->
+	Directions = [{top, {R-1, C}}, {left, {R, C-1}}, {right, {R, C+1}}, {bottom, {R+1, C}}],
+	Chosen = choose_step(Directions, Visited),
+	case Chosen of
+		{ok, Direction, {NR, NC}} ->
+			Walls1 = add_wall(R, C, NR, NC, Walls),
+			create_maze(NR, NC, Walls1, [{R, C} | Visited]);
+		missing ->
+			create_maze(R, C, Walls, [{R, C} | Visited])
+	end.
+
+%% Function for randomly selecting a direction to move in
+choose_step(Directions, Visited) ->
+
+	%% Generate a random direction
+	Random = random:uniform(length(Directions)),
+	{Direction, Coords} = lists:nth(Random, Directions),
+
+	%% Check if the chosen direction has already been visited
+	case lists:member(Coords, Visited) of
+		true ->
+			%% If so, remove that direction and try again
+			Directions1 = lists:delete({Direction, Coords}, Directions),
+			case Directions1 of
+				[] ->
+					%% If all directions have been visited, return 'missing' to signal backtracking
+					missing;
+				_ ->
+					%% Otherwise, try again with the remaining directions
+					choose_step(Directions1, Visited)
+			end;
+		false ->
+			%% If direction has not been visited, return it
+			{ok, Direction, Coords}
+	end.
+
+%% Function for adding walls to the maze
+add_wall(R1, C1, R2, C2, Walls) ->
+
+	%% Calculate the wall coordinates
+	WallCoords = {{2*R1-1 + round((2*R2-1 - 2*R1+1)/2), 2*C1-1 + round((2*C2-1 - 2*C1+1)/2)}},
+
+	%% Add the wall to the list
+	[Walls | WallCoords].

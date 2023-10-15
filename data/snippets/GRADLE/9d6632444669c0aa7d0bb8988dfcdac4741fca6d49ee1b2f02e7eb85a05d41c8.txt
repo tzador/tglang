@@ -1,0 +1,91 @@
+// Define the plugin
+plugins {
+    id 'java'
+}
+
+// Define the repositories
+repositories {
+    mavenCentral()
+}
+
+// Define the dependencies
+dependencies {
+    compile 'com.google.guava:guava:22.0'
+    testCompile 'junit:junit:4.12'
+}
+
+// Define the tasks
+task customTask(type: JavaExec) {
+    main = 'MainClass' # Specify the main class
+    classpath = sourceSets.main.runtimeClasspath # Set the classpath
+    args 'argument1', 'argument2' # Pass arguments to the main class
+}
+
+// Define the build script
+build {
+    ext {
+        javaVersion = '1.8'
+        appName = 'MyApp'
+    }
+
+    // Define the source sets
+    sourceSets {
+        main {
+            java {
+                srcDir 'src/main/java'
+            }
+        }
+        test {
+            java {
+                srcDir 'src/test/java'
+            }
+        }
+    }
+
+    // Define the tasks for each source set
+    tasks.withType(JavaCompile) {
+        sourceCompatibility = javaVersion
+        targetCompatibility = javaVersion
+    }
+
+    // Define the task for generating a JAR file
+    task generateJar(type: Jar) {
+        from sourceSets.main.output
+        archiveName = "${appName}.jar"
+    }
+
+    // Define the task for running code coverage
+    task codeCoverage(type: JacocoReport) {
+        executionData sourceSets.main.output + fileTree(dir: 'build/classes/java', include: '**/*.exec')
+        sourceSets sourceSets.main
+        classDirectories = sourceSets.main.output.classesDirs
+        excludes = ['integTest/**']
+        reports {
+            xml.enabled true # Generate XML report
+            xml.destination file("$buildDir/reports/jacoco/test/jacocoTestReport.xml")
+            csv.enabled false # Disable CSV report
+        }
+    }
+}
+
+// Define additional configurations
+configurations {
+    integrationTestCompile.extendsFrom testCompile # Include integration test dependencies
+    integrationTestRuntime.extendsFrom testRuntime # Include integration test runtime dependencies
+}
+
+// Define the integration test task
+task integrationTest(type: Test) {
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs # Set the test class directory
+    classpath = sourceSets.integrationTest.runtimeClasspath # Set the integration test classpath
+    outputs.upToDateWhen {false} # Always run the integration tests
+    include '**/*IntegrationTest.java' # Only run integration tests
+}
+
+// Define the task for cleaning the build directory
+clean { 
+    delete 'build' 
+}
+
+// Define the default tasks for the build
+defaultTasks 'codeCoverage', 'generateJar', 'integrationTest'

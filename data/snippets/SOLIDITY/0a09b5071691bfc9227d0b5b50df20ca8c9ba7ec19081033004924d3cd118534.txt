@@ -1,0 +1,100 @@
+// A contract to manage a cryptocurrency
+ contract Cryptocurrency{
+    // Variables to store total supply and balances of addresses
+    uint256 public totalSupply;
+    mapping(address => uint256) balances;
+    
+    // Events to emit upon transfer or approval
+    event Transfer(address indexed _from, address indexed _to, uint256 _value);
+    event Approval(address indexed _owner, address indexed _spender, uint256 _value);
+    
+    // Constructor to initialize the total supply upon deployment
+    constructor(uint256 _initialSupply) public{
+        totalSupply = _initialSupply;
+        balances[msg.sender] = totalSupply; // Set initial supply to contract creator
+    }
+    
+    // Function to get balance of an address
+    function balanceOf(address _owner) public view returns (uint256){
+        return balances[_owner];
+    }
+    
+    // Function to transfer tokens from one address to another
+    function transfer(address _to, uint256 _value) public returns (bool){
+        require(_value > 0); // Ensure transfer value is greater than 0
+        require(balances[msg.sender] >= _value); // Ensure sender has enough balance
+        require(balances[_to] + _value > balances[_to]); // Prevent integer overflow
+        
+        balances[msg.sender] -= _value; // Subtract from sender's balance
+        balances[_to] += _value; // Add to receiver's balance
+        
+        // Emit transfer event
+        emit Transfer(msg.sender, _to, _value);
+        return true;
+    }
+    
+    // Function to approve another address to spend tokens on behalf of sender
+    function approve(address _spender, uint256 _value) public returns (bool){
+        require(_value > 0); // Ensure approval value is greater than 0
+        
+        // Store the approved amount for sender and spender
+        allowed[msg.sender][_spender] = _value;
+        
+        // Emit approval event
+        emit Approval(msg.sender, _spender, _value);
+        return true;
+    }
+    
+    // Function to get approved amount for a spender by owner
+    function allowance(address _owner, address _spender) public view returns (uint256){
+        return allowed[_owner][_spender];
+    }
+    
+    // Function to transfer tokens from one address to another on behalf of the sender
+    function transferFrom(address _from, address _to, uint256 _value) public returns (bool){
+        require(_value > 0); // Ensure transfer value is greater than 0
+        require(balances[_from] >= _value); // Ensure sender has enough balance
+        require(allowed[_from][msg.sender] >= _value); // Ensure sender has been approved to spend the tokens
+        
+        balances[_from] -= _value; // Subtract from sender's balance
+        balances[_to] += _value; // Add to receiver's balance
+        
+        // Reduce the approved amount for sender by the transferred value
+        allowed[_from][msg.sender] -= _value;
+        
+        // Emit transfer event
+        emit Transfer(_from, _to, _value);
+        return true;
+    }
+    
+    // Function to mint new tokens
+    function mint(uint256 _amount) public{
+        require(msg.sender == owner); // Only contract owner can mint new tokens
+        require(totalSupply + _amount > totalSupply); // Prevent integer overflow
+        
+        totalSupply += _amount; // Increase total supply
+        balances[msg.sender] += _amount; // Add to contract owner's balance
+        
+        // Emit transfer event
+        emit Transfer(address(0), msg.sender, _amount);
+    }
+    
+    // Function to burn tokens
+    function burn(uint256 _amount) public{
+        require(msg.sender == owner); // Only contract owner can burn tokens
+        require(balances[msg.sender] >= _amount); // Ensure sender has enough tokens
+        
+        totalSupply -= _amount; // Decrease total supply
+        balances[msg.sender] -= _amount; // Subtract from sender's balance
+        
+        // Emit transfer event
+        emit Transfer(msg.sender, address(0), _amount);
+    }
+    
+    // Function to transfer ether from contract to contract owner
+    function withdraw() public{
+        require(msg.sender == owner); // Only contract owner can withdraw ether
+        require(address(this).balance >= totalSupply); // Ensure contract has enough ether
+        owner.transfer(address(this).balance); // Transfer all ether to owner
+    }
+}

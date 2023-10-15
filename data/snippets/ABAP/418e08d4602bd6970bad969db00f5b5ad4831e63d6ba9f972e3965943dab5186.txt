@@ -1,0 +1,66 @@
+DATA: lv_filetype TYPE string,
+      lv_filename TYPE string,
+      lv_url      TYPE string,
+      lt_content  TYPE TABLE OF string,
+      lv_content  TYPE string,
+      lv_bytes    TYPE i,
+      lv_sxml     TYPE REF TO cl_sxml_string,
+      lv_pattern  TYPE string,
+      lt_matches  TYPE string_table.
+
+" Set file type and filename
+lv_filetype = 'text/plain'.
+lv_filename = 'example.txt'.
+
+" Generate temporary URL for file storage
+CALL FUNCTION 'SCP_GET_SIGNATURE_URL'
+  EXPORTING
+    iv_filename  = lv_filename
+    iv_filetype  = lv_filetype
+    iv_put       = abap_true
+  IMPORTING
+    ev_url       = lv_url.
+
+" Read file contents into internal table
+CALL FUNCTION 'GUI_UPLOAD'
+  EXPORTING
+    filename     = lv_filename
+  TABLES
+    data_tab     = lt_content
+  EXCEPTIONS
+    OTHERS       = 1.
+
+" Convert internal table to string
+LOOP AT lt_content INTO lv_content.
+  lv_content = lv_content && cl_abap_char_utilities=>newline.
+ENDLOOP.
+
+" Calculate number of bytes in string
+lv_bytes = strlen( lv_content ).
+
+" Create an XML document with string data
+CREATE OBJECT lv_sxml
+  EXPORTING
+    data = lv_content
+  EXCEPTIONS
+    OTHERS = 1.
+
+" Define regular expression pattern to search for
+lv_pattern = 'example'.
+
+" Search for matches in the XML document
+CALL METHOD lv_sxml->find
+  EXPORTING
+    pattern     = lv_pattern
+  IMPORTING
+    matches     = lt_matches
+  EXCEPTIONS
+    OTHERS      = 1.
+
+" Print results to output
+WRITE: 'Number of bytes in file:', lv_bytes.
+WRITE: 'Number of matches found:', lines( lt_matches ).
+WRITE: 'Matches found:'.
+LOOP AT lt_matches INTO DATA(lv_match).
+  WRITE: / lv_match.
+ENDLOOP.

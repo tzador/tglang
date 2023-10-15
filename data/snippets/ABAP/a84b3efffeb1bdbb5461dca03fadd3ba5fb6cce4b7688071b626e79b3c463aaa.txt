@@ -1,0 +1,29 @@
+" This program generates a report of employees' salaries and bonuses from a given department
+REPORT ZSALARY_BONUS NO STANDARD PAGE HEADING.
+" Declare selection screen variables
+DATA: lv_department TYPE char10,
+      lv_min_salary TYPE p LENGTH 8 DECIMALS 2,
+      lv_bonuses TYPE p LENGTH 8 DECIMALS 2.
+" Select data from HR table
+SELECT e~empname,
+       s~salary
+FROM zemployee AS e
+INNER JOIN zsalary AS s ON e~empid = s~empid
+INTO TABLE @DATA(lt_employees)
+WHERE e~department = lv_department
+  AND s~salary >= lv_min_salary.
+" Calculate bonuses for each employee based on salary
+LOOP AT lt_employees ASSIGNING FIELD-SYMBOL(<fs_employee>).
+  lv_bonuses = <fs_employee>-salary * 0.1.
+  CHECK lv_bonuses > 100.
+  <fs_employee>-bonus = lv_bonuses.
+ENDLOOP.
+" Sort employees by salary in descending order
+SORT lt_employees BY salary DESCENDING.
+" Display results on ALV grid
+cl_salv_gui_table_ida=>factory(
+  IMPORTING
+    r_salv_table = DATA(lr_salv_table)
+  CHANGING
+    t_table      = lt_employees ).
+lr_salv_table->display( ).

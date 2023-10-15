@@ -1,0 +1,171 @@
+%{
+    /* declarations and includes */
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <string.h>
+%}
+
+/* Token definitions */
+%token<number> NUM
+%token<symbol> OP
+
+%%
+
+/* Rules */
+program:
+    stmts;
+
+stmts:
+    stmt ';' stmts // statement followed by semicolon and more statements
+    | /* empty */  // allow for empty statements
+    ;
+
+stmt:
+    if_stmt
+    | while_stmt
+    | assign_stmt
+    ;
+
+if_stmt:
+    IF '(' expr ')' '{' stmt '}' // if statement with condition and body
+    | IF '(' expr ')' '{' stmt '}' ELSE '{' stmt '}' // if-else statement
+    ;
+
+while_stmt:
+    WHILE '(' expr ')' '{' stmt '}' // while statement with condition and body
+    ;
+
+assign_stmt:
+    VAR '=' expr ';' // variable assignment statement
+
+expr:
+    NUM // expression is just a number
+    | VAR // expression is a variable
+    | expr OP expr // expression is binary operation of two expressions
+    | '(' expr ')' // expression enclosed in parentheses
+    ;
+
+%%
+
+/* Code to handle identifiers and numbers */
+int yyerror(char* msg) {
+    printf("%s\n", msg); // print error message
+    exit(1); // exit with error code 1
+}
+
+int main() {
+    yylex(); // call lexer to get first token
+    return 0; // exit with success code 0
+}
+
+/* Lexer code */
+%option noyywrap // disable yywrap function
+
+%%
+
+[0-9]+      { return NUM; } // match integers
+[+\-*/]     { return OP; }  // match arithmetic operators
+[a-zA-Z]+   { return VAR; } // match identifiers
+[ \t\n]     { /* ignore whitespace */ }
+.           { yyerror("invalid symbol"); } // handle invalid symbols
+
+%%
+
+/* Code to handle variable declarations */
+struct symbol {
+    char *name;
+    double value;
+} symtab[100]; // array of symbol structures
+
+int nsym = 0; // number of symbols in symbol table
+
+/* Lookup function to find symbol in symbol table */
+struct symbol *lookup(char *symbol_name) {
+    int i;
+    for (i = 0; i < nsym; i++) { // loop through symbol table
+        if (strcmp(symtab[i].name, symbol_name) == 0) { // if symbol name matches
+            return &symtab[i]; // return pointer to symbol structure
+        }
+    }
+    // if symbol not found, report error
+    yyerror("undeclared variable");
+}
+
+/* Code to handle variable assignments */
+void assign_var(char *symbol_name, double value) {
+    struct symbol *s = lookup(symbol_name); // find symbol in symbol table
+    s->value = value; // assign value to symbol
+}
+
+/* Code to evaluate expressions */
+double eval(struct ast *a) {
+    double v;
+    if (!a) return 0.0; // null case
+    switch(a->nodetype) { // check node type
+        case NUM:
+            v = a->number; // for number, return its value
+            break;
+        case VAR:
+            v = lookup(a->symbol)->value; // for variable, find its value in symbol table
+            break;
+        case '+' :
+            v = eval(a->left) + eval(a->right); // for addition, evaluate left and right expressions and add together
+            break;
+        case '-' :
+            v = eval(a->left) - eval(a->right); // for subtraction, evaluate left and right expressions and subtract
+            break;
+        case '*' :
+            v = eval(a->left) * eval(a->right); // for multiplication, evaluate left and right expressions and multiply
+            break;
+        case '/' :
+            v = eval(a->left) / eval(a->right); // for division, evaluate left and right expressions and divide
+            break;
+        default:
+            printf("internal error: bad node %c\n", a->nodetype); // handle other node types
+    }
+    return v;
+}
+
+/* Abstract syntax tree structures */
+struct ast {
+    int nodetype;
+    struct ast *left;
+    struct ast *right; // binary tree structure
+};
+
+/* Create a node for number */
+struct ast *newnum(double d) {
+    struct numval *a = malloc(sizeof(struct numval)); // allocate memory for node
+    if (!a) { // if malloc returns null
+        yyerror("out of space"); // handle error
+        exit(0); // exit with code 0
+    }
+    a->nodetype = NUM; // set node type to number
+    a->number = d; // set number value
+    return (struct ast *)a; // cast to generic pointer and return
+}
+
+/* Create a node for variable */
+struct ast *newvar(char *s) {
+    struct varval *a = malloc(sizeof(struct varval)); // allocate memory for node
+    if (!a) { // if malloc returns null
+        yyerror("out of space"); // handle error
+        exit(0); // exit with code 0
+    }
+    a->nodetype = VAR; // set node type to variable
+    a->symbol = strdup(s); // duplicate string for symbol name
+    return (struct ast *)a; // cast to generic pointer and return
+}
+
+/* Creator a node for binary operations */
+struct ast *newbinop(int op, struct ast *l, struct ast *r) {
+    struct binopval *a = malloc(sizeof(struct binopval)); // allocate memory for node
+    if (!a) { // if malloc returns null
+        yyerror("out of space"); // handle error
+        exit(0); // exit with code 0
+    }
+    a->nodetype = op; // set node type to operation
+    a->left = l; // set left expression
+    a->right = r; // set right expression
+    return (struct ast *)a; // cast to generic pointer and return
+}

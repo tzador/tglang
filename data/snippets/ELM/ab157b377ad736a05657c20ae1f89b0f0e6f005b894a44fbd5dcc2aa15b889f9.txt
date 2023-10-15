@@ -1,0 +1,140 @@
+--| This program creates an interactive Tic Tac Toe game
+  --| It takes in user input and updates the game board accordingly
+  --| The game ends when one player gets three in a row, or when all squares are filled
+       
+  --| Define the game board as a list of 9 squares
+  gameBoard : List Square
+  gameBoard = [Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty]
+       
+  --| Define the different states a square can be in
+  type Square 
+      = Empty 
+      | X 
+      | O
+       
+  --| Define a type for the game status, with possible values of Ongoing, XWon, OWon, or Draw
+  type GameStatus
+      = Ongoing
+      | XWon
+      | OWon
+      | Draw
+       
+  --| Define a type for the player, with values of X or O
+  type Player
+      = X 
+      | O
+       
+  --| Define a function that updates the game board when a player makes a move
+  updateBoard : Player -> Int -> List Square -> List Square
+  updateBoard player index board =
+    case board of
+        _ :: rest -> 
+           if index == 0 then
+               if (List.head board) == Empty then
+                   (List.repeat index Empty) ++ [player] ++ rest
+               else
+                   board
+           else
+               [List.head board] ++ updateBoard player (index - 1) rest
+        _ ->
+            []
+       
+  --| Define a function that checks for three in a row for a given player
+  checkThreeInARow : Player -> List Square -> Bool
+  checkThreeInARow player board =
+    case board of
+        (player :: _ :: _ :: []) ->
+            True
+        (_ :: player :: _ :: _) ->
+            True
+        (_ :: _ :: player :: [])->
+            True
+        _ ->
+            False
+       
+  --| Define a function that checks for three in a column for a given player
+  checkThreeInAColumn : Player -> List Square -> Bool
+  checkThreeInAColumn player board =
+    case board of
+        (player :: _ :: _ :: []) ->
+            True
+        (_ :: player :: _ :: [])->
+            True
+        (_ :: _ :: player :: []) ->
+            True
+        _ ->
+            False
+       
+  --| Define a function that checks for three in a diagonal for a given player
+  checkThreeInADiagonal : Player -> List Square -> Bool
+  checkThreeInADiagonal player board =
+    case board of
+       (player :: _ :: _ :: []) ->
+            True
+       (_ :: player :: _ :: [])->
+            True
+       (_ :: _ :: player :: [])->
+            True
+       _ ->
+            False
+       
+  --| Define a function to check if the game has been won by either player
+  checkWin : List Square -> GameStatus
+  checkWin board =
+    if (checkThreeInARow X board || checkThreeInAColumn X board || checkThreeInADiagonal X board) then
+        XWon
+    else if (checkThreeInARow O board || checkThreeInAColumn O board || checkThreeInADiagonal O board) then
+        OWon
+    else if (List.all (\square -> square /= Empty) board) then
+        Draw
+    else
+        Ongoing
+       
+  --| Define a function that runs the game, taking in user input and updating the board and status accordingly
+  game : List Square -> GameStatus -> Task x (List Square, GameStatus)
+  game board status =
+    case status of
+        Ongoing ->
+            let
+                printBoard = Terminal.fromString (String.join " " (List.map (\square -> case square of
+                                                                            Empty ->
+                                                                                " "
+                                                                            X ->
+                                                                                "X"
+                                                                            O ->
+                                                                                "O"
+                                                                        ) board ))
+            in
+                Terminal.macros.print printBoard
+                    |> Task.map (always (board, status))
+       
+        XWon ->
+            let
+                printBoard = Terminal.fromString ("Game over - X won!")
+            in
+                Terminal.macros.print printBoard
+                    |> Task.map (always (board, status))
+       
+        OWon ->
+            let
+                printBoard = Terminal.fromString ("Game over - O won!")
+            in
+                Terminal.macros.print printBoard
+                    |> Task.map (always (board, status))
+       
+        Draw ->
+            let
+                printBoard = Terminal.fromString ("Game over - Draw!")
+            in
+                Terminal.macros.print printBoard
+                    |> Task.map (always (board, status))
+       
+  --| Define the main function that runs the game
+  main : Program Never (List Square, GameStatus)
+  main =
+    Program.worker
+        { init = 
+            Task.succeed (gameBoard, Ongoing)
+        , update = \msg model -> Task.succeed ((updateBoard X 0 model), checkWin (updateBoard X 0 model) )
+        , subscriptions = \model -> Task.succeed (game model Ongoing)
+        }

@@ -1,0 +1,98 @@
+/// @title Marketplace contract
+contract Marketplace {
+    mapping (address => mapping (address => uint256)) private _allowances;
+    mapping (uint256 => address) private _tokenOwners;
+    address private _owner;
+    uint256 public numTokens;
+    bool public saleActive;
+ 
+    event Approval(address indexed tokenOwner, address indexed spender, uint256 tokens);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event TokenMinted(address indexed tokenOwner, uint256 indexed tokenId);
+    event TokenTransferred(address indexed from, address indexed to, uint256 indexed tokenId);
+    event SaleStateChanged(bool state);
+ 
+    constructor() public {
+        _owner = msg.sender;
+        saleActive = false;
+        numTokens = 0;
+    }
+ 
+    modifier onlyOwner() {
+        require(msg.sender == _owner);
+        _;
+    }
+ 
+    function mint() external onlyOwner {
+        require(saleActive);
+ 
+        numTokens++;
+        _tokenOwners[numTokens] = msg.sender;
+ 
+        emit TokenMinted(msg.sender, numTokens);
+    }
+ 
+    function buy(uint256 tokenId) external payable {
+        require(saleActive);
+        require(_tokenOwners[tokenId] != address(0));
+        require(msg.value == 1 ether);
+ 
+        address tokenOwner = _tokenOwners[tokenId];
+        // Calculate commission
+        uint256 commission = msg.value / 10;
+ 
+        // Transfer token to buyer
+        _tokenOwners[tokenId] = msg.sender;
+ 
+        // Transfer commission to owner
+        tokenOwner.transfer(commission);
+ 
+        // Transfer excess ether back to buyer
+        uint256 excess = msg.value - commission;
+        msg.sender.transfer(excess);
+ 
+        emit TokenTransferred(tokenOwner, msg.sender, tokenId);
+    }
+ 
+    function startSale() external onlyOwner {
+        saleActive = true;
+        emit SaleStateChanged(true);
+    }
+ 
+    function stopSale() external onlyOwner {
+        saleActive = false;
+        emit SaleStateChanged(false);
+    }
+ 
+    function approve(address spender, uint256 tokens) external {
+        _allowances[msg.sender][spender] = tokens;
+        emit Approval(msg.sender, spender, tokens);
+    }
+ 
+    function transferFrom(address from, address to, uint256 tokens) external {
+        require(tokens <= _allowances[from][msg.sender]);
+ 
+        // Transfer token
+        _tokenOwners[tokens] = to;
+ 
+        // Update allowance
+        _allowances[from][msg.sender] -= tokens;
+ 
+        emit TokenTransferred(from, to, tokens);
+    }
+ 
+    function transfer(address to, uint256 tokens) external {
+        require(_tokenOwners[tokens] == msg.sender);
+ 
+        // Transfer token
+        _tokenOwners[tokens] = to;
+ 
+        emit TokenTransferred(msg.sender, to, tokens);
+    }
+ 
+    function transferOwnership(address newOwner) external onlyOwner {
+        require(newOwner != address(0));
+        emit OwnershipTransferred(_owner, newOwner);
+        _owner = newOwner;
+    }
+}

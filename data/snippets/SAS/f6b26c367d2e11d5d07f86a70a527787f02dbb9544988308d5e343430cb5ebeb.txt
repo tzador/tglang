@@ -1,0 +1,52 @@
+/* This is a program in SAS that reads in a dataset, performs some manipulations, and outputs a new dataset */
+
+/* Define the library where the dataset is located and the new dataset name */
+LIBNAME mylib '/mydata';
+%let new_dataset = new_data;
+
+/* Create a macro variable with the current date and time */
+%let current_date = %sysfunc(date());
+%let current_time = %sysfunc(time());
+
+/* Open the dataset and create a temporary working dataset */
+DATA mylib.dataset_temp;
+    SET mylib.dataset;
+
+/* Sort the dataset by ID and Date in ascending order */
+    BY ID Date;
+
+/* Create a new variable that combines two existing variables */
+    NEW_VARIABLE = CATX('_', VARIABLE1, VARIABLE2);
+
+/* Create a new variable based on a conditional statement */
+    IF VARIABLE3 = 'Yes' THEN DO;
+        NEW_VAR = 'Positive'
+    END;
+    ELSE DO;
+        NEW_VAR = 'Negative';
+    END;
+
+/* Remove variables that are not needed */
+    DROP VARIABLE1 VARIABLE2 VARIABLE3;
+
+/* Rename the new variable and format the Date variable */
+    RENAME NEW_VARIABLE = NEW_VAR;
+    FORMAT Date DATE9.;
+
+/* Merge the working dataset with a reference dataset */
+    DATA temp_merge;
+        MERGE mylib.reference_dataset mylib.dataset_temp;
+        BY ID;
+
+/* Create a new variable that calculates the difference between two dates */
+        NEW_DATE = INTCK('Days', Date, REF_DATE);
+
+/* Keep only the necessary variables and order the data */
+        KEEP ID REF_DATE NEW_VAR NEW_DATE;
+        DROP Date;
+
+/* Export the final dataset and add a timestamp to the filename */
+    DATA mylib.&new_dataset._&current_date._&current_time;
+        SET temp_merge;
+        FILENAME = "&new_dataset._&current_date._&current_time.csv";
+RUN;

@@ -1,0 +1,74 @@
+# If condition to check if request method is GET
+if ($request_method = GET) { 
+    # Set a variable for the requested URL
+    set $requested_url $scheme://$host$request_uri;
+    
+    # Redirect to the requesting URL with a 301 status code
+    return 301 $requested_url;
+} 
+
+# If condition to check if the HTTP Host header is not equal to the value "example.com"
+if ($http_host != "example.com") {
+    # Set a variable with the desired host name
+    set $new_host "example.com";
+    
+    # Redirect to the new host with a 301 status code
+    return 301 $scheme://$new_host$request_uri;
+}
+
+# If condition to check if the requested URL contains the string "/blog"
+if ($request_uri ~* (/blog)) { 
+    # Rewrite the requested URL to include the "index.php" file
+    rewrite ^/(.*)$ /blog/index.php?$1 last;
+}
+
+# Location block for the "/images" directory
+location /images {
+    # Set the root directory for serving images
+    root /var/www/images;
+    
+    # Set a limit on the size of the file being served to 10MB
+    client_max_body_size 10M;
+    
+    # Set the HTTP headers "Cache-Control" and "Expires" for caching
+    expires 7d;
+    add_header Cache-Control "public, max-age=604800, must-revalidate";
+}
+
+# Server block for handling requests from the "www" subdomain
+server {
+    # Listen on port 80
+    listen 80;
+    
+    # Set the server name as "www.example.com"
+    server_name www.example.com;
+    
+    # Location block for the "/" URL path
+    location / {
+        # Set the root directory for serving files
+        root /var/www;
+        
+        # Set the index file as "index.html" for directory listings
+        index index.html;
+    }
+    
+    # Location block for the "/admin" URL path
+    location /admin {
+        # Set the root directory for serving files
+        root /var/www/admin;
+        
+        # Set the index file as "index.php" for directory listings
+        index index.php;
+        
+        # Define a PHP processing location for the "/admin" URL path
+        location ~ \.php$ {
+            # Set the root directory for serving PHP scripts
+            fastcgi_pass unix:/var/run/php/php7.4-fpm.sock;
+            
+            # Set the FastCGI parameters
+            fastcgi_param SCRIPT_FILENAME $request_filename;
+            fastcgi_param SCRIPT_NAME $fastcgi_script_name;
+            include fastcgi_params;
+        }
+    }
+}

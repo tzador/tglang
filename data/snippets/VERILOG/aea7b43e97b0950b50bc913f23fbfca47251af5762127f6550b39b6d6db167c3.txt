@@ -1,0 +1,152 @@
+/* This code snippet is written in VERILOG and contains a long and complex code for a pipelined processor */
+
+module pipeline_processor (
+
+input clk, // clock signal
+input reset, // reset signal
+
+// Instruction Fetch Stage Inputs
+input [31:0] PC_in, // program counter
+input inst_memory_in, // instruction memory input
+output [31:0] inst_fetch_out /* output of instruction fetch stage 
+contains program counter for next instruction and current instruction */
+
+// Instruction Decode Stage Inputs
+input [31:0] inst_decode_in, // instruction input from instruction fetch stage
+output reg [4:0] opcode_out, // opcode of current instruction
+output reg [1:0] rs_out, // register source 1
+output reg [1:0] rt_out, // register source 2
+output reg [1:0] rd_out, // register destination
+output reg [2:0] function_out // function code for R-type instructions
+
+// Execution Stage Inputs
+input [31:0] alu_src1, // source 1 for ALU
+input [31:0] alu_src2, // source 2 for ALU
+input [1:0] alu_op, // ALU operation to be performed
+output [31:0] alu_result_out, // ALU result output
+
+// Memory Access Stage Inputs
+input [31:0] mem_addr, // memory address to be accessed
+input [31:0] mem_data, // data to be written to memory
+input [1:0] mem_write_en, // memory write enable signal
+output [31:0] mem_data_out // data read from memory
+
+// Write Back Stage Inputs
+input [31:0] reg_write_data, // data to be written to register
+input [1:0] reg_write_en // register write enable signal
+
+);
+
+/* Instruction Fetch Stage */
+reg [31:0] PC; // program counter register
+reg [31:0] next_PC; // next program counter register
+wire [31:0] inst_memory_out; // instruction memory output
+
+always @ (posedge clk or posedge reset) begin
+    if (reset) begin
+        PC <= 0; // initialize program counter to 0
+    end
+    else begin
+        next_PC <= PC + 4; // increment program counter by 4 (word size)
+    end
+end
+
+assign inst_memory_out = inst_memory_in[PC[31:2]]; // instruction memory output is the data at the address stored in the program counter register
+
+assign inst_fetch_out = {next_PC, inst_memory_out}; // output for instruction fetch stage is the next program counter and the current instruction
+
+/* Instruction Decode Stage */
+reg [31:0] inst_decode_out; // instruction decode output
+reg [4:0] opcode; // opcode register
+reg [5:0] rs; // source register 1
+reg [5:0] rt; // source register 2
+reg [5:0] rd; // destination register
+reg [7:0] function; // function code register
+
+always @ (posedge clk) begin
+    if (reset) begin
+        inst_decode_out <= 0; // initialize instruction decode output to 0
+        opcode <= 0; // initialize opcode to 0
+        rs <= 0; // initialize source register 1 to 0
+        rt <= 0; // initialize source register 2 to 0
+        rd <= 0; // initialize destination register to 0
+        function <= 0; // initialize function code to 0
+    end
+    else begin
+        inst_decode_out <= inst_decode_in; // instruction decode output is the instruction input from the instruction fetch stage
+        opcode <= inst_decode_out[31:27]; // opcode is the first 5 bits of the instruction
+        rs <= inst_decode_out[26:22]; // source register 1 is bits 6-10 of the instruction
+        rt <= inst_decode_out[21:17]; // source register 2 is bits 11-15 of the instruction
+        rd <= inst_decode_out[16:12]; // destination register is bits 16-20 of the instruction
+        function <= inst_decode_out[6:0]; // function code is the last 7 bits of the instruction
+    end
+end
+
+assign opcode_out = opcode; // output for opcode is the opcode register
+assign rs_out = rs; // output for source register 1 is the source register 1
+assign rt_out = rt; // output for source register 2 is the source register 2
+assign rd_out = rd; // output for destination register is the destination register
+assign function_out = function[6:4]; // output for function code is bits 4-6 of the function register
+
+/* Execution Stage */
+reg [31:0] alu_result; // ALU result register
+wire [4:0] alu_opcode; // ALU operation based on opcode and function code
+
+always @ (posedge clk or posedge reset) begin
+    if (reset) begin
+        alu_result <= 0; // initialize ALU result to 0
+    end
+    else begin
+        case (alu_op)
+            2'b00: alu_opcode <= 5'b00000; // ADD operation for ALU
+            2'b01: alu_opcode <= 5'b00010; // SUB operation for ALU
+            2'b10: begin // other operations determined by function code
+                case (function)
+                    7'b1000000: alu_opcode <= 5'b00000; // ADD operation for ALU
+                    7'b1001000: alu_opcode <= 5'b00001; // SLL operation for ALU
+                    7'b1000100: alu_opcode <= 5'b00111; // SLT operation for ALU
+                    7'b1001100: alu_opcode <= 5'b01100; // XOR operation for ALU
+                    default: alu_opcode <= 5'b00000; // default to ADD operation if other function codes are encountered
+                endcase
+            end
+        endcase
+        alu_result <= alu_src1 + alu_opcode[4:0] + alu_src2; // ALU calculation based on operation determined by case statements
+    end
+end
+
+assign alu_result_out = alu_result; // output for ALU result is the ALU result register
+
+/* Memory Access Stage */
+reg [31:0] mem_result; // memory result register
+wire [31:0] mem_data_out; // memory output
+
+always @ (posedge clk or posedge reset) begin
+    if (reset) begin
+        mem_result <= 0; // initialize memory result register to 0
+    end
+    else begin
+        if (mem_write_en) begin // write data to memory if write enable signal is high
+            $memory[mem_addr] = mem_data;
+        end
+        mem_result <= $memory[mem_addr]; // read data from memory
+    end
+end
+
+assign mem_data_out = mem_result; // output for data read from memory is the memory result register
+
+/* Write Back Stage */
+reg [31:0] reg_data; // register write data register
+
+always @ (posedge clk or posedge reset) begin
+    if (reset) begin
+        reg_data <= 0; // initialize register write data register to 0
+    end
+    else begin
+        if (reg_write_en) begin // write data to register if register write enable signal is high
+            $register[reg_write_en] = reg_write_data;
+        end
+        reg_data <= $register[rd_out]; // read data from register specified by destination register output
+    end
+end
+
+endmodule

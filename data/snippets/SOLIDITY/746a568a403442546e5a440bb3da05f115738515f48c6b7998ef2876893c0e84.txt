@@ -1,0 +1,91 @@
+//Define abstract contract
+abstract contract ERC20Interface {
+    
+    //Define states
+    string public name;
+    string public symbol;
+    uint8 public decimals;
+    uint256 public totalSupply;
+    
+    //Define events
+    event Transfer(address indexed from, address indexed to, uint tokens);
+    event Approval(address indexed tokenOwner, address indexed spender, uint tokens);
+    
+    //Define functions
+    function balanceOf(address tokenOwner) public view virtual returns (uint);
+    function transfer(address to, uint tokens) public virtual returns (bool);
+    function allowance(address tokenOwner, address spender) public view virtual returns (uint);
+    function approve(address spender, uint tokens) public virtual returns (bool);
+    function transferFrom(address from, address to, uint tokens) public virtual returns (bool);
+}
+
+//Define contract implementing ERC20Interface
+contract MyToken is ERC20Interface{
+    
+    //Define states
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+    
+    //Constructor function
+    constructor(string memory _name, string memory _symbol, uint8 _decimals, uint256 _totalSupply) public {
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+        totalSupply = _totalSupply;
+        
+        //Set initial balance for contract creator
+        balanceOf[msg.sender] = _totalSupply;
+    }
+    
+    //Define functions
+    function balanceOf(address tokenOwner) public view virtual override returns (uint){
+        return balanceOf[tokenOwner];
+    }
+    
+    function transfer(address to, uint tokens) public virtual override returns (bool){
+        //Check for sufficient balance
+        require(balanceOf[msg.sender] >= tokens, "Not enough tokens in sender's account.");
+        
+        //Transfer tokens from sender to recipient
+        balanceOf[msg.sender] -= tokens;
+        balanceOf[to] += tokens;
+        
+        //Emit Transfer event
+        emit Transfer(msg.sender, to, tokens);
+        return true;
+    }
+    
+    function allowance(address tokenOwner, address spender) public view virtual override returns (uint){
+        return allowance[tokenOwner][spender];
+    }
+    
+    function approve(address spender, uint tokens) public virtual override returns (bool){
+        //Allowance can only be granted by token owner
+        require(msg.sender == address(this), "Cannot approve allowance from contract itself.");
+        
+        //Update allowance for spender
+        allowance[msg.sender][spender] = tokens;
+        
+        //Emit Approval event
+        emit Approval(msg.sender, spender, tokens);
+        return true;
+    }
+    
+    function transferFrom(address from, address to, uint tokens) public virtual override returns (bool){
+        //Check for sufficient allowance
+        require(allowance[from][msg.sender] >= tokens, "Not enough allowance for sender.");
+        
+        //Check for sufficient balance
+        require(balanceOf[from] >= tokens, "Not enough tokens in sender's account.");
+        
+        //Transfer tokens from sender to recipient
+        allowance[from][msg.sender] -= tokens;
+        balanceOf[from] -= tokens;
+        balanceOf[to] += tokens;
+        
+        //Emit Transfer event
+        emit Transfer(from, to, tokens);
+        
+        return true;
+    }
+}

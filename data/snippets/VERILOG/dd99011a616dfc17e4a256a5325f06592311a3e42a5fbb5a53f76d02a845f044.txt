@@ -1,0 +1,121 @@
+// This code snippet is a state machine that models a vending machine
+// It has three states: IDLE, ACCEPT, and DISPENSE
+// When a button is pressed, the machine transitions to the ACCEPT state
+// If enough money is inserted, it transitions to the DISPENSE state and dispenses the selected item
+// If not enough money is inserted, it returns to the IDLE state
+
+// Define the state enum with all possible states
+
+typedef enum {IDLE, ACCEPT, DISPENSE} states_t;
+
+// Define input signals
+input insert_coin, select_item;
+input [3:0] item_price;
+
+// Define output signals
+output vending_complete, item_dispensed;
+
+// Define register to keep track of current state
+reg [1:0] current_state;
+
+// Assign initial state and always block for state transitions
+always @ (posedge clk or posedge rst) begin
+    if (rst) begin
+        current_state <= IDLE;
+    end else begin
+        case (current_state)
+            IDLE: if (insert_coin) current_state <= ACCEPT;
+            ACCEPT: if (item_price > 0 && select_item) begin
+                        current_state <= DISPENSE;
+                     end else if (item_price = 0 && select_item) begin
+                        current_state <= IDLE;
+                     end;
+            DISPENSE: if (vending_complete) current_state <= IDLE;
+        endcase
+    end
+end
+
+// Define output logic for item_dispensed and vending_complete signals based on current state
+always @* begin
+    case (current_state)
+        IDLE: begin
+            item_dispensed = 1'b0;
+            vending_complete = 1'b0;
+        end
+        ACCEPT: begin
+            item_dispensed = 1'b0;
+            vending_complete = 1'b0;
+        end
+        DISPENSE: begin
+            item_dispensed = 1'b1;
+            vending_complete = 1'b1;
+        end
+    endcase
+end
+
+// Define vending machine module with clock and reset inputs, and output signals
+module vending_machine (
+    input clk,
+    input rst,
+    input insert_coin,
+    input select_item,
+    output vending_complete,
+    output item_dispensed
+);
+
+// Instantiate state machine
+reg [1:0] current_state;
+vending_machine (clk, rst, insert_coin, select_item, vending_complete, item_dispensed);
+
+// Define hardware for accepting coins and selecting items
+always @ (posedge clk) begin
+    if (insert_coin) begin
+        // Add coin to total amount
+        amount = amount + coin_value;
+    end
+    if (select_item) begin
+        // Check if amount is sufficient
+        if (amount >= item_price) begin
+            // Dispense item and deduct amount
+            item_dispensed = 1'b1;
+            amount = amount - item_price;
+        end else begin
+            // Not enough money, reset state machine
+            current_state = IDLE;
+        end
+    end
+end
+
+// Instantiate vending machine with clock, reset, and input/output signals
+reg clk, rst, insert_coin, select_item, vending_complete, item_dispensed;
+vending_machine vending_machine_inst (
+    .clk(clk),
+    .rst(rst),
+    .insert_coin(insert_coin),
+    .select_item(select_item),
+    .vending_complete(vending_complete),
+    .item_dispensed(item_dispensed)
+);
+
+// Create clock and reset signals
+initial begin
+    clk = 1'b0;
+    forever #5 clk = ~clk;
+end
+
+initial begin
+    rst = 1'b1;
+    #15 rst = 1'b0;
+end
+
+// Initialize amount and item price
+initial begin
+    item_price = 4'b0001;
+    amount = 4'b0000;
+end
+
+// Monitor signals and display on console
+always @ (posedge clk) begin
+    $display("Insert coin: %b | Select item: %b | Vending complete: %b | Item dispensed: %b", 
+        insert_coin, select_item, vending_complete, item_dispensed);
+end

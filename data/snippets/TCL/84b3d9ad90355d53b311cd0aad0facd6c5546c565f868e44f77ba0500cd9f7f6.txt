@@ -1,0 +1,58 @@
+# This code snippet sets up a TCP server and client in TCL.
+
+# Create a TCP server socket
+set server_socket [socket -server '' localhost 8000]
+
+# Set up a procedure to handle incoming client connections
+proc handle_connection {socket address port} {
+    puts "Received connection from $address on port $port"
+
+    # Read data from client
+    set data [read $socket]
+
+    # Check for specific command from client
+    if {[string match "GET /*" $data]} {
+        # Parse out the requested path
+        set path [lindex [split $data " "] 1]
+
+        # Open and read the requested file
+        set file [open [string trimleft $path "/"] r]
+        set content [read $file]
+        close $file
+
+        # Send response back to client
+        puts $socket "HTTP/1.1 200 OK\nContent-Length: [string length $content]\n\n$content"
+    } else {
+        # Send error response back to client
+        puts $socket "HTTP/1.1 400 Bad Request\n\n400 Bad Request"
+    }
+
+    # Close connection
+    close $socket
+}
+
+# Accept incoming client connections and handle them in a loop
+while {1} {
+    vwait server_socket
+
+    # Spawn a new thread for each connection
+    set thread [thread::create [list handle_connection $server_socket]]
+
+    # Detach the thread to prevent memory leaks
+    thread::detach $thread
+}
+
+# Create a TCP client socket
+set client_socket [socket localhost 8000]
+
+# Send a GET request to the server
+puts $client_socket "GET /index.html"
+
+# Receive response from server
+set response [read $client_socket]
+
+# Print response
+puts $response
+
+# Close client socket
+close $client_socket

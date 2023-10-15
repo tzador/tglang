@@ -1,0 +1,111 @@
+%% Data import and preprocessing
+% read csv file
+data = csvread('data.csv'); 
+
+% split data into training and testing sets
+train_data = data(1:800,:);
+test_data = data(801:end,:);
+
+% normalize training and testing data
+[train_data, min_val, max_val] = normalize(train_data);
+test_data = normalize(test_data, min_val, max_val);
+
+% separate features (input) and labels (output) for both sets
+train_X = train_data(:,1:end-1);
+train_y = train_data(:,end);
+test_X = test_data(:,1:end-1);
+test_y = test_data(:,end);
+
+%% Neural Network Training and Testing
+% set initial parameters
+input_layer_size = size(train_X,2);
+hidden_layer_size_1 = 100;
+hidden_layer_size_2 = 50;
+output_layer_size = 1;
+learning_rate = 0.01;
+num_epochs = 100;
+batch_size = 64;
+
+% initialize weights and biases for first hidden layer
+W1 = rand(hidden_layer_size_1, input_layer_size) * 0.01;
+b1 = zeros(hidden_layer_size_1, 1);
+
+% initialize weights and biases for second hidden layer
+W2 = rand(hidden_layer_size_2, hidden_layer_size_1) * 0.01;
+b2 = zeros(hidden_layer_size_2, 1);
+
+% initialize weights and biases for output layer
+W3 = rand(output_layer_size, hidden_layer_size_2) * 0.01;
+b3 = zeros(output_layer_size, 1);
+
+% initialize cost history to track progress
+cost_history = zeros(num_epochs, 1);
+
+% loop through epochs
+for epoch = 1:num_epochs
+    % shuffle training data
+    shuffle_idx = randperm(size(train_X,1));
+    train_X = train_X(shuffle_idx,:);
+    train_y = train_y(shuffle_idx,:);
+
+    % loop through batches
+    for batch = 1:size(train_X,1)/batch_size
+        % select batch of data
+        batch_start = (batch-1) * batch_size + 1;
+        batch_end = batch * batch_size;
+        batch_X = train_X(batch_start:batch_end,:);
+        batch_y = train_y(batch_start:batch_end,:);
+
+        % forward propagation
+        z1 = batch_X * W1.' + b1.';
+        a1 = sigmoid(z1);
+        z2 = a1 * W2.' + b2.';
+        a2 = sigmoid(z2);
+        z3 = a2 * W3.' + b3.';
+        output = sigmoid(z3);
+
+        % calculate cost
+        cost = (-1/size(batch_X,1)) * sum(batch_y .* log(output) + (1-batch_y) .* log(1-output));
+
+        % track cost progress
+        cost_history(epoch) = cost_history(epoch) + cost;
+
+        % backpropagation
+        delta3 = output - batch_y;
+        delta2 = (delta3 * W3) .* sigmoid_gradient(z2);
+        delta1 = (delta2 * W2) .* sigmoid_gradient(z1);
+
+        % update weights and biases
+        W1 = W1 - learning_rate * (delta1.' * batch_X);
+        b1 = b1 - learning_rate * sum(delta1);
+        W2 = W2 - learning_rate * (delta2.' * a1);
+        b2 = b2 - learning_rate * sum(delta2);
+        W3 = W3 - learning_rate * (delta3.' * a2);
+        b3 = b3 - learning_rate * sum(delta3);
+    end
+
+    % print progress
+    fprintf('Epoch %d/%d: Cost = %f\n', epoch, num_epochs, cost_history(epoch));
+end
+
+%% Predictions
+% predict on training set
+train_predictions = zeros(size(train_X,1),1);
+for i = 1:size(train_X,1)
+    train_predictions(i) = predict(train_X(i,:), W1, b1, W2, b2, W3, b3);
+end
+
+% predict on testing set
+test_predictions = zeros(size(test_X,1),1);
+for i = 1:size(test_X,1)
+    test_predictions(i) = predict(test_X(i,:), W1, b1, W2, b2, W3, b3);
+end
+
+%% Results
+% calculate accuracy on training set
+train_accuracy = sum(train_predictions == train_y) / size(train_y,1);
+fprintf('Training Set Accuracy: %f\n', train_accuracy);
+
+% calculate accuracy on testing set
+test_accuracy = sum(test_predictions == test_y) / size(test_y,1);
+fprintf('Testing Set Accuracy: %f\n', test_accuracy);

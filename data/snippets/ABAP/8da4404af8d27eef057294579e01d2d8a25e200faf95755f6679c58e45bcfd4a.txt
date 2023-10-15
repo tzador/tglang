@@ -1,0 +1,53 @@
+*This program creates a sales order in SAP using ABAP
+
+REPORT Z_CREATE_SALES_ORDER.
+
+*Declaration section
+DATA: lv_so_type TYPE VBAK-AUART, "Sales document type
+      lv_customer TYPE VBAK-KUNNR, "Customer number
+      lt_items TYPE TABLE OF VBAP, "Item table for sales order
+      ls_item TYPE VBAP. "Single line item for sales order
+
+*Initialize variables
+lv_so_type = 'OR'. "Sales document type for standard order
+lv_customer = '12345'. "Customer number
+
+*Populate line item
+ls_item-matnr = '001'. "Material number
+ls_item-quantity = 10. "Quantity
+APPEND ls_item TO lt_items.
+
+*Create sales order header data
+DATA(ls_order_header) = VALUE VBAP(
+  VBELN = sy-index + 1000 "Incremental sales order number
+  AUART = lv_so_type
+  KUNNR = lv_customer
+).
+
+*Create sales order item data
+DATA(ls_order_item) = CORRESPONDING VBAP(
+  ls_item
+  VBELN  = ls_order_header-VBELN
+).
+
+*Create sales order using function module
+CALL FUNCTION 'BAPI_SALESORDER_CREATEFROMDAT2'
+  EXPORTING
+    salesdocument = ls_order_header
+    order_header_in = ls_order_header
+    order_item_in = ls_order_item
+  TABLES
+    return = lt_return "Table to store any error messages
+    order_item_inx = lt_items "Table to mark the line item as relevant
+
+*Check for errors
+IF sy-subrc <> 0.
+  LOOP AT lt_return INTO DATA(ls_error).
+    WRITE: / ls_error-type,
+           ls_error-id,
+           ls_error-number,
+           ls_error-message.
+  ENDLOOP.
+ELSE.
+  WRITE 'Sales order successfully created'.
+ENDIF.

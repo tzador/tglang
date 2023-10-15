@@ -1,0 +1,80 @@
+# define a list of upstream servers
+upstream backend_servers {
+  server 127.0.0.1:8000;
+  server 127.0.0.1:8001;
+  server 127.0.0.1:8002;
+}
+
+# set up a default server block
+server {
+  listen 80;
+  server_name example.com;
+
+  # set up a location block for static content
+  location /static {
+    # specify the root directory for static files
+    root /var/www/example.com;
+
+    # enable gzip compression for static content
+    gzip on;
+    gzip_types text/plain text/css application/json; 
+
+    # set cache expiration for static files to 1 week
+    expires 7d;
+  }
+
+  # pass requests to backend servers using proxy
+  location / {
+    # enable proxy for requests
+    proxy_pass http://backend_servers;
+
+    # enable nginx to pass original client IP to backend servers
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+    # enable nginx to keep the host header from the original request
+    proxy_set_header Host $host;
+
+    # set a proxy timeout of 30 seconds
+    proxy_read_timeout 30s;
+  }
+}
+
+# set up HTTPS server block using Let's Encrypt certificates
+server {
+  listen 443 ssl;
+
+  # specify the SSL certificate and key locations
+  ssl_certificate /etc/letsencrypt/live/example.com/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+
+  # specify the location of the Diffie-Hellman parameters file for improved security
+  ssl_dhparam /etc/nginx/ssl/dhparam.pem;
+
+  # specify the default ciphers for improved security
+  ssl_ciphers 'ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-RSA-AES256-SHA384';
+
+  # specify the protocols to be used for secure connections
+  ssl_protocols TLSv1.2 TLSv1.3;
+
+  # enable nginx to send a strict-transport-security header
+  add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload";
+
+  # set up a location block for handling websockets
+  location /socket/ {
+    # enable proxy for websocket requests
+    proxy_pass http://backend_servers;
+
+    # enable nginx to pass original client IP to backend servers
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+    # enable nginx to keep the host header from the original request
+    proxy_set_header Host $host;
+
+    # change the http version to 1.1 for websocket connections
+    proxy_http_version 1.1;
+
+    # enable support for the WebSocket protocol
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+  }
+}

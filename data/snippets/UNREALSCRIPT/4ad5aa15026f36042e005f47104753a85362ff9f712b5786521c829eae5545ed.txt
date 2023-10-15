@@ -1,0 +1,140 @@
+//-------------------------------------------------------
+// Player Class for Unreal Tournament 3
+//-------------------------------------------------------
+
+// The player class acts as the base for all player-controlled pawns in UT3.
+
+class UTPlayer extends UTPawn;
+
+#exec OBJ LOAD FILE=..\..\Textures\Skins\TeamSkins.utx PACKAGE=UTPlayer DATA=skins
+
+// Attaches the controller to the player.
+function Controller PostBeginPlay()
+{
+	local UTPawn Pawn;
+
+	Super.PostBeginPlay();
+	Pawn = UTPawn(Controller);
+	if (Pawn != None)
+	{
+		Pawn.FindNewTarget();
+	}
+}
+
+// Called when the player dies.
+simulated event Died( out vector DeathLocation)
+{
+	local Object Killer;
+
+	if ( Controller != None )
+	{
+		Killer = Controller.Pawn.LastHitBy;
+		if ( Killer != None )
+		{
+			if ( Level.Game.IsCoopCampaign() && Killer != Controller.Pawn )
+			{
+				Killer.ScoreKill(Controller.Pawn);
+			}
+		}
+	}
+	Super.Died(DeathLocation);
+}
+
+// Sets the required variables for spawning.
+function PreBeginPlay()
+{
+	bIsPlayer = true;
+	ArmorType = UTArmor;
+	WeaponType = UTWeapon;
+	Super.PreBeginPlay();
+}
+
+// Creates the player's inventory.
+function BuildInventory()
+{
+	if ( Controller != None )
+	{
+		Controller.bShadowDraw = true;
+	}
+	Super.BuildInventory();
+	Set/Obj/Objective=Level.Objective;
+	Inventory.LinkWeapon(ReplaceActor(PlayerReplicationInfo.CharacterAccessories));
+}
+
+// Checks if the player can use a specific item.
+function use( Actor Other )
+{
+	if ( Other.IsA('UTItem') && !Other.bPickupable )
+	{
+		return false;
+	}
+
+	if ( NextItem != None && NextItem != HitActor &&
+		HitActor == None && !NextItem.bActive )
+	{
+		if ( NextItem.IsA('UTPickupInventory'))
+		{
+			local UTPickupInventory NextInv;
+			NextInv = UTPickupInventory(NextItem);
+			if ( NextInv.PrepickedupCmdClass==class'UTPickupBotpack' )
+			{
+				gotoState('Dying');
+			}
+		}
+	}
+
+	return Super.use( Other );
+}
+
+// Called every tick.
+simulated event Tick( float DeltaTime )
+{
+	Super.Tick( DeltaTime );
+}
+
+// Draws the HUD elements for the player.
+simulated function DrawHUD(Canvas Canvas)
+{
+	super.DrawHUD(Canvas);
+	ShowMenuCurrentObjectives(Canvas,6,0.3,,);
+}
+
+// Provides input updates every frame.
+function UpdateInput( float DeltaTime )
+{
+	local vector v;
+	local vector Vetc;
+
+	Vetc = GameplayerControls.UpdateInput(DeltaTime,v);
+
+	// hack for coop vehicle weapons
+	if (VehicleWeapon != None)
+	{
+		// HACK: only show in car view to hide weapons in other views
+		if (VehicleWeapon.ViewMesh != None) VehicleWeapon.ViewMesh.HiddenColor = GameAction=GA_Attack;
+		Vetc = VehicleWeapon.UpdateInput(DeltaTime,v);
+	}
+}
+
+// Called when the player takes damage.
+function TakeDamage( int Damage, Pawn instigatedBy, coor HitLocation, vector Momentum, name damageType )
+{
+	local int ArmorType;
+	local int DamageType;
+
+	if ( !GethitInfo('#GameMode'))// && ( Level.Game.GameType != GT_DeathMatch - GT_QCapture - GT_FootBall - GT_Zark ) )
+	{
+		if ( Damage >= Health )
+		{
+			if ( !(Level.Game.FragLimit > 0) )
+			{
+				ProxyDamage(Damage, DamageType,  Default DamageType(GameAction=GA_Damage), Momentum, HitLocation, HitActor, Damage = Damage);
+			}
+		}
+		else
+		{
+			Super.TakeDamage(Damage, instigatedBy, HitLocation, Momentum, damageType);
+		}
+	}
+	return Damage;
+}

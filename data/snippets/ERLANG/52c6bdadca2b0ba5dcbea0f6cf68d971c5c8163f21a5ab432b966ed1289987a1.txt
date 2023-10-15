@@ -1,0 +1,138 @@
+-module(sudoku).
+
+-export([solve/1, valid/1])
+
+%% Solves a sudoku puzzle by finding the first empty cell and recursively
+%% filling it with a valid number. Returns a solution if one exists, or false
+%% if none is found.
+
+solve(Puzzle) ->
+    case find_empty(Puzzle) of
+        false -> Puzzle;
+        {Row, Col} ->
+            possible_values(Puzzle, Row, Col)
+            |> all_possible(Puzzle)
+            |> find_first_valid()
+            |> solve
+    end.
+
+%% Finds the first empty cell in the puzzle and returns its position as a
+%% {Row, Col} tuple. Returns false if no empty cells are found.
+
+find_empty(Puzzle) ->
+    find_empty(1, 1, Puzzle).
+
+find_empty(10, _, _) ->
+    false;
+
+find_empty(Row, 10, Puzzle) ->
+    find_empty(Row + 1, 1, Puzzle);
+
+find_empty(Row, Col, Puzzle) ->
+    case element(Row, Puzzle) of
+        false -> {Row, Col};
+        _ -> find_empty(Row, Col + 1, Puzzle)
+    end.
+
+%% Returns a list of all possible values that can be placed in the given
+%% cell in the puzzle, using the sudoku rules.
+
+possible_values(Puzzle, Row, Col) ->
+    UsedInRow = get_values_from(Puzzle, Row),
+    UsedInCol = [element(N, Puzzle) || N <- lists:seq(1, 9), {X, Y} <- UsedInRow, Y == N],
+    UsedInBox = get_values_from_box(Puzzle, Row, Col),
+    AllUsed = lists:usort(UsedInRow ++ UsedInCol ++ UsedInBox),
+    [N || N <- lists:seq(1, 9), not lists:member(N, AllUsed)].
+
+%% Generates all possible combinations of values for the cell and the
+%% remaining empty cells in the puzzle.
+
+all_possible(Puzzle, CellValues) when is_list(CellValues) ->
+    [replace_element(Row, element(1, CellValues), Puzzle) || Row <- Puzzle].
+
+%% Finds the first valid solution in the list of possible puzzles and
+%% returns it, or false if no valid solutions are found.
+
+find_first_valid([]) ->
+    false;
+
+find_first_valid([Puzzle|_]) when is_list(Puzzle), valid(Puzzle) ->
+    Puzzle;
+
+find_first_valid([_|Rest]) ->
+    find_first_valid(Rest).
+
+%% Checks if the given puzzle is a valid solution, according to the
+%% sudoku rules.
+
+valid(Puzzle) ->
+    lists:all(fun(X) -> X >= 1 andalso X =< 9 end, Puzzle) andalso
+    valid_rows(Puzzle) andalso valid_cols(Puzzle) andalso
+    valid_boxes(Puzzle).
+
+valid_rows([]) ->
+    true;
+
+valid_rows([Row|Rest]) ->
+    valid_row(Row) andalso valid_rows(Rest).
+
+valid_cols(Puzzle) ->
+    transpose(Puzzle)
+    |> valid_rows.
+
+valid_boxes(Puzzle) ->
+    Row1 = [element(Row, Puzzle)
+            || Row <- lists:seq(1, 3), Col <- lists:seq(1, 3)],
+    Row2 = [element(Row, Puzzle)
+            || Row <- lists:seq(1, 3), Col <- lists:seq(4, 6)],
+    Row3 = [element(Row, Puzzle)
+            || Row <- lists:seq(1, 3), Col <- lists:seq(7, 9)],
+    Row4 = [element(Row, Puzzle)
+            || Row <- lists:seq(4, 6), Col <- lists:seq(1, 3)],
+    Row5 = [element(Row, Puzzle)
+            || Row <- lists:seq(4, 6), Col <- lists:seq(4, 6)],
+    Row6 = [element(Row, Puzzle)
+            || Row <- lists:seq(4, 6), Col <- lists:seq(7, 9)],
+    Row7 = [element(Row, Puzzle)
+            || Row <- lists:seq(7, 9), Col <- lists:seq(1, 3)],
+    Row8 = [element(Row, Puzzle)
+            || Row <- lists:seq(7, 9), Col <- lists:seq(4, 6)],
+    Row9 = [element(Row, Puzzle)
+            || Row <- lists:seq(7, 9), Col <- lists:seq(7, 9)],
+    valid_row(Row1) andalso valid_row(Row2) andalso valid_row(Row3) andalso
+    valid_row(Row4) andalso valid_row(Row5) andalso valid_row(Row6) andalso
+    valid_row(Row7) andalso valid_row(Row8) andalso valid_row(Row9).
+
+%% Checks if the given row is a valid solution, according to the sudoku
+rules.
+valid_row(Row) ->
+    Row =:= lists:usort(Row).
+
+%% Transposes the given matrix.
+
+transpose([[]|_]) ->
+    [];
+
+transpose(Rows) ->
+    [map(element(Row, X), Rows) || Row <- lists:seq(1, length(element(1, Rows)))].
+
+%% Replaces the element at the given position in the
+
+replace_element(Row, Col, Value, Matrix) ->
+    lists:sublist(Matrix, Row - 1)
+    ++ [replace_element(Col, Value, element(Row, Matrix))]
+    ++ lists:nthtail(Row, Matrix).
+
+%% Gets all values from the given row in the puzzle, ignoring empty cells.
+
+get_values_from(Puzzle, Row) ->
+    Cols = lists:seq(1, length(Puzzle)),
+    [{X, Y} || X <- Cols, Y <- [element(Row, Puzzle)], Y =/= false].
+
+%% Gets all values from the 3x3 box containing the given cell in the puzzle.
+
+get_values_from_box(Puzzle, Row, Col) ->
+    RowStart = 3*(((Row - 1) div 3) + 1) - 2,
+    ColStart = 3*(((Col - 1) div 3) + 1) - 2,
+    [{X, Y} || X <- lists:seq(RowStart, RowStart + 2),
+               Y <- lists:seq(ColStart, ColStart + 2)].

@@ -1,0 +1,87 @@
+plugins {
+   id 'java'
+   id 'application'
+ }
+ 
+ // Define version numbers
+ ext {
+   junitVersion = '5.0.0'
+   junitPlatformVersion = '1.0.0'
+ }
+ 
+ // Define dependencies
+ dependencies {
+   testImplementation("org.junit.jupiter:junit-jupiter-api:${junitVersion}")
+   testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${junitVersion}")
+   testRuntimeOnly("org.junit.platform:junit-platform-launcher:${junitPlatformVersion}")
+ }
+ 
+ // Configure tasks
+ tasks.withType(Test) {
+   useJUnitPlatform()
+ }
+ 
+ // Define main class for application
+ mainClassName = 'com.example.Main'
+ 
+ // Define application run configurations
+ run {
+   systemProperty 'config.path', file('/path/to/config.properties').path
+   systemProperty 'log.dir', "${buildDir}/logs"
+   systemProperty 'server.port', '8080'
+ }
+ 
+ // Specify source compatibility
+ sourceCompatibility = JavaVersion.VERSION_11
+ 
+ // Define task for generating executable jar file
+ task createJar(type: Jar) {
+   baseName = 'my-application'
+   version = '1.0'
+   
+   from sourceSets.main.output
+   manifest {
+     attributes 'Main-Class': mainClassName
+   }
+   
+   // Include all dependencies in jar
+   from {
+     configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+   }
+   
+   with jar
+ }
+ 
+ // Define task for generating javadoc
+ task generateJavadoc(type: Javadoc) {
+   description 'Generates Javadoc for the project'
+   source = sourceSets.main.allJava
+   
+   // Set destination directory for javadoc
+   destinationDir = file("${buildDir}/docs")
+   
+   // Exclude some packages from javadoc
+   exclude '**/internal/**'
+   
+   // Include all dependencies in javadoc
+   classpath += configurations.compile
+ }
+ 
+ // Set task dependencies
+ compileJava.dependsOn generateJavadoc
+ task createJarWithJavadoc(type: Jar, dependsOn: [generateJavadoc, createJar]) {
+   baseName = 'my-application-javadoc'
+   archiveClassifier = 'javadoc'
+   
+   // Include generated javadoc in jar
+   from tasks.generateJavadoc.destinationDir
+   with jar
+ }
+ 
+ // Define custom clean task
+ task cleanCustom(type: Delete) {
+   delete fileTree(dir: 'build/docs')
+ }
+ 
+ // Set default task to cleanCustom and build application jar
+ defaultTasks 'cleanCustom', 'createJarWithJavadoc'

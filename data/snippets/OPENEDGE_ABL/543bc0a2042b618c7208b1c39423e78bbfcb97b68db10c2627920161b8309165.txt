@@ -1,0 +1,43 @@
+/* This code snippet generates a report of total sales for a specific date range */
+
+DEFINE VARIABLE startDate AS DATE NO-UNDO.
+/* Define a variable to store the start date of the date range */
+
+DEFINE VARIABLE endDate AS DATE NO-UNDO.
+/* Define a variable to store the end date of the date range */
+
+DEFINE VARIABLE totalSales AS DECIMAL NO-UNDO FORMAT "Z,ZZZ,ZZZ.99".
+/* Define a variable to store the total sales amount, with a specific format for display */
+
+DEFINE QUERY qSales FOR Sales.
+/* Define the query that will be used to retrieve data from the Sales table */
+
+QUERY qSales:QUERY-PREPARE("FOR EACH Sales WHERE Sales.Date GT startDate AND Sales.Date LT endDate NO-LOCK").
+/* Prepare the query to retrieve sales data within the defined date range */
+
+CREATE DATASET dsSales.
+/* Create a dataset to store the results of the query */
+
+DEFINE TEMP-TABLE ttSales LIKE Sales.
+/* Define a temporary table with the same structure as the Sales table */
+
+RUN qSales(OUTPUT DATASET dsSales, TEMP-TABLE ttSales).
+/* Execute the query and store the results in the dataset and temporary table */
+
+FIND FIRST ttSales EXCLUSIVE-LOCK.
+/* Lock the first record in the temporary table for exclusive access */
+
+DO WHILE NOT AVAILABLE ttSales:
+/* Loop through all the records in the temporary table until there are no more */
+    ASSIGN 
+    totalSales = ttSales.SalesAmount + totalSales.
+    /* Add the sales amount from each record to the total sales variable */
+    
+    REPEAT:
+    FIND NEXT ttSales NO-LOCK.
+    /* Retrieve the next record in the temporary table */
+END.
+
+MESSAGE "Total Sales for selected date range is:" totalSales
+VIEW-AS ALERT-BOX INFO BUTTONS OK.
+/* Display a message with the total sales amount for the selected date range in an alert box */

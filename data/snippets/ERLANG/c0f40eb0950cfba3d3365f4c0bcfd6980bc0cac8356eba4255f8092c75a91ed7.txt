@@ -1,0 +1,150 @@
+%% Erlang code for creating a distributed key-value store with OTP
+
+%% Define a module for the key-value store
+-module(kvstore).
+%% Export the public API of the module
+-export([start/1, get/2, put/3, delete/2]).
+
+%% Import the OTP libraries for creating a distributed application
+%% and managing processes
+-import(otp_applications, [start/0]).
+-import(otp_supervisor, [start/2, child_spec/2]).
+
+%% Define the application behavior
+-behavior(application).
+
+%% Define the top supervisor for the application
+%% This supervisor will supervise all the processes in the application
+start(_Type) ->
+    {ok, _} = kvstore_sup:start_link().
+
+%% Function for getting a value from the key-value store
+get(Key, Pid) ->
+    %% Send a message to the process handling the specified key
+    Pid ! {get, Key},
+    %% Wait for a response from the process
+    receive
+        %% If a value is returned, handle it
+        {ok, Value} ->
+            handle_response(ok, Value);
+        %% If an error is returned, handle it
+        {error, Reason} ->
+            handle_response(error, Reason)
+    end.
+
+%% Function for putting a value in the key-value store
+put(Key, Value, Pid) ->
+    %% Send a message to the process handling the specified key
+    Pid ! {put, Key, Value},
+    %% Wait for a response from the process
+    receive
+        %% If the value is successfully updated, handle it
+        ok ->
+            handle_response(ok);
+        %% If an error is returned, handle it
+        {error, Reason} ->
+            handle_response(error, Reason)
+    end.
+
+%% Function for deleting a value from the key-value store
+delete(Key, Pid) ->
+    %% Send a message to the process handling the specified key
+    Pid ! {delete, Key},
+    %% Wait for a response from the process
+    receive
+        %% If the value is successfully deleted, handle it
+        ok ->
+            handle_response(ok);
+        %% If an error is returned, handle it
+        {error, Reason} ->
+            handle_response(error, Reason)
+    end.
+
+%% Function for handling responses from the key-value store's processes
+handle_response(ok) ->
+    %% Return success message
+    io:format("Operation Successful~n").
+
+handle_response(ok, Value) ->
+    %% Return value retrieved from the key-value store
+    io:format("Value ~p found~n", [Value]).
+
+handle_response(error, Reason) ->
+    %% Return error message
+    io:format("Operation Failed: ~p~n", [Reason]).
+
+%% Define the supervisor for the key-value store's processes
+%% This supervisor will supervise each key-value store process individually
+-module(kvstore_sup).
+-behavior(supervisor).
+
+%% Define the child processes to be supervised by this supervisor
+%% Each process will handle a specific key's operations
+start_link() ->
+    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+
+%% Create a child process with the given child specification
+init([]) ->
+    {ok, { {worker, kvstore_server, start_link, []},
+           temporary, 1000, worker, [kvstore_server]}
+    }.
+
+%% Define a module to handle each key's operations
+-module(kvstore_server).
+%% Export the public API of the module
+-export([start_link/0, handle_info/2, handle_call/3]).
+
+%% Import the OTP library for managing processes
+-import(otp_applications, [start/0]).
+
+%% Define the server's state
+-record(state, {key = undefined, value = undefined}).
+
+%% Function for starting the server
+start_link() ->
+    %% Start the server as a gen_server process
+    %% with its name as its argument
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+
+%% Function for handling incoming asynchronous requests (messages)
+handle_info({get, Key}, #state{key = Key, value = Value} = State) ->
+    %% If the requested key matches the server's key, send back the stored value
+    %% Otherwise, send an error message
+    if
+        Key == State#state.key ->
+            gen_server:reply({ok, Value});
+        State#state.key == undefined ->
+            gen_server:reply({error, "Key not found"})
+    end,
+    %% Stay in the same state
+    {noreply, State};
+
+%% Function for handling incoming synchronous requests (calls)
+handle_call({get, Key}, _From, #state{key = Key, value = Value} = State) ->
+    %% If the requested key matches the server's key, send back the stored value
+    %% Otherwise, send an error message
+    if
+        Key == State#state.key ->
+            {reply, {ok, Value}, State};
+        State#state.key == undefined ->
+            {reply, {error, "Key not found"}, State}
+    end;
+
+handle_call({put, Key, Value}, _From, #state{key = undefined} = State) ->
+    %% If the server's state has no key, store the given key-value pair
+    %% Otherwise, send an error message
+    {reply, ok, State#state{key = Key, value = Value}};
+
+handle_call({put, Key, Value}, _From, #state{key = Key} = State) ->
+    %% If the requested key matches the server's key, update the stored value
+    %% Otherwise, send an error message
+    {reply, ok, State#state{value = Value}};
+
+handle_call({delete, Key}, _From, #state{key = undefined} = State) ->
+    %% If the server's state has no key, send an error message
+    {reply, {error, "Key not found"}, State};
+
+handle_call({delete, Key}, _From, #state{key = Key} = State) ->
+    %% If the requested key matches the server's key, delete the stored value
+    %% Otherwise, send an error message
+    {reply, ok, State#state{key = undefined, value = undefined}}.

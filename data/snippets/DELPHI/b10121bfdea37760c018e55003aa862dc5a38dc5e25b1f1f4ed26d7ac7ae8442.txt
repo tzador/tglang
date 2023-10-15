@@ -1,0 +1,82 @@
+unit Unit1;
+
+interface
+
+uses
+  System.SysUtils, System.Classes, Vcl.Controls, Vcl.Forms, Winapi.Windows;
+
+type
+  TForm1 = class(TForm)
+    procedure FormCreate(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
+  private
+    { Private declarations }
+    FHandle: HWND;
+    FCriticalSection: TRTLCriticalSection;
+    FThread: TThread;
+  public
+    { Public declarations }
+  end;
+
+var
+  Form1: TForm1;
+
+implementation
+
+{$R *.dfm}
+
+procedure TForm1.FormCreate(Sender: TObject);
+begin
+  // Find a top-level window with a specific title
+  FHandle := FindWIndow(nil, 'My App Title');
+
+  // Create a critical section to handle thread-safe communication with external DLL
+  InitializeCriticalSection(FCriticalSection);
+
+  // Create a new thread to continuously check for messages from the external DLL
+  FThread := TThread.CreateAnonymousThread(
+    procedure
+    var
+      Msg: TMsg;
+    begin
+      while not Application.Terminated do
+      begin
+        // Check for messages from the external DLL
+        while PeekMessage(Msg, FHandle, 0, 0, PM_REMOVE) do
+        begin
+          // Process the message using the critical section to ensure thread safety
+          EnterCriticalSection(FCriticalSection);
+          try
+            // Process the message here
+            case Msg.Message of
+              WM_MY_APP_MESSAGE:
+                ShowMessage('Received custom message from external DLL');
+              WM_ANOTHER_MESSAGE:
+                ShowMessage('Received another custom message from external DLL');
+            end;
+          finally
+            LeaveCriticalSection(FCriticalSection);
+          end;
+        end;
+
+        // Sleep for 500 milliseconds before checking for messages again
+        Sleep(500);
+      end;
+    end
+  );
+
+  // Start the thread
+  FThread.Start;
+end;
+
+procedure TForm1.FormDestroy(Sender: TObject);
+begin
+  // Terminate the thread and free its resources
+  FThread.Terminate;
+  FThread.Free;
+
+  // Destroy the critical section and release its resources
+  DeleteCriticalSection(FCriticalSection);
+end;
+
+end.

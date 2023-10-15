@@ -1,0 +1,216 @@
+unit Main;
+
+interface
+
+uses
+  SysUtils, Classes, Graphics, Controls, Forms, Dialogs, Menus,
+  Buttons, ComCtrls, ToolWin, Windows, Variants, StdCtrls, ExtCtrls, Grids,
+  DBGrids, DB, DBTables, Provider;
+
+type
+  TMainForm = class(TForm)
+    MainMenu1: TMainMenu;
+    File1: TMenuItem;
+    Open1: TMenuItem;
+    Save1: TMenuItem;
+    Exit1: TMenuItem;
+    Edit1: TMenuItem;
+    Cut1: TMenuItem;
+    Copy1: TMenuItem;
+    Paste1: TMenuItem;
+    Clear1: TMenuItem;
+    Undo1: TMenuItem;
+    Redo1: TMenuItem;
+    ToolBar1: TToolBar;
+    NewButton: TToolButton;
+    OpenButton: TToolButton;
+    SaveButton: TToolButton;
+    CutButton: TToolButton;
+    CopyButton: TToolButton;
+    PasteButton: TToolButton;
+    UndoButton: TToolButton;
+    RedoButton: TToolButton;
+    ClearButton: TToolButton;
+    StatusBar1: TStatusBar;
+    Panel1: TPanel;
+    LogoImage: TImage;
+    GridPanel: TPanel;
+    DatabaseGrid: TDBGrid;
+    DataSource1: TDataSource;
+    Table1: TTable;
+    DataSetProvider1: TDataSetProvider;
+  private
+    { Private declarations }
+
+    // declare private variables
+    SystemSettings: TRegIniFile;
+    ServerSettings: TStringList;
+    UserName: string;
+    Password: string;
+
+    // declare private functions/procedures
+    procedure LoadSettings;
+    procedure SaveSettings;
+    procedure ConnectToServer;
+  public
+    { Public declarations }
+
+    // declare public variables
+    Version: string;
+
+    // declare public events
+    OnConnect: TNotifyEvent;
+
+    // declare public functions/procedures
+    procedure Initialize;
+    procedure SaveUserData;
+  end;
+
+var
+  MainForm: TMainForm;
+
+implementation
+
+{$R *.dfm}
+
+// initialize form and components
+procedure TMainForm.Initialize;
+begin
+  // set form properties
+  Caption := 'Main Form';
+  Width := 800;
+  Height := 600;
+  Position := poScreenCenter;
+  Color := clWhite;
+
+  // set menu items
+  File1.Caption := 'File';
+  Open1.Caption := 'Open';
+  Save1.Caption := 'Save';
+  Exit1.Caption := 'Exit';
+  Edit1.Caption := 'Edit';
+  Cut1.Caption := 'Cut';
+  Copy1.Caption := 'Copy';
+  Paste1.Caption := 'Paste';
+  Clear1.Caption := 'Clear';
+  Undo1.Caption := 'Undo';
+  Redo1.Caption := 'Redo';
+
+  // set toolbar buttons
+  ToolBar1.ButtonWidth := 25;
+  NewButton.Caption := 'New';
+  OpenButton.Caption := 'Open';
+  SaveButton.Caption := 'Save';
+  CutButton.Caption := 'Cut';
+  CopyButton.Caption := 'Copy';
+  PasteButton.Caption := 'Paste';
+  UndoButton.Caption := 'Undo';
+  RedoButton.Caption := 'Redo';
+  ClearButton.Caption := 'Clear';
+
+  // set status bar
+  StatusBar1.Panels.Add;
+  StatusBar1.Panels[0].Text := 'Logged in as: ' + UserName;
+
+  // set panel properties
+  GridPanel.Caption := 'Database Grid';
+
+  // set image properties
+  LogoImage.Picture.LoadFromFile('logo.jpg');
+
+  // set database properties
+  Table1.DatabaseName := 'Database';
+  Table1.TableName := 'UserTable';
+  Table1.FieldDefs.Add('ID', ftAutoInc, 0, True);
+  Table1.FieldDefs.Add('Name', ftString, 20, False);
+  Table1.FieldDefs.Add('Email', ftString, 50, False);
+  Table1.CreateTable;
+  Table1.Open;
+
+  DataSource1.DataSet := Table1;
+end;
+
+// load user settings from registry and file
+procedure TMainForm.LoadSettings;
+var
+  DatabaseSettings: TRegIniFile;
+  ServerConfig: TStringList;
+begin
+  // read from registry
+  SystemSettings := TRegIniFile.Create('Software\MyApp');
+  ServerSettings := TStringList.Create;
+  DatabaseSettings := TRegIniFile.Create('Software\MySQL\Database');
+
+  // set server settings
+  ServerConfig := TStringList.Create;
+  ServerConfig.Add('ServerName=' + ServerSettings.Values['ServerName']);
+  ServerConfig.Add('Port=' + ServerSettings.Values['Port']);
+  ServerConfig.Add('DatabaseName=' + DatabaseSettings.Values['DatabaseName']);
+  ServerConfig.Add('UserName=' + DatabaseSettings.Values['UserName']);
+  ServerConfig.Add('Password=' + DatabaseSettings.Values['Password']);
+
+  // connect to server
+  ConnectToServer(ServerConfig);
+
+  // free objects
+  ServerConfig.Free;
+  DatabaseSettings.Free;
+end;
+
+// save user settings to registry and file
+procedure TMainForm.SaveSettings;
+begin
+  // save settings to registry
+  SystemSettings.WriteString('User', 'Name', UserName);
+
+  // save settings to file
+  ServerSettings.SaveToFile('server.cfg');
+  ServerSettings.Clear;
+  ServerSettings.Add('ServerName=' + ServerName);
+  ServerSettings.Add('Port=' + IntToStr(Port));
+
+  // save database settings to file
+  DatabaseSettings.SaveToFile('database.cfg');
+  DatabaseSettings.Clear;
+  DatabaseSettings.Add('DatabaseName=' + DatabaseName);
+  DatabaseSettings.Add('UserName=' + UserName);
+  DatabaseSettings.Add('Password=' + Password);
+
+  // save changes
+  ServerSettings.SaveToFile('server.cfg');
+  DatabaseSettings.SaveToFile('database.cfg');
+end;
+
+// connect to server
+procedure TMainForm.ConnectToServer(ServerConfig: TStringList);
+var
+  ConnectionString: string;
+begin
+  // build connection string using server settings
+  ConnectionString := 'Provider=MSDASQL; Driver={MySQL ODBC 5.3 ANSI Driver};'
+    + ' Server=' + ServerConfig[0].Substring(11) + ';'
+    + ' Port=' + ServerConfig[1].Substring(5) + ';'
+    + ' Database=' + ServerConfig[2].Substring(13) + ';'
+    + ' UID=' + ServerConfig[3].Substring(9) + ';'
+    + ' PWD=' + ServerConfig[4].Substring(9) + ';'
+    + ' Option=3;';
+
+  // connect to server
+  DataSetProvider1.Connected := False;
+  DataSetProvider1.Options := [poAllowCommandText];
+  DataSetProvider1.ProviderName := 'MSDASQL.1';
+  DataSetProvider1.ConnectionString := ConnectionString;
+  DataSetProvider1.Connected := True;
+end;
+
+// save user data to database
+procedure TMainForm.SaveUserData;
+begin
+  // insert user data into table
+  Table1.Insert;
+  Table1.FieldByName('Name').AsString := UserName;
+  Table1.FieldByName('Email').AsString := UserEmail;
+  Table1.Post;
+end;
+
+end.

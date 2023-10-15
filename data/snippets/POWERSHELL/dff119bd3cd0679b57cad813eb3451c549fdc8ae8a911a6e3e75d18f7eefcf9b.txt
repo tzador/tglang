@@ -1,0 +1,47 @@
+# Function that checks the health of a computer system and outputs results
+
+Function Check-SystemHealth {
+    # Declare variables for the system's CPU, memory, and hard drive usage
+    [string]$CpuUsage = ""
+    [string]$MemoryUsage = ""
+    [string]$HardDriveUsage = ""
+
+    # Use Get-WmiObject to get the Win32_PerfFormattedData_PerfOS_Processor class for CPU usage
+    $Cpu = Get-WmiObject Win32_PerfFormattedData_PerfOS_Processor | Select PercentProcessorTime
+
+    # Calculate CPU usage percentage
+    $CpuUsageRaw = [math]::Round(((@($Cpu.PercentProcessorTime) | Measure-Object -Average).Average),2)
+    # Convert raw usage to a string for output
+    $CpuUsage = "$CpuUsageRaw%"
+
+    # Use Get-WmiObject to get the Win32_OperatingSystem class for memory usage
+    $Memory = Get-WmiObject Win32_OperatingSystem | Select FreePhysicalMemory, TotalVisibleMemorySize
+
+    # Calculate used memory in MB
+    $UsedMemory = ($Memory.TotalVisibleMemorySize - $Memory.FreePhysicalMemory) / 1MB
+    # Convert used memory to a string for output
+    $MemoryUsage = "$UsedMemory MB"
+
+    # Use Get-PSDrive to get information on hard drive usage
+    $HardDrive = Get-PSDrive C | Select Used, Free, Size
+
+    # Calculate used hard drive space in GB
+    $UsedHardDrive = ($HardDrive.Size - $HardDrive.Free) / 1GB
+    # Convert used hard drive space to a string for output
+    $HardDriveUsage = "$UsedHardDrive GB"
+
+    # Create hashtable to store all the system health data
+    $SystemHealth = @{
+        "CPU Usage" = $CpuUsage
+        "Memory Usage" = $MemoryUsage
+        "Hard Drive Usage" = $HardDriveUsage
+    }
+
+    # Output the system health data as a formatted table
+    Write-Output "System Health Report"
+    Write-Output "-------------------"
+    $SystemHealth.GetEnumerator() | Format-Table -AutoSize
+}
+
+# Call the Check-SystemHealth function
+Check-SystemHealth

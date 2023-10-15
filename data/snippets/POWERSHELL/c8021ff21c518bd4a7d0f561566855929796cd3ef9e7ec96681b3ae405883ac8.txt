@@ -1,0 +1,44 @@
+Param(
+    # Specifies the name of the computer for which to execute the command.
+    [Parameter(Mandatory=$false,Position=0)]
+    [Alias('Cn')]
+    [String[]]
+    $ComputerName = $env:COMPUTERNAME,
+    # Specifies the namespace of the class.
+    [String]
+    $Namespace = 'root\cimv2',
+    # Specifies the credentials for the remote computer.
+    [System.Management.Automation.PSCredential]
+    $Credential,
+    # Specifies the class name from which to retrieve the objects.
+    [Parameter(Mandatory=$true,Position=1)]
+    [String]
+    $ClassName,
+    # Specifies the name of the property to retrieve.
+    [Parameter(Mandatory=$false,Position=2)]
+    [String[]]
+    $Property = '*',
+    # Specifies the filter.
+    [String]
+    $Filter,
+    # Specifies the condition to use in the where clause.
+    [String]
+    $Where = 'Enabled=True'
+)
+
+# Creates a new instance of the WMI object with the provided credentials and namespace.
+$wmisearcher = New-Object -ComObject 'WbemScripting.SWbemLocator'
+$wmiobj = $wmisearcher.ConnectServer($ComputerName, $Namespace, $Credential.GetNetworkCredential().UserName, $Credential.GetNetworkCredential().Password)
+# Creates a new query using the specified class, properties, and filter.
+$query = "SELECT $Property FROM $ClassName WHERE $Where $Filter"
+# Executes the query and stores the results in a variable.
+$results = $wmiobj.ExecQuery($query)
+
+# Loops through each result and outputs the property value(s).
+foreach ($result in $results) {
+    foreach ($p in $result.Properties) {
+        $prop = $p.Name
+        $value = $result.GetPropertyValue($prop)
+        Write-Output "$prop: $value"
+    }
+}

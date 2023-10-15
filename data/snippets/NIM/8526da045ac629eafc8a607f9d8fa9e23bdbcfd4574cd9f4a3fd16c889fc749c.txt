@@ -1,0 +1,156 @@
+# This code implements the game of Nim using minimax algorithm with alpha-beta pruning
+
+# Define the main function to start the game
+proc main() =
+  # Set up the initial game state
+  var game_state: seq[int] = [3, 5, 7] # Represents 3 stacks of 3, 5, and 7 objects respectively
+  var player_turn = 1 # Player 1 plays first, player 2 is AI
+
+  # Print initial game state
+  echo "Welcome to the game of Nim!"
+  echo "The stacks currently have the following number of objects: "
+  echo game_state[0], " ", game_state[1], " ", game_state[2]
+
+  # Begin game loop until a player or AI wins
+  while check_game_end(game_state) == false:
+    # Player 1's turn
+    if player_turn == 1:
+      echo "Player 1's turn:"
+      var chosen_stack, num_objects = get_player_move(game_state)
+      echo "Player 1 chooses ", num_objects, " objects from stack ", chosen_stack
+      remove_objects(game_state, chosen_stack, num_objects)
+      player_turn = 2 # Switch to player 2's turn
+    # Player 2's turn (AI)
+    else:
+      echo "Player 2's turn:"
+      var chosen_stack, num_objects = get_ai_move(game_state)
+      echo "Player 2 chooses ", num_objects, " objects from stack ", chosen_stack
+      remove_objects(game_state, chosen_stack, num_objects)
+      player_turn = 1 # Switch back to player 1's turn
+
+  # Print final game state and declare winner
+  echo "Game over! The final stack configuration is:"
+  echo game_state[0], " ", game_state[1], " ", game_state[2]
+  if player_turn == 1:
+    echo "Player 2 (AI) wins!"
+  else:
+    echo "Player 1 wins!"
+
+# Function to check if the game has ended
+proc check_game_end(game_state: seq[int]): bool =
+  # If all stacks have 0 objects, the game has ended
+  if game_state[0] == 0 and game_state[1] == 0 and game_state[2] == 0:
+    return true
+  else:
+    return false
+
+# Function for player 1 to make a move
+proc get_player_move(game_state: seq[int]): (int, int) =
+  # Get input from player on which stack and how many objects to remove
+  var chosen_stack: int
+  var num_objects: int
+  echo "Choose a stack number (1, 2, or 3): "
+  chosen_stack = readNum()
+  echo "Choose the number of objects to remove: "
+  num_objects = readNum()
+
+  # Check if chosen stack is valid and has enough objects
+  while chosen_stack < 1 or chosen_stack > 3 or num_objects < 1 or num_objects > game_state[chosen_stack - 1]:
+    echo "Invalid move. Try again."
+    echo "Choose a stack number (1, 2, or 3): "
+    chosen_stack = readNum()
+    echo "Choose the number of objects to remove: "
+    num_objects = readNum()
+
+  # Return chosen stack and number of objects to remove
+  return (chosen_stack, num_objects)
+
+# Function for AI (player 2) to make a move
+proc get_ai_move(game_state: seq[int]): (int, int) =
+  # Initialize variables for storing best move and score
+  var best_move: (int, int)
+  var best_score = -9999 # Start with a very low score
+
+  # Loop through all possible moves and evaluate them using minimax with alpha-beta pruning
+  for i in 0..<game_state.len:
+    for j in 1..game_state[i]+1:
+      # Create a copy of the current game state to simulate making a move
+      var new_game_state: seq[int] = game_state
+      remove_objects(new_game_state, i, j)
+
+      # Get the score of the current move using minimax with alpha-beta pruning
+      var score = minimax(new_game_state, i, j, -9999, 9999, false)
+
+      # Update the best score and move if the current score is better
+      if score > best_score:
+        best_move = (i, j)
+        best_score = score
+
+  # Return the best move
+  return best_move
+
+# Function to simulate removing objects from a stack
+proc remove_objects(game_state: var seq[int], stack: int, num_objects: int) =
+  game_state[stack] -= num_objects
+
+# Minimax algorithm with alpha-beta pruning
+proc minimax(game_state: seq[int], last_stack: int, last_num: int, alpha: int, beta: int, is_player_1: bool): int =
+  # Base case: evaluation of leaf node
+  if check_game_end(game_state):
+    if is_player_1:
+      return -1 # AI wins
+    else:
+      return 1 # Player 1 wins
+
+  # Recursive case: evaluate all possible moves and choose the best one
+  if is_player_1: # AI's turn
+    var max_score = -9999 # Start with a very low score
+    # Loop through all possible moves and evaluate them
+    for i in 0..<game_state.len:
+      for j in 1..game_state[i]+1:
+        # Create a copy of the current game state to simulate making a move
+        var new_game_state: seq[int] = game_state
+        remove_objects(new_game_state, i, j)
+
+        # Get the score for the current move using minimax with alpha-beta pruning
+        var score = minimax(new_game_state, i, j, alpha, beta, false)
+
+        # Update alpha if the current score is higher
+        alpha = max(alpha, score)
+
+        # Prune the rest of the branches if beta is less than or equal to alpha
+        if beta <= alpha:
+          break
+
+        # Update the maximum score
+        max_score = max(max_score, score)
+
+    # Return the maximum score
+    return max_score
+  else: # Player 1's turn
+    var min_score = 9999 # Start with a very high score
+    # Loop through all possible moves and evaluate them
+    for i in 0..<game_state.len:
+      for j in 1..game_state[i]+1:
+        # Create a copy of the current game state to simulate making a move
+        var new_game_state: seq[int] = game_state
+        remove_objects(new_game_state, i, j)
+
+        # Get the score for the current move using minimax with alpha-beta pruning
+        var score = minimax(new_game_state, i, j, alpha, beta, false)
+
+        # Update beta if the current score is lower
+        beta = min(beta, score)
+
+        # Prune the rest of the branches if beta is less than or equal to alpha
+        if beta <= alpha:
+          break
+
+        # Update the minimum score
+        min_score = min(min_score, score)
+
+    # Return the minimum score
+    return min_score
+
+# Call the main function to start the game
+main()

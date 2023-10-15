@@ -1,0 +1,52 @@
+/* This code snippet uses the GAMS programming language to solve a transportation problem
+with multiple sources and destinations */
+
+SET ORIGINS 'Different sources of goods'
+      /New York, Tokyo, London, Mumbai/;
+
+SET DESTINATIONS 'Different cities where goods need to be transported'
+      /Boston, Chicago, San Francisco, Berlin, Paris/;
+
+PARAMETERS
+    supply(ORIGINS) 'Amount of goods available at each source'
+        /New York 10, Tokyo 20, London 15, Mumbai 25/,
+
+    demand(DESTINATIONS) 'Amount of goods needed at each destination'
+        /Boston 12, Chicago 10, San Francisco 5, Berlin 15, Paris 20/;
+
+TABLE cost(ORIGINS, DESTINATIONS) 'Cost of transporting goods from each source to each destination'
+             Boston    Chicago    San Francisco    Berlin    Paris
+New York       10         15            20           25       30
+Tokyo          15         20            25           30       35
+London         20         25            30           35       40
+Mumbai         25         30            35           40       45 ;
+
+VARIABLES
+    amount(ORIGINS, DESTINATIONS) 'Amount of goods to be transported from each source to each destination'
+    total_cost 'Total cost of transportation';
+
+POSITIVE VARIABLES amount;
+
+EQUATIONS
+    supply_constraint(ORIGINS) 'Total supply of goods at each source must be greater than or equal to the amount transported',
+    demand_constraint(DESTINATIONS) 'Total demand for goods at each destination must be met',
+    total_cost_calc 'Calculates the total cost of transportation, using the cost table';
+
+/* The following constraints ensure that the total amount transported from each source is less than or equal
+to the amount available at that source */
+supply_constraint(ORIGINS).. sum(DESTINATIONS, amount(ORIGINS, DESTINATIONS)) =l= supply(ORIGINS);
+
+/* The following constraints ensure that the total amount transported to each destination is equal to the
+demand at that destination */
+demand_constraint(DESTINATIONS).. sum(ORIGINS, amount(ORIGINS, DESTINATIONS)) =e= demand(DESTINATIONS);
+
+/* The following equation calculates the total cost of transportation by multiplying the amount
+transported from each source to each destination by the cost of transportation for that route */
+total_cost_calc.. total_cost =e= sum((ORIGINS, DESTINATIONS), amount(ORIGINS, DESTINATIONS)*cost(ORIGINS, DESTINATIONS));
+
+MODEL transportation 'Transportation Problem' /all/;
+
+SOLVE transportation MINIMIZING total_cost USING LP;
+
+DISPLAY amount.l, total_cost.l; /* Displays the amount transported from each source to
+each destination and the total cost of transportation */

@@ -1,0 +1,62 @@
+// Build.gradle file
+apply plugin: 'java'
+
+// Set source and target compatibility
+sourceCompatibility = "1.8"
+targetCompatibility = "1.8"
+
+// Define dependencies
+dependencies {
+    // Spring framework
+    compile group: 'org.springframework', name: 'spring-core', version: '5.2.0.RELEASE'
+    
+    // Hibernate ORM framework
+    compile group: 'org.hibernate', name: 'hibernate-core', version: '5.4.1.Final'
+    
+    // JUnit testing framework
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+    
+    // Apache Commons Lang library
+    compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.9'
+    
+    // MySQL JDBC connector
+    compile group: 'mysql', name: 'mysql-connector-java', version: '8.0.19'
+}
+
+// Define task for running tests
+test {
+    // Set test task to use JUnit platform
+    useJUnitPlatform()
+    
+    // Set environment variables
+    systemProperties = System.properties
+}
+
+// Define task for building a JAR file
+task buildJar(type: Jar) {
+    from 'src/main'
+    manifest {
+        attributes 'Main-Class': 'com.demo.Main'
+    }
+    destinationDir = file("$buildDir/jars")
+    archiveFileName = 'demo-app.jar'
+}
+
+// Define task for deploying application
+task deploy {
+    dependsOn buildJar
+    
+    // Shell task for deploying JAR file to server
+    doLast {
+        // Add commands to deploy JAR file to server
+        sh "ssh user@host 'mkdir /opt/demo-app'"
+        sh "scp ${buildJar.archivePath} user@host:/opt/demo-app/demo-app.jar"
+        sh "ssh user@host 'cd /opt/demo-app && nohup java -jar demo-app.jar > app.log 2>&1 &'"
+    }
+}
+
+// Add option for deployment task
+if (project.hasProperty('deployToServer')) {
+    deploy.mustRunAfter clean
+    deploy.dependsOn clean
+}

@@ -1,0 +1,75 @@
+%% Module for implementing a binary search tree
+-module(tree).
+-export([new/0, insert/2, inorder/1, delete/2]).
+
+%% Record for representing a tree node
+-record(node, {key, value, left, right}).
+
+%% Function for creating a new empty tree
+new() ->
+    {empty}.
+
+%% Function for inserting a new key-value pair into the tree
+-spec insert (any(), any()) -> any().
+insert(Key, Value) ->
+    insert(Key, Value, {empty}).
+
+%% Helper function for inserting a new node into the tree
+insert(Key, Value, {empty}) ->
+    {node, Key, Value, {empty}, {empty}};
+insert(Key, Value, {node, NodeKey, NodeValue, Left, Right}) when Key < NodeKey ->
+    {node, NodeKey, NodeValue, insert(Key, Value, Left), Right};
+insert(Key, Value, {node, NodeKey, NodeValue, Left, Right}) when Key > NodeKey ->
+    {node, NodeKey, NodeValue, Left, insert(Key, Value, Right)}.
+
+%% Function for traversing the tree in order and returning a list of all the key-value pairs
+inorder({empty}) ->
+    [];
+inorder({node, Key, Value, Left, Right}) ->
+    inorder(Left) ++ [{Key, Value}] ++ inorder(Right).
+
+%% Function for deleting a node with the given key from the tree
+delete(Key, Tree) ->
+    DeletePos = lookup(Key, Tree),
+    case DeletePos of
+        %% If the key is not found in the tree, return the original tree
+        false -> Tree;
+        %% If the key is found in a leaf node, replace it with an empty node
+        {node, Key, _, {empty}, {empty}} -> {empty};
+        %% If the key is found in a node with only a left child, replace it with the left child
+        {node, Key, _, Left, {empty}} -> Left;
+        %% If the key is found in a node with only a right child, replace it with the right child
+        {node, Key, _, {empty}, Right} -> Right;
+        %% If the key is found in a node with both left and right children
+        {node, Key, _, L, R} -> case nonempty_pred(R) of
+                                    %% If the right child has no left child, replace the node with the right child
+                                    false -> {node, Key, get_val(R), L, get_child(R, right)};
+                                    %% If the right child does have a left child, replace the node with the left-most of the right subtrees
+                                    KeyVal -> {node, KeyVal, get_val(R), delete(KeyVal, L), R}
+                              end
+    end.
+
+%% Helper functions for deleting a node
+get_val({node, Key, Value, _, _}) ->
+    {Key, Value}.
+
+get_child({node, _, _, {empty}, Child}, right) -> Child;
+get_child({node, _, _, Child, _}, left) -> Child.
+
+%% Function for finding the predecessor of a non-empty tree
+nonempty_pred({node, _, _, {empty}, _}) ->
+    false;
+nonempty_pred({node, Key, _, Left, _}) when Left =/= {empty} ->
+    nonempty_pred(Left);
+nonempty_pred({node, Key, _, _, _}) ->
+    Key.
+
+%% Function for looking up a key in the tree
+lookup(Key, {empty}) ->
+    false;
+lookup(Key, {node, K, V, _, _}) when Key == K ->
+    {node, K, V, get_val({node, K, V, _, _})};
+lookup(Key, {node, K, V, Left, Right}) when Key > K ->
+    lookup(Key, Right);
+lookup(Key, {node, Key, V, Left, Right}) when Key < K ->
+    lookup(Key, Left).

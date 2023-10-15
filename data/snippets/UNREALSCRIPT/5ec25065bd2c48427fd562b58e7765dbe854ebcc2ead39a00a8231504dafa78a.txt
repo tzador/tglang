@@ -1,0 +1,55 @@
+/** 
+* Simulates an explosion at a given location, causing damage to the given actors within a certain radius. 
+* 
+* @param Location The location of the explosion in world space 
+* @param Radius The radius of the explosion in Unreal units 
+* @param DamageAmount The amount of damage to apply to each actor in the explosion radius 
+* @param DamageType The type of damage to apply 
+* @param Instigator The actor responsible for causing the explosion 
+*/ 
+simulated function ExplodeVector(Vector Location, float Radius, float DamageAmount, class<DamageType> DamageType, Actor Instigator) 
+{ 
+    //Get all actors within the explosion radius 
+    local array<Actor> ActorsInRange; 
+    local array<Vector> Locations; 
+    local array<Vector> HitLocations; 
+    WorldInfo.GetActorsInRange(Location, Radius, class'Actor', out ActorsInRange, HitLocations); 
+     
+    //Loop through all actors in range 
+    foreach ActorsInRange(actor HitActor) 
+    { 
+        //Apply damage to the actor 
+        HitActor.TakeDamage(DamageAmount, Instigator, Location, FRandRange(-100.0, 100.0), DamageType); 
+         
+        //Check if the actor is a pawn 
+        if (Pawn(HitActor) != None) 
+        { 
+            //Get the actor's capsule component 
+            local SkeletalMeshComponent Capsule; 
+            Capsule = Pawn(HitActor).Mesh; 
+             
+            //Cause the actor to ragdoll 
+            if (Capsule != None) 
+            { 
+                Capsule.SetPhysics(EPhysics.PHYS_Simulated, Instigator, Location - HitActor.Location); 
+            } 
+             
+            //Update the actor's velocity 
+            HitActor.Velocity = HitActor.Velocity + (HitActor.Location - Location) * 150.0f; 
+             
+            //Apply a small impulse to the actor's root component 
+            HitActor.AcStaticMeshComponent.SetLinearVelocity((HitActor.Location - Location) * 50.0f, false, true); 
+        } 
+    } 
+     
+    //Spawn a particle effect at the explosion location 
+    local ParticleMesh ExplosionEffect; 
+    ExplosionEffect = new class'ParticleMesh'; 
+    if (ExplosionEffect != None) 
+    { 
+        ExplosionEffect.Mesh = Location; 
+        ExplosionEffect.SetTemplate(class'ExplosionLarge'); 
+        ExplosionEffect.SetLifeSpan(2.0f); 
+        ExplosionEffect.SetPhysics(EPhysics.PHYS_None); 
+    } 
+}

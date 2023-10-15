@@ -1,0 +1,34 @@
+CREATE OR REPLACE TYPE order AS OBJECT ( 
+  customer_id NUMBER(6),
+  order_id NUMBER(10),
+  order_date DATE,
+  order_items order_items_t,
+  order_status VARCHAR2(20)
+);
+/
+CREATE TYPE order_items_t AS TABLE OF order_item;
+/
+CREATE OR REPLACE TYPE order_item AS OBJECT (
+  product_id NUMBER(6),
+  quantity NUMBER(3),
+  price NUMBER(10,2)
+);
+/
+CREATE OR REPLACE PROCEDURE place_order (p_order order) AS
+BEGIN
+  IF p_order.order_status IS NULL THEN
+    p_order.order_status := 'Pending';
+  END IF;
+  
+  INSERT INTO orders (customer_id, order_id, order_date, order_status)
+    VALUES (p_order.customer_id, p_order.order_id, p_order.order_date, p_order.order_status);
+  
+  FOR i IN p_order.order_items.FIRST..p_order.order_items.LAST LOOP
+    INSERT INTO order_items (order_id, product_id, quantity, price)
+      VALUES (p_order.order_id, p_order.order_items(i).product_id, p_order.order_items(i).quantity, p_order.order_items(i).price);
+  END LOOP;
+  
+  COMMIT;
+END;
+/
+SHOW ERRORS;

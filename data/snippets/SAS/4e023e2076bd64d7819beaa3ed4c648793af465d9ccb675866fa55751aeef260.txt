@@ -1,0 +1,54 @@
+/* This is a SAS code snippet that creates a logistic regression model */
+
+/* First, import the necessary data sets */
+data work.train_data;
+    set train_data;
+run;
+
+data work.test_data;
+    set test_data;
+run;
+
+/* Next, specify the variables to be used in the model */
+proc logistic data = work.train_data;
+    model target = var1 var2 var3 var4 var5 var6 var7 var8;
+run;
+
+/* Create a macro to evaluate model performance */
+%macro model_eval(input_data);
+
+    /* Create a temporary table for evaluation */
+    proc sql;
+        create table temp as
+            select *, score as prob_correct
+            from &input_data;
+    quit;
+
+    /* Calculate the Area Under the Receiver Operating Characteristic (ROC) Curve */
+    proc arroc data = temp;
+        plot roc(var1) = prob_correct;
+        title "Area Under ROC Curve";
+    run;
+
+    /* Calculate model accuracy */
+    proc freq data = temp;
+        tables predicted_target*actual_target / nocum;
+        title "Model Accuracy";
+    run;
+
+    /* Calculate sensitivity and specificity */
+    proc freq data = temp;
+        tables actual_target*predicted_target / cellchi2;
+        title "Sensitivity and Specificity";
+    run;
+
+%mend model_eval;
+
+/* Apply the macro to the model results */
+%model_eval(work.train_data);
+%model_eval(work.test_data);
+
+/* Lastly, apply the model to new data and store the predictions */
+proc logistic data = work.test_data out = work.predictions;
+    model target = var1 var2 var3 var4 var5 var6 var7 var8;
+run;

@@ -1,0 +1,57 @@
+server {
+    listen 80;
+    server_name example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+    }
+
+    location /static {
+        # Use static files from the following directory
+        # Can be a path relative to the root or a full path
+        root /var/www/example.com/static;
+        # Enable gzip compression for static files
+        gzip_static on;
+        # Set cache time for static files to 1 hour
+        expires 1h;
+    }
+
+    location /media {
+        # Use media files from the following directory
+        root /var/www/example.com/media;
+        # Disable access to media files (disable directory indexing)
+        autoindex off;
+    }
+
+    # Enable caching for all files matching the specified extensions
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+        # Use a cache with a maximum size of 25MB
+        proxy_cache_path /tmp/cache levels=1:2 keys_zone=static_cache:25m inactive=60m;
+        # Set cache time to 1 hour
+        proxy_cache_valid 200 1h;
+        # Cache images and static files for 30 days
+        proxy_cache_valid 404 30d;
+        # Serve cached files if available, otherwise fetch from server
+        proxy_cache_revalidate on;
+        proxy_cache_use_stale updating;
+        # Set shared cache for all servers on the same machine
+        proxy_cache_bypass $http_pragma;
+        proxy_cache_revalidate $http_pragma;
+        # Set cache control headers for browser caching
+        expires 30d;
+        proxy_cache_valid 200 1d;
+    }
+
+    # Handle user requests for API endpoint
+    location /api/ {
+        # Serve requests to the following upstream server
+        proxy_pass http://127.0.0.1:8001/;
+        # Enable buffering of responses from the upstream server
+        proxy_buffering on;
+        proxy_buffer_size 4k;
+        proxy_buffers 32 4k;
+        # Send the user's original request headers to the upstream server
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+    }
+}

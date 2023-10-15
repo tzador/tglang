@@ -1,0 +1,80 @@
+%{
+    // BISON code to take in and parse arithmetic expressions
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <string.h>
+    #include <math.h>
+    
+    // global variables used in expressions
+    int variables[26]; // holds values for variables A-Z
+    int error = 0; // tracks any errors encountered 
+%}
+
+%token NUMBER // define token for numbers
+%token VAR // define token for variables
+
+%start expList // specify starting rule for the grammar
+
+%% // start of grammar rules
+
+expList: /* empty */
+    | expList exp '\n' { // rule for multiple expressions
+        if(error) { // check for any errors before printing
+            printf("Encountered error in expression!\n");
+        } else {
+            printf("Result: %d\n", $2); // print result
+        }
+    }
+    | exp '\n' { // rule for single expression
+        if(error) { // check for any errors before printing
+            printf("Encountered error in expression!\n");
+        } else {
+            printf("Result: %d\n", $1); // print result
+        }
+    }
+    ;
+
+exp: NUMBER { // rule for numbers
+        $$ = $1; // set result to value of number
+    }
+    | VAR '=' exp { // rule for variable assignment
+        variables[$1-'A'] = $3; // set variable value in array
+        $$ = $3; // set result to value of variable
+    }
+    | VAR { // rule for variable usage
+        $$ = variables[$1-'A']; // get value of variable from array
+        if(!$$) { // if variable is not set
+            printf("Error: variable %c not initialized!\n", $1);
+            error = 1; // set error flag
+        }
+    }
+    | '-' exp %prec UMINUS { // rule for unary minus
+        $$ = -$2; // negate the value of the expression
+    }
+    | exp '+' exp { // rule for addition
+        $$ = $1 + $3; // calculate result
+    }
+    | exp '-' exp { // rule for subtraction
+        $$ = $1 - $3; // calculate result
+    }
+    | exp '*' exp { // rule for multiplication
+        $$ = $1 * $3; // calculate result
+    }
+    | exp '/' exp { // rule for division
+        if($3 == 0) { // check for division by zero
+            printf("Error: cannot divide by zero!\n");
+            error = 1; // set error flag
+            $$ = 0; // set result to 0
+        } else {
+            $$ = $1 / $3; // calculate result
+        }
+    }
+    | exp '^' exp { // rule for exponentiation
+        $$ = pow($1, $3); // calculate result
+    }
+    | '(' exp ')' { // rule for parentheses
+        $$ = $2; // return value of expression within parentheses
+    }
+    ;
+
+%%

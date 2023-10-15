@@ -1,0 +1,47 @@
+# nginx configuration file
+worker_processes 2; # sets the number of worker processes to be used
+pid /var/run/nginx.pid; # specifies the location of the process ID file
+events { # specifies the events that nginx should handle
+    worker_connections 1024; # sets the maximum number of simultaneous connections per worker process
+    use epoll; # sets nginx to use the epoll connection processing method for optimized performance
+}
+
+http { # start of http configuration block
+    include mime.types; # includes the mime.types file which contains all known media types
+    default_type application/octet-stream; # sets the default media type to be used 
+    sendfile on; # enables sendfile which allows nginx to send files directly without reading them into the memory 
+    tcp_nopush on; # enables the use of a TCP nodelay method for HTTP/1.1 requests
+    tcp_nodelay on; # enables the use of a TCP nodelay method for HTTP/1.0 requests
+
+    # gzip compression configurations
+    gzip on; # enables gzip compression
+    gzip_disable "msie6"; # disables gzip compression for old Microsoft browsers
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript; # sets the types of files that can be gzipped 
+
+    # upstream configuration
+    upstream backend { # declares the upstream backend server to be used
+        server 127.0.0.1:8080; # specifies the IP address and port of the backend server
+        server 127.0.0.1:8081; # specifies the IP address and port of another backend server
+        keepalive 64; # sets the maximum number of idle keepalive connections to keep for each server
+    }
+
+    server { # start of server configuration block
+        listen 80; # specifies the port to listen for incoming requests
+        server_name example.com; # sets the server name
+
+        location / { # start of location block for the root directory
+            proxy_pass http://backend; # sets the backend server to be used for all requests to the root directory
+            proxy_set_header Host $host; # sets the Host header to the value of the host being requested
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # sets the X-Forwarded-For header to include the IP addresses of the client and proxy servers
+            proxy_http_version 1.1; # sets the HTTP version to be used in the proxy request
+            proxy_connect_timeout 60s; # sets the timeout for establishing a connection with the backend server
+            proxy_read_timeout 60s; # sets the timeout for reading a response from the backend server
+        }
+
+        location /static/ { # start of location block for the /static/ path
+            alias /var/www/static/; # specifies the path to the static files to be served
+            expires 7d; # sets the expiration time for the static files
+            access_log off; # disables access logs for the static files
+        }
+    }
+}

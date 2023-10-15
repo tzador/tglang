@@ -1,0 +1,95 @@
+# This is a complex NGINX configuration snippet for reverse proxy
+# This configuration will be used for routing traffic from port 80 to port 3000
+
+# Set the worker processes to the number of CPU cores for optimal performance
+worker_processes auto;
+
+# Set the error log file location
+error_log /var/log/nginx/error.log;
+
+# Configure a upstream server for load balancing
+upstream backend {
+  server 127.0.0.1:3000;
+  server 127.0.0.1:3001;
+} 
+
+# Configure the server block for port 80
+server {
+  # Listen to incoming traffic on port 80
+  listen 80;
+
+  # Define the server name, used for virtual hosting
+  server_name example.com;
+
+  # Set a custom header for identifying the source of the request
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header Host $http_host;
+
+  # Define the location for handling requests
+  location / {
+    # Enable proxying of requests to the upstream servers
+    proxy_pass http://backend;
+
+    # Set timeout values for proxy connections
+    proxy_connect_timeout 60s;
+    proxy_read_timeout 60s;
+    proxy_send_timeout 60s;
+
+    # Enable buffering of responses
+    proxy_buffering on;
+    proxy_buffers 8 16k;
+    proxy_buffer_size 16k;
+
+    # Configure caching directives to improve performance
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=backend_cache:10m inactive=60m;
+    proxy_cache_key "$scheme$request_method$host$request_uri";
+    proxy_cache_valid 200 301 302 10m;
+    proxy_cache_valid 404 1m;
+  }
+}
+
+# Configure the server block for port 443 (HTTPS)
+server {
+  # Listen to incoming traffic on port 443
+  listen 443 ssl;
+
+  # Define the server name, used for virtual hosting
+  server_name example.com;
+
+  # Configure SSL settings
+  ssl_certificate /etc/nginx/ssl/example.com.crt;
+  ssl_certificate_key /etc/nginx/ssl/example.com.key;
+  
+  # Enable OCSP stapling for improved security
+  ssl_stapling on;
+  ssl_stapling_verify on;
+
+  # Set a custom header for identifying the source of the request
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header Host $http_host;
+
+  # Define the location for handling requests
+  location / {
+    # Enable proxying of requests to the upstream servers
+    proxy_pass http://backend;
+
+    # Set timeout values for proxy connections
+    proxy_connect_timeout 60s;
+    proxy_read_timeout 60s;
+    proxy_send_timeout 60s;
+
+    # Enable buffering of responses
+    proxy_buffering on;
+    proxy_buffers 8 16k;
+    proxy_buffer_size 16k;
+
+    # Configure caching directives to improve performance
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=backend_cache:10m inactive=60m;
+    proxy_cache_key "$scheme$request_method$host$request_uri";
+    proxy_cache_valid 200 301 302 10m;
+    proxy_cache_valid 404 1m;
+  }
+
+  # Enable HTTP/2 support for improved performance
+  http2_push_preload on;
+}

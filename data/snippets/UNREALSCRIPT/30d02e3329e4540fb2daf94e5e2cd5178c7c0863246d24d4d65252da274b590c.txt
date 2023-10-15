@@ -1,0 +1,67 @@
+class RocketProjectile extends Projectile
+	# A specialized projectile class for rockets with customizable properties.
+	
+	const float RocketSpeed = 1500 # The speed at which the rocket travels.
+	
+	var bool ExplodesOnHit
+	var float ExplosionRadius
+	var float ExplosionDamage
+	var float MaxLockOnRange
+	
+	defaultproperties
+	{
+		// Setting default values for variables.
+		ExplodesOnHit = true
+		ExplosionRadius = 250
+		ExplosionDamage = 100
+		MaxLockOnRange = 2000
+	}
+	
+	function Explode()
+	# A function that handles the explosion of the rocket projectile.
+	
+		Spawn(class'DamageType', self,, HitLocation, Rotator(0,0,0),, false);
+		// Spawning a DamageType object to handle damage dealt by the explosion.
+		
+		local Actor HitActor;
+		foreach NearActors(class'Actor', HitActor, ExplosionRadius + (ExplosionRadius * 0.5)) // Looping through nearby actors within a certain radius.
+		{
+			if (HitActor != Instigator) // Checking if the nearby actor is not the instigator (the owner of the rocket).
+			{
+				HitActor.TakeDamage(ExplosionDamage, InstigatorController, HitLocation, None, DamageType);
+				// Applying damage to nearby actors.
+			}
+		}
+		
+		// Play explosion sound and particle effect.
+	}
+	
+	protected event PreBeginPlay()
+	{
+		// Enable homing functionality if MaxLockOnRange is greater than 0.
+		if (MaxLockOnRange > 0)
+		{
+			HomingTargeting = true;
+			HomingAccelerationMagnitude = 800;
+			HomingMaximumDistance = MaxLockOnRange;
+		}
+	}
+	
+	function Tick(float DeltaTime)
+	# Overriding Tick function to check for homing target and update projectile movement.
+	
+		local Actor HomingTarget;
+		if (HomingTargeting && HomingTarget != None)
+		{
+			Vector HomingDirection = Normal(HomingTarget.Location - Location); // Calculating direction towards the homing target.
+			Acceleration = HomingDirection * HomingAccelerationMagnitude; // Setting acceleration towards the homing target.
+		}
+		else
+		{
+			Acceleration = Vector(Rotation) * RocketSpeed; // Normal acceleration for non-homing projectiles.
+		}
+		
+		// Calling base function to update projectile movement.
+		super.Tick(DeltaTime);
+	}
+EndClass

@@ -1,0 +1,65 @@
+METHOD fill_table_classify_input.
+  DATA: lv_count TYPE i, lv_position TYPE i, lv_text TYPE string.
+  FIELD-SYMBOLS: <fs_result> TYPE table, <fs_data> TYPE any.
+
+  TRY.
+      cl_wd_scenario_api=>attach_context_node( EXPORTING
+                                                id       = wd_context
+                                                element  = 'NODE_CLASSIFY_INPUT2'
+                                                index    = 1 ).
+    CATCH cx_wd_scenario_error INTO DATA(lx_err).
+      IF lx_err->get_text( ) = 'NODE_INPUT2 already assigned'.
+        RETURN.
+      ENDIF.
+  ENDTRY.
+
+  ASSIGN component wd_comp_controller->wd_this->wd_context->get_attribute(
+    name  = `INPUT2`
+    index = 1
+    ) TO <fs_data>.
+
+  IF <fs_data> IS ASSIGNED.
+    CONVERT VALUE #( <fs_data> ) INTO DATA(rs_input2).
+    DELETE ADJACENT DUPLICATES FROM rs_input2 COMPARING ALL FIELDS.
+    LOOP AT rs_site ASSIGNING FIELD-SYMBOL(<fs_site>) WHERE field1 IS NOT INITIAL.
+      DATA(rs_result) = VALUE #( FOR line IN <fs_result> ( VALUE #( field1 = <fs_site>-field1 field2 = line ))) .
+    ENDLOOP.
+
+    DELETE ADJACENT DUPLICATES FROM rs_result COMPARING ALL FIELDS.
+
+    IF rs_result IS NOT INITIAL.
+      LOOP AT rs_result ASSIGNING FIELD-SYMBOL(<fs_result>).
+        IF gv_flag = abap_true.
+          <fs_data>-field2 = <fs_data>-field2 + 1.
+        ENDIF.
+        <fs_result>-field3 = <fs_result>-field4.
+        lv_position = sy-tabix.
+        lv_text = sy-vline.
+        INSERT lines of lv_text into result1 INDEX lv_position.
+        sy-tabix = lv_position + 1.
+        CASE <fs_result>-field5.
+          WHEN 'a'.
+            <fs_result>-field6 = <fs_result>-field6 + 2.
+          WHEN 'b'.
+            <fs_result>-field6 = <fs_result>-field6 + 1.
+        ENDCASE.
+      ENDLOOP.
+    ENDIF.
+    LOOP AT rs_result ASSIGNING FIELD-SYMBOL(<fs_result>).
+      IF lv_count = 200.
+        EXIT.
+      ENDIF.
+      IF <fs_result> IS ASSIGNED.
+        <fs_data>-field4 = <fs_result>-field3.
+        <fs_data>-field6 = <fs_result>-field6.
+        <fs_data>-field5 = <fs_result>-field5.
+      ENDIF.
+      lv_count = lv_count + 1.
+      lv_position = sy-tabix.
+      lv_text = sy-vline.
+      INSERT lines of lv_text into result1 INDEX lv_position.
+      sy-tabix = lv_position + 1.
+    ENDLOOP.
+  ENDIF.
+
+ENDMETHOD.

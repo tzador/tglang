@@ -1,0 +1,54 @@
+CREATE TABLE customers (
+   customer_id INT NOT NULL PRIMARY KEY,
+   first_name VARCHAR(50) NOT NULL,
+   last_name VARCHAR(50) NOT NULL,
+   email VARCHAR(50) UNIQUE,
+   address VARCHAR(100) NOT NULL,
+   city VARCHAR(50) NOT NULL,
+   state VARCHAR(20) NOT NULL,
+   zip_code INT NOT NULL,
+   date_joined DATE,
+   credit_card_number VARCHAR(16),
+   customer_level VARCHAR(10) DEFAULT 'regular'
+);
+
+CREATE TABLE orders(
+   order_id INT NOT NULL PRIMARY KEY,
+   customer_id INT NOT NULL,
+   order_date DATE NOT NULL,
+   total_cost NUMERIC(10,2) NOT NULL,
+   foreign key (customer_id) references customers(customer_id)
+);
+
+CREATE OR REPLACE PROCEDURE update_customer_level (in_customer_id INT, out_new_level VARCHAR(10))
+AS
+   v_total_orders INT;
+   v_total_spent NUMERIC(10,2);
+BEGIN
+   SELECT COUNT(*) INTO v_total_orders
+   FROM orders
+   WHERE customer_id = in_customer_id;
+
+   SELECT SUM(total_cost) INTO v_total_spent
+   FROM orders
+   WHERE customer_id = in_customer_id;
+
+   IF v_total_orders >= 10 AND v_total_spent > 5000 THEN
+      out_new_level := 'premium';
+   ELSE
+      out_new_level := 'regular';
+   END IF;
+
+   UPDATE customers SET customer_level = out_new_level
+   WHERE customer_id = in_customer_id;
+
+END;
+
+CREATE OR REPLACE TRIGGER insert_customer_trigger
+BEFORE INSERT ON customers
+FOR EACH ROW
+BEGIN
+   IF :NEW.date_joined IS NULL THEN
+      :NEW.date_joined := sysdate;
+   END IF;
+END;

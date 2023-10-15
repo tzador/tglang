@@ -1,0 +1,50 @@
+/*
+This is a complex code snippet in SAS that creates a dataset, adds columns, and performs multiple data manipulations.
+*/
+
+/*Setting options to display larger numbers in output*/
+options compress=NO fullstimer;
+options formchar="|----|+|---+=|-/\<>*";
+
+/*Creating the dataset*/
+data cars;
+	set sashelp.cars;
+
+/*Adding columns to the dataset*/
+	if type = "SUV" then size = "Large";
+	else if type = "Sedan" then size = "Medium";
+	else if type = "Sports" then size = "Small";
+
+	if mpg_highway > 30 then high_efficiency = "Yes";
+	else high_efficiency = "No";
+
+/*Manipulating the data*/
+	/*Calculating average city and highway mileage for each size category*/
+	proc means data=work.cars noproctitle;
+		var mpg_city mpg_highway;
+		by size;
+		output out=average_mileage mean=;
+	run;
+
+	/*Calculating percentage of high efficiency cars in each size category*/
+	proc freq data=work.cars noprint;
+		tables size*high_efficiency / nocol nocum nopct;
+		weight invoice;
+		output out=high_efficiency_pct(keep=size high_efficiency pct) nofreq;
+	run;
+
+	/*Reordering columns in the dataset*/
+	proc datasets lib=work nolist;
+		modify cars;
+		rename type = vehicle_type;
+		rename high_efficiency = high_efficiency_flag;
+		reset columns;
+	run;
+
+/*Outputting the final dataset*/
+proc print data=cars label noobs;
+	label model="Car Model" invoice="Invoice Price" size="Car Size Category" high_efficiency_flag="High Efficiency (Yes/No)" high_efficiency_pct="High Efficiency Percentage";
+	var make model type invoice size high_efficiency_flag high_efficiency_pct;
+	format size $12.;
+	title "Final List of Cars with Added Columns and Reordered Columns";
+run;

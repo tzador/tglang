@@ -1,0 +1,82 @@
+// Contract to create a decentralized voting system using Solidity
+pragma solidity ^0.8.0;
+
+contract VotingSystem {
+    
+    // Variables for storing candidates and voters
+    struct Candidate {
+        uint id;
+        string name;
+        uint voteCount;
+    }
+    
+    mapping (uint => Candidate) public candidates;
+    mapping (address => bool) public voters;
+    
+    // Variables for managing election
+    uint public electionEnd; // end time in epoch
+    uint public eligibleVoters; // number of eligible voters
+    uint public totalVotes; // total number of votes casted
+    uint public winningCandidateId; // id of winning candidate
+    bool public electionFinalized; // flag to check if election has been finalized
+
+    // Events to notify frontend
+    event ElectionStarted(uint endTime, uint totalVoters);
+    event VoteCasted(address voter, uint candidateId);
+    event ElectionFinalized(uint winningCandidateId, uint voteCount);
+    
+    // Constructor to initialize election
+    constructor(uint electionTime, uint votersCount) {
+        electionEnd = block.timestamp + electionTime; // setting election end time as current time + election time
+        eligibleVoters = votersCount; // setting number of eligible voters
+        totalVotes = 0; // initializing total votes to 0
+        electionFinalized = false; // setting election finalized flag to false
+    }
+    
+    // Function to add candidates to the election
+    function addCandidate(uint id, string memory name) public {
+        require(block.timestamp < electionEnd, "Election has ended, cannot add candidate!"); // checking if election has ended
+        require(!electionFinalized, "Election has been finalized, cannot add candidate!"); // checking if election has been finalized
+        candidates[id] = Candidate(id, name, 0); // adding candidate to the candidates mapping
+    }
+    
+    // Function to cast vote for a candidate
+    function vote(uint candidateId) public {
+        require(block.timestamp < electionEnd, "Election has ended, cannot cast vote!"); // checking if election has ended
+        require(!electionFinalized, "Election has been finalized, cannot cast vote!"); // checking if election has been finalized
+        require(eligibleVoters > 0, "No eligible voters left!"); // checking if there are any eligible voters left
+        require(!voters[msg.sender], "Already voted!"); // checking if the voter has already voted
+        candidates[candidateId].voteCount++; // incrementing vote count for the selected candidate
+        totalVotes++; // incrementing total vote count
+        voters[msg.sender] = true; // marking the voter as voted
+        if (candidates[candidateId].voteCount > candidates[winningCandidateId].voteCount) { // checking if the selected candidate has more votes than the current winning candidate
+            winningCandidateId = candidateId; // updating winning candidate id
+        }
+        emit VoteCasted(msg.sender, candidateId); // emitting event for frontend notification
+    }
+    
+    // Function to finalize the election and declare winner
+    function finalizeElection() public {
+        require(block.timestamp >= electionEnd, "Election has not ended yet!"); // checking if election has ended
+        require(!electionFinalized, "Election has already been finalized!"); // checking if election has already been finalized
+        electionFinalized = true; // setting election finalized flag to true
+        emit ElectionFinalized(winningCandidateId, candidates[winningCandidateId].voteCount); // emitting event for frontend notification
+    }
+    
+    // Function to get winner's details
+    function getWinner() public view returns(uint, string memory, uint) {
+        require(block.timestamp >= electionEnd, "Election has not ended yet!"); // checking if election has ended
+        require(electionFinalized, "Election has not been finalized yet!"); // checking if election has been finalized
+        return (candidates[winningCandidateId].id, candidates[winningCandidateId].name, candidates[winningCandidateId].voteCount); // returning winner's details
+    }
+    
+    // Function to check if the voter has already voted
+    function checkVoted(address _voter) public view returns(bool) {
+        return (voters[_voter]); // returning true if voter has already voted, false if not
+    }
+    
+    // Function to check if the election has ended
+    function checkElectionEnd() public view returns(bool) {
+        return (block.timestamp >= electionEnd); // returning true if election has ended, false if not
+    }
+}

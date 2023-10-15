@@ -1,0 +1,41 @@
+CREATE OR REPLACE PROCEDURE get_customer_orders
+(
+   p_customer_id     IN     NUMBER,
+   p_start_date      IN     DATE,
+   p_end_date        IN     DATE
+)
+IS
+   TYPE cursor_type IS REF CURSOR;
+   customer_name     customers.name%TYPE;
+   order_cursor      cursor_type;
+   order_id          orders.order_id%TYPE;
+   order_date        orders.order_date%TYPE;
+   order_total       orders.total%TYPE;
+BEGIN
+   -- Get customer name
+   SELECT name INTO customer_name
+   FROM customers
+   WHERE customer_id = p_customer_id;
+
+   -- Open cursor to retrieve orders between start and end dates
+   OPEN order_cursor FOR
+      SELECT order_id, order_date, total
+      FROM orders
+      WHERE customer_id = p_customer_id
+      AND order_date BETWEEN p_start_date AND p_end_date;
+
+   -- Loop through cursor and print out order details
+   LOOP
+      FETCH order_cursor INTO order_id, order_date, order_total;
+      EXIT WHEN order_cursor%NOTFOUND;
+
+      DBMS_OUTPUT.PUT_LINE('Order ID: ' || order_id || '; Order Date: ' || order_date || '; Total: ' || order_total);
+   END LOOP;
+
+   -- Close cursor
+   CLOSE order_cursor;
+EXCEPTION
+   WHEN NO_DATA_FOUND THEN
+      DBMS_OUTPUT.PUT_LINE('No orders found for customer ' || customer_name || ' between ' || p_start_date || ' and ' || p_end_date);
+END;
+/

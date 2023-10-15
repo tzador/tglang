@@ -1,0 +1,46 @@
+defmodule User do
+  # This module defines a User struct and accompanying functions
+
+  defstruct [:name, :age, :email, :password_digest]
+
+  # Creates a user given name, age, email, and password
+  # Returns {:ok, user} if successful, {:error, changeset} if unsuccessful
+  def create_user(name, age, email, password) do
+    %User{}
+    |> Ecto.Changeset.change
+    |> Ecto.Changeset.put(:name, name)
+    |> Ecto.Changeset.put(:age, age)
+    |> Ecto.Changeset.put(:email, email)
+    |> Ecto.Changeset.cast(%{}, [:name, :age, :email, :password_digest])
+    |> Ecto.Changeset.validate_required([:name, :age, :email, :password_digest])
+    |> Ecto.Changeset.validate_format(:email, ~r/\A([\w+\-].?)+@[a-z\d\-]+(\.[a-z]+)*\.[a-z]+\z/i)
+    |> Ecto.Changeset.validate_length(:name, min: 2, max: 50)
+    |> Ecto.Changeset.validate_length(:password_digest, is: 60)
+    |> Ecto.Changeset.put_change(:password_digest, Comeonin.Bcrypt.hashpwsalt(password))
+    |> Repo.insert()
+  end
+
+  # Authenticates a user given an email and password
+  # Returns {:ok, user} if successful, {:error, message} if unsuccessful
+  def authenticate(email, password) do
+    user = Repo.get_by(User, email: email)
+    case Comeonin.Bcrypt.verify(password, user.password_digest) do
+      true ->
+        {:ok, user}
+      _ ->
+        {:error, "Incorrect password"}
+    end
+  end
+
+  # Changes a user's password given the current password and new password
+  # Returns {:ok, user} if successful, {:error, changeset} if unsuccessful
+  def change_password(user, current_password, new_password) do
+    %User{}
+    |> Ecto.Changeset.change()
+    |> Ecto.Changeset.put_change(:password_digest, Comeonin.Bcrypt.hashpwsalt(current_password))
+    |> Ecto.Changeset.validate_change(:password_digest, min: 8)
+    |> Ecto.Changeset.put_change(:password_digest, Comeonin.Bcrypt.hashpwsalt(new_password))
+    |> Ecto.Changeset.validate_change(:password_digest, min: 8)
+    |> Repo.update(user.id)
+  end
+end

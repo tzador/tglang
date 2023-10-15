@@ -1,0 +1,106 @@
+{-# LANGUAGE LambdaCase #-}
+
+module Main where
+
+import Control.Monad (liftM, foldM, forM_)
+import Data.List (intersect, iterate)
+import System.Random (randomRIO)
+
+type Position = (Int, Int)
+
+data Player = X | O
+  deriving (Eq)
+
+data GameState
+  = InProgress Player
+  | GameOver (Maybe Player)
+  deriving (Eq)
+
+-- | Represents a Tic-Tac-Toe board with a 3x3 grid
+data Board = Board [[Maybe Player]]
+  deriving (Eq)
+
+boardSize :: Int
+boardSize = 3
+
+-- | Generates an empty board
+emptyBoard :: Board
+emptyBoard = Board $ replicate boardSize $ replicate boardSize Nothing
+
+-- | Checks if a board is full (all positions occupied)
+isFull :: Board -> Bool
+isFull (Board rows) = all (all (/= Nothing)) rows
+
+-- | Checks if a given position is valid on a board
+validPosition :: Position -> Board -> Bool
+validPosition (x, y) (Board rows) = x >= 0 && x < boardSize && y >= 0 && y < boardSize && rows !! y !! x == Nothing
+
+-- | Gets all positions on the board
+positions :: [Position]
+positions = [(x, y) | x <- [0..boardSize-1], y <- [0..boardSize-1]]
+
+-- | Gets the player at a given position on the board
+playerAt :: Position -> Board -> Maybe Player
+playerAt (x, y) (Board rows) = rows !! y !! x
+
+-- | Updates a given position on the board with a player
+updateBoard :: Position -> Player -> Board -> Board
+updateBoard (x, y) player (Board rows) = Board $ foldl (\acc row -> if fst row /= y then acc ++ [snd row] else acc ++ [newRow (snd row)]) [] $ zip [0..] rows
+  where
+    newRow :: [Maybe Player] -> [Maybe Player]
+    newRow = foldl (\acc pos -> if fst pos /= x then acc ++ [snd pos] else acc ++ [Just player]) [] . zip [0..]
+
+-- | Checks if there is a winner on a given board
+checkWinner :: Board -> Maybe Player
+checkWinner (Board rows) = winner
+  where
+    -- Checks for a winner in the rows
+    checkRows = foldl (\acc row -> acc `mplus` checkSubList row) Nothing rows
+    -- Checks for a winner in the columns
+    checkCols = checkRows $ transpose rows
+    -- Checks for a winner in the diagonals
+    checkDiags = checkRows $ [ [x !! i | x <- rows] | i <- [0..boardSize-1] ] ++ [ [x !! i | x <- reverse rows] | i <- [0..boardSize-1] ]
+    -- Combines the results from all checks
+    winner = checkRows `mplus` checkCols `mplus` checkDiags
+    -- Checks if a sublist of three elements are all the same player
+    checkSubList :: [Maybe Player] -> Maybe Player
+    checkSubList (x:y:z:lst)
+      | x == y && y == z && x /= Nothing = x
+      | otherwise = checkSubList (y:z:lst)
+    checkSubList _ = Nothing
+
+-- | Gets the next player based on the current state
+nextPlayer :: GameState -> Player
+nextPlayer (InProgress X) = O
+nextPlayer (InProgress O) = X
+nextPlayer _ = error "Game is over, cannot switch player."
+
+-- | Transposes a list of lists
+transpose :: [[a]] -> [[a]]
+transpose lsts
+  | any null lsts = []
+  | otherwise = (map head lsts) : transpose (map tail lsts)
+
+-- | Main game loop
+gameLoop :: Board -> GameState -> IO ()
+gameLoop board (GameOver winner) = do
+  putStrLn "Game over."
+  putStrLn $ "Winner: " ++ show winner
+gameLoop board (InProgress player) = do
+  putStrLn $ show player ++ ", enter your move:"
+  input <- getLine
+  let position = read input :: Position
+  if validPosition position board
+  then do
+    let newBoard = updateBoard position player board
+    let nextPlayer = nextPlayer $ GameOver $ checkWinner newBoard
+    gameLoop newBoard (InProgress nextPlayer)
+  else do
+    putStrLn "Invalid move, try again."
+    gameLoop board (InProgress player)
+
+-- | Main function, starts the game
+main :: IO ()
+main = do
+  putStrLn "Tic-Tac-Toe"
+  gameLoop emptyBoard (InProgress X)

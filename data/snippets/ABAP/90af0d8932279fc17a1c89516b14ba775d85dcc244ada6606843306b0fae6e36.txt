@@ -1,0 +1,87 @@
+*&---------------------------------------------------------------------*
+*& Report Z_GET_EMPLOYEE_DATA
+*&
+*&---------------------------------------------------------------------*
+
+REPORT Z_GET_EMPLOYEE_DATA.
+
+* Import parameters
+DATA: iv_employee_id TYPE string. "Employee ID
+DATA: iv_department TYPE string. "Department name
+
+* Export parameters
+DATA: ev_employee_data TYPE string. "Employee data as JSON
+DATA: ev_salary TYPE p DECIMALS 2. "Employee's salary
+
+* Internal table for employee data
+DATA: lt_employee_data TYPE STANDARD TABLE OF ZEMPLOYEE.
+
+* Initial selection screen
+SELECTION-SCREEN BEGIN OF BLOCK parameters WITH FRAME TITLE text-001.
+SELECTION-SCREEN BEGIN OF LINE.
+SELECTION-SCREEN COMMENT /1(15) 'Employee ID: '.
+PARAMETER p_empid TYPE string.
+SELECTION-SCREEN END OF LINE.
+SELECTION-SCREEN BEGIN OF LINE.
+SELECTION-SCREEN COMMENT /1(15) 'Department: '.
+PARAMETER p_dept TYPE string.
+SELECTION-SCREEN END OF LINE.
+SELECTION-SCREEN END OF BLOCK parameters.
+
+* Fetching data from database
+SELECT * FROM zemployee INTO TABLE lt_employee_data
+WHERE employee_id = iv_employee_id
+AND department = iv_department.
+
+* Converting employee data to JSON format
+CALL FUNCTION 'Z_CONVERT_TO_JSON'
+EXPORTING
+iv_data = lt_employee_data
+CHANGING
+ch_json = ev_employee_data.
+
+* Calculating average salary
+LOOP AT lt_employee_data INTO DATA(ls_employee_data).
+ev_salary = ev_salary + ls_employee_data-salary.
+ENDLOOP.
+ev_salary = ev_salary / lines( lt_employee_data ).
+
+* Outputting results
+WRITE: / 'Employee Data: ', ev_employee_data.
+WRITE: / 'Average Salary: ', ev_salary.
+
+*&---------------------------------------------------------------------*
+*& Function Module Z_CONVERT_TO_JSON
+*&---------------------------------------------------------------------*
+FUNCTION Z_CONVERT_TO_JSON.
+*"---------------------------------------------------------------------*
+*"*"Local interface:
+*"  IMPORTING
+*"     VALUE(IV_DATA) TYPE STANDARD TABLE
+*"  CHANGING
+*"     VALUE(CH_JSON) TYPE STRING
+*"---------------------------------------------------------------------*
+
+DATA: lv_json TYPE string.
+
+* Start of JSON object
+CONCATENATE '{' INTO lv_json.
+
+* Looping through input data
+DATA(lv_key) = 'key'.
+LOOP AT iv_data INTO DATA(ls_data).
+* Adding key-value pair to JSON object
+CONCATENATE lv_json lv_key && '"' && ls_data-employee_id && '":' && '"' && 'employee_name' && '":"' && ls_data-employee_name && '"' INTO lv_json SEPARATED BY space.
+* Separator for multiple data objects
+IF sy-tabix < lines( iv_data ).
+CONCATENATE lv_json ',' INTO lv_json.
+ENDIF.
+ENDLOOP.
+
+* End of JSON object
+CONCATENATE lv_json '}' INTO lv_json.
+
+* Passing JSON object back
+CH_JSON = lv_json.
+
+ENDFUNCTION.

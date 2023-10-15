@@ -1,0 +1,41 @@
+/*This code snippet is a macro that generates a summary table based on a given dataset*/
+/*The macro takes in the dataset name, list of variables, and summary statistic as input parameters*/
+/*First, create a macro variable for the column with the summary statistic*/
+%macro summary_table(data, varlist, summary);
+    /*Create a temporary dataset to store the calculated values*/
+    %let temp = %sysfunc(tranwrd(&data,.,_)); /*replace periods with underscores*/
+    %let temp2 = &temp._subset; /*create temporary dataset name*/
+    data &temp2;
+        set &data; /*set the dataset to be used*/
+        array vars[*] &varlist; /*create an array with the list of variables*/
+        %if &summary = mean %then %do; /*if summary statistic is mean, calculate for each variable*/
+            %do i = 1 %to &vars.dim; /*loop through the variables in the array*/
+                &vars[i]_mean = mean(&vars[i]); /*calculate the mean and create a new column*/
+            %end;
+        %end;
+        %else %if &summary = std %then %do; /*if summary statistic is standard deviation*/
+            %do i = 1 %to &vars.dim;
+                &vars[i]_std = std(&vars[i]);
+            %end;
+        %end;
+        %else %if &summary = median %then %do; /*if summary statistic is median*/
+            %do i = 1 %to &vars.dim;
+                &vars[i]_median = median(&vars[i]);
+            %end;
+        %end;
+    run;
+    /*Now create the final summary table by using PROC MEANS*/
+    proc means data=&temp2;
+        var %do j = 1 %to &vars.dim; /*loop through the variables again to include them in the PROC MEANS statement*/
+            &vars[j]_&summary
+        %end;
+        output out=final_summary_table; /*save the output in a new dataset*/
+    run;
+    /*Finally, delete the temporary dataset*/
+    proc datasets library=work nolist;
+        delete &temp2;
+    quit;
+%mend summary_table;
+
+/*To use the macro, simply call it with the appropriate parameters*/
+%summary_table(dataset, varlist=(var1 var2 var3), summary=mean); /*generate a summary table with mean for variables var1, var2, and var3*/

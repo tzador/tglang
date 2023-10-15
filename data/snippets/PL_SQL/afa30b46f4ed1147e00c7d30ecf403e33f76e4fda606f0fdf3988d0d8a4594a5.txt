@@ -1,0 +1,53 @@
+--Declare a cursor to retrieve data from a table
+CURSOR c_emp_data IS
+  SELECT * FROM employee;
+
+--Declare variables to store employee data
+v_emp_name employee.name%TYPE;
+v_emp_id employee.id%TYPE;
+v_salary employee.salary%TYPE;
+v_dept_id employee.department_id%TYPE;
+
+BEGIN
+  --Open the cursor
+  OPEN c_emp_data;
+  
+  --Loop through each row in the cursor
+  LOOP
+    --Retrieve data from the cursor into variables
+    FETCH c_emp_data INTO v_emp_name, v_emp_id, v_salary, v_dept_id;
+    
+    --Perform calculations on the salary
+    v_salary := v_salary * 1.05;
+    
+    --Update the employee table with the new salary value
+    UPDATE employee
+    SET salary = v_salary
+    WHERE id = v_emp_id;
+    
+    --Check if the updated employee's department has a manager
+    SELECT COUNT(*) INTO v_count
+    FROM employee
+    WHERE department_id = v_dept_id
+    AND is_manager = 'Y';
+    
+    --If there is no manager, promote the employee to manager
+    IF v_count = 0 THEN
+      UPDATE employee
+      SET is_manager = 'Y'
+      WHERE id = v_emp_id;
+      
+      --Commit the changes
+      COMMIT;
+    END IF;
+    
+    --Exit the loop if there are no more rows in the cursor
+    EXIT WHEN c_emp_data%NOTFOUND;
+  END LOOP;
+  
+  --Close the cursor
+  CLOSE c_emp_data;
+  
+  --Output a success message
+  dbms_output.put_line('Employee data updated successfully!');
+END;

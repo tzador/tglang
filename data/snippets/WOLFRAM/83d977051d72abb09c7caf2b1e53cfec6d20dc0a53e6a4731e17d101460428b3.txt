@@ -1,0 +1,65 @@
+(*Implementing a simple neural network with backpropagation*)
+
+(*Defining the activation function*)
+sigmoid[x_] := 1/(1 + Exp[-x])
+
+(*Defining the derivative of activation function*)
+sigmoidPrime[x_] := sigmoid[x] * (1 - sigmoid[x])
+
+(*Defining the cost function*)
+costFunction[actual_, predicted_] := -actual * Log[predicted] - (1 - actual) * Log[1 - predicted]
+
+(*Initializing the network*)
+inputLayer = 2;
+hiddenLayer = 3;
+outputLayer = 1;
+
+(*Randomly initializing the weights of each layer*)
+weights1 = RandomReal[{-1, 1}, {hiddenLayer, inputLayer}];
+weights2 = RandomReal[{-1, 1}, {outputLayer, hiddenLayer}];
+
+(*Defining the feedforward and backpropagation functions*)
+feedforward[inputs_, weights_, activation_] := activation[weights . inputs];
+backpropagation[inputs_, weights_, costFunc_, activation_, activationPrime_] :=
+ Module[{outputs, activations, deltas, gradients},
+  (*Calculating feedforward outputs*)
+  outputs = feedforward[inputs, weights, activation];
+  
+  (*Calculating activations for each layer*)
+  activations = Join[{inputs}, sigmoid /@ outputs];
+
+  (*Calculating error of output layer*)
+  error = costFunc[actualOutput, Last[outputs]];
+
+  (*Calculating deltas for output layer*)
+  deltaOutput = -(actualOutput - sigmoid[Last[outputs]]) * sigmoidPrime[Last[outputs]];
+
+  (*Calculating gradients for output layer*)
+  gradOutput = deltaOutput * Last[activations];
+
+  (*Calculating deltas for hidden layer*)
+  deltaHidden = Dot[Transpose[weights2], deltaOutput] * sigmoidPrime[Rest[outputs]];
+
+  (*Calculating gradients for hidden layer*)
+  gradHidden = deltaHidden * Most[activations];
+
+  (*Returning list of gradients*)
+  gradients = {gradHidden, gradOutput}
+]
+
+(*Training the network using backpropagation*)
+train[input_, actualOutput_] := (
+  (*Calculating gradients using backpropagation function*)
+  gradients = backpropagation[input, weights, costFunction, sigmoid, sigmoidPrime];
+  
+  (*Updating weights using gradients and learning rate*)
+  weights -= learningRate * # & /@ gradients;
+)
+
+(*Testing the network on a sample input*)
+input = {0.5, 0.8};
+actualOutput = 0.2;
+train[input, actualOutput];
+
+(*Printing the updated weights*)
+Print[weights]

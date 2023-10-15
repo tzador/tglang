@@ -1,0 +1,98 @@
+/*
+ * This program uses the Gamepad API to control a player in a game.
+ */
+
+// Import necessary libraries
+using GLib;
+using Atk;
+using Gee;
+using GameObjects;
+
+// Define class and set as GamepadManager
+public class GamepadManager : Object {
+
+    // Define variables
+    private String gamepad_name;
+    private GamepadState gamepad_state;
+    private GamepadSensor gamepad_sensor;
+
+    public GamepadManager() {
+        // Initialize variables
+        gamepad_name = "Xbox 360 Controller";
+        gamepad_state = new GamepadState();
+        gamepad_sensor = new GamepadSensor();
+    }
+
+    // Define methods for getting and setting gamepad state
+    public GamepadState get_gamepad_state() {
+        return gamepad_state;
+    }
+
+    public void set_gamepad_state(GamepadState state) {
+        gamepad_state = state;
+    }
+
+    // Define method for getting gamepad name
+    public String get_gamepad_name() {
+        return gamepad_name;
+    }
+
+    // Define method for polling gamepad sensor
+    public void poll_gamepad_sensor() {
+        // Get current gamepad state
+        GamepadState current_state = get_gamepad_state();
+        
+        // Poll sensor for changes
+        gamepad_sensor.poll();
+        // Update gamepad state
+        set_gamepad_state(gamepad_sensor.update_state(current_state));
+        
+        // Read user input and update game objects accordingly
+        read_user_input();
+        update_game_objects();
+        
+        // Repeat polling every 100 milliseconds
+        Timeout.add(100, () => poll_gamepad_sensor());
+    }
+
+    // Define methods for reading user input and updating game objects
+    public void read_user_input() {
+        // Use gamepad state to determine user input
+        if (gamepad_state.is_button_pressed(GamepadButton.A)) {
+            // Do corresponding action
+            player.jump();
+        }
+        if (gamepad_state.is_button_pressed(GamepadButton.B)) {
+            // Do corresponding action
+            player.fire();
+        }
+        // Repeat for other buttons and axes
+    }
+
+    public void update_game_objects() {
+        // Update player's position and other parameters according to gamepad state
+        player.set_position(gamepad_state.get_axis_value(GamepadAxis.LEFT_ANALOG_X),
+                            gamepad_state.get_axis_value(GamepadAxis.LEFT_ANALOG_Y));
+        player.set_rotation(gamepad_state.get_axis_value(GamepadAxis.RIGHT_ANALOG_X));
+        // Repeat for other game objects
+    }
+}
+
+// Define main function
+int main(string[] args) {
+    // Initialize gamepad manager
+    GamepadManager gamepad_manager = new GamepadManager();
+    
+    // Begin polling gamepad sensor
+    gamepad_manager.poll_gamepad_sensor();
+    
+    // Run game loop
+    while (true) {
+        // Update game objects
+        gamepad_manager.update_game_objects();
+        // Repeat every 60 frames per second (16.67 milliseconds per frame)
+        Timeout.add(16, () => gamepad_manager.update_game_objects());
+    }
+
+    return 0;
+}

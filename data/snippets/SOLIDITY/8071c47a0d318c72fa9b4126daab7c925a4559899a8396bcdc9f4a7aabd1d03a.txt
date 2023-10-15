@@ -1,0 +1,122 @@
+pragma solidity ^0.8.0;
+
+// Example of a contract implementing the ERC20 standard token
+// with additional functionality for freezing and burning tokens
+// and a role-based permission system for certain functions
+
+interface IERC20 {
+    // Standard ERC20 functions for getting balance, total supply,
+    // transferring and approving tokens
+    function balanceOf(address account) external view returns (uint256);
+
+    function totalSupply() external view returns (uint256);
+
+    function transfer(address recipient, uint256 amount) external returns (bool);
+
+    function approve(address spender, uint256 amount) external returns (bool);
+
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+
+    // Additional functions for freezing and burning tokens
+    function freeze(address account) external;
+
+    function burn(uint256 amount) external;
+
+    // Role-based permission system for certain functions
+    function addMinter(address account) external;
+
+    function renounceMinter() external;
+
+    function mint(address account, uint256 amount) external;
+}
+
+contract ERC20Token is IERC20 {
+    string public constant name = "Example Token";
+    string public constant symbol = "EXT";
+    uint8 public constant decimals = 18;
+
+    mapping(address => uint256) private _balances;
+    mapping(address => mapping(address => uint256)) private _allowances;
+    mapping(address => bool) private _frozenAccounts;
+    mapping(address => bool) private _minters;
+
+    uint256 private _totalSupply;
+
+    constructor() {
+        // Set the contract creator as the initial token holder with 
+        // a balance of 100 tokens
+        _balances[msg.sender] = 100 * 10**uint(decimals);
+        _totalSupply = 100 * 10**uint(decimals);
+        
+        // Set the contract creator as a minter
+        _minters[msg.sender] = true;
+    }
+
+    // Standard ERC20 functions
+    function balanceOf(address account) override external view returns (uint256) {
+        return _balances[account];
+    }
+
+    function totalSupply() override external view returns (uint256) {
+        return _totalSupply;
+    }
+
+    function transfer(address recipient, uint256 amount) override external returns (bool) {
+        _transfer(msg.sender, recipient, amount);
+        return true;
+    }
+
+    function approve(address spender, uint256 amount) override external returns (bool) {
+        _approve(msg.sender, spender, amount);
+        return true;
+    }
+
+    function transferFrom(address sender, address recipient, uint256 amount) override external returns (bool) {
+        _transfer(sender, recipient, amount);
+        _approve(sender, msg.sender, _allowances[sender][msg.sender] - amount);
+        return true;
+    }
+
+    // Additional functions
+    function freeze(address account) override external {
+        require(!_frozenAccounts[account], "Account is already frozen");
+        _frozenAccounts[account] = true;
+    }
+
+    function burn(uint256 amount) override external {
+        require(_balances[msg.sender] >= amount, "Not enough tokens to burn");
+        _totalSupply -= amount;
+        _balances[msg.sender] -= amount;
+    }
+
+    // Role-based permission functions
+    function addMinter(address account) override external {
+        require(_minters[msg.sender], "Only a minter can add another minter");
+        _minters[account] = true;
+    }
+
+    function renounceMinter() override external {
+        require(_minters[msg.sender], "Only a minter can renounce their own minter role");
+        _minters[msg.sender] = false;
+    }
+
+    function mint(address account, uint256 amount) override external {
+        require(_minters[msg.sender], "Only a minter can mint tokens");
+        _totalSupply += amount;
+        _balances[account] += amount;
+    }
+
+    // Internal functions for transferring and approving tokens
+    function _transfer(address sender, address recipient, uint256 amount) internal {
+        require(!_frozenAccounts[sender], "Sender account is frozen");
+        require(!_frozenAccounts[recipient], "Recipient account is frozen");
+        require(_balances[sender] >= amount, "Not enough tokens to transfer");
+        _balances[sender] -= amount;
+        _balances[recipient] += amount;
+    }
+
+    function _approve(address owner, address spender, uint256 amount) internal {
+        require(_balances[owner] >= amount, "Not enough tokens to approve");
+        _allowances[owner][spender] = amount;
+    }
+}

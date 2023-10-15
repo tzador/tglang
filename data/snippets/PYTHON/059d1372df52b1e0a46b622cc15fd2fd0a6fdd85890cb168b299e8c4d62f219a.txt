@@ -1,0 +1,78 @@
+# This is a comment
+# Visit https://docs.python.org/3/tutorial/introduction.html for more detailed information
+# Import the necessary libraries and modules
+import numpy as np  # Numpy library for scientific computing and arrays
+import pandas as pd  # Pandas library for data analysis and manipulation
+from sklearn.preprocessing import StandardScaler  # Sklearn library for data preprocessing
+from sklearn.model_selection import train_test_split  # Sklearn library for splitting data
+
+# Define parameters for machine learning model
+learning_rate = 0.1  # Learning rate for gradient descent optimization
+num_epochs = 100  # Number of training epochs
+batch_size = 32  # Batch size for mini-batch gradient descent
+input_size = 784  # Input size for neural network
+hidden_size = 200  # Number of neurons in hidden layer
+output_size = 10  # Output size for classification task
+
+# Load and preprocess data
+data = pd.read_csv("data.csv")  # Load data from csv file
+X = data.iloc[:, :-1]  # Get feature columns
+y = data.iloc[:, -1]  # Get target column
+scaler = StandardScaler()  # Instantiate scaler object
+X_normalized = scaler.fit_transform(X)  # Normalize feature data
+X_train, X_test, y_train, y_test = train_test_split(X_normalized, y, test_size=0.2)  # Split data into train and test sets
+
+# Initialize weights and biases for neural network model
+W1 = np.random.randn(input_size, hidden_size) * 0.01  # Randomly initialize weights for first layer
+b1 = np.zeros(hidden_size)  # Initialize biases for first layer with zeros
+W2 = np.random.randn(hidden_size, output_size) * 0.01  # Randomly initialize weights for second layer
+b2 = np.zeros(output_size)  # Initialize biases for second layer with zeros
+
+# Define functions for forward and backward propagation
+def forward_propagation(X):
+    # Compute output of first layer
+    Z1 = np.dot(X, W1) + b1  # Matrix multiplication of input and weights, plus bias
+    A1 = np.maximum(0, Z1)  # ReLU activation function
+    # Compute output of second layer
+    Z2 = np.dot(A1, W2) + b2  # Matrix multiplication of first layer activation and weights, plus bias
+    A2 = np.exp(Z2) / np.sum(np.exp(Z2), axis=1, keepdims=True)  # Softmax activation function
+    return A2
+
+def backward_propagation(A2, y):
+    # Compute gradients for second layer
+    dZ2 = A2 - y  # Calculate error between predicted and actual values
+    dW2 = np.dot(A1.T, dZ2) / batch_size  # Calculate weight gradient
+    db2 = np.sum(dZ2, axis=0, keepdims=True) / batch_size  # Calculate bias gradient
+    # Compute gradients for first layer
+    dA1 = np.dot(dZ2, W2.T)  # Multiply error by transpose of weights
+    dA1[A1 <= 0] = 0  # Apply ReLU derivative
+    dW1 = np.dot(X.T, dA1) / batch_size  # Calculate weight gradient
+    db1 = np.sum(dA1, axis=0, keepdims=True) / batch_size  # Calculate bias gradient
+    return dW1, db1, dW2, db2
+
+# Training loop
+for epoch in range(num_epochs):  # Loop through epochs
+    for i in range(0, X_train.shape[0], batch_size):  # Loop through batches
+        # Get batch data
+        X_batch = X_train[i:i+batch_size]  # Select batch rows for features
+        y_batch = y_train[i:i+batch_size]  # Select batch rows for targets
+        # Forward propagation
+        A2 = forward_propagation(X_batch)  # Compute output of neural network
+        # Calculate cost using softmax cross-entropy
+        cost = (-1/batch_size) * np.sum(np.sum(y_batch * np.log(A2), axis=1, keepdims=True))
+        # Backward propagation
+        dW1, db1, dW2, db2 = backward_propagation(A2, y_batch)  # Compute gradients
+        # Update weights and biases using gradient descent
+        W1 -= learning_rate * dW1  # Update first layer weights
+        b1 -= learning_rate * db1  # Update first layer biases
+        W2 -= learning_rate * dW2  # Update second layer weights
+        b2 -= learning_rate * db2  # Update second layer biases
+    # Print cost every 10 epochs
+    if epoch % 10 == 0:
+        print("Cost at epoch", epoch, ":", cost)
+
+# Use trained model to make predictions on test data
+A2_test = forward_propagation(X_test)  # Compute output of neural network
+predictions = np.argmax(A2_test, axis=1)  # Get index of maximum output for each sample
+accuracy = np.sum(predictions == y_test) / len(y_test)  # Calculate accuracy of predictions
+print("Accuracy on test set:", accuracy)  # Print accuracy to console

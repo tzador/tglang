@@ -1,0 +1,73 @@
+pragma solidity ^0.8.2; //Specifies the version of solidity used
+//Contract that represents an online marketplace
+contract Marketplace {
+    //Variables
+    address public owner;
+    uint public productCount = 0;
+    //Product struct that represents a product in the marketplace
+    struct Product {
+        uint id;
+        string name;
+        uint price;
+        address payable owner;
+        bool purchased;
+    }
+    //Mapping that stores all the products in the marketplace
+    mapping(uint => Product) public products;
+    //Event that is emitted when a new product is added to the marketplace
+    event ProductCreated(
+        uint id,
+        string name,
+        uint price,
+        address payable owner,
+        bool purchased
+    );
+    //Event that is emitted when a product is purchased
+    event ProductPurchased(
+        uint id,
+        string name,
+        uint price,
+        address payable owner,
+        bool purchased
+    );
+    //Constructor function that sets the owner of the marketplace
+    constructor() public {
+        owner = msg.sender; //Sets the owner to the address that deployed the contract
+    }
+    //Function that allows the owner to add a new product to the marketplace
+    function addProduct(string memory _name, uint _price) public {
+        //Checks if the sender is the owner
+        require(msg.sender == owner);
+        //Checks if the product name is not empty
+        require(bytes(_name).length > 0);
+        //Checks if the price is greater than 0
+        require(_price > 0);
+        //Increments the product count
+        productCount++;
+        //Creates a new product and adds it to the mapping
+        products[productCount] = Product(productCount, _name, _price, msg.sender, false);
+        //Emits the ProductCreated event
+        emit ProductCreated(productCount, _name, _price, msg.sender, false);
+    }
+    //Function that allows a user to purchase a product
+    function purchaseProduct(uint _id) public payable {
+        //Gets the requested product from the mapping
+        Product memory _product = products[_id];
+        //Checks if the product exists
+        require(_product.id > 0 && _product.id <= productCount);
+        //Checks if enough ether was sent
+        require(msg.value >= _product.price);
+        //Checks if the product has not been purchased already
+        require(!_product.purchased);
+        //Transfers the ownership of the product to the buyer
+        _product.owner = msg.sender;
+        //Marks the product as purchased
+        _product.purchased = true;
+        //Updates the product in the mapping
+        products[_id] = _product;
+        //Sends the payment to the seller
+        _product.owner.transfer(msg.value);
+        //Emits the ProductPurchased event
+        emit ProductPurchased(_id, _product.name, _product.price, msg.sender, true);
+    }
+}

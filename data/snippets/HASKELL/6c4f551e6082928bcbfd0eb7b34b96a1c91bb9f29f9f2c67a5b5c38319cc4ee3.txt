@@ -1,0 +1,34 @@
+{-# LANGUAGE TypeFamilies, RankNTypes, FlexibleInstances, InstanceSigs #-}
+
+import Data.Map (Map)
+import qualified Data.Map as Map
+
+type family Tree a
+type instance Tree Int = Int
+type instance Tree Integer = Integer
+type instance Tree (a, b) = Tree a -> Tree b
+
+class Searchable a where
+  type Index a :: *
+  type Result a :: *
+  index :: a -> Index a -> Result a
+
+data TreeSearchable a = TreeSearchable (Tree a) (Map (Index (Tree a)) (Result (Tree a)))
+
+instance Searchable (Tree a) where
+  type Index (Tree a) = a
+  type Result (Tree a) = Tree a
+  index :: Tree a -> a -> Tree a
+  index t a = t
+
+instance (Searchable a, Searchable b) => Searchable (a, b) where
+  type Index (a, b) = (Index a, Index b)
+  type Result (a, b) = Result a -> Result b
+  index :: (a, b) -> (Index a, Index b) -> Result a -> Result b
+  index (a, b) (i1, i2) res = index a i1 . index b i2 $ res
+
+search :: a -> Index a -> Result a
+search a i = let (TreeSearchable t m) = treeSearchable a in Map.findWithDefault (index a i) i m
+  where
+    treeSearchable :: a -> TreeSearchable a
+    treeSearchable = undefined

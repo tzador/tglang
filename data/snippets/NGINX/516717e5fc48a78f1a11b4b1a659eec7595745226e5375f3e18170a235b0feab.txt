@@ -1,0 +1,56 @@
+User www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+
+events {
+  worker_connections 1024;
+  multi_accept off;
+  use epoll;
+}
+
+http {
+  include /etc/nginx/mime.types;
+  default_type application/octet-stream;
+  
+  # Reverse Proxy Configuration
+  server {
+    listen 80;
+    server_name example.com;
+    location / {
+      proxy_pass http://localhost:3000;
+    }
+  }
+  
+  # Load Balancing Configuration
+  upstream backend {
+    server 192.168.0.2:8080;
+    server 192.168.0.3:8080;
+  }
+  
+  server {
+    listen 80;
+    server_name backend.example.com;
+    
+    location / {
+      proxy_pass http://backend;
+    }
+  }
+  
+  # SSL Configuration
+  server {
+    listen 443;
+    server_name secure.example.com;
+    ssl on;
+    ssl_certificate /etc/nginx/ssl/secure.example.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/secure.example.com.key;
+
+    location / {
+      proxy_pass http://localhost:3000;
+    }
+  }
+  
+  # Gzip Compression Configuration
+  gzip on;
+  gzip_comp_level 5;
+  gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
+}

@@ -1,0 +1,129 @@
+# This is a complex NGINX configuration snippet
+events {
+    # Controls how many workers should be created
+    worker_connections 1024;
+}
+
+http {
+    # Set the user and group for the main nginx process
+    user www-data;
+    group www-data;
+
+    # Use the epoll event module, which uses the epoll function on Linux 
+    # instead of the select function
+    # This can provide better performance for high-traffic servers
+    events {
+        use epoll;
+    }
+
+    # Configure the HTTP server
+    server {
+
+        # Listen on port 80
+        listen 80;
+
+        # Set the server name
+        server_name example.com;
+
+        # Set the root directory for the server
+        root /var/www/html;
+
+        # Enable gzip compression for responses
+        gzip on;
+
+        # Set the types of files to compress
+        gzip_types text/plain text/css application/json;
+
+        # Set the buffer size for gzip compression
+        gzip_comp_level 4;
+
+        # Set the buffer size for reading headers from client requests
+        client_header_buffer_size 2k;
+
+        # Set the buffer size for reading client request bodies
+        client_body_buffer_size 256k;
+
+        # Set the timeout for client connections
+        client_body_timeout 10;
+
+        # Disable the server's signature in response headers for security purposes
+        server_tokens off;
+
+        # Configure caching
+        location / {
+            # Set the maximum time to cache a response from the server
+            expires 1h;
+
+            # Enable caching for static files
+            add_header Cache-Control "public, max-age=3600";
+
+            # Set the maximum size for the cache
+            proxy_cache_max_size 10m;
+
+            # Set the location and name of the cache file
+            proxy_cache_path /var/www/cache levels=1:2 keys_zone=cache:10m inactive=60m;
+
+            # Cache only 200 and 301 responses from the server
+            proxy_cache_valid 200 301 302 1h;
+        }
+
+        # Configure the reverse proxy
+        location /api/ {
+            # Set the server address and port for the reverse proxy
+            proxy_pass http://api.example.com:8080;
+
+            # Set the request buffer size
+            proxy_buffer_size 64k;
+
+            # Set the maximum number of connections for the reverse proxy
+            proxy_busy_buffers_size 128k;
+
+            # Enable caching for the reverse proxy
+            proxy_cache cache;
+
+            # Set the maximum time to cache a response from the reverse proxy
+            proxy_cache_valid 200 301 302 1h;
+
+            # Set the status code for a temporarily unavailable server
+            proxy_next_upstream error timeout invalid_header http_503;
+        }
+    }
+
+    # Configure SSL
+    server {
+        # Listen on port 443
+        listen 443;
+
+        # Set the server name
+        server_name secure.example.com;
+
+        # Set the root directory for the server
+        root /var/www/secure;
+
+        # Enable SSL for secure connections
+        ssl on;
+
+        # Set the path to the SSL certificate
+        ssl_certificate /etc/nginx/ssl/secure.example.com.crt;
+
+        # Set the path to the SSL private key
+        ssl_certificate_key /etc/nginx/ssl/secure.example.com.key;
+
+        # Enable strict SSL and only allow secure ciphers
+        ssl_protocols TLSv1.2;
+        ssl_ciphers 'ECDHE-RSA-AES256-SHA384:AES256-SHA:AES128-SHA';
+        ssl_prefer_server_ciphers on;
+
+        # Configure caching for SSL connections
+        location / {
+            # Set the maximum time to cache a response from the server
+            expires 1h;
+
+            # Set the location and name of the cache file
+            proxy_cache_path /var/www/cache levels=1:2 keys_zone=cache:10m inactive=60m;
+
+            # Cache only 200 and 301 responses from the server
+            proxy_cache_valid 200 301 302 1h;
+        }
+    }
+}

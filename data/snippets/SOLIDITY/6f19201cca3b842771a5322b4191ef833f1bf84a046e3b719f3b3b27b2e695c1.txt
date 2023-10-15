@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: GPL-3.0
+
+pragma solidity >=0.7.0 <0.9.0;
+
+contract Auction {
+
+    // Storage Variables
+    address payable public beneficiary;
+    uint public auctionEndTime;
+    address public highestBidder;
+    uint public highestBid;
+    mapping(address => uint) pendingRefunds;
+    enum Phase {Init, Start, End, AuctionEnd}
+    Phase public phase;
+    
+    // Constructor function
+    constructor(
+        uint _biddingTime,
+        address payable _beneficiary
+    ) {
+        beneficiary = _beneficiary;
+        auctionEndTime = block.timestamp + _biddingTime;
+        phase = Phase.Init;
+    }
+    
+    // Function modifiers
+    modifier isOwner() {
+      require(msg.sender == beneficiary);
+      _;
+    }
+    
+    modifier auctionPhase(Phase expectedPhase) {
+        require(phase == expectedPhase);
+        _;
+    }
+    
+    // Bid function
+    function bid() public payable auctionPhase(Phase.Start) {
+        require(block.timestamp < auctionEndTime, "Auction has ended.");
+        require(msg.value > highestBid, "Already highest bidder.");
+        
+        if (highestBid != 0) {
+            pendingRefunds[highestBidder] += highestBid;
+        }
+        
+        highestBidder = msg.sender;
+        highestBid = msg.value;
+    }
+    
+    // Withdraw function
+    function withdraw() public auctionPhase(Phase.End) {
+        require(block.timestamp > auctionEndTime, "Auction has not ended yet.");
+        
+        uint refund = pendingRefunds[msg.sender];
+        pendingRefunds[msg.sender] = 0;
+        msg.sender.transfer(refund);
+    }
+    
+    // End Auction function
+    function auctionEnd() public isOwner auctionPhase(Phase.AuctionEnd) {
+        beneficiary.transfer(highestBid);
+        phase = Phase.End;
+    }
+}

@@ -1,0 +1,65 @@
+# This is a comment in CMake
+
+# Set the minimum version of CMake required
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+
+# Set project name and version
+project(MyProject VERSION 1.0)
+
+# Define a variable to hold all source files
+set(SOURCE_FILES main.cpp helper.cpp)
+
+# Define a library target
+add_library(HelperLib ${SOURCE_FILES})
+
+# Set properties for the library target
+set_target_properties(
+    HelperLib PROPERTIES
+    CXX_STANDARD 11
+    CXX_STANDARD_REQUIRED YES
+    CXX_EXTENSIONS NO # Disable compiler-specific extensions
+)
+
+# Add an executable target
+add_executable(MyApp main.cpp)
+
+# Link the executable target to the library target
+target_link_libraries(MyApp PUBLIC HelperLib)
+
+# Define a custom command to generate a configure file
+add_custom_command(
+    OUTPUT config.h
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different config.h.in config.h
+    DEPENDS config.h.in
+)
+
+# Add a dependency on the custom command for the executable target
+add_dependencies(MyApp config.h)
+
+# Specify the installation location for the library target
+install(TARGETS HelperLib
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin
+)
+
+# Specify the installation location for the config header file
+install(FILES "${CMAKE_BINARY_DIR}/config.h"
+    DESTINATION include
+)
+
+# Enable testing for the project
+enable_testing()
+
+# Add a test target
+add_test(NAME MyTest COMMAND MyApp)
+
+# Create a macro to simplify adding tests
+macro(unit_test target_name)
+    add_executable(${target_name} ${ARGN})
+    target_link_libraries(${target_name} PUBLIC HelperLib)
+    add_test(NAME ${target_name} COMMAND ${target_name})
+endmacro()
+
+# Call the macro to add a test
+unit_test(HelperTest helper_test.cpp)

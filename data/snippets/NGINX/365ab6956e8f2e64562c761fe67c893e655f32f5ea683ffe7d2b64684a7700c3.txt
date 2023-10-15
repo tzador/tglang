@@ -1,0 +1,95 @@
+server {
+        # The port that the server listens on.
+        listen       80;
+        # The domain name that will be used for the server.
+        server_name  example.com www.example.com;
+        
+        # Points to the directory where the web files are stored.
+        root         /var/www/html;
+
+        # Sets default server's charset to utf-8.
+        charset      utf-8;
+
+        # Specifies the log format for incoming requests.
+        access_log   /var/log/nginx/example.access.log  main;
+        
+        # Sets the maximum allowed size for client request body.
+        client_max_body_size 10m;
+
+        # Specifies the file that will be used for error logs.
+        error_log    /var/log/nginx/example.error.log;
+
+        # Redirects all requests to secure (https) URL.
+        return 301 https://$server_name$request_uri;
+}
+
+# nginx configuration for SSL.
+server {
+        # The port that the server listens on.
+        listen       443 ssl;
+
+        # The domain name that will be used for the server.
+        server_name  example.com www.example.com;
+
+        # Points to the directory where the web files are stored.
+        root         /var/www/html;
+
+        # Sets default server's charset to utf-8.
+        charset      utf-8;
+
+        # Specifies the log format for incoming requests.
+        access_log   /var/log/nginx/example.access.log  main;
+
+        # Specifies the file that will be used for error logs.
+        error_log    /var/log/nginx/example.error.log;
+
+        # SSL settings.
+        ssl_certificate      /etc/nginx/ssl/example.crt;
+        ssl_certificate_key  /etc/nginx/ssl/example.key;
+
+        # Specifies which ciphers to use.
+        ssl_ciphers  HIGH:!aNULL:!MD5;
+
+        # Specifies the protocol that should be negotiated.
+        ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+        
+        # Enables OCSP stapling and sets an interval for cache refresh.
+        ssl_stapling on;
+        ssl_stapling_verify on;
+        ssl_trusted_certificate /etc/nginx/ssl/example.crt;
+        resolver 8.8.8.8;
+        
+        # Sets the maximum allowed size for client request body.
+        client_max_body_size 10m;
+
+        # Specifies the web files to be served.
+        location / {
+                # Try to serve requested file, return error 404 if not found.
+                try_files $uri $uri/ =404;
+        }
+}
+
+# nginx configuration for caching.
+http {
+        # The zone and shared memory for caching.
+        proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=my_zone:10m inactive=60m;
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+
+        server {
+                # The port that the server listens on.
+                listen       80;
+                # The domain name that will be used for the server.
+                server_name  example.com www.example.com;
+                 
+                # Enables caching for all locations.
+                proxy_cache my_zone;
+                
+                # Recognizes the "Cache-control" header from upstream server.
+                proxy_cache_valid 200 60m; 
+                
+                # Specifies the web files to be served.
+                location / {
+                        proxy_pass http://example.com;
+                }
+        }
+}

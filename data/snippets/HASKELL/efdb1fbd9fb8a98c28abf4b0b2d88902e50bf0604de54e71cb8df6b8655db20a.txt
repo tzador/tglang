@@ -1,0 +1,81 @@
+module Main where
+
+import System.IO
+import Control.Monad
+
+-- | A custom data type representing a tree with integer values
+data Tree = Leaf Int | Branch Int Tree Tree
+
+-- | A function to insert a value into a tree while maintaining the binary search tree property
+insert :: Int -> Tree -> Tree
+insert x (Leaf v) = Branch v (Leaf x) (Leaf x)
+insert x (Branch v left right)
+    | x == v = Branch v left right                         -- Value already present in tree
+    | x < v = Branch v (insert x left) right               -- Insert into left subtree
+    | otherwise = Branch v left (insert x right)           -- Insert into right subtree
+
+-- | A function to delete a value from a tree while maintaining the binary search tree property
+delete :: Int -> Tree -> Tree
+delete x (Leaf v)
+    | x == v = Leaf x                                      -- Found value to be deleted
+    | otherwise = Leaf v                                   -- Value not found, return original tree
+delete x (Branch v left right)
+    | x == v = removeNode (Branch v left right)             -- Found value in root, remove it
+    | x < v = Branch v (delete x left) right                -- Value is in left subtree, delete from it
+    | otherwise = Branch v left (delete x right)            -- Value is in right subtree, delete from it
+    where
+        -- | A helper function that removes the root of the given tree
+        removeNode :: Tree -> Tree
+        removeNode (Leaf _) = Leaf v                         -- Root is a leaf node, just return it
+        removeNode (Branch _ (Leaf _) (Leaf _)) = Leaf v     -- Root has two leaf children, just return it
+        removeNode (Branch _ (Leaf _) right) = right         -- Root has one leaf child on the left, return right subtree
+        removeNode (Branch _ left (Leaf _)) = left           -- Root has one leaf child on the right, return left subtree
+        removeNode (Branch _ left right) = Branch x l r      -- Root has two subtree children, remove the next highest value and return a new tree with it replaced
+            where
+                (x, l) = highest left                       -- Get the next highest value from the left subtree
+                r = delete x right                          -- Delete the next highest value from the right subtree
+    
+        -- | A helper function that finds the highest value in a tree and returns it, along with the updated tree
+        highest :: Tree -> (Int, Tree)
+        highest (Leaf v) = (v, Leaf v)                       -- Reached a leaf, return its value and the updated tree
+        highest (Branch v left right) =                      -- Keep recursing down the right subtree until we reach a leaf
+            let (h, newRight) = highest right in             -- Assign the highest value from right tree to h, and the updated right tree to newRight
+                (h, Branch v left newRight)                  -- Return the highest value and update the right subtree with newRight
+
+-- | A function to convert a tree to a list of values
+toList :: Tree -> [Int]
+toList (Leaf v) = [v]                                       -- Reached a leaf, add its value to the list
+toList (Branch v left right) =                              -- Recursively append left and right subtree to the list
+    toList left ++ [v] ++ toList right
+
+-- | Function to print out a tree using indentation to show levels
+printTree :: Tree -> Int -> IO ()
+printTree (Leaf v) i = putStrLn $ replicate i ' ' ++ show v   -- Leaf node, print value at current indentation level
+printTree (Branch v l r) i = do
+    putStrLn $ replicate i ' ' ++ show v                      -- Print value at current indentation level
+    printTree l (i + 2)                                      -- Recursively print left subtree with increased indentation level
+    printTree r (i + 2)                                      -- Recursively print right subtree with increased indentation level
+    
+-- | Small helper function to print out a header and a tree
+printWithHeader :: String -> Tree -> IO ()
+printWithHeader str tree = do
+    putStrLn str                                            -- Print header
+    printTree tree 0                                        -- Print tree with indentation level 0
+    putStrLn ""                                             -- Print empty line for spacing
+
+-- | Main function to test out tree operations
+main = do
+    putStrLn "---- Building tree ----"
+    let tree = foldr insert (Leaf 5) [1,3,7,2,4,6,8]         -- Build a tree with some test values and insert them
+    printWithHeader "Original tree:" tree                    -- Print original tree
+    
+    putStrLn "---- Inserting value 9 ----"
+    let tree' = insert 9 tree                                -- Insert value 9 into the original tree
+    printWithHeader "Updated tree:" tree'                    -- Print updated tree
+    
+    putStrLn "---- Deleting value 5 ----"
+    let tree'' = delete 5 tree'                              -- Delete value 5 from the updated tree
+    printWithHeader "Final tree:" tree''                     -- Print final tree
+    
+    putStrLn "---- Converting to list ----"
+    print $ toList tree''                                   -- Print the final tree in the form of a list

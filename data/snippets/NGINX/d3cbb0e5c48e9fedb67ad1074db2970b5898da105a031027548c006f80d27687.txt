@@ -1,0 +1,78 @@
+server {
+    # define server block for nginx
+    listen 80; # specify the port to listen on
+    server_name website.com; # set the server name
+
+    # create location blocks for different url paths
+    location / {
+        root /var/www/website; # specify the root directory for the website
+        index index.html; # define the default index file
+        try_files $uri $uri/ /index.html; # try to serve static files, fallback to index.html if not found
+    }
+    
+    location /api/ {
+        proxy_pass http://localhost:3000; # reverse proxy to localhost port 3000
+        proxy_set_header Host $host; # set the host header
+        proxy_set_header X-Real-IP $remote_addr; # set the real IP header
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # set the forwarded for header
+        proxy_redirect off; # disable proxy redirects
+    }
+    
+    location /static/ {
+        alias /var/www/website/static/; # use alias to specify static file directory
+    }
+    
+    # configure error pages
+    error_page 404 /404.html; # specify the path for 404 error page
+    error_page 500 502 503 504 /50x.html; # specify the paths for 500, 502, 503, 504 error pages
+
+    # customize error pages
+    location = /50x.html {
+        root /var/www/errors; # specify the directory for the customized error page
+    }
+
+    # enable gzip compression for faster page loading
+    gzip on; # turn on gzip compression
+    gzip_types text/plain application/json; # specify the types of files to be compressed
+    gzip_comp_level 5; # set compression level to 5 (the default value)
+
+    # specify the SSL certificate and key file locations
+    ssl_certificate /etc/nginx/cert.pem;
+    ssl_certificate_key /etc/nginx/cert-key.pem;
+
+    # configure SSL protocols and ciphers
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2; # specify allowed protocols
+    ssl_ciphers HIGH:!aNULL:!MD5; # specify allowed ciphers
+
+    # configure caching for faster page loading
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=one:10m; # specify the cache path, levels and zone size
+    proxy_cache_key "$scheme$request_method$host$request_uri"; # specify the cache key format
+
+    # configure load balancing for high traffic websites
+    upstream backend {
+        server 127.0.0.1:3000; # specify the backend server and port
+    }
+
+    server {
+        listen 80;
+        server_name app1.website.com; # set the server name for the app1 subdomain
+
+        location / {
+            proxy_pass http://backend; # reverse proxy to the backend server
+        }
+    }
+
+    server {
+        listen 80;
+        server_name app2.website.com; # set the server name for the app2 subdomain
+
+        location / {
+            proxy_pass http://backend; # reverse proxy to the backend server
+        }
+    }
+
+    # block requests from certain IP addresses
+    deny 192.168.1.1; # block a specific IP address
+    deny 10.0.0.0/8; # block a range of IP addresses
+    allow all; # allow all other requests
+}

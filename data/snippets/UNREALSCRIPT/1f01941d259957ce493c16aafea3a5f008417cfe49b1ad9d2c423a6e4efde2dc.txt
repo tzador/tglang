@@ -1,0 +1,132 @@
+// This code creates a custom melee weapon class
+// UDK default melee class
+class UDKMelee extends Actor
+    config(melee);
+
+// Custom melee class
+class CustomMelee extends UDKMelee
+    placeable;
+
+// Melee variables
+var() weaponName name;
+var() float damage;
+var() float attackSpeed;
+var() float range;
+var() float staminaCost;
+
+// Melee functions
+function Attack()
+{
+    if (Pawn(GetOwner()).isA('UTPawn'))
+    {
+        // Create a line trace to determine the hit location
+        local Vector start, end, hitLocation, hitNormal;
+        local int hitBone, hitFace;
+
+        start = Pawn(GetOwner()).WeaponHolder.GetSocketLocation('MeleeStart');
+        end = start + Rotate(ptoy(1.0), GetOwner().Rotation) * range;
+        SwtichToRotation(start, end);
+
+        // Perform a line trace
+        // Store the hit location and normal
+        if (Pawn(GetOwner()).PawnTrace(hitLocation, hitNormal, hitBone, hitFace, end, start, TRACEFLAG_Bullet))
+        {
+            // Get the hit actor
+            local Actor hitActor;
+            hitActor = Pawn(GetOwner()).GetTraceHitActor(hitLocation);
+
+            // Check if the hit actor is an enemy
+            if (hitActor != None && hitActor.isA('UTPawn') 
+                && hitActor != GetOwner())
+            {
+                // Calculate the damage and attack speed based on skill level
+                // Skill level should be set in the Pawn's properties
+
+                // Reduce stamina based on attack speed
+                // Check if the player has enough stamina to perform the attack
+                if (Pawn(GetOwner()).stamina > staminaCost)
+                {
+                    // Perform the attack animation
+                    PlayAttackAnimation();
+                    
+                    // Apply damage to the hit actor
+                    hitActor.TakeDamage(damage);
+                    
+                    // Reduce stamina
+                    Pawn(GetOwner()).stamina -= staminaCost;
+
+                }
+                else
+                {
+                    // Not enough stamina, cannot perform attack
+                    Warn(PlayerOwner, "Not enough stamina to perform attack!");
+                }
+
+            } 
+        }
+    }
+}
+
+function PlayAttackAnimation()
+{
+    // This function plays the appropriate attack animation based on player's equipped weapon
+    local UTPlayerController PC;
+    PC = UTPlayerController(Pawn(GetOwner()).Controller);
+    local AnimSet AnimationSet;
+    AnimationSet = PC.Mesh.AnimSets[0];
+    AnimationSet.PlayCustomAnimation(name, 1, 'atk_upper', 0, true, true);
+}
+
+defaultproperties
+{
+    begin Object Name
+        name = "CustomMelee"
+    end Object Name
+
+    begin Object Class
+        class(StaticMeshComponent)
+        Name=StaticMeshComponent
+        StaticMesh=PhysicsAsset'SKMale_Custom_Mesh.PHAT'
+        Scale=0.05
+        Translation=(Y=0.000000,Z=55.000000)
+        bNoDelete=True
+        Name=StaticMeshComponent0
+        CollisionComponent=StaticMeshComponent0
+        bUseCCD=True
+        bUseSimpleKarmaBasedPhysic=False
+        bOverrideLightingChannel=True
+        LightingChannel=(bInitialized=True,Dynamic=True)
+        bAcceptsDynamicDecals=True
+        bAcceptsDecals=True
+        bAcceptsStaticDecals=True
+        AlwaysLoadOnClient=True
+        AlwaysLoadOnServer=True
+        Physics=PHYS_RigidBody
+        bWakeOnLevelStart=False
+        PhysicsConstraintActorTag=1
+        bBounce=False
+        bStatic=False
+        bStaticWhenPlacing=False
+        bMovable=False
+        bBlockActors=True
+        bCollideActors=True
+        bCollideWorld=True
+        bCollideComplex=True
+        Name=StaticMeshComponent1
+        BodyInstance=(bAutoDisable=False)
+        Name=StaticMeshComponent0
+    end Object Class
+    
+    begin Object MyAttackInfo
+        Damage="20"
+        Rate="1"
+        Range="200"
+        Cost="10"
+    end Object MyAttackInfo
+    
+    Name="Sword"
+    attackSpeed="0.8"
+    range="100"
+    damage="50"
+    staminaCost="20"
+}

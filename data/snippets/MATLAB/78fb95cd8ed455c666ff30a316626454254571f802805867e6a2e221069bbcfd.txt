@@ -1,0 +1,87 @@
+%% Inverse Kinematics Solver for 3-Link Robot Arm
+
+% Define Denavit-Hartenberg parameters
+d = [0, 0, 0]; % link offset distances
+a = [0, 0.5, 0.5]; % link lengths
+alpha = [pi/2, 0, 0]; % link twist angles
+theta = sym('theta', [1, 3], 'real'); % symbolic joint angles
+
+% Define end-effector position and orientation
+p_e = [0, 0, 0.5]'; % end-effector position in reference frame
+R_e = eye(3); % end-effector orientation in reference frame
+
+% Calculate transformation matrices for each link
+T_10 = dh2T(d(1), theta(1), a(1), alpha(1)); % transformation from frame 0 to 1
+T_21 = dh2T(d(2), theta(2), a(2), alpha(2)); % transformation from frame 1 to 2
+T_32 = dh2T(d(3), theta(3), a(3), alpha(3)); % transformation from frame 2 to 3
+
+% Calculate end-effector transformation matrix
+T_30 = T_10 * T_21 * T_32; % transformation from frame 0 to 3
+
+% Calculate end-effector position and orientation
+p_e_calc = T_30(1:3, 4); % calculate end-effector position
+R_e_calc = T_30(1:3, 1:3); % calculate end-effector orientation
+
+% Define error function for position and orientation
+error_p = p_e - p_e_calc; % position error
+error_R = 0.5 * (R_e_calc.' * R_e - R_e.' * R_e_calc); % orientation error
+
+% Define Jacobian matrix
+J = sym(zeros(6, 3)); % initialize Jacobian matrix
+J(:, 1) = simplify(jacobian(p_e_calc, theta)); % calculate first column of Jacobian matrix
+J(:, 2) = simplify(jacobian(error_p, theta)); % calculate second column of Jacobian matrix
+J(:, 3) = simplify(jacobian(error_R(:), theta)); % calculate third column of Jacobian matrix
+
+% Define inverse Jacobian matrix
+J_inv = simplify(inv(J)); % inverse Jacobian
+
+% Define desired position and orientation
+p_des = [0, 0.8, 0.5]'; % desired end-effector position
+R_des = rotx(pi/4) * rotz(pi/6); % desired end-effector orientation
+
+% Set initial joint angles
+theta_0 = [0, 0, 0]; % initial joint angles
+
+% Define tolerance for position and orientation error
+tol_p = 0.01; % position error tolerance
+tol_R = 0.01; % orientation error tolerance
+
+% Calculate error vector
+error = [norm(error_p), norm(error_R(:))]; % error vector
+
+% Initialize iteration counter
+i = 0; % iteration counter
+
+% Loop until error is less than tolerance
+while (sum(error > [tol_p, tol_R]) > 0)
+    % Calculate desired Jacobian
+    J_des = [simplify(jacobian(p_e, theta)); eye(3)]; % desired Jacobian
+    
+    % Update joint angles
+    theta = theta + J_inv * (J_des * [p_des - p_e_calc; error_R(:)]); % update joint angles
+    
+    % Calculate end-effector position and orientation
+    p_e_calc = T_30(1:3, 4); % calculate end-effector position
+    R_e_calc = T_30(1:3, 1:3); % calculate end-effector orientation
+    
+    % Calculate error vector
+    error = [norm(error_p), norm(error_R(:))]; % error vector
+    
+    % Increment iteration counter
+    i = i + 1; % increment iteration counter
+end
+
+% Print final joint angles
+fprintf('Joint angles: theta1 = %.4f, theta2 = %.4f, theta3 = %.4f\n', theta(1), theta(2), theta(3));
+
+%% Helper function to convert Denavit-Hartenberg parameters to transformation matrix
+
+function T = dh2T(d, theta, a, alpha)
+% Function to calculate transformation matrix given DH parameters
+
+% Define transformation matrix
+T = [cos(theta), -sin(theta) * cos(alpha), sin(theta) * sin(alpha), a * cos(theta);
+    sin(theta), cos(theta) * cos(alpha), -cos(theta) * sin(alpha), a * sin(theta);
+    0, sin(alpha), cos(alpha), d;
+    0, 0, 0, 1];
+end

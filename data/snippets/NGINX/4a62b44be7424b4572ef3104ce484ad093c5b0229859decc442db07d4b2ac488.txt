@@ -1,0 +1,67 @@
+# This snippet creates a custom log format with the name "customlog", 
+# which includes different variables to be logged in the access logs.
+log_format customlog '$remote_addr - $remote_user [$time_local] '
+                     '"$request" $status $body_bytes_sent '
+                     '"$http_referer" "$http_user_agent"';
+
+# This snippet creates a map with the name "geoip" which uses the GeoIP database to determine the country of the client's IP address.
+map $geoip_country_code $allowed_country {
+    default no;  # by default, all countries are not allowed
+    US      yes; # the United States is allowed
+    CA      yes; # Canada is allowed
+    FR      yes; # France is allowed
+    DE      yes; # Germany is allowed
+}
+
+# This snippet defines a server block for a virtual host with the domain "example.com".
+# It includes a location block which allows GET requests to the root path and returns a 200 status code.
+server {
+    listen 80; # listen on port 80
+    server_name example.com; # server name
+    root /var/www/example.com; # root directory
+    index index.html; # default index file
+    access_log /var/log/nginx/example.com.access.log customlog; # log access with customlog format
+    
+    location / {
+        allow all; # allow all access
+        proxy_pass http://localhost:8080; # proxy requests to port 8080
+    }
+    
+    error_page 404 /404.html; # define custom 404 error page
+    location = /404.html {
+        internal; # restrict access to error page
+        proxy_pass http://localhost:8080/404.html; # proxy requests to port 8080
+    }
+
+}
+
+# This snippet creates a location block which redirects all requests to the HTTPS version of the site.
+# It also sets up SSL certificate and enables server-side caching options for better performance.
+server {
+    listen 443 ssl; # listen on port 443 with SSL enabled
+    server_name example.com; # server name
+    root /var/www/example.com; # root directory
+    index index.html; # default index file
+    access_log /var/log/nginx/example.com.access.log customlog; # log access with customlog format
+    
+    ssl_certificate /etc/ssl/certs/example.com.crt; # SSL certificate file
+    ssl_certificate_key /etc/ssl/private/example.com.key; # SSL certificate key file
+    ssl_protocols TLSv1.2; # enable TLS v1.2 only
+    ssl_ciphers HIGH:!aNULL:!MD5; # enable secure ciphers
+    ssl_prefer_server_ciphers on; # prefer server ciphers over client ciphers
+    ssl_session_cache shared:SSL:10m; # cache SSL sessions for 10 minutes
+
+    location / {
+        rewrite ^ https://$host$request_uri permanent; # redirect to HTTPS version of site
+    }
+
+    location ~* \.(jpg|jpeg|png|gif|ico|svg)$ {
+        expires 365d; # set browser caching for one year
+        log_not_found off; # do not log missing images
+    }
+    
+    location ~* \.(css|js)$ {
+        expires 30d; # set browser caching for 30 days
+        log_not_found off; # do not log missing files
+    }
+}

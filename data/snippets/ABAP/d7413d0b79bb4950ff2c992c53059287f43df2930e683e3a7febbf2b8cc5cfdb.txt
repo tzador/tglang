@@ -1,0 +1,64 @@
+DATA: employees TYPE TABLE OF zbap_employee,
+      wa_emp TYPE zbap_employee.
+
+DATA: lt_salary_slip TYPE TABLE OF zbap_salary_slip,
+      wa_salary_slip TYPE zbap_salary_slip.
+
+DATA lv_total_earnings TYPE zbap_salary_slip-earnings.
+
+CONSTANTS: c_tds TYPE zbap_salary_slip-earnings VALUE 10000. "constant for TDS (Tax Deducted at Source)"
+
+SELECT empid empname bday city country INTO TABLE @employees FROM zbap_employee WHERE company = 'ABC Corp'.
+
+*"Loop through the employees table and calculate their monthly salary and tax
+LOOP AT employees INTO wa_emp.
+  wa_salary_slip-empid = wa_emp-empid.
+  wa_salary_slip-empname = wa_emp-empname.
+  wa_salary_slip-month = 'July'.
+  wa_salary_slip-year = '2021'.
+
+  "calculate basic salary
+  wa_salary_slip-basic_salary = wa_emp-salary * 12.
+
+  "calculate HRA (House Rent Allowance)
+  IF wa_emp-city = 'Mumbai'.
+    wa_salary_slip-hra = wa_emp-salary * 0.5.
+  ELSE.
+    wa_salary_slip-hra = wa_emp-salary * 0.4.
+  ENDIF.
+
+  "calculate DA (Dearness Allowance)
+  wa_salary_slip-da = wa_emp-salary * 0.3.
+
+  "calculate total earnings
+  wa_salary_slip-earnings = wa_salary_slip-basic_salary + wa_salary_slip-hra + wa_salary_slip-da.
+
+  "calculate TDS (Tax Deducted at Source)
+  IF wa_salary_slip-earnings > c_tds.
+    wa_salary_slip-tds = wa_salary_slip-earnings * 0.1.
+  ELSE.
+    wa_salary_slip-tds = 0.
+  ENDIF.
+
+  "calculate net salary (total earnings - TDS)
+  wa_salary_slip-net_salary = wa_salary_slip-earnings - wa_salary_slip-tds.
+
+  "append the current salary slip to the lt_salary_slip table
+  APPEND wa_salary_slip TO lt_salary_slip.
+ENDLOOP.
+
+*"Sort the salary slips in ascending order based on employee ID
+SORT lt_salary_slip BY empid ASCENDING.
+
+*"Display the salary slip for each employee
+LOOP AT lt_salary_slip INTO wa_salary_slip.
+  WRITE: / wa_salary_slip-empname COLOR COL_POSITIVE, "employee name
+         wa_salary_slip-month COLOR COL_HEADING,      "month
+         wa_salary_slip-year COLOR COL_HEADING,       "year
+         wa_salary_slip-basic_salary COLOR COL_NORMAL, "basic salary
+         wa_salary_slip-hra COLOR COL_NORMAL,          "HRA
+         wa_salary_slip-da COLOR COL_NORMAL,           "DA
+         wa_salary_slip-earnings COLOR COL_NORMAL,     "total earnings
+         wa_salary_slip-tds COLOR COL_NEGATIVE,        "TDS
+         wa_salary_slip-net_salary COLOR COL_TOTAL.    "net salary
+ENDLOOP.

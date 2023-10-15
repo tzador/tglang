@@ -1,0 +1,73 @@
+# Load the NGINX module
+load_module modules/ngx_http_php_module.so;
+
+# Define a server block
+server {
+    # Listen on port 80
+    listen 80;
+
+    # Define the server name
+    server_name mywebsite.com;
+
+    # Set the root directory for the server
+    root /var/www/mywebsite;
+
+    # Enable PHP processing for .php files
+    location ~ \.php$ {
+        # Set the root directory for the PHP files
+        root /var/www/mywebsite;
+
+        # Pass the PHP file to be processed by the php module
+        fastcgi_pass unix:/run/php/php7.2-fpm.sock;
+
+        # Set the FastCGI parameters
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param QUERY_STRING    $query_string;
+        fastcgi_param REQUEST_METHOD  $request_method;
+        fastcgi_param CONTENT_TYPE    $content_type;
+        fastcgi_param CONTENT_LENGTH  $content_length;
+
+        # Pass all other FastCGI parameters
+        include fastcgi_params;
+    }
+
+    # Enable gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    # Enable caching
+    location / {
+        # Enable caching for 1 day
+        expires 1d;
+
+        # Set the cache key to the full URL
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+
+        # Configure the cache zone
+        proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=nginx_cache:10m inactive=60m;
+
+        # Enable caching for all response codes
+        proxy_cache_valid 200 302 10m;
+
+        # Pass other requests to the backend server
+        proxy_pass http://127.0.0.1:8080;
+
+        # Enable buffering of responses from the backend server
+        proxy_buffering on;
+
+        # Set the buffer to 4KB
+        proxy_buffers 4 4k;
+
+        # Enable gzip compression for responses from the backend server
+        proxy_gzip on;
+
+        # Set the minimum response size for compression to 1KB
+        proxy_gzip_min_length 1k;
+
+        # Disable compression for certain MIME types
+        proxy_gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+        # Pass all other proxy settings
+        include proxy_params;
+    }
+}

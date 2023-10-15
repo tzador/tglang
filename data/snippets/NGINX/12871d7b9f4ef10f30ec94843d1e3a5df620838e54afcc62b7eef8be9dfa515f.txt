@@ -1,0 +1,54 @@
+server {
+    listen 80 default_server;
+ 
+    server_name example.com;
+    root /var/www;
+ 
+    // Allow only GET and POST requests
+    limit_except GET POST {
+        deny  all;
+    }
+ 
+    location /api {
+        // Add basic authentication
+        auth_basic "Restricted";
+ 
+        // Define the authentication credentials file
+        auth_basic_user_file /etc/nginx/htpasswd;
+ 
+        // Set proxy headers for CORS support
+        proxy_set_header Access-Control-Allow-Origin $http_origin;
+        add_header X-Frame-Options SAMEORIGIN;
+ 
+        // Restrict the maximum size of clients request body
+        client_max_body_size 10M; 
+ 
+        proxy_pass http://localhost:8000;
+ 
+        // Disable logging for OPTIONS requests
+        if ($request_method = OPTIONS) {
+            access_log off;
+            add_header Content-Type "text/plain charset=UTF-8";
+            add_header Content-Length 0;
+            return 204;
+        }
+    }
+ 
+    location / {
+        // Set index page
+        index index.html;
+ 
+        // Enable caching with a maximum age of 1 hour
+        expires 1h;
+ 
+        // Enable gzip compression
+        gzip on;
+        gzip_types text/plain text/css application/json application/javascript;
+        gzip_proxied any;
+ 
+        // Define caching for static assets
+        location ~* \.(jpg|jpeg|gif|png|svg|css|js|ico)$ {
+            expires 1w;
+        }
+    }
+}

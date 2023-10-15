@@ -1,0 +1,42 @@
+(* Code from https://fsharp.org/learn/ beginning-guides/parallel-and-asynchronous- programming/ *)
+// Declare a function that returns the number of cores available on the machine
+let getCores =
+  System.Environment.ProcessorCount
+
+// Divide an integer range into sections based on the number of cores
+let divideIntoSections count cores =
+  let sectionSize = count / cores
+  let rest = count % cores
+  // Create a list of tuples representing the start and end index for each section
+  [
+    for i in 0 .. cores - 1 ->
+      let start = sectionSize * i + min i rest
+      let length = sectionSize + min 1 (max 0 rest - i)
+      (start, start + length)
+  ]
+
+// Calculate the sum of all numbers in a list using parallel map and reduce
+let sumNumbers nums =
+  let sections = divideIntoSections nums.Length getCores
+  let results =
+    nums
+    // Use parallel map to apply the summation function on each section
+    |> List.mapi (fun idx x ->
+      async {
+        let start, finish = List.nth sections idx
+        return Array.sum (Array.sub x start finish)
+      })
+    // Use parallel reduce to sum the results from each section
+    |> Concurrent.reduce (+)
+  results
+
+(* Create a list of numbers from 1 to 1000 *)
+let numbers = [1..1000]
+
+(* Call the sumNumbers function on the list *)
+let total = sumNumbers numbers
+
+// Print the result to the console
+printfn "The sum of all numbers from 1 to 1000 is %i" total
+
+// Output:

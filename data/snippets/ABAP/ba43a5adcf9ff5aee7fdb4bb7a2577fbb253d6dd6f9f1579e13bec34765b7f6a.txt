@@ -1,0 +1,61 @@
+REPORT ZMY_REPORT.
+
+* Data Declaration
+DATA: lv_count TYPE i.
+DATA: lt_data TYPE TABLE OF spfli.
+DATA: lv_city TYPE spfli-cityfrom.
+
+* Selection screen
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME.
+PARAMETERS: p_count TYPE i DEFAULT 0.
+PARAMETERS: p_city TYPE spfli-cityfrom.
+SELECTION-SCREEN END OF BLOCK b1.
+
+* Selection criteria
+SELECT-OPTIONS: s_carrid FOR spfli-carrid.
+SELECT-OPTIONS: s_connid FOR spfli-connid.
+
+* Selection screen validations
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_city.
+  PERFORM f4_city.
+
+AT SELECTION-SCREEN ON p_count.
+  IF p_count < 0.
+    MESSAGE 'Value must be greater than 0' TYPE 'E'.
+  ENDIF.
+
+START-OF-SELECTION.
+
+* Selecting data from database
+SELECT * FROM spfli
+  INTO TABLE lt_data
+  WHERE carrid IN s_carrid
+  AND connid IN s_connid.
+
+* Processing data
+LOOP AT lt_data INTO ls_data.
+  ADD 1 TO lv_count.
+  IF lv_city EQ p_city.
+    WRITE: / lv_count, ls_data-carrid, ls_data-connid.
+  ENDIF.
+ENDLOOP.
+
+* F4 search help subroutine
+FORM f4_city.
+  DATA: lt_city TYPE STANDARD TABLE OF spfli-cityfrom.
+  SELECT carrid connid cityfrom
+    FROM spfli
+    INTO TABLE lt_city
+    WHERE carrid IN s_carrid
+    AND connid IN s_connid.
+  CALL FUNCTION 'F4IF_INT_TABLE_VALUE_REQUEST'
+    EXPORTING
+      retfield = 'CITYFROM'
+      dynpprog = sy-cprog
+      dynpnr   = sy-dynnr
+      value_org = 'S'
+    TABLES
+      value_tab = lt_city
+    EXCEPTIONS
+      OTHERS = 0.
+ENDFORM.

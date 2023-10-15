@@ -1,0 +1,49 @@
+# This script checks the disk usage of a specified folder and deletes old files if it reaches a specified threshold
+
+# Define variables for folder path and threshold
+$folderPath = "C:\Users\ExampleUser\Desktop\Files"
+$threshold = 90 # threshold in percentage
+
+# Get current date and time
+$now = Get-Date
+
+# Retrieve all files in folder and sort by last write time
+$files = Get-ChildItem $folderPath -File | Sort-Object LastWriteTime
+
+# Calculate total size of all files in folder
+$totalSize = ($files | Measure-Object -Property Length -Sum).Sum
+
+# Calculate disk usage percentage based on total size and available space
+$diskUsage = ($totalSize / $totalSize.AvailableSpace) * 100
+
+# Check if disk usage is above threshold
+if ($diskUsage -gt $threshold) {
+
+    # Print a warning message
+    Write-Host "Disk usage in $folderPath is at $diskUsage%."
+
+    # Loop through files until disk usage is below threshold
+    foreach ($file in $files) {
+        if ($diskUsage -lt $threshold) {
+            break
+        }
+
+        # Calculate age of file in days
+        $age = ($now - $file.LastWriteTime).TotalDays
+
+        # Check if file is older than 30 days
+        if ($age -gt 30) {
+            # Delete file
+            Remove-Item $file.FullName -Force
+
+            # Update disk usage
+            $diskUsage = ($totalSize / $totalSize.AvailableSpace) * 100
+
+            # Print deleted file and new disk usage
+            Write-Host "Deleted $($file.Name). Disk usage is now at $diskUsage%."
+        }
+    }
+}
+
+# Print final disk usage
+Write-Host "Final disk usage in $folderPath is $diskUsage%."

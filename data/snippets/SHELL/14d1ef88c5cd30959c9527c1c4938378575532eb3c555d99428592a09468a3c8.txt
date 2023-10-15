@@ -1,0 +1,64 @@
+#!/bin/bash
+
+# This is a shell script that checks the validity of a user inputted email address.
+
+# Check if the script is being executed with superuser privileges
+if [ $UID -ne 0 ]
+then
+  echo "This script must be run with superuser privileges."
+  exit 1 # exit with error code
+fi
+
+# Get user input for email address
+echo "Enter an email address:"
+read email
+
+# Regular expression to check email address validity
+regex="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}"
+
+# Check if email address matches the regular expression
+if [[ $email =~ $regex ]]
+then
+  echo "Email address is valid."
+else
+  echo "Email address is invalid."
+  exit 2 # exit with error code
+fi
+
+# Check domain of email address
+domain=$(echo $email | awk -F'@' '{print $2}')
+if ping -c 1 $domain &> /dev/null
+then
+  echo "Domain $domain is reachable."
+else
+  echo "Domain $domain is not reachable."
+fi
+
+# Check if email address is registered with DNS
+if ! host -t MX $domain > /dev/null
+then
+  echo "Email address is not registered with DNS."
+  exit 3 # exit with error code
+fi
+
+# Check if domain has a valid MX record
+if ! host -t MX $domain | grep "is handled by" > /dev/null
+then
+  echo "Domain $domain does not have a valid MX record."
+  exit 4 # exit with error code
+fi
+
+# Check if MX record points to a valid IP address
+mx_records=$(host -t MX $domain | grep "is handled by" | awk '{print $NF}')
+for record in $mx_records
+do
+  if ! host $record > /dev/null
+  then
+    echo "MX record for $domain does not resolve to a valid IP address."
+    exit 5 # exit with error code
+  fi
+done
+
+# If all checks pass, email address is valid
+echo "Email address $email is valid."
+exit 0 # exit with success code

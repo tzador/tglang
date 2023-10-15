@@ -1,0 +1,91 @@
+# This is a basic NGINX server configuration file, 
+# with various server blocks for different domains and locations.
+
+# Main server block
+server {
+    # Listen on port 80 for HTTP requests
+    listen 80;
+    # Server name is 'example.com'
+    server_name example.com;
+
+    # Root directory for this server
+    root /var/www/example;
+
+    # Location for static files
+    location /static/ {
+        alias /var/www/example/static/;
+    }
+
+    # Location for php files
+    location ~ \.php$ {
+        include fastcgi_params;
+        
+        # FastCGI handler
+        fastcgi_pass unix:/run/php/php7.3-fpm.sock;
+        # Path to php files
+        fastcgi_param SCRIPT_FILENAME /var/www/example$fastcgi_script_name;
+    }
+}
+
+# Server block for subdomain
+server {
+    # Listen on port 80 for HTTP requests
+    listen 80;
+    # Server name is 'subdomain.example.com'
+    server_name subdomain.example.com;
+
+    # Root directory for subdomain
+    root /var/www/subdomain;
+
+    # Location for static files
+    location /static/ {
+        alias /var/www/subdomain/static/;
+    }
+
+    # Redirect all requests to subdomain
+    location / {
+        return 301 https://$server_name$request_uri;
+    }
+}
+
+# Server block for SSL/TLS connection
+server {
+    # Listen on port 443 for HTTPS requests
+    listen 443 ssl;
+    # Server name is 'example.com'
+    server_name example.com;
+
+    # Root directory for this server
+    root /var/www/example;
+
+    # Location for static files
+    location /static/ {
+        alias /var/www/example/static/;
+    }
+
+    # Location for php files
+    location ~ \.php$ {
+        include fastcgi_params;
+        
+        # FastCGI handler
+        fastcgi_pass unix:/run/php/php7.3-fpm.sock;
+        # Path to php files
+        fastcgi_param SCRIPT_FILENAME /var/www/example$fastcgi_script_name;
+    }
+
+    # SSL/TLS configuration
+    ssl_certificate /etc/nginx/ssl/certificate.crt;
+    ssl_certificate_key /etc/nginx/ssl/private.key;
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers 'EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH';
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:50m;
+    ssl_stapling on;
+    ssl_stapling_verify on;
+
+    # Enable HTTP to HTTPS redirect
+    if ($scheme != "https") {
+        return 301 https://$host$request_uri;
+    }
+}

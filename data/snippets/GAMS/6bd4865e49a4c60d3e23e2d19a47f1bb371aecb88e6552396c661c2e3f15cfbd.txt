@@ -1,0 +1,53 @@
+Sets
+i       items
+t       time periods   / t1*t10 /
+;
+
+Parameters
+
+c(i)    unit costs
+x(i)    upper bounds for purchases by item
+a(i,t)  demands for each item in each period
+s(t)    budget for each time period, t
+r(i,n)  re-sale values by item
+p(i,m)  penalty costs on overproduction by item
+w(i,m)  carbon footprint weights for each item and production method;
+
+Variables
+
+z       total stock value
+y(i)    purchases by item
+m(i)    production method for each item
+q(i,t)  production quantities by item and time
+v(t)    value added by producing during each period
+e       total excess production penalty
+g       total carbon footprint weight;
+
+Equations
+
+objective   objective function
+finance     budget constraint
+resale      re-sale values
+penalty     excess production penalty
+carbon      carbon footprint constraint;
+
+* Objective function to maximize the total stock value
+objective..  z =e= sum(i, c(i)*y(i))
+                + sum(i,w(i,m)*q(i,t));
+
+* Budget constraint - total cost of purchases and production less than or equal to budget for each period.
+finance(t).. sum(i, c(i)*y(i) + p(i,m)*q(i,t)) =l= s(t);
+
+* Re-sale values equation - total income from sold items.
+resale(n).. sum(i, r(i,n)*q(i,t)) =g= 0;
+
+* Excess production penalty - penalize overproduction by multiplying penalty cost by excess amount.
+penalty(m,t).. p(i,m)*q(i,t) + e =g= ifc(q(i,t) > x(i), p(i,m)*(q(i,t) - x(i)), 0);
+
+* Carbon footprint constraint - carbon footprint of each item and production method must not exceed weight.
+carbon(i,m).. sum((i,m), w(i,m)*q(i,t)) =l= g;
+
+* Solution with GAMS options
+Option compecho=1; * orders output while creating feasible points
+Option nlp=convert; * converts nonlinear equations to nonlinear constraints
+solve with minlp maximizing z using nlp;

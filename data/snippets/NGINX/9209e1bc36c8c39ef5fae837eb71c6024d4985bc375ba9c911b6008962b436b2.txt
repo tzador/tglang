@@ -1,0 +1,77 @@
+server {
+    #Defining server context
+    listen 80;
+    server_name www.example.com;
+
+    location / {
+        #Defining location context
+        root /var/www/example.com;
+    }
+
+    location /images/ {
+        #Setting up caching for images
+        expires 30d;
+    }
+
+    location ~* \.(gif|jpg|jpeg|png|svg)$ {
+        #Setting up access control for image files
+        allow all;
+    }
+
+    location ~* \.(js|css)$ {
+        #Setting up access control for javascript and CSS files
+        allow 192.168.1.0/24;
+        deny all;
+    }
+
+    error_page 404 /404.html;
+    location = /404.html {
+        #Custom error page for 404 errors
+        internal;
+    }
+
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html {
+        #Custom error page for server errors
+        internal;
+    }
+
+    #Setting up reverse proxy
+    location /api/ {
+        proxy_pass http://localhost:8080;
+        proxy_redirect off;
+    }
+
+
+
+    #Setting up load balancing for backend servers
+    upstream backend {
+        server backend1.example.com weight=5;
+        server backend2.example.com weight=2;
+        server backend3.example.com weight=3;
+    }
+
+    location / {
+        #Defining location context
+        proxy_pass http://backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        #Configuring header to pass information to backend servers
+    }
+
+}
+
+#Defining caching settings
+http {
+    proxy_cache_path /tmp/nginx levels=1:2 keys_zone=cache_zone:10m inactive=60m;
+
+    server {
+        #Caching configuration for specific location
+        location /api/ {
+            proxy_cache cache_zone;
+            proxy_cache_key "$scheme$request_method$host$request_uri";
+        }
+    }
+
+}

@@ -1,0 +1,67 @@
+METHOD gt_currency_output_preview.
+  DATA(v_field_catalog) = im_field_catalog.
+  DATA(v_layout) = im_layout.
+  DATA(v_print_mode) = im_print_mode.
+  DATA(v_options) = im_options.
+  DATA(v_filter) = im_filter.
+  DATA(v_schedule) = im_schedule.
+
+  DATA(l_controlling_area) = im_layout->get_controlling_area( ).
+  DATA(l_co_fac_rest) = im_layout->get_company_fact_rest( ).
+  DATA(l_ras_flag) = im_layout->get_ras_flag( ).
+  DATA(l_comp_sign) = im_layout->get_comp_sign( ).
+
+  TYPES: BEGIN OF ty_ktoaka,
+    saknr TYPE glt0-saknr,
+    ktoaka TYPE skat-ktoaka,
+    END OF ty_ktoaka.
+
+  DATA(it_ktoaka) = VALUE tt_ktoaka(
+    ( saknr = '1000000' ktoaka = 'A' )
+    ( saknr = '2000000' ktoaka = 'B' )
+    ( saknr = '3000000' ktoaka = 'C' )
+  ).
+
+  " Perform currency conversion for each line item in the output
+  LOOP AT gt_tcurrencies INTO DATA(currency).
+    LOOP AT gt_tcurrencies_number_ranges ASSIGNING FIELD-SYMBOL(<number_range>).
+      IF <number_range>-grouping = 'ACCR'.
+        CONTINUE.
+      ENDIF.
+
+      " Get the currency conversion rates for each currency and date
+      DATA(l_conv_rates) = cl_fin_general_convert_util=>get_historical_conversion_rates(
+        iv_currency = currency
+        iv_date = v_filter-date
+        iv_entity = cl_fin_general_convert_util=>get_legal_entity( ) ).
+
+      IF currency <> 'LC'.
+        LOOP AT gt_tcurrencies INTO DATA(next_currency) FROM line_index = sy-tabix.
+          IF next_currency = 'LC' OR next_currency = 'YRY'.
+            IF currency = 'AC' OR currency = 'PCL'.
+              " Get the group exchange rate of the next currency
+              DATA(l_group_rate) = cl_fin_general_convert_util=>get_group_currency_conversion_rate(
+                iv_entity = cl_fin_general_convert_util=>get_legal_entity( )
+                iv_fiscal_year = v_filter-date+0(4)
+                iv_currency = next_currency ).
+
+              " Get the local currency conversion rate of the next currency
+              DATA(l_local_proportion) = cl_fin_general_convert_util=>get_local_currency_rate(
+                iv_entity = cl_fin_general_convert_util=>get_legal_entity( )
+                iv_year = v_filter-date+0(4)
+                iv_cur_group = next_currency ).
+
+              " Calculate the currency conversion rate for the next currency
+              DATA(l_currency_rate) = l_group_rate * l_local_proportion.
+
+              " Loop through the line items and perform the currency conversion
+              LOOP AT currency VALUES INTO DATA(value) ASSIGNING FIELD-SYMBOL(<value>).
+                <value> = <value> / l_currency_rate.
+              ENDLOOP.
+            ENDIF.
+          ENDIF.
+        ENDLOOP.
+      ENDIF.
+    ENDLOOP.
+  ENDLOOP.
+ENDMETHOD.

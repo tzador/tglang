@@ -1,0 +1,67 @@
+[CmdletBinding()]
+param(
+  [Parameter(Mandatory=$true)]
+  [String]$input,
+
+  [Parameter(Mandatory=$true)]
+  [String]$outputPath,
+
+  [Parameter()]
+  [String]$option="default",
+
+  [Parameter()]
+  [Switch]$verbose
+)
+
+#Create a directory for the output path
+if (!(Test-Path $outputPath))
+{
+  New-Item $outputPath -ItemType directory
+}
+
+#Loop through each file in the input directory
+Get-ChildItem $input | ForEach-Object {
+  #Check if file is a directory
+  if ($_ -is [System.IO.DirectoryInfo])
+  {
+    #Get the current directory name
+    $directoryName = $_.Name
+
+    #Create a directory for the current directory in the output path
+    $directoryPath = Join-Path -Path $outputPath -ChildPath $directoryName
+    if (!(Test-Path $directoryPath))
+    {
+      New-Item $directoryPath -ItemType directory
+    }
+
+    #Loop through each file in the current directory
+    Get-ChildItem $_.FullName | ForEach-Object {
+      #Check if file is a file and not a directory
+      if ($_ -is [System.IO.FileInfo])
+      {
+        #Copy the file to the current directory in the output path
+        Copy-Item $_.FullName -Destination $directoryPath
+      }
+    }
+  }
+  else {
+    #Check if file is a file and not a directory
+    if ($_ -is [System.IO.FileInfo])
+    {
+      #Copy the file to the output path
+      Copy-Item $_.FullName -Destination $outputPath
+    }
+  }
+}
+
+#Check if option is set to 'verbose'
+if ($option -eq "verbose")
+{
+  Write-Output "Processing complete"
+}
+
+#Check if 'verbose' switch is present
+if ($verbose)
+{
+  Write-Verbose "Files copied from '$input' to '$outputPath'"
+}

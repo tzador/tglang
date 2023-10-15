@@ -1,0 +1,65 @@
+Sets
+      i       suppliers/ supplier index
+      j       products / product index
+      t       time periods / period index /
+;
+Alias (i,idi), (j,jdj);
+
+Parameters
+  cap(i)     transport capacities from suppliers
+  cost(i,j)  transport costs per product
+  cost_ref   cost reference value
+  dam(i)     maximum supplier damages
+  dem(j)     customer demand for product
+  y         loss factor for damaged or spoiled goods;
+
+Scalar
+  penalty   crisis impact cost
+  profit    financial results
+  x         binary decision variable;
+
+Variables
+  tr(i,j)   transport quantities per product to customers
+  z_obj     objective variable: total costs of transport and penalties;
+  
+Binary variable x(i,j,t);                   * binary switching variable on relation to time t 
+
+Equations
+  
+  cost1     cost equation for the objective function: cost objective
+  cost2     object function constraints
+  dam1      maximum damages per supplier equation;
+  dam2      maximum damages constraint
+  dem1(j)   demand constraint for transport quantities
+  trans(i)  transport quantities equation per supplier;
+  
+cost1 
+   ..  z_obj  =E=  sum((i,j), cost(i,j)*tr(i,j));
+
+cost2(i,j) 
+   ..  tr(i,j)  =L=  cap(i)*x(i,j);
+
+dam1(i) 
+   ..  sum(j, z(i,j,1))  =L=  dam(i);
+
+dam2(i) 
+   ..  dam(i)  =L=  sum((j,t), z(i,j,t)*y(t));
+
+dem1(j) 
+   ..  sum(i, tr(i,j))  =G=  dem(j);
+
+trans(i,j) 
+   ..  sum(j, tr(i,j))  =L=  sum((j,t), z(i,j,t));
+
+Model transport /all/;
+
+transport.optfile = 1;
+transport.solvelink = "Cplex";
+option optca = 1;
+option subsca = 1;
+option mip=cplexint;
+
+solve transport minimizing z_obj using mip;
+
+Display 'The optimal objective function value is z_obj = ', z_obj.l;
+Display 'The optimal transport quantities are tr(i,j) = ', tr.l(i,j);

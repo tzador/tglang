@@ -1,0 +1,82 @@
+http {
+    #set upstream servers
+    upstream app_servers {
+        server 127.0.0.1:8000;
+        server 127.0.0.1:8001;
+    }
+
+    #set server configuration
+    server {
+        #define server name and port
+        listen 80;
+        server_name myapp.com;
+
+        #set location directives for handling requests
+        location / {
+            proxy_pass http://app_servers;
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+
+        #set error pages
+        error_page 500 502 503 504 /50x.html;
+        location = /50x.html {
+            root html;
+        }
+        
+        #rewrite requests for specific files
+        location /static {
+            alias /var/app/static;
+            try_files $uri $uri/ =404;
+
+            #set caching options
+            expires 1d;
+            add_header Cache-Control public;
+        }
+    }
+
+    #set load balancing options
+    upstream app_servers_loadbalancing {
+        server 127.0.0.1:8000 weight=3;
+        server 127.0.0.1:8001;
+    }
+
+    #set server configuration for loadbalancing
+    server {
+        listen 80;
+
+        #define server name
+        server_name myapp.com;
+
+        #set location directives for handling requests
+        location / {
+            proxy_pass http://app_servers_loadbalancing;
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+
+        #set error pages
+        error_page 500 502 503 504 /50x.html;
+        location = /50x.html {
+            root html;
+        }
+        
+        #rewrite requests for specific files
+        location /static {
+            alias /var/app/static;
+            try_files $uri $uri/ =404;
+
+            #enable caching
+            expires 1d;
+            add_header Cache-Control public;
+        }
+
+        #enable gzip compression
+        gzip on;
+        gzip_types text/css text/javascript text/xml application/json;
+        gzip_comp_level 3;
+        gzip_min_length 1024;
+        gzip_proxied any;
+        gzip_disable msie6;
+    }
+}

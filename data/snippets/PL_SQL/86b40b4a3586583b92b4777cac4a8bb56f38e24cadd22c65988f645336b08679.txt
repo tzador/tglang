@@ -1,0 +1,51 @@
+CREATE TYPE employee_typ AS OBJECT
+    (empno NUMBER(6),
+    ename VARCHAR2(15));
+/
+CREATE TYPE department_typ AS OBJECT
+    (deptno NUMBER(3),
+    dname VARCHAR2(15)
+    manager REF employee_typ);
+/
+CREATE TYPE dept_table_typ AS VARRAY(10) OF REF department_typ;
+/
+CREATE TYPE employee_tab_typ AS TABLE OF employee_typ;
+/
+CREATE TABLE departments OF department_typ
+    (deptno PRIMARY KEY)
+NESTED TABLE manager STORE AS dept_managers;
+/
+CREATE TABLE employees OF employee_typ
+    (empno PRIMARY KEY)
+NESTED TABLE manager STORE AS emp_managers;
+/
+SET SERVEROUTPUT ON
+DECLARE
+    emps employee_tab_typ := employee_tab_typ();
+    depts dept_table_typ := dept_table_typ();
+BEGIN
+    emps.EXTEND(5);
+    emps(1) := employee_typ(741, 'John');
+    emps(2) := employee_typ(662, 'Doe');
+    emps(3) := employee_typ(835, 'Jane');
+    emps(4) := employee_typ(521, 'Michael');
+    emps(5) := employee_typ(953, 'Catherine');
+
+    depts.EXTEND(3);
+    depts(1) := department_typ(10, 'Sales', REF(emps(1)));
+    depts(2) := department_typ(20, 'Marketing', REF(emps(2)));
+    depts(3) := department_typ(30, 'HR', REF(emps(3)));
+
+    INSERT INTO departments (SELECT * FROM TABLE(depts));
+
+    FOR i IN 1 .. emps.COUNT
+    LOOP
+        INSERT INTO employees VALUES emps(i);
+    END LOOP;
+
+    UPDATE employees SET manager = REF(SELECT depts.manager FROM departments depts WHERE depts.deptno = 10) WHERE empno = 741;
+
+    dbms_output.put_line('Employee 953 Name: ' || emps(5).ename);
+    dbms_output.put_line('Employee 953 Manager: ' || emps(5).manager.ename);
+END;
+/

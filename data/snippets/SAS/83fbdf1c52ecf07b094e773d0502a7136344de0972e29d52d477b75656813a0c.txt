@@ -1,0 +1,58 @@
+/* 
+This code snippet utilizes the power of macros in SAS to create an efficient and flexible data manipulation tool.
+*/
+
+%macro data_manipulation(input, output, columns, filter, datevar);
+
+/* 
+This macro takes in five parameters: 
+-input: the name of the input dataset 
+-output: the desired name of the output dataset 
+-columns: a list of columns to be included in the output dataset 
+-filter: a condition for filtering observations 
+-datevar: the name of the date variable to be used for filtering 
+*/
+
+/* 
+First, we create a temporary dataset with the desired columns from the input dataset 
+and filter it based on the given condition and date variable 
+*/
+
+data _null_;
+    set &input;
+    where &filter and &datevar < '31DEC2020'd;
+    keep &columns;
+run;
+
+/* 
+Next, we use the PROC SQL procedure to create a new dataset with a unique identifier variable 
+and merge it with the temporary dataset created earlier 
+*/
+
+proc sql;
+    create table temp as
+    select distinct *, monotonic() as ID
+    from _null_;
+quit;
+
+/* 
+Finally, we sort the newly created dataset by the unique identifier 
+and output it to the desired output dataset name 
+*/
+
+proc sort data=temp;
+    by ID;
+run;
+
+data &output;
+    set temp;
+run;
+
+%mend data_manipulation;
+
+/* 
+To use this macro, we simply call it with the desired parameters, 
+like so: 
+*/
+
+%data_manipulation(input=data, output=output, columns=col1 col2 col3, filter=col1 = 'A', datevar=date);

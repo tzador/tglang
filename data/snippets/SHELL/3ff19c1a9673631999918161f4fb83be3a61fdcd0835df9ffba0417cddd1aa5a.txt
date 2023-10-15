@@ -1,0 +1,48 @@
+# This is a complex code snippet in SHELL that checks the CPU and memory usage
+# and prints out the results in a formatted table
+
+# Function to calculate CPU usage
+calculate_cpu_usage() {
+  # Get the current CPU usage
+  current_cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print $2 + $4}')
+  # Calculate the difference between current and previous CPU usage
+  cpu_diff=$(echo "$current_cpu_usage-$prev_cpu_usage" | bc)
+  # Set the previous CPU usage to the current CPU usage for next iteration
+  prev_cpu_usage=$(echo "$current_cpu_usage" | bc)
+  # Calculate the time interval in seconds between each check
+  time_interval=$(echo "$check_interval/100" | bc)
+  # Calculate the CPU usage percentage
+  cpu_usage=$(echo "scale=2; $cpu_diff/$cpu_cores/$time_interval" | bc)
+}
+
+# Function to calculate memory usage
+calculate_memory_usage() {
+  # Get the total and used memory in kilobytes (KB)
+  read total_memory used_memory <<< $(grep MemTotal /proc/meminfo | awk '{print $2}') $(grep MemFree /proc/meminfo | awk '{print $2}')
+  # Calculate the memory usage percentage
+  memory_usage=$(echo "scale=2; ($total_memory-$used_memory)/$total_memory*100" | bc)
+}
+
+# Set the number of CPU cores
+cpu_cores=$(grep -c processor /proc/cpuinfo)
+# Interval in milliseconds to check the CPU and memory usage
+check_interval=5000
+# Set the previous CPU usage to 0
+prev_cpu_usage=0
+# Clear the screen before printing the results
+clear
+# Print the table header
+echo -e "TIME\t\t\tCPU USAGE\tMEMORY USAGE\n"
+# Loop to continuously check and display the current CPU and memory usage
+while true
+do
+  # Call the functions to calculate CPU and memory usage
+  calculate_cpu_usage
+  calculate_memory_usage
+  # Get the current timestamp
+  current_time=$(date +"%H:%M:%S")
+  # Print the timestamp, CPU usage and memory usage in a formatted table
+  echo -e "$current_time\t$cpu_usage%\t\t$memory_usage%"
+  # Wait for the specified time interval before checking again
+  sleep $(echo "$check_interval/1000" | bc)
+done

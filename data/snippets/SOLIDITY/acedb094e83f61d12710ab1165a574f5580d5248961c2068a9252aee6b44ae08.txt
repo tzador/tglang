@@ -1,0 +1,59 @@
+// This contract creates a marketplace for buying and selling items
+pragma solidity ^0.8.0;
+
+// Person struct to store buyer and seller information
+struct Person {
+  string name;
+  address account;
+}
+
+// Item struct to store item information
+struct Item {
+  string name;
+  uint price;
+  bool forSale;
+}
+
+// Marketplace contract
+contract Marketplace {
+  // Array of people in the marketplace
+  Person[] public people;
+  // Mapping of item IDs to items
+  mapping(uint => Item) public items;
+  // Mapping of item IDs to the seller's account
+  mapping(uint => address) public itemSeller;
+
+  // Function to add a person to the marketplace
+  function addPerson(string memory _name) public {
+    people.push(Person(_name, msg.sender));
+  }
+
+  // Function to create and list an item for sale
+  function createItem(string memory _name, uint _price) public {
+    // Generate unique item ID
+    uint itemId = uint(keccak256(abi.encodePacked(_name, block.timestamp)));
+    // Add item to items mapping
+    items[itemId] = Item(_name, _price, true);
+    // Set seller to msg.sender
+    itemSeller[itemId] = msg.sender;
+  }
+
+  // Function to purchase an item
+  function buyItem(uint _itemId) public payable {
+    require(items[_itemId].forSale == true, "Item not for sale");
+    require(msg.value == items[_itemId].price, "Incorrect amount sent");
+    // Send payment to seller
+    payable(itemSeller[_itemId]).transfer(msg.value);
+    // Update item status to not for sale
+    items[_itemId].forSale = false;
+  }
+
+  // Function to get a person's name by address
+  function getPersonName(address _account) public view returns (string memory) {
+    for (uint i = 0; i < people.length; i++) {
+      if (people[i].account == _account) {
+        return people[i].name;
+      }
+    }
+  }
+}

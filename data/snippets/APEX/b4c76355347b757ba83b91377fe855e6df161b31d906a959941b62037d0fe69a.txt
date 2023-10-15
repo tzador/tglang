@@ -1,0 +1,111 @@
+// In this code snippet, we will be creating a custom object called "Product" with various fields and relationships.
+
+// Creating the Product object with API name "Product__c"
+Object Product__c = Schema.getGlobalDescribe().get('Product__c');
+
+// Adding fields to the Product object
+List<Schema.SObjectField> productFields = new List<Schema.SObjectField>();
+productFields.add(Product__c.getField('Name'));
+productFields.add(Product__c.getField('Price__c'));
+productFields.add(Product__c.getField('Description__c'));
+productFields.add(Product__c.getField('Quantity__c'));
+
+// Creating a custom lookup field to the "Category" object
+Field categoryField = new lookupField('Category__c', Product__c);
+
+// Adding the lookup field to the Product object
+productFields.add(categoryField);
+
+// Adding a validation rule to ensure that the Price field is not blank
+Schema.ValidationRule priceRule = new Schema.ValidationRule();
+priceRule.setActive(true);
+priceRule.setConditionFormula('ISBLANK(Price__c)');
+priceRule.setErrorMessage('Price is required for a Product.');
+priceRule.setErrorDisplayField(Product__c.getField('Price__c'));
+
+// Adding the validation rule to the Product object
+List<Schema.SObject> objList = new List<Schema.SObject>();
+objList.add(priceRule);
+Schema.DescribeSObjectResult productDesc = Product__c.getSObjectType().getDescribe();
+productDesc.setValidationRules(objList);
+
+//Creating a new custom picklist field for the "Status" of the product
+Schema.PicklistEntry active = new Schema.PicklistEntry('Active');
+Schema.PicklistEntry inactive = new Schema.PicklistEntry('Inactive');
+List<Schema.PicklistEntry> activeStatus = new List<Schema.PicklistEntry>();
+activeStatus.add(active);
+activeStatus.add(inactive);
+Schema.PicklistEntry[] picklistValues = new Schema.PicklistEntry[] {};
+picklistValues.addAll(activeStatus);
+Schema.PicklistEntry[] picklistEntries = new List<Schema.PicklistEntry> {};
+productFields.add(new Schema.PicklistEntry('Status__c', picklistValues));
+
+// Adding a trigger to the Product object to update the "Last Modified" field when an update is made
+trigger ProductUpdate on Product__c (before update) {
+  for(Product__c prod : Trigger.new) {
+    prod.LastModified = System.now();
+  }
+}
+
+// Creating a custom object called "Order" with various fields and relationships
+Object Order__c = Schema.getGlobalDescribe().get('Order__c');
+
+// Adding fields to the Order object
+productFields.add(Order__c.getField('OrderNumber__c'));
+productFields.add(Order__c.getField('OrderDate__c'));
+
+// Creating a master-detail relationship between Product and Order objects
+Schema.SObjectField orderField = new Schema.SObjectField();
+Schema.SObjectField referenceField = Product__c.Fields.Order__c;
+
+// Adding the master-detail relationship to the Order object
+productFields.add(new MasterDetail(orderField, referenceField));
+
+// Adding a filter to the lookup field to only show active products
+Schema.FilteredLookupInfo orderInfo = new Schema.FilteredLookupInfo(Product__c, 'Status__c');
+orderField.setFilteredLookupInfo(orderInfo);
+
+// Creating a trigger to calculate the total price of an order
+trigger OrderUpdate on Order__c (before insert, before update) {
+  for (Order__c ord : Trigger.new) {
+    List<Product__c> prods = [SELECT Price__c FROM Product__c WHERE Order__c = :ord.Id];
+    Decimal totalPrice = 0;
+    for (Product__c prod : prods) {
+      totalPrice += prod.Price__c;
+    }
+    ord.TotalPrice__c = totalPrice;
+  }
+}
+
+// Creating validation rules on the Order object to ensure that an order has at least one product, and that the order total is greater than 0
+Schema.ValidationRule orderProdRule = new Schema.ValidationRule();
+orderProdRule.setActive(true);
+orderProdRule.setConditionFormula('NOT(HasProducts__c)');
+orderProdRule.setErrorMessage('Order must have at least one product.');
+orderProdRule.setErrorDisplayField(Product__c.getField('Order__c'));
+objList.add(orderProdRule);
+
+Schema.ValidationRule orderTotalRule = new Schema.ValidationRule();
+orderTotalRule.setActive(true);
+orderTotalRule.setConditionFormula('TotalPrice__c = 0');
+orderTotalRule.setErrorMessage('Order total must be greater than 0.');
+orderTotalRule.setErrorDisplayField(Order__c.getField('TotalPrice__c'));
+objList.add(orderTotalRule);
+
+// Adding the validation rules to the Order object
+Schema.DescribeSObjectResult orderDesc = Order__c.getSObjectType().getDescribe();
+orderDesc.setValidationRules(objList);
+
+// Adding a custom method to the Order object to send a confirmation email to the customer
+public void sendConfirmationEmail(List<Order__c> orders) {
+  for (Order__c ord : orders) {
+    String body = 'Dear ' + ord.Customer__c + ', your order has been received and is being processed.';
+    Messaging.SingleEmailMessage email = new Messaging.SingleEmailMessage();
+    email.setToAddresses(ord.Customer__c);
+    email.setSubject('Order Confirmation - Order Number ' + ord.OrderNumber__c);
+    email.setPlainTextBody(body);
+    Messaging.sendEmail(new Messaging.SingleEmailMessage[] {email});
+  }
+}
+Schema.DescribeSObjectResult confirmEmailDesc = Order__c.getSObjectType().getDescribe();
+confirmEmailDesc.addMethod('sendConfirmationEmail', null, 'Send a confirmation email to the customer');

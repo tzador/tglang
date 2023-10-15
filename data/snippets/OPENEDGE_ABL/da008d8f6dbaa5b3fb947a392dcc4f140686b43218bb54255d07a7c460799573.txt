@@ -1,0 +1,62 @@
+/* This is a complex code snippet in OPENEDGE_ABL for generating a report */
+
+/* Define the temp-table for holding report data */
+
+DEFINE TEMP-TABLE tt_report
+    FIELD employee-name AS CHARACTER
+    FIELD department AS CHARACTER
+    FIELD salary AS DECIMAL
+    FIELD bonus AS DECIMAL
+    FIELD total-salary AS DECIMAL
+    INDEX employee-index IS UNIQUE PRIMARY employee-name
+    INDEX department-index IS UNIQUE department
+END.
+
+/* Query the employee data from the database and store it in the temp-table */
+
+FOR EACH employee NO-LOCK:
+    CREATE tt_report.
+    ASSIGN
+        tt_report.employee-name = employee.name
+        tt_report.department = employee.department
+        tt_report.total-salary = employee.salary + employee.bonus.
+
+    FIND tt_report WHERE tt_report.employee-name = employee.name
+    LOCK EXCLUSIVE NO-WAIT.
+
+    IF AVAIL tt_report THEN
+        ASSIGN
+            tt_report.salary = tt_report.salary + employee.salary
+            tt_report.bonus = tt_report.bonus + employee.bonus.
+    ELSE DO:
+        ASSIGN
+            tt_report.employee-name = employee.name
+            tt_report.department = employee.department
+            tt_report.salary = employee.salary
+            tt_report.bonus = employee.bonus.
+    END.
+
+    /* Calculate the total salary for each department and update the temp-table */
+
+    FIND tt_report WHERE tt_report.department = employee.department
+    LOCK EXCLUSIVE NO-WAIT.
+
+    IF AVAIL tt_report THEN
+        ASSIGN tt_report.total-salary = tt_report.total-salary + employee.salary + employee.bonus.
+    ELSE DO:
+        ASSIGN tt_report.total-salary = employee.salary + employee.bonus.
+    END.
+
+END.
+
+/* Sort the temp-table by department in ascending order */
+
+FOR EACH tt_report BY department:
+    DISPLAY
+        tt_report.employee-name "Employee Name"
+        tt_report.department "Department"
+        tt_report.salary "Salary"
+        tt_report.bonus "Bonus"
+        tt_report.total-salary "Total Salary".
+
+END. /* End of report generation */

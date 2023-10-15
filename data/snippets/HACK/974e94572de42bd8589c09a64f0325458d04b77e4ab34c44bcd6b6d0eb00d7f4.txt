@@ -1,0 +1,55 @@
+; This code snippet is in the HACK assembly language
+; It implements a recursive function to calculate the factorial of a given number
+
+; Initialize variables
+@n M=1     // @n holds the input number (default value = 1)
+@fact M=0  // @fact holds the result of the factorial
+
+; Function that calculates the factorial recursively
+(FACT)
+    @n D=A-1     // Decrement @n by 1
+    D;JLE BASE   // If @n <= 1, jump to BASE
+    @fact M=D    // Set @fact to @n
+    @3 D=D-A     // Calculate @n-1
+    @SP A=M      // Set A to the value at the top of the stack (i.e. current return address)
+    M=D M=A      // Store @n-1 at the top of the stack
+    @R14 M=A-1   // Set R14 to the current return address index - 1
+    @R15 M=D-1   // Set R15 to @n-1 - 1
+    D;JMP FACT   // Jump to FACT
+(BASE)
+    @SP A=M      // Set A to the value at the top of the stack (i.e. return address)
+    M=D M=A-1    // Store the result (i.e. @n!) at the top of the stack
+    @R14 M=M+1   // Set R14 to the current return address index + 1
+    @R15 D=M M=D // Set D to R15 (i.e. @n-1) and M to R15+1 (i.e. current return address index + 1)
+    A=D+A A=M    // Set A to R15+1 (i.e. current return address index + 1) and M to the stored return address
+    M=A M=D      // Set M to address stored in A and D to the current return address index
+    @SP M=M-1    // Decrement the stack pointer
+    A=A-1 A=M    // Set A to previous return address index - 1 and M to the return address stored at that index
+    D=A D=M-1 M=D;JMP EDX // Decrement stack pointer and jump to the address stored at that index
+(RW)
+    @SP A=M      // Set A to the value at the top of the stack (i.e. return address)
+    M=D M=A      // Set M to the result and A to the stored return address
+    @SP M=M+1    // Increment the stack pointer
+    A=A+1 M=M    // Set A to the next return address index and M to the stored return address
+    @SP M=M+1    // Increment the stack pointer
+    A=A+3 M=D    // Set A to the third return address index and M to the result
+
+; Main program
+(INIT)
+    @SP D=A     // Set D to address of the stack pointer
+    @LCL M=D    // Initialize local segment base to stack pointer address
+    @ARG M=D    // Initialize argument segment base to stack pointer address
+    @THIS M=D   // Initialize this segment base to stack pointer address
+    @THAT M=D   // Initialize that segment base to stack pointer address
+    @LCL D=A+1  // Set D to address of next stack frame
+    @THIS A=LCL // Set A to address of this segment
+    M=D M=A+1 M=0;JMP EDX // Store next stack frame address in this segment and set A to next stack frame
+(MAIN)
+    @fact M=0          // Set @fact to 0
+    @5 D=M             // Set D = number 5 (input to factorial function)
+    @MAIN M=M-1 A=M    // Set main to stored return address
+    M=D M=A+1 M=0;JMP FACT // Store input to factorial function and jump to FACT function
+
+; Dummy function used to end recursion
+(EDX)
+    0;JMP EDX    // Manually set return address to itself, effectively ending recursion

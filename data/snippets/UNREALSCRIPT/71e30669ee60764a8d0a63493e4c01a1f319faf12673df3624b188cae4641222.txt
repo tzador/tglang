@@ -1,0 +1,122 @@
+/*
+This is a complex code snippet in UnrealScript.
+It creates a character with customizable attributes and AI behaviors.
+*/
+class MyCharacter extends Pawn;
+
+var int Health; //initial health value for the character
+var string Name; //name of the character
+var float Speed; //movement speed of the character
+var SkeletalMesh Mesh; //mesh used for character model
+var AIController AIController; //handles AI behaviors and navigation for the character
+
+/*
+Function to initialize the character with default values.
+*/
+function InitCharacter()
+{
+    Super.InitCharacter();
+
+    //set default values for the character
+    Health = 100;
+    Name = "John Doe";
+    Speed = 500.0;
+
+    //spawn the character with the specified mesh
+    Mesh = Spawn(class'SkeletalMesh', self, '', Location, Rot, true);
+
+    //attach the mesh to the character
+    Mesh.SetOwner(pawn(self));
+
+    //initialize the AIController for the character
+    AIController = Spawn(class'AIController', self);
+    AIController.Possess(self);
+
+    //set up event listener for when the character takes damage
+    SetCollision(true, false); //enable collision detection for the character
+    OnTakeDamage.Add(Spawn(class'DamageTrigger', self)); //spawn a damage trigger on the character
+
+    //set up AI behaviors for the character
+    AIController.bUseReaching = true; //allow the AI to use pathfinding to reach its target
+    AIController.bAttackEnemy = true; //allow the AI to attack enemies
+    AIController.bDefend = true; //allow the AI to defend itself
+    AIController.bMove = true; //allow the AI to move towards its target
+
+    //set up event listener for when the character is damaged by the AI
+    AIController.OnDamageActor.Add(Spawn(class'DamageTrigger', self)); //spawn a damage trigger on the character
+}
+
+/*
+Function to customize the character's attributes.
+@param NewHealth - the new health value for the character
+@param NewName - the new name for the character
+@param NewSpeed - the new movement speed for the character
+*/
+function CustomizeCharacter(int NewHealth, string NewName, float NewSpeed)
+{
+    Health = NewHealth; //update the health value
+    Name = NewName; //update the name
+    Speed = NewSpeed; //update the movement speed
+
+    //modify the AIController settings to match the new values
+    AIController.Health = NewHealth;
+    AIController.Name = NewName;
+    AIController.MaxMoveSpeed = NewSpeed;
+}
+
+/*
+Function to handle the behavior of the character when it is damaged.
+@param Instigator - the actor responsible for the damage (in this case, probably the AI)
+@param DamageCauser - the object or weapon causing the damage
+@param Damage - the amount of damage taken
+@param HitLocation - the location on the character where the damage occurred
+@param HitNormal - the normal vector from the hit surface
+*/
+function TakeDamage(Actor Instigator, Actor DamageCauser, int Damage, vector HitLocation, vector HitNormal)
+{
+    //subtract the damage from the character's health
+    Health -= Damage;
+
+    //check if the character's health has reached 0
+    if(Health <= 0)
+    {
+        Die(); //character dies
+    }
+    else
+    {
+        //call function to handle damage events
+        OnDamage(Instigator, DamageCauser, Damage, HitLocation, HitNormal);
+    }
+}
+
+/*
+Function to handle the death of the character.
+*/
+function Die()
+{
+    //destroy the character and its components
+    Mesh.Destroy();
+    AIController.Destroy();
+    Destroy();
+
+    //broadcast an event to notify the game that the character has died
+    Level.Game.Broadcast(self, "CharacterDied");
+}
+
+defaultproperties
+{
+    Begin Object Class=SkeletalMeshComponent Name=CharacterMesh
+        SkeletalMesh=SkeletalMesh'MyMesh'
+        bRenderTranslucent=False
+        BlockNonZeroExtent=True
+        AlwaysLoadOnClient=True
+        AlwaysLoadOnServer=True
+        AnnounceHurtSound=False
+        BlockActors=True
+        bAcceptsDynamicDecals=False
+        bHasFrameRateSMoothing=False
+        bRecentlyRendered=False
+    End Object
+
+    Mesh=CharacterMesh
+}

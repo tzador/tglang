@@ -1,0 +1,294 @@
+// This contract implements a basic token with several features enabled
+contract BasicToken is Ownable, ERC20Detailed, ERC20Burnable, ERC20Mintable, ERC20Pausable {
+
+    using SafeMath for uint256;
+
+    // Event emitted when a new token is minted
+    event Mint(address indexed to, uint256 amount);
+
+    // Event emitted when tokens are burned
+    event Burn(address indexed burner, uint256 amount);
+
+    // Event emitted when token transfer is paused
+    event Paused(address indexed sender);
+
+    // Event emitted when token transfer is resumed
+    event Unpaused(address indexed sender);
+
+    // Mapping of balances held by the token holders
+    mapping (address => uint256) private _balances;
+
+    // Mapping of allowances for token transfer from a specific address
+    mapping (address => mapping (address => uint256)) private _allowed;
+
+    // Total sum of tokens in circulation
+    uint256 private _totalSupply;
+
+
+    /**
+     * @dev Creates the token with the specified name, symbol and decimals.
+     * @param name The name of the token.
+     * @param symbol The symbol of the token.
+     * @param decimals The number of decimals for the token.
+     */
+
+    constructor(string memory name, string memory symbol, uint8 decimals)
+        public
+        ERC20Detailed(name, symbol, decimals)
+    {
+        // Initialize token owner and initial supply
+        _totalSupply = 10000000000 * (10 ** uint256(decimals));
+        _balances[msg.sender] = _totalSupply;
+
+        // Emit event for minting initial supply to owner
+        emit Transfer(address(0), msg.sender, _totalSupply);
+    }
+
+    /**
+     * @dev Returns the total sum of tokens in circulation.
+     * @return The total supply of the token.
+     */
+
+    function totalSupply()
+        public
+        view
+        returns (uint256)
+    {
+        // Return total supply
+        return _totalSupply;
+    }
+
+    /**
+     * @dev Returns the balance of a specific address.
+     * @param owner The address to check for balance.
+     * @return The balance of the specified address.
+     */
+
+    function balanceOf(address owner)
+        public
+        view
+        returns (uint256)
+    {
+        // Return balance of specified address
+        return _balances[owner];
+    }
+
+    /**
+     * @dev Checks the amount of tokens that an owner has allowed a spender to transfer.
+     * @param owner The address that owns the tokens.
+     * @param spender The address that is allowed to transfer tokens.
+     * @return The remaining allowance for the specified address and spender.
+     */
+
+    function allowance(address owner, address spender)
+        public
+        view
+        returns (uint256)
+    {
+        // Return allowance for specified addresses
+        return _allowed[owner][spender];
+    }
+
+    /**
+     * @dev Transfers tokens from one address to another.
+     * @param to The address to transfer tokens to.
+     * @param value The amount of tokens to be transferred.
+     * @return A boolean value indicating whether the transfer was successful or not.
+     */
+
+    function transfer(address to, uint256 value)
+        public
+        returns (bool)
+    {
+        // Ensure destination address exists
+        require(to != address(0));
+
+        // Decrease balance of sender and increase balance of recipient
+        _balances[msg.sender] = _balances[msg.sender].sub(value);
+        _balances[to] = _balances[to].add(value);
+
+        // Emit event for the transfer
+        emit Transfer(msg.sender, to, value);
+
+        // Return success
+        return true;
+    }
+
+    /**
+     * @dev Allows a spender to transfer tokens on behalf of the owner.
+     * @param spender The address that is allowed to spend the tokens.
+     * @param value The amount of tokens being approved for transfer.
+     * @return A boolean value indicating whether the approval was successful or not.
+     */
+
+    function approve(address spender, uint256 value)
+        public
+        returns (bool)
+    {
+        // Ensure destination address exists
+        require(spender != address(0));
+
+        // Update allowance for specified addresses
+        _allowed[msg.sender][spender] = value;
+
+        // Emit event for the approval
+        emit Approval(msg.sender, spender, value);
+
+        // Return success
+        return true;
+    }
+
+    /**
+     * @dev Allows a spender to transfer a certain amount of tokens on behalf of the owner, if it is within
+     * the approved amount.
+     * @param from The address to transfer tokens from.
+     * @param to The address to transfer tokens to.
+     * @param value The amount of tokens to be transferred.
+     * @return A boolean value indicating whether the transfer was successful or not.
+     */
+
+    function transferFrom(address from, address to, uint256 value)
+        public
+        returns (bool)
+    {
+        // Ensure both addresses exist
+        require(from != address(0) && to != address(0));
+
+        // Decrease balance of sender and allowance for spender
+        _balances[from] = _balances[from].sub(value);
+        _allowed[from][msg.sender] = _allowed[from][msg.sender].sub(value);
+
+        // Increase balance of recipient and emit transfer event
+        _balances[to] = _balances[to].add(value);
+        emit Transfer(from, to, value);
+
+        // Return success
+        return true;
+    }
+
+    /**
+     * @dev Allows the token owner to mint new tokens.
+     * @param to The address to mint tokens to.
+     * @param value The amount of tokens to mint.
+     * @return A boolean value indicating whether the minting was successful or not.
+     */
+
+    function mint(address to, uint256 value)
+        public
+        onlyMinter
+        returns (bool)
+    {
+        // Ensure destination address and value are valid
+        require(to != address(0) && value > 0);
+
+        // Mint new tokens and update total supply
+        _totalSupply = _totalSupply.add(value);
+        _balances[to] = _balances[to].add(value);
+
+        // Emit event for minting
+        emit Mint(to, value);
+        emit Transfer(address(0), to, value);
+
+        // Return success
+        return true;
+    }
+
+    /**
+     * @dev Allows the token owner to burn existing tokens.
+     * @param value The amount of tokens to burn.
+     * @return A boolean value indicating whether the burning was successful or not.
+     */
+
+    function burn(uint256 value)
+        public
+        onlyHolder
+        returns (bool)
+    {
+        // Ensure value is within sender's balance
+        require(value <= _balances[msg.sender]);
+
+        // Burn tokens and update total supply
+        _totalSupply = _totalSupply.sub(value);
+        _balances[msg.sender] = _balances[msg.sender].sub(value);
+
+        // Emit event for burning
+        emit Burn(msg.sender, value);
+        emit Transfer(msg.sender, address(0), value);
+
+        // Return success
+        return true;
+    }
+
+    /**
+     * @dev Allows the token owner to burn tokens from a specific address.
+     * @param from The address to burn tokens from.
+     * @param value The amount of tokens to burn.
+     * @return A boolean value indicating whether the burning was successful or not.
+     */
+
+    function burnFrom(address from, uint256 value)
+        public
+        onlyMinter
+        returns (bool)
+    {
+        // Ensure both addresses exist and value is valid
+        require(from != address(0) && value > 0);
+
+        // Ensure value is within sender's allowance
+        require(value <= _allowed[from][msg.sender]);
+
+        // Reduce allowance for spender and burn tokens
+        _allowed[from][msg.sender] = _allowed[from][msg.sender].sub(value);
+        _totalSupply = _totalSupply.sub(value);
+        _balances[from] = _balances[from].sub(value);
+
+        // Emit event for burning
+        emit Burn(from, value);
+        emit Transfer(from, address(0), value);
+
+        // Return success
+        return true;
+    }
+
+    /**
+     * @dev Pauses all token transfers.
+     * @return A boolean value indicating whether the pausing was successful or not.
+     */
+
+    function pause()
+        public
+        onlyOwner
+        returns (bool)
+    {
+        // Ensure token transfers are not already paused
+        require(!paused);
+
+        // Set paused state to true and emit event
+        paused = true;
+        emit Paused(msg.sender);
+
+        // Return success
+        return true;
+    }
+
+    /**
+     * @dev Resumes all token transfers.
+     * @return A boolean value indicating whether the resuming was successful or not.
+     */
+
+    function unpause()
+        public
+        onlyOwner
+        returns (bool)
+    {
+        // Ensure token transfers are currently paused
+        require(paused);
+
+        // Set paused state to false and emit event
+        paused = false;
+        emit Unpaused(msg.sender);
+
+        // Return success
+        return true;
+    }
+}

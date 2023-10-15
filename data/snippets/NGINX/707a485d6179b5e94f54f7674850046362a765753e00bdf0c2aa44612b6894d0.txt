@@ -1,0 +1,67 @@
+# Basic HTTP server configuration
+
+# Set the server context
+server {
+  # Listen on port 80 for all requests
+  listen 80;
+
+  # Define server name and aliases (optional)
+  server_name example.com;
+  #server_name www.example.com;
+  
+  # Enable server status page (optional)
+  location /nginx_status {
+    # Allow access from all IP addresses
+    allow all;
+    # Restrict to localhost only (optional)
+    #allow 127.0.0.1;
+    
+    # Display basic server information
+    stub_status;
+  }
+  
+  # Set the root directory for serving files
+  root /var/www/html;
+  
+  # Enable gzip compression for all responses
+  gzip on;
+  # Define compression level (1-9)
+  gzip_comp_level 5;
+  # Define types of files to be compressed 
+  gzip_types text/plain text/css application/json;
+
+  # Configure caching for commonly used files
+  location ~* \.(jpg|jpeg|png|gif|ico)$ {
+    expires 30d;
+  }
+  location ~* \.(css|js)$ {
+    expires 7d;
+  }
+  
+  # Enable fastcgi caching (optional)
+  fastcgi_cache_path /var/cache/nginx levels=1:2 keys_zone=mycache:10m inactive=60m;
+  fastcgi_cache_key "$scheme$request_method$host$request_uri";
+  
+  # Define rules for handling various request types
+  location / {
+    # Enable HTTP/2 for all requests 
+    http2_push_preload on;
+    # Set cache control headers for files with known lengths (optional)
+    add_header Cache-Control "public, max-age=31536000, immutable";
+    # Handle PHP requests using PHP-FPM (assuming PHP-FPM is configured and running on the server)
+    location ~ \.php$ {
+      fastcgi_pass unix:/var/run/php-fpm.sock;
+      fastcgi_index index.php;
+      include fastcgi_params;
+      # Enable fastcgi caching for PHP responses (optional)
+      fastcgi_cache mycache;
+      fastcgi_cache_valid 200 60m;
+      fastcgi_cache_methods GET HEAD;
+      # Send requests with no file path to index.php (used for pretty URLs)
+      fastcgi_param SCRIPT_FILENAME $document_root/index.php;
+    }
+    
+    # Handle requests for static files using try_files 
+    try_files $uri $uri/ =404;
+  }
+}

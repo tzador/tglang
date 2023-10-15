@@ -1,0 +1,122 @@
+-- This code snippet is a generic dynamic array package in ADA
+
+generic
+   type Element_Type is private;               -- the type of the elements stored in the array
+   type Index_Type is range < >;               -- the index type for the array, can be any discrete type
+   type Size_Type is range < >;                -- the size type for the array, must be a signed integer type
+
+package Dynamic_Array is
+
+   type Array is private;                      -- private type to store the array data and metadata
+
+   function Create (Init : Size_Type) return Array;   -- Create a new dynamic array
+   function Length (A : Array) return Size_Type;       -- Get the number of elements in the array
+   procedure Set_Length (A: in out Array; Len: in Size_Type);    -- Set the length of the array
+   procedure Append (A: in out Array; Val: in Element_Type);    -- Add a new element to the end of the array
+   function Get (A : Array; I : Index_Type) return Element_Type;    -- Get the element at the specified index
+   procedure Set (A : in out Array; I : Index_Type; Val : in Element_Type);    -- Set the element at the specified index
+   procedure Delete (A : in out Array; I : Index_Type);    -- Delete the element at the specified index
+   function To_String (A : Array) return String;     -- Convert the array to a string
+
+private
+
+   type Array is record
+      Data : access Element_Type;          -- the array elements
+      Length : Size_Type;                  -- number of elements in the array
+      Capacity : Size_Type;                -- maximum number of elements the array can hold
+   end record;
+
+   procedure Resize (A : in out Array; New_Size : in Size_Type);    -- Resize the capacity of the array
+
+end Dynamic_Array;
+
+package body Dynamic_Array is
+
+   function Create (Init : Size_Type) return Array is
+      A : Array;
+   begin
+      if Init > 0 then
+         A.Capacity := Init;
+         A.Data := new Element_Type (1 .. Init);
+         A.Length := 0;
+      else
+         raise Constraint_Error;
+      end if;
+
+      return A;
+   end Create;
+
+   function Length (A : Array) return Size_Type is
+   begin
+      return A.Length;
+   end Length;
+
+   procedure Set_Length (A: in out Array; Len: in Size_Type) is
+   begin
+      A.Length := Len;
+      if Len > A.Capacity then
+         Resize (A, 2 * Len);
+      end if;
+   end Set_Length;
+
+   procedure Append (A: in out Array; Val: in Element_Type) is
+   begin
+      if A.Length = A.Capacity then
+         Resize (A, 2 * A.Length);
+      end if;
+
+      A.Length := A.Length + 1;
+      A.Data (A.Length) := Val;
+   end Append;
+
+   function Get (A : Array; I : Index_Type) return Element_Type is
+   begin
+      if I in A.Data'Range then
+         return A.Data(I);
+      else
+         raise Constraint_Error;
+      end if;
+   end Get;
+
+   procedure Set (A : in out Array; I : Index_Type; Val : in Element_Type) is
+   begin
+      if I in A.Data'Range then
+         A.Data(I) := Val;
+      else
+         raise Constraint_Error;
+      end if;
+   end Set;
+
+   procedure Delete (A : in out Array; I : Index_Type) is
+   begin
+      for J in I+1 .. A.Length loop
+         A.Data (J - 1) := A.Data (J);
+      end loop;
+
+      A.Length := A.Length - 1;
+   end Delete;
+
+   function To_String (A : Array) return String is
+      Res : String (1 .. A.Length * Element_Type'Output_Width);
+   begin
+      for I in A.Data'Range loop
+         Res (I * Element_Type'Output_Width + 1 .. (I + 1) * Element_Type'Output_Width) :=
+            Element_Type'Image (A.Data (I));
+      end loop;
+
+      return Res;
+   end To_String;
+
+   procedure Resize (A : in out Array; New_Size : in Size_Type) is
+      Temp : access Element_Type;
+   begin
+      Temp := new Element_Type (1 .. New_Size);
+      for I in 1 .. A.Length loop
+         Temp (I) := A.Data (I);
+      end loop;
+
+      A.Data := Temp;
+      A.Capacity := New_Size;
+   end Resize;
+
+end Dynamic_Array;

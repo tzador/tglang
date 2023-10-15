@@ -1,0 +1,40 @@
+use std::io;
+use std::thread;
+use std::sync::{Arc, Mutex};
+
+// Define a struct to hold the shared data between threads
+struct SharedData {
+    data: Vec<i32>,
+    sum: u64
+}
+
+fn main() {
+    // Create a mutex to ensure safe access to the shared data
+    let shared_data = Arc::new(Mutex::new(SharedData { data: vec![1, 2, 3, 4, 5], sum: 0 }));
+
+    // Spawn multiple threads to modify the shared data simultaneously
+    for _ in 0..5 {
+        let shared_data = Arc::clone(&shared_data);
+        thread::spawn(move || {
+            // Lock the mutex to access the shared data
+            let mut data = shared_data.lock().unwrap();
+
+            // Modify the data by squaring each element and updating the sum
+            for num in &mut data.data {
+                *num = *num * *num;
+                data.sum += *num as u64;
+            }
+        });
+    }
+
+    // Join all the threads to ensure all modifications have been made
+    for handle in thread::scoped_pool::Pool::new(5) {
+        handle.join();
+    }
+
+    // Lock the mutex again to access the updated shared data
+    let data = shared_data.lock().unwrap();
+
+    // Print out the updated data and sum
+    println!("Data: {:?}, Sum: {}", data.data, data.sum);
+}

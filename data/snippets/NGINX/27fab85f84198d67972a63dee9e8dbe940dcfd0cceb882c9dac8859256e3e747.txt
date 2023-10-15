@@ -1,0 +1,42 @@
+# Configure the server block for port 80
+server {
+    listen 80; # Listen on port 80
+    server_name example.com; # Set the server name
+    root /var/www/example; # Set the root directory
+    index index.html index.htm; # Define which files are treated as index files
+
+    # Enable gzip compression
+    gzip on;
+    gzip_comp_level 5; # Set the compression level
+    gzip_min_length 1000; # Set the minimum length for compression
+    gzip_types text/plain text/css application/json; # Define which file types should be compressed
+    gzip_proxied any; # Enable compression for proxied requests
+
+    # Set up caching for certain file types
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js) {
+        expires 30d; # Set the expiration time for these files
+        add_header Cache-Control "public"; # Specify that these files can be cached by browser and proxies
+        proxy_ignore_headers Set-Cookie; # Ignore cookies when caching
+        proxy_cache_bypass $http_pragma; # Bypass caching when the "pragma" header is present
+        proxy_cache_revalidate on; # Revalidate cached files when a new request is made
+        proxy_cache_min_uses 2; # Minimum number of requests before caching is used
+        proxy_cache_valid 30d; # Set how long the file will be considered valid in the cache
+        proxy_cache_key "$scheme$request_method$host$request_uri"; # Define the key used for caching
+        proxy_cache_bypass $http_secret; # Bypass caching when the "secret" header is present
+        proxy_cache_use_stale error timeout invalid_header update; # Use stale cached response if there are errors or timeouts
+    }
+
+    # Enable access and error logging
+    access_log /var/log/nginx/access.log;
+    error_log  /var/log/nginx/error.log;
+
+    # Configure SSL for HTTPS
+    listen 443 ssl; # Listen on port 443 with SSL enabled
+    ssl_certificate /etc/nginx/ssl/certificate.crt; # Set the path to the SSL certificate
+    ssl_certificate_key /etc/nginx/ssl/private.key; # Set the path to the private key
+    ssl_protocols TLSv1.2; # Set the supported SSL protocols
+    ssl_ciphers HIGH:!aNULL:!MD5; # Set the supported SSL ciphers
+
+    # Redirect all HTTP requests to HTTPS
+    return 301 https://$host$request_uri;
+}

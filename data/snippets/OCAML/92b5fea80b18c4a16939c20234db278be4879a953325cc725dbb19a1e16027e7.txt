@@ -1,0 +1,177 @@
+(** A module that implements a binary search tree *)
+ 
+(* Signature for a binary search tree *)
+module type BST = sig
+  type key
+  type 'a t
+
+  (* Functions for creating a new tree *)
+  val empty : 'a t
+  val singleton : key -> 'a -> 'a t
+
+  (* Functions for inserting and removing elements *)
+  val insert : key -> 'a -> 'a t -> 'a t
+  val remove : key -> 'a t -> 'a t
+
+  (* Functions for searching and checking for existence of elements *)
+  val find : key -> 'a t -> 'a option
+  val mem : key -> 'a t -> bool
+
+  (* Functions for navigating the tree *)
+  val get_min_key : 'a t -> key option
+  val get_max_key : 'a t -> key option
+  val get_left_subtree : 'a t -> 'a t
+  val get_right_subtree : 'a t -> 'a t
+
+  (* Functions for checking the properties of a tree *)
+  val is_empty : 'a t -> bool
+  val is_bst : 'a t -> bool
+  val is_balanced : 'a t -> bool
+
+  (* Functions for traversing the tree *)
+  val preorder : (key -> 'a -> unit) -> 'a t -> unit
+  val inorder : (key -> 'a -> unit) -> 'a t -> unit
+  val postorder : (key -> 'a -> unit) -> 'a t -> unit
+end
+
+(* Implementation of the binary search tree module *)
+module BST : BST = struct
+  type key = int
+  type 'a t = Empty | Node of key * 'a * 'a t * 'a t
+
+  (* Functions for creating a new tree *)
+  let empty = Empty
+  let singleton k v = Node (k, v, Empty, Empty)
+
+  (* Function to compare keys *)
+  let compare key1 key2 =
+    if key1 < key2 then -1
+    else if key1 > key2 then 1
+    else 0
+
+  (* Functions for inserting and removing elements *)
+  let rec insert key value t =
+    match t with
+    | Empty -> Node (key, value, Empty, Empty)
+    | Node (k, v, left, right) ->
+      let cmp = compare key k in
+      if cmp = 0 then Node (k, value, left, right)
+      else if cmp < 0 then Node (k, v, insert key value left, right)
+      else Node (k, v, left, insert key value right)
+
+  let rec remove key t =
+    match t with
+    | Empty -> Empty
+    | Node (k, v, left, right) ->
+      let cmp = compare key k in
+      if cmp = 0 then
+        match (left, right) with
+        | (Empty, Empty) -> Empty
+        | (Empty, _) -> right
+        | (_, Empty) -> left
+        | (_, _) ->
+          let min_key = get_min_key right in
+          let min_val = find_exn min_key right in
+          Node (min_key, min_val, left, remove min_key right)
+      else if cmp < 0 then Node (k, v, remove key left, right)
+      else Node (k, v, left, remove key right)
+
+  (* Functions for searching and checking for existence of elements *)
+  let rec find key t =
+    match t with
+    | Empty -> None
+    | Node (k, v, left, right) ->
+      let cmp = compare key k in
+      if cmp = 0 then Some v
+      else if cmp < 0 then find key left
+      else find key right
+
+  let rec mem key t =
+    match t with
+    | Empty -> false
+    | Node (k, v, left, right) ->
+      let cmp = compare key k in
+      if cmp = 0 then true
+      else if cmp < 0 then mem key left
+      else mem key right
+
+  (* Functions for navigating the tree *)
+  let rec get_min_key t =
+    match t with
+    | Empty -> None
+    | Node (k, _, left, _) -> 
+      if is_empty left then Some k
+      else get_min_key left
+
+  let rec get_max_key t =
+    match t with
+    | Empty -> None
+    | Node (k, _, _, right) ->
+      if is_empty right then Some k
+      else get_max_key right
+
+  let rec get_left_subtree t =
+    match t with
+    | Empty -> Empty
+    | Node (_, _, left, _) -> left
+
+  let rec get_right_subtree t =
+    match t with
+    | Empty -> Empty
+    | Node (_, _, _, right) -> right
+
+  (* Functions for checking the properties of a tree *)
+  let is_empty t =
+    match t with
+    | Empty -> true
+    | _ -> false
+
+  let rec is_bst t =
+    match t with
+    | Empty -> true
+    | Node (k, _, left, right) ->
+      let valid_left = 
+        match get_max_key left with
+        | Some max_key -> compare max_key k < 0
+        | None -> true
+      in
+      let valid_right = 
+        match get_min_key right with
+        | Some min_key -> compare k min_key < 0
+        | None -> true
+      in
+      valid_left && valid_right && is_bst left && is_bst right
+
+  let rec is_balanced t =
+    match t with
+    | Empty -> true
+    | Node (_, _, left, right) ->
+      let diff = abs (height left - height right) in
+      if diff > 1 then false
+      else is_balanced left && is_balanced right
+
+  (* Functions for traversing the tree *)
+  let rec preorder f t =
+    match t with
+    | Empty -> ()
+    | Node (k, v, left, right) ->
+      f k v;
+      preorder f left;
+      preorder f right
+
+  let rec inorder f t =
+    match t with
+    | Empty -> ()
+    | Node (k, v, left, right) ->
+      inorder f left;
+      f k v;
+      inorder f right
+
+  let rec postorder f t =
+    match t with
+    | Empty -> ()
+    | Node (k, v, left, right) ->
+      postorder f left;
+      postorder f right;
+      f k v
+end

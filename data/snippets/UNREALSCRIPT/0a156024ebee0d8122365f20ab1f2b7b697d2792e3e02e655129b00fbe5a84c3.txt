@@ -1,0 +1,226 @@
+/*
+ * This is a complex code snippet in UNREALSCRIPT.
+ * It is used to create a custom game mode in the popular video game, Unreal Tournament.
+ * This code creates a capture the flag game mode with additional features such as team swapping and power-ups.
+ */
+class CTFGame extends UTGame;
+
+// Define the variables for team colors
+var Color Team1Color;
+var Color Team2Color;
+
+// Define the variables for flag locations
+var Flags Team1Flag;
+var Flags Team2Flag;
+
+// Define the variables for power-up locations
+var PowerUps Team1PowerUp;
+var PowerUps Team2PowerUp;
+
+// Define the variables for game settings
+var bool bAutoTeamBalance;
+var int MaxTeamSize;
+var int MinTeamSize;
+
+// Set up the game mode
+function SetupGame()
+{
+    // Call the parent function first
+    Super.SetupGame();
+
+    // Set up team colors
+    Team1Color = #FF0000; // Red
+    Team2Color = #0000FF; // Blue
+
+    // Set up flag locations
+    Team1Flag = Flags(LocationManager.FindActor("Flag1"));
+    Team2Flag = Flags(LocationManager.FindActor("Flag2"));
+
+    // Set up power-up locations
+    Team1PowerUp = PowerUps(LocationManager.FindActor("PowerUp1"));
+    Team2PowerUp = PowerUps(LocationManager.FindActor("PowerUp2"));
+
+    // Set up game settings
+    bAutoTeamBalance = true;
+    MaxTeamSize = 6;
+    MinTeamSize = 2;
+
+    // Call function to swap teams
+    SwapTeams();
+}
+
+// Function to swap teams
+function SwapTeams()
+{
+    // Check if auto team balance is enabled
+    if (bAutoTeamBalance)
+    {
+        // Get number of players on each team
+        local int Team1Players;
+        local int Team2Players;
+        foreach UTPlayerController(PlayerController)
+        {
+            if (PlayerController.PlayerReplicationInfo.Team == 0)
+            {
+                Team1Players++;
+            }
+            else
+            {
+                Team2Players++;
+            }
+        }
+
+        // Calculate the difference between team sizes
+        local int Difference = Abs(Team1Players - Team2Players);
+
+        // If difference is greater than 1, swap the teams
+        if (Difference > 1)
+        {
+            foreach UTPlayerController(PlayerController)
+            {
+                // Swap team for each player on the larger team
+                if (Difference == Team1Players)
+                {
+                    if (PlayerController.PlayerReplicationInfo.Team == 0)
+                    {
+                        PlayerController.PlayerReplicationInfo.Team = 1;
+                    }
+                }
+                else if (Difference == Team2Players)
+                {
+                    if (PlayerController.PlayerReplicationInfo.Team == 1)
+                    {
+                        PlayerController.PlayerReplicationInfo.Team = 0;
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Function to handle flag captures
+function FlagCapture(int TeamNumber)
+{
+    // Notify players of flag capture
+    foreach UTPlayerController(PlayerController)
+    {
+        PlayerController.ClientMessage("Team" $ tostring(TeamNumber) $ "has captured the flag!");
+    }
+
+    // End the round and award points to capturing team
+    UTGameState.EndRound(TeamNumber);
+    UTGameState.ScorePoints(TeamNumber, 1);
+}
+
+// Function to handle power-up pickups
+function PowerUpPickup(int TeamNumber)
+{
+    // Give power-up to player on the same team
+    foreach UTPlayerReplicationInfo(Player)
+    {
+        if (Player.Team == TeamNumber)
+        {
+            Player.Health = 100;
+        }
+    }
+}
+
+// Override the function to handle player deaths
+event PlayerDied(UTPlayerController Killer, UTPlayerController KilledPlayer, UTPawn KilledPawn)
+{
+    // Call the parent function first
+    Super.PlayerDied(Killer, KilledPlayer, KilledPawn);
+
+    // Handle player death
+    // If kill was from enemy team, respawn player at the enemy base
+    if (KilledPlayer.PlayerReplicationInfo.Team != Killer.PlayerReplicationInfo.Team)
+    {
+        // Set player location to enemy flag location
+        KilledPlayer.pawn.SetLocation(Killer.PlayerReplicationInfo.Team == 0 ? Team2Flag.GetLocation() : Team1Flag.GetLocation());
+    
+        // Notify players of player death
+        foreach UTPlayerController(PlayerController)
+        {
+            PlayerController.ClientMessage("Player" $ KilledPlayer.PlayerReplicationInfo.PlayerName $ "has been eliminated!");
+        }
+    }
+}
+
+// Override the function to handle end match
+event MatchEnded(bool bIsDraw)
+{
+    // Call the parent function first
+    Super.MatchEnded(bIsDraw);
+
+    // Handle end match
+    // Print winning team
+    if (bIsDraw)
+    {
+        // Notify players of draw
+        foreach UTPlayerController(PlayerController)
+        {
+            PlayerController.ClientMessage("The match has ended in a draw.");
+        }
+    }
+    else
+    {
+        // Notify players of winning team
+        foreach UTPlayerReplicationInfo(Player)
+        {
+            if (Player.Team == 0)
+            {
+                // Notify team 1 players
+                foreach UTPlayerController(PlayerController)
+                {
+                    if (PlayerController.PlayerReplicationInfo.Team == 0)
+                    {
+                        PlayerController.ClientMessage("Team 1 has won the match!");
+                    }
+                    else
+                    {
+                        PlayerController.ClientMessage("Team 1 has lost the match.");
+                    }
+                }
+            }
+            else
+            {
+                // Notify team 2 players
+                foreach UTPlayerController(PlayerController)
+                {
+                    if (PlayerController.PlayerReplicationInfo.Team == 1)
+                    {
+                        PlayerController.ClientMessage("Team 2 has won the match!");
+                    }
+                    else
+                    {
+                        PlayerController.ClientMessage("Team 2 has lost the match.");
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Override the function to handle player disconnection
+event KilledBy(SuperController Killer)
+{
+    // Call the parent function first
+    Super.KilledBy(Killer);
+
+    // Handle player disconnection
+    // Check if player was on a team
+    if (PlayerReplicationInfo != None)
+    {
+        // Notify players of disconnection
+        foreach UTPlayerController(PlayerController)
+        {
+            PlayerController.ClientMessage("Player" $ PlayerReplicationInfo.PlayerName $ "has disconnected.");
+        }
+
+        // Set team to none
+        PlayerReplicationInfo.Team = -1;
+    
+        // Call function to swap teams
+        SwapTeams();
+    }
+}

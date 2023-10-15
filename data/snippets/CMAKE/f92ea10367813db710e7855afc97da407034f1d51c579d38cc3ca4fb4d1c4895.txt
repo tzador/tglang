@@ -1,0 +1,45 @@
+# Add required libraries and header files
+include_directories(${PROJECT_SOURCE_DIR}/include)
+target_link_libraries(${PROJECT_NAME} ${OpenCL_INCLUDE_DIRS})
+
+# Set compiler flags
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -O3 -g -DDEBUG")
+
+# Set up build type options
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg -DENABLE_DEBUG")
+endif (CMAKE_BUILD_TYPE STREQUAL "Debug")
+if (CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNDEBUG")
+endif (CMAKE_BUILD_TYPE STREQUAL "Release")
+
+# Set up OpenCL kernel files
+file(GLOB KERNEL_FILES ${CMAKE_SOURCE_DIR}/src/*.cl)
+source_group("Kernels" FILES ${KERNEL_FILES})
+foreach(KERNEL_FILE ${KERNEL_FILES})
+    get_filename_component(KERNEL_NAME ${KERNEL_FILE} NAME)
+    set(KERNEL_OUTPUT ${PROJECT_BINARY_DIR}/kernels/${KERNEL_NAME}.bin)
+    add_custom_command(
+        OUTPUT ${KERNEL_OUTPUT}
+        COMMAND ${CMAKE_COMMAND} -E copy ${KERNEL_FILE} ${KERNEL_OUTPUT}
+        DEPENDS ${KERNEL_FILE}
+        COMMENT "Generating OpenCL kernel binary ${KERNEL_NAME}"
+    )
+    list(APPEND KERNEL_BINARIES ${KERNEL_OUTPUT})
+endforeach()
+add_custom_target(kernel_check ALL DEPENDS ${KERNEL_BINARIES})
+
+# Include OpenCL files in executable
+include_directories(${CMAKE_SOURCE_DIR}/src)
+file(GLOB SOURCES ${CMAKE_SOURCE_DIR}/src/*.cpp ${CMAKE_SOURCE_DIR}/src/*.hpp)
+add_executable(${EXECUTABLE_NAME} ${SOURCES} ${KERNEL_BINARIES})
+set_target_properties(${EXECUTABLE_NAME} PROPERTIES COMPILE_FLAGS "-std=c++14")
+
+# Set install directory
+if (NOT DEFINED CMAKE_INSTALL_PREFIX)
+    set(CMAKE_INSTALL_PREFIX ${PROJECT_BINARY_DIR}/install)
+endif (NOT DEFINED CMAKE_INSTALL_PREFIX)
+
+# Add installation rule
+install(TARGETS ${EXECUTABLE_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX})
+install(FILES ${KERNEL_BINARIES} DESTINATION ${CMAKE_INSTALL_PREFIX})

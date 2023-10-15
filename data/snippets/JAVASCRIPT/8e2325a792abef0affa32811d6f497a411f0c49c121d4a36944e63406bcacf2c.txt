@@ -1,0 +1,79 @@
+const express = require('express'); // import the Express framework
+const app = express(); // create an instance of Express
+const bodyParser = require('body-parser'); // import the body-parser middleware
+const MongoClient = require('mongodb').MongoClient; // import the MongoDB client
+const port = process.env.PORT || 3000; // set the port for the server to run on
+
+// Middleware to parse incoming requests to JSON format
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+
+// Middleware to handle CORS (Cross-Origin Resource Sharing) errors
+// This allows the server to accept requests from different origins
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  next();
+});
+
+// Function to connect to MongoDB database and handle any errors
+const connectToDB = (callback) => {
+  MongoClient.connect('mongodb://localhost:27017/mydatabase', (err, db) => {
+    if (err) {
+      console.log(err);
+    } else {
+      console.log('Successfully connected to the database!');
+      callback(db);
+    }
+  });
+};
+
+// Endpoint to handle GET requests to the server
+app.get('/items', (req, res) => {
+  // Calling the connectToDB function to connect to the database
+  // The callback function will receive the database as a parameter
+  connectToDB((db) => {
+    // Getting the 'items' collection from the database
+    const collection = db.collection('items');
+
+    // Finding all the items in the collection and converting them to an array
+    collection.find({}).toArray((err, items) => {
+      if (err) {
+        console.log(err);
+      } else {
+        // Sending the items as a JSON response
+        res.json(items);
+      }
+      // Close the database connection
+      db.close();
+    });
+  });
+});
+
+// Endpoint to handle POST requests to the server
+app.post('/items', (req, res) => {
+  // Calling the connectToDB function to connect to the database
+  // The callback function will receive the database as a parameter
+  connectToDB((db) => {
+    // Getting the 'items' collection from the database
+    const collection = db.collection('items');
+
+    // Inserting the new item provided in the request body to the collection
+    collection.insertOne(req.body, (err, result) => {
+      if (err) {
+        console.log(err);
+      } else {
+        // Sending a success message as a JSON response
+        res.json({ message: 'Item added successfully!' });
+      }
+      // Close the database connection
+      db.close();
+    });
+  });
+});
+
+// Start the server and listen for requests on the specified port
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});

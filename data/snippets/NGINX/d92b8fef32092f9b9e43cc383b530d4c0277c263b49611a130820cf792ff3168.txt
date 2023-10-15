@@ -1,0 +1,30 @@
+#This is a server block in the NGINX configuration file
+server {
+    listen 80 default_server; #sets the port number to listen on, in this case port 80
+    server_name example.com; #sets the server name for this block, in this case it is "example.com"
+    
+    location / { #sets the location for this server block to the root directory
+        root /var/www/example.com; #specifies the root directory for this location block
+        index index.html index.htm; #sets the index files to be served, in this case it will look for index.html or index.htm
+        
+        try_files $uri $uri/ =404; #tells NGINX to try to find the requested file in the root directory, and if not found, it will return a 404 error
+    }
+    
+    location /api { #sets a location for API requests
+        proxy_pass http://127.0.0.1:3000; #forwards the request to a backend server listening on port 3000
+        proxy_set_header Host $http_host; #sets the Host header to be passed to the backend server
+        proxy_set_header X-Real-IP $remote_addr; #passes the client's IP address to the backend server
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; #passes the actual client IP address to the backend server using the X-Forwarded-For header
+    }
+    
+    error_page 404 /404.html; #sets a custom 404 error page for any requests that result in a 404 error
+    
+    location = /404.html { #specifically sets the location for the 404 error page
+        internal; #tells NGINX to only serve this page internally and not expose it to the outside world
+    }
+    
+    location ~ \.(png|jpg|jpeg|gif|ico|svg)$ { #creates a location block for serving image files
+        try_files $uri $uri/ /index.html; #tells NGINX to try to find the requested image file, and if not found, it will serve the index.html file
+        add_header Cache-Control "public, max-age=3600"; #sets a cache control header to cache the image for 1 hour
+    }
+}

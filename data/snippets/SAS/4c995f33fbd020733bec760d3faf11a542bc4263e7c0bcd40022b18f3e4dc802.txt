@@ -1,0 +1,58 @@
+/*This is a SAS code snippet for performing multivariate logistic regression*/
+
+/*Data Preparation*/
+data mydata;
+    /*create new variable for log-transformed target variable*/
+    ln_y = log(y);
+    /*create new variable for standardized numeric predictor*/
+    std_x = (x - mean_x) / std_x;
+    /*create new variable for dummy-coded categorical predictor*/
+    if category = "A" then dummy_x = 1;
+    else dummy_x = 0;
+run;
+
+/*Model Fitting*/
+proc logistic data = mydata;
+    /*set the target variable and input variables for the regression model*/
+    model ln_y = std_x dummy_x;
+    /*set option for maximum iterations and convergence criteria*/
+    maxiter = 100;
+    tol = 0.0001;
+    /*set option for selecting the best model based on AIC criterion*/
+    selection = AIC;
+    /*perform stepwise selection for variable selection*/
+    selection_method = stepwise;
+run;
+
+/*Model Evaluation*/
+proc logistic data = mydata outmodel = model;
+    /*use the best model selected from the previous step*/
+    model ln_y = std_x dummy_x;
+    /*set option to output odds ratios for predictor variables*/
+    ods_output OddsRatios = odds;
+    /*evaluate the model's performance on a holdout dataset*/
+    holdout = 0.3;
+run;
+
+/*Model Scoring*/
+data model_scored;
+    /*load holdout data for scoring*/
+    set model (where = (_type_ = 'SCORE'));
+    /*score the data using the best model selected from the previous step*/
+    score ln_y = prob_y;
+run;
+
+/*Output Results*/
+/*print the odds ratios for predictor variables*/
+proc print data = odds noobs;
+    var Variable Intercept std_x dummy_x;
+    title "Odds Ratios for Predictor Variables";
+run;
+
+/*create a scatter plot of predicted probabilities and actual outcomes*/
+proc sgplot data = model_scored;
+    scatter x = prob_y y = y;
+    xaxis label = "Predicted Probability";
+    yaxis label = "Actual Outcome";
+    title "Predicted Probabilities vs Actual Outcomes";
+run;

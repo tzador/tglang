@@ -1,0 +1,38 @@
+/*
+Program: Spectral Line Fitting
+Author: John Smith
+Description: A program in IDL to fit spectral lines in a certain region of a spectrum, using the least squares method.
+*/
+PRO fit_spectral_line, spectrum, line_region, line_model
+
+; Define variables and constants
+wavelength = findgen(1000) ; generate a 1D array of 1000 points for the wavelength axis
+flux = spectrum(line_region) ; extract the flux values from the spectrum in the specified line region
+n = n_elements(wavelength) ; get the number of points in the wavelength axis
+m = n_elements(line_model) ; get the number of parameters in the line model
+
+; Create design matrix by evaluating the line model at each wavelength point
+A = replicate(1, n, m) ; initialize the design matrix with all ones
+for i=0, m-1 do begin
+    A[:,i] = line_model[i](wavelength) ; evaluate the line model function at each point on the wavelength axis, storing the results in the corresponding column of the design matrix
+endfor
+
+; Calculate the pseudo-inverse of the design matrix
+AtA = A##A ; calculate the matrix product of A and its transpose
+AtA_inv = invert(AtA) ; calculate the inverse of AtA using the built-in function
+At = transpose(A) ; calculate the transpose of A
+A_pinv = AtA_inv##At ; calculate the pseudo-inverse of A using the inverse of AtA and the transpose of A
+
+; Fit the spectral line by solving the least squares problem
+params = fltarr(m) ; initialize an array to store the fit parameters
+param_errors = fltarr(m) ; initialize an array to store the errors on the fit parameters
+cov_matrix = fltarr(m, m) ; initialize a matrix to store the covariance matrix
+params = A_pinv##flux ; solve the least squares problem by multiplying the pseudo-inverse of A with the flux values
+cov_matrix = (AtA_inv / n) ; calculate the covariance matrix using the pseudo-inverse of A and the value of n
+param_errors = diag(cov_matrix) ; extract the diagonal elements of the covariance matrix as the errors on the fit parameters
+
+; Print the results
+print, 'Fit parameters: ', params
+print, 'Parameter errors: ', param_errors
+plot, wavelength, flux, /xsty ; plot the original spectrum
+lineplot, wavelength, params[0] + params[1]*line_model[0](wavelength), /overplot ; plot the fitted line on top of the original spectrum

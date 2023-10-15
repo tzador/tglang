@@ -1,0 +1,49 @@
+//Create a task to build a JAR file
+task createJar(type: Jar, dependsOn: assemble) {
+    baseName = 'myProject'
+    from sourceSets.main.output
+    manifest {
+        attributes 'Main-Class': 'com.example.Main'
+    }
+    inputs.property('version', '1.0')
+    doLast {
+        println 'Creating a JAR file...'
+    }
+}
+
+//Define custom configurations for dependencies
+configurations { 
+    //Declare a new configuration
+    jdbc
+    //Set the compile classpath for this configuration
+    jdbcCompile.extendsFrom(inputs.files('lib/mysql-connector-java-8.0.17.jar'))
+}
+
+//Define a task to run a Java application
+task runApp(type: JavaExec, dependsOn: createJar) {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'com.example.Main'
+    args '-d', 'input.txt'
+    systemProperty 'log4j.configuration', 'log4j.properties'
+    //Use custom configuration for dependencies
+    classpath = configurations.jdbc
+    maxHeapSize = '512m'
+    standardInput(System.in)
+}
+
+//Define a task to run tests
+task runTests(type: Test, dependsOn: compileTestJava) {
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    reports.html.outputDir = file('build/reports/tests')
+}
+
+//Add a task before build starts
+preBuild {
+    println 'Starting build...'
+}
+
+//Add a task after build finishes
+gradle.buildFinished {
+    println 'Build finished!'
+}

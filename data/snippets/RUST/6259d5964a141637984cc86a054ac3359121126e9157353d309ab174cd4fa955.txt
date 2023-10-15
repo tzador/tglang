@@ -1,0 +1,50 @@
+use std::{io::Write, mem, net::{IpAddr, Ipv4Addr, SocketAddr}};
+use tokio::{net::{TcpStream, UdpSocket}, sync::mpsc};
+
+async fn main() {
+    let ip_addr = IpAddr::V4(Ipv4Addr::LOCALHOST);
+    let socket_addr = SocketAddr::new(ip_addr, 8080);
+    let mut listener = TcpStream::bind(socket_addr).await.unwrap();
+
+    let (sender, mut receiver) = mpsc::channel(32);
+
+    loop {
+        // Accept a new TCP connection
+        let (mut socket, addr) = listener.accept().await.unwrap();
+
+        // Clone the sender so it can be moved into the new async tasks
+        let sender_clone = sender.clone();
+
+        // Spawn a new async task to handle this connection
+        tokio::spawn(async move {
+            // Create a buffer to hold incoming data
+            let mut buf = [0; 1024];
+
+            // Read data from the socket into the buffer
+            match socket.read(&mut buf).await {
+                Ok(0) => {
+                    // If 0 bytes were read, the connection was closed
+                    println!("Connection closed: {}", addr);
+                }
+                
+                // If we received some bytes, send them to the receiver channel
+                Ok(n) => sender_clone.send(buf[0..n].to_vec()).await,
+                
+                // If there was an error, print it out
+                Err(e) => eprintln!("Error reading from socket: {}", e),
+            }
+        });
+
+        // Create a buffer to hold incoming UDP packets
+        let mut udp_buf = [0; 1024];
+
+        // Bind a UDP socket to the same address as the TCP listener
+        let udp_socket = UdpSocket::bind(socket.local_addr().unwrap()).await.unwrap();
+
+        // Receive data from the UDP socket into the buffer
+        let (num_bytes, _) = udp_socket.recv_from(&mut udp_buf).await.unwrap();
+
+        // Send the received UDP data to the receiver channel
+        sender.send(udp_buf[0..num_bytes].to_vec()).await;
+    }
+}

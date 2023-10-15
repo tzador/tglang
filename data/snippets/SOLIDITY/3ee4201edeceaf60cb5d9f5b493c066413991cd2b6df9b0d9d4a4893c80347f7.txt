@@ -1,0 +1,270 @@
+/**
+ * @dev Contract to store and transfer ERC20 tokens.
+ * @title Token
+ * @author Example
+ */
+ 
+pragma solidity ^0.5.0; //specify compiler version
+
+/**
+ * @dev Library for safe mathematical operations.
+ */
+ 
+library SafeMath {
+    /**
+     * @dev Function to perform addition without risk of overflow.
+     * @param a UInt to add.
+     * @param b UInt to add.
+     * @return result UInt as a result of addition.
+     */
+    function add(uint256 a, uint256 b) internal pure returns (uint256 result) {
+        result = a + b;
+        require(result >= a, "Addition overflow.");
+        return result;
+    }
+
+    /**
+     * @dev Function to perform subtraction without risk of underflow.
+     * @param a UInt to be subtracted.
+     * @param b UInt to subtract.
+     * @return result UInt as a result of subtraction.
+     */
+    function sub(uint256 a, uint256 b) internal pure returns (uint256 result) {
+        require(a >= b, "Subtraction underflow.");
+        result = a - b;
+        return result;
+    }
+
+    /**
+     * @dev Function to perform multiplication without risk of overflow.
+     * @param a UInt to be multiplied.
+     * @param b UInt to multiply by.
+     * @return result UInt as a result of multiplication.
+     */
+    function mul(uint256 a, uint256 b) internal pure returns (uint256 result) {
+        if (a == 0 || b == 0) {
+            return 0;
+        }
+        result = a * b;
+        require(result / a == b, "Multiplication overflow.");
+        return result;
+    }
+
+    /**
+     * @dev Function to perform division without risk of division by zero.
+     * @param a UInt to be divided.
+     * @param b UInt to divide by.
+     * @return result UInt as a result of division.
+     */
+    function div(uint256 a, uint256 b) internal pure returns (uint256 result) {
+        require(b > 0, "Division by zero.");
+        result = a / b;
+        return result;
+    }
+
+    /**
+     * @dev Function to perform modulo operation without risk of division by zero.
+     * @param a UInt as dividend.
+     * @param b UInt as divisor.
+     * @return result UInt as the remainder.
+     */
+    function mod(uint256 a, uint256 b) internal pure returns (uint256 result) {
+        require(b > 0, "Division by zero.");
+        result = a % b;
+        return result;
+    }
+}
+
+/**
+ * @dev ERC20 token interface for contract interoperability.
+ */
+ 
+interface IToken {
+    /**
+     * @dev Function to transfer tokens from the caller's address to a specified address.
+     * @param to The address to transfer tokens to.
+     * @param value The amount of tokens to transfer.
+     * @return Success Boolean representing whether the transfer was successful.
+     */
+    function transfer(address to, uint value) external returns (bool);
+
+    /**
+     * @dev Function to transfer tokens from a specified address to a specified address.
+     * @param from The address to transfer tokens from.
+     * @param to The address to transfer tokens to.
+     * @param value The amount of tokens to transfer.
+     * @return Success Boolean representing whether the transfer was successful.
+     */
+    function transferFrom(address from, address to, uint value) external returns (bool);
+
+    /**
+     * @dev Function to approve a specified address to transfer tokens from the caller's address.
+     * @param spender The address to approve.
+     * @param value The amount of tokens to approve for transfer.
+     * @return Success Boolean representing whether the approval was successful.
+     */
+    function approve(address spender, uint value) external returns (bool);
+
+    /**
+     * @dev Function to check the amount of tokens that an address is allowed to transfer.
+     * @param owner The address of the token owner.
+     * @param spender The address of the approved user.
+     * @return Amount The amount of tokens that the spender is allowed to transfer.
+     */
+    function allowance(address owner, address spender) external view returns (uint);
+
+    /**
+     * @dev Event triggered when tokens are transferred.
+     * @param from The address tokens are transferred from.
+     * @param to The address tokens are transferred to.
+     * @param value The amount of tokens transferred.
+     */
+    event Transfer(address indexed from, address indexed to, uint value);
+
+    /**
+     * @dev Event triggered when approval for token transfer is set.
+     * @param owner The address that approved another address for token transfer.
+     * @param spender The address that is approved to transfer tokens.
+     * @param value The amount of tokens approved for transfer.
+     */
+    event Approval(address indexed owner, address indexed spender, uint value);
+
+    /**
+     * @dev Function to get total supply of tokens.
+     * @return TotalSupply The total amount of tokens in circulation.
+     */
+    function totalSupply() external view returns (uint);
+
+    /**
+     * @dev Function to get the balance of tokens for an address.
+     * @param owner The address to get the balance of.
+     * @return Balance The balance of tokens for the given address.
+     */
+    function balanceOf(address owner) external view returns (uint);
+}
+
+/**
+ * @dev Contract to store and transfer ERC20 tokens.
+ */
+ 
+contract Token is IToken {
+
+    using SafeMath for uint256;
+
+    mapping (address => uint256) private _balances; //maps addresses to token balances
+    mapping (address => mapping (address => uint256)) private _allowed; //maps addresses to addresses to allowed transfer amounts
+    uint256 private _totalSupply; //total supply of tokens
+    string private _name; //name of token
+    string private _symbol; //symbol of token
+
+    /**
+     * @dev Constructor function to initialize token parameters.
+     * @param name Name of the token.
+     * @param symbol Symbol of the token.
+     * @param totalSupply Total supply of the token.
+     */
+     
+    constructor(string memory name, string memory symbol, uint256 totalSupply) public {
+        _name = name;
+        _symbol = symbol;
+        _totalSupply = totalSupply;
+        _balances[msg.sender] = totalSupply;
+    }
+
+    /**
+     * @dev Function to get total supply of tokens.
+     * @return _totalSupply The total amount of tokens in circulation.
+     */
+     
+    function totalSupply() external view returns (uint256) {
+        return _totalSupply;
+    }
+
+    /**
+     * @dev Function to get the balance of tokens for an address.
+     * @param owner The address to get the balance of.
+     * @return The balance of tokens for the given address.
+     */
+     
+    function balanceOf(address owner) public view returns (uint256 balance) {
+        return _balances[owner];
+    }
+
+    /**
+     * @dev Function to transfer tokens from the caller's address to a specified address.
+     * @param to The address to transfer tokens to.
+     * @param value The amount of tokens to transfer.
+     * @return Success Boolean representing whether the transfer was successful.
+     */
+     
+    function transfer(address to, uint256 value) public returns (bool) {
+        require(to != address(0), "Transfer to zero address.");
+        require(_balances[msg.sender] >= value, "Insufficient balance.");
+        _balances[msg.sender] = _balances[msg.sender].sub(value);
+        _balances[to] = _balances[to].add(value);
+        emit Transfer(msg.sender, to, value);
+        return true;
+    }
+
+    /**
+     * @dev Function to transfer tokens from a specified address to a specified address.
+     * @param from The address to transfer tokens from.
+     * @param to The address to transfer tokens to.
+     * @param value The amount of tokens to transfer.
+     * @return Success Boolean representing whether the transfer was successful.
+     */
+     
+    function transferFrom(address from, address to, uint256 value) public returns (bool) {
+        require(to != address(0), "Transfer to zero address.");
+        require(_allowed[from][msg.sender] >= value, "Insufficient allowance.");
+        require(_balances[from] >= value, "Insufficient balance.");
+        _allowed[from][msg.sender] = _allowed[from][msg.sender].sub(value);
+        _balances[from] = _balances[from].sub(value);
+        _balances[to] = _balances[to].add(value);
+        emit Transfer(from, to, value);
+        return true;
+    }
+
+    /**
+     * @dev Function to approve a specified address to transfer tokens from the caller's address.
+     * @param spender The address to approve.
+     * @param value The amount of tokens to approve for transfer.
+     * @return Success Boolean representing whether the approval was successful.
+     */
+     
+    function approve(address spender, uint256 value) public returns (bool) {
+        require(spender != address(0), "Approval to zero address.");
+        _allowed[msg.sender][spender] = value;
+        emit Approval(msg.sender, spender, value);
+        return true;
+    }
+
+    /**
+     * @dev Function to check the amount of tokens that an address is allowed to transfer.
+     * @param owner The address of the token owner.
+     * @param spender The address of the approved user.
+     * @return The amount of tokens that the spender is allowed to transfer.
+     */
+     
+    function allowance(address owner, address spender) public view returns (uint256) {
+        return _allowed[owner][spender];
+    }
+
+    /**
+     * @dev Function to get the name of the token.
+     * @return _name The name of the token.
+     */
+     
+    function name() external view returns (string memory) {
+        return _name;
+    }
+
+    /**
+     * @dev Function to get the symbol of the token.
+     * @return _symbol The symbol of the token.
+     */
+     
+    function symbol() external view returns (string memory) {
+        return _symbol;
+    }
+}

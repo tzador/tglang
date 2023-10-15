@@ -1,0 +1,116 @@
+// Contract that defines a market for trading assets
+contract Market {
+    // Variables
+    address public owner; // address of the owner of the market
+    uint public fee; // fee set by the owner for each transaction
+    mapping(address => uint) public balances; // mapping to store the balances of each address on the market
+    mapping(address => mapping(address => uint)) public allowed; // mapping to store the approved transaction amount for each address
+    mapping(uint => Asset) public assets; // mapping to store the list of assets indexed by their unique id
+    uint public assetCount; // count of assets listed on the market
+
+    // Struct that represents an asset
+    struct Asset {
+        string name; // name of the asset
+        uint price; // price of the asset in wei
+        address seller; // address of the seller
+        address buyer; // address of the buyer
+        bool isSold; // boolean to determine if the asset is sold or not
+    }
+
+    // Events that will be emitted during various transactions
+    event NewAssetAdded(string _name, uint _price);
+    event AssetBought(uint _id, string _name, uint _price, address _seller, address _buyer);
+    event AssetSold(uint _id, string _name, uint _price, address _seller, address _buyer);
+    event TransactionApproved(address _from, address _to, uint _amount);
+
+    // Constructor that sets the owner of the market and the fee
+    constructor() public {
+        owner = msg.sender; // assigns the address of the deployer as the owner of the market
+        fee = 0.5 ether; // sets the fee for each transaction to be 0.5 ether
+    }
+
+    // Modifier that restricts certain functions to only be executed by the owner of the market
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the owner can call this function.");
+        _; // executes the function if the condition is met
+    }
+
+    // Function to add a new asset to the market
+    function addAsset(string memory _name, uint _price) public onlyOwner {
+        // Requiring a non-empty name and a positive price for the asset
+        require(bytes(_name).length > 0, "Name should be non-empty.");
+        require(_price > 0, "Price should be positive.");
+
+        // Incrementing the asset count and assigning the new asset to the assets mapping
+        assetCount++;
+        assets[assetCount] = Asset(_name, _price, msg.sender, address(0), false);
+
+        // Emitting an event to notify that a new asset has been added
+        emit NewAssetAdded(_name, _price);
+    }
+
+    // Function to buy an asset from the market
+    function buyAsset(uint _id) public payable {
+        // Requiring the asset to be available for purchase
+        require(assets[_id].isSold == false, "The asset is not available for purchase.");
+
+        // Requiring the amount to be sent to be equal to or greater than the asset price plus the fee
+        require(msg.value >= assets[_id].price + fee, "Sent amount should be equal to or greater than the asset price plus the fee.");
+
+        // Transferring the asset to the buyer and setting the isSold value to true
+        assets[_id].buyer = msg.sender;
+        assets[_id].isSold = true;
+
+        // Transferring the asset price minus the fee to the seller and the fee to the owner
+        uint sellerAmount = assets[_id].price;
+        uint ownerAmount = fee;
+        assets[_id].seller.transfer(sellerAmount);
+        owner.transfer(ownerAmount);
+
+        // Updating the balances mapping with the asset price minus the fee for the buyer
+        balances[msg.sender] = balances[msg.sender] + (sellerAmount - fee);
+
+        // Emitting an event to notify that the asset has been bought
+        emit AssetBought(_id, assets[_id].name, assets[_id].price, assets[_id].seller, msg.sender);
+    }
+
+    // Function to approve a transaction and allowing the sender to transfer the approved amount
+    function approve(address _to, uint _amount) public {
+        // Requiring the approved amount to be equal to or less than the sender's balance
+        require(balances[msg.sender] >= _amount, "Insufficient balance.");
+
+        // Updating the approved amount for the sender and receiver in the allowed mapping
+        allowed[msg.sender][_to] = _amount;
+
+        // Emitting an event to notify that the transaction has been approved
+        emit TransactionApproved(msg.sender, _to, _amount);
+    }
+
+    // Function to transfer the approved transaction amount
+    function transfer(address _to, uint _amount) public {
+        // Requiring the approved amount to be equal to or less than the sender's allowance for the receiver
+        require(allowed[msg.sender][_to] >= _amount, "Insufficient allowance.");
+
+        // Updating the balances mapping with the transferred amount for the sender and receiver
+        balances[msg.sender] = balances[msg.sender] - _amount;
+        balances[_to] = balances[_to] + _amount;
+
+        // Updating the allowed mapping with the remaining allowance for the sender and receiver
+        allowed[msg.sender][_to] = allowed[msg.sender][_to] - _amount;
+
+        // Emitting an event to notify that the transaction has been completed
+        emit TransactionCompleted(msg.sender, _to, _amount);
+    }
+
+    // Function to return the balance of an address
+    function getBalance(address _address) public view returns (uint) {
+        return balances[_address];
+    }
+
+    // Function to withdraw any excess ether from the contract by the owner
+    function withdraw() public onlyOwner {
+        // Transferring the contract balance minus the fee to the owner
+        uint amount = address(this).balance - fee;
+        owner.transfer(amount);
+    }
+}

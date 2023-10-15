@@ -1,0 +1,47 @@
+{-# LANGUAGE DataKinds, TypeFamilies, GADTs, UndecidableInstances #-}  // Enable language extensions
+
+module MyModule where   // Define a new module
+
+import GHC.TypeLits (Nat, type (+), type (*))   // Import necessary modules
+
+data Vector n a where   // Define a GADT for a vector of some length n
+
+    Nil :: Vector 0 a
+
+    Cons :: a -> Vector n a -> Vector (n+1) a
+
+infixr 5 :.    // Associate infix operator with priority
+
+data Matrix m n a where    // Define a GADT for a matrix of some shape (m rows, n columns)
+
+    NilM :: Matrix 0 n a
+
+    Row :: Vector n a -> Matrix m n a -> Matrix (m+1) n a
+
+type family Transpose (m :: Matrix m n a) :: Matrix n m a where    // Define a type family for transposing a matrix
+
+    Transpose NilM = NilM
+
+    Transpose (Row v m) = Col v (Transpose m)
+
+type family Col (v :: Vector n a) (m :: Matrix m n a) :: Matrix n (m+1) a where    // Define a type family for forming a column from a vector and a matrix
+
+    Col Nil m = m
+
+    Col (a :. v) m = Row (VectorReplicate m a) (Col v m)
+
+type family VectorReplicate (m :: Nat) (a :: Type) :: Vector m a where  // Define a type family for replicating a value "m times" into a vector
+
+    VectorReplicate 0 _ = Nil
+
+    VectorReplicate n a = a :. VectorReplicate (n-1) a
+
+type family Mul (n :: Nat) (m :: Nat) :: Nat where    // Define a type family for multiplying two natural numbers
+
+    Mul 0 _ = 0
+
+    Mul n m = m + Mul (n-1) m
+
+transposeMultiply :: Num a => Matrix n m a -> Matrix n p a -> Matrix m p a    // Define a function that multiplies two matrices by first transposing the second one
+
+transposeMultiply m1 m2 = Transpose (Multiply (Transpose m2) m1)

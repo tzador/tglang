@@ -1,0 +1,77 @@
+# set worker processes to number of CPUs
+worker_processes auto;
+
+# automatically resize worker connections based on available resources
+# references available CPU cores
+worker_rlimit_nofile auto;
+
+# set default time zone
+env TZ 'UTC';
+
+# default error log location
+error_log /var/log/nginx/error.log;
+
+# configure compression settings
+gzip on;
+gzip_disable msie6;
+gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+# configure buffering for IO-intensive applications
+proxy_buffering on;
+proxy_buffer_size 64k;
+proxy_buffers 32 32k;
+proxy_busy_buffers_size 64k;
+
+# set cache zone for proxy responses
+# max size of 10MB with inactive timeout of 10 minutes
+proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=my_cache:10m inactive=10m;
+
+# configure virtual server
+server {
+    listen 80;
+
+    # set server name for requests
+    server_name www.example.com;
+
+    # configure log files for access and error logs
+    access_log /var/log/nginx/www.example.com.access.log;
+    error_log /var/log/nginx/www.example.com.error.log;
+
+    # configure root directory for files
+    root /var/www/www.example.com;
+
+    # enable caching for static assets
+    location ~* \.(js|css|png|jpg|gif)$ {
+        expires 1y;
+        add_header Cache-Control "public";
+    }
+
+    # enable default fallback for non-existent files
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    # configure proxy settings for backend application server
+    location /api/ {
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Host $host;
+        proxy_pass http://127.0.0.1:8000;
+    }
+
+    # configure SSL certificates for secure connections 
+    # instructions for obtaining certificates from Let's Encrypt
+    listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/www.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/www.example.com/privkey.pem;
+    ssl_trusted_certificate /etc/letsencrypt/live/www.example.com/chain.pem;
+
+    # configure SSL security options
+    ssl_protocols TLSv1.2;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers EECDH+AESGCM:EDH+AESGCM;
+    ssl_ecdh_curve secp384r1;
+    ssl_session_cache shared:SSL:10m;
+
+    # enable HTTP strict transport security
+    add_header Strict-Transport-Security "max-age=31536000; includeSubdomains";
+}

@@ -1,0 +1,38 @@
+function Get-LastLogon {
+<# 
+      .SYNOPSIS
+      Gets the last logon time for a specific user
+
+      .PARAMETER UserName
+      The username for the user to retrieve the last logon time for
+
+      .EXAMPLE
+      Get-LastLogon -UserName "JohnDoe"
+#>
+  param(
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$UserName
+  )
+
+  $domain = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()
+  $domain.DomainControllers | ForEach-Object {
+    $searcher = New-Object DirectoryServices.DirectorySearcher($Null)
+
+    $searcher.Filter = "(&(objectCategory=User)(samaccountname= $($UserName)))"
+    $searcher.SearchRoot = [ADSI]"LDAP://$($_.Name)"
+
+    $result = $searcher.FindOne()
+    $user = $result.GetDirectoryEntry()
+
+    # Check if the user exists
+    if ($user) {
+      $lastLogonDate = $user.Properties['lastLogon'][0] * -1
+      $lastLogon = [datetime]::FromFileTime($lastLogonDate)
+      Write-Host "The last logon time for $($UserName) is $($lastLogon)"
+    }
+    else {
+      Write-Host "The user $($UserName) does not exist on this domain controller."
+    }
+  }
+}

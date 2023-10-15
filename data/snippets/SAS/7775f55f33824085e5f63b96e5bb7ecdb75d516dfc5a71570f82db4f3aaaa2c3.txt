@@ -1,0 +1,43 @@
+%macro weather_data(dataset);
+    /* This macro generates a dataset containing weather data */
+    
+    /* Creating a table with variables for temperature, humidity and wind speed */
+    data &dataset;
+        set weather_data;
+        retain temp humidity wind_speed;
+        format temp 8.2 humidity 8.2 wind_speed 8.2;
+    run;
+    
+    /* Calculating average temperature for each month using proc means */
+    proc means data=&dataset noprint;
+        var temp;
+        class month;
+        output out=avg_temp mean=;
+    run;
+    
+    /* Merging the average temperature dataset with original weather data using proc sql */
+    proc sql;
+        create table &dataset.2 as
+        select *
+        from &dataset.
+        left join avg_temp
+        on &dataset.month = avg_temp.month;
+    quit;
+    
+    /* Creating a new variable for wind chill using proc IML*/
+    proc iml;
+        use &dataset.;
+        read all var {temp, humidity, wind_speed};
+        wind_chill = 35.74 + 0.6215*temp - 35.75*(wind_speed ** 0.16) + 0.4275*temp*(wind_speed ** 0.16);
+    quit;
+    
+    /* Appending the calculated wind chill values to the original dataset */
+    data &dataset.;
+        set &dataset.;
+        drop wind_chill;
+    run;
+    
+%mend weather_data;
+
+/* Calling the macro to generate a dataset called 'weather_data_final' */
+%weather_data(weather_data_final);

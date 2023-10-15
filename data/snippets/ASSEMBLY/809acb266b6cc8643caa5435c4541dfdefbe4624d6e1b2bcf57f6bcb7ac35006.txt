@@ -1,0 +1,120 @@
+;; This code snippet is a simple assembly program that adds two numbers together
+;; and prints the result to the console.
+
+;; Data section
+.data
+num1   DWORD   10          ; First number to be added
+num2   DWORD   20          ; Second number to be added
+result DWORD   ?           ; Result variable to store the sum
+
+;; Code section
+.code
+main PROC
+    mov   eax, num1        ; Move first number into EAX register
+    add   eax, num2        ; Add second number to EAX register
+    mov   result, eax      ; Move result into result variable
+
+    ;; Print result to console
+    mov   edx, OFFSET result        ; Move address of result variable into EDX register
+    call  StdOut                  ; Call StdOut function to print result to console
+
+    ;; Cleanup
+    exit  ; Exit program
+
+main ENDP
+END main
+
+;; Helper function to print result to console
+StdOut PROC
+    push   ebp                 ; Save old base pointer
+    mov    ebp, esp            ; Set new base pointer
+
+    push   eax                 ; Save registers that will be used
+    push   ecx
+    push   edx
+
+    ;; Convert result to string
+    mov    eax, result         ; Move result into EAX register
+    call   ftoa                ; Convert result to string
+    mov    ecx, eax            ; Move string into ECX register
+    mov    edx, 1              ; Set length of string to be printed
+    call   WriteConsoleA       ; Call WriteConsoleA function to print string to console
+
+    ;; Cleanup
+    pop    edx                 ; Restore registers
+    pop    ecx
+    pop    eax
+
+    leave
+    ret
+
+StdOut ENDP
+
+;; Helper function to convert integer to string
+ftoa PROC
+    push   ebp                 ; Save old base pointer
+    mov    ebp, esp            ; Set new base pointer
+
+    push   ebx                 ; Save registers that will be used
+    push   ecx
+    push   edx
+
+    mov    ebx, eax            ; Move integer into EBX register
+    mov    ecx, 10             ; Set divisor to 10 for decimal conversion
+    mov    eax, 0              ; Set quotient to 0
+    mov    edx, 0              ; Set remainder to 0
+
+    L1:                        ; Loop to divide integer by 10
+    div    ecx                 ; Divide integer by 10
+    push   edx                 ; Push remainder onto stack
+    add    ah, 48              ; Convert remainder to ASCII
+    cmp    al, 0               ; Check if full integer has been divided
+    jne    L1                  ; If not, continue loop
+
+    ;; Move digits from stack to string
+    xor    ebx, ebx            ; Reset EBX register for use as counter
+    mov    ecx, esp            ; Set pointer to top of stack
+    add    ebx, 1              ; Increase counter
+    cmp    ebx, 11             ; Check if all digits have been moved
+    jg     L2                  ; If so, end loop
+    mov    [eax+ebx-1], cl     ; Move digit from stack to string
+    inc    esi                 ; Increment pointer for next digit
+    jmp    L1                  ; Continue loop
+
+    L2:                        ; Loop to reverse string
+    push   edx                 ; Save remainder
+    xor    edx, edx            ; Reset EDX register for use as counter
+    mov    edx, eax            ; Set length of string to be printed
+    inc    edx                 ; Set final index of string
+    mov    eax, esp            ; Set pointer to starting index of string
+    sub    eax, edx            ; Subtract final index from starting index
+    mov    ecx, edx            ; Set final index
+    sub    ecx, 1              ; Subtract 1 to prevent null terminator from being moved
+    shr    ecx, 1              ; Divide by 2 for loop
+    mov    ebx, 0              ; Reset EBX register for use as counter
+
+    L3:                        ; Loop to reverse string
+    cmp    ebx, ecx            ; Check if end of string has been reached
+    jge    L4                  ; If so, end loop
+    mov    dl, [eax+ebx]       ; Move character from start of string into DL register
+    mov    dh, [eax+ecx]       ; Move character from end of string into DH register
+    mov    [eax+ebx], dh       ; Move character from start of string to end of string
+    mov    [eax+ecx], dl       ; Move character from end of string to start of string
+    inc    ebx                 ; Increment first pointer
+    dec    ecx                 ; Decrement second pointer
+    jmp    L3                  ; Continue loop
+
+    L4:                        ; Loop to print string
+    mov    edx, esp            ; Set pointer to starting index of string
+    call   WriteConsoleA       ; Call WriteConsoleA function to print string to console
+
+    ;; Cleanup
+    add    esp, 20             ; Remove pushed values from stack
+    pop    edx                 ; Restore registers
+    pop    ecx
+    pop    ebx
+
+    leave
+    ret
+
+ftoa ENDP

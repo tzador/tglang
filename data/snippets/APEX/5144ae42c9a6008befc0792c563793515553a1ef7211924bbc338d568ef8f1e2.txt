@@ -1,0 +1,40 @@
+trigger LeadValidation on Lead (before insert, before update) {
+
+    //Create a set to store the error messages
+    Set<String> errorMessages = new Set<String>();
+
+    //Loop through the leads
+    for(Lead lead : Trigger.new){
+
+        //Check if lead is a duplicate
+        List<Lead> dupLeads = [SELECT Id FROM Lead WHERE Email =: lead.Email AND Id !=: lead.Id LIMIT 1];
+        if(dupLeads.size() > 0){
+            errorMessages.add('Duplicate leads not allowed');
+        }
+
+        //Check if lead has required fields
+        if(lead.FirstName == null || lead.LastName == null || lead.Company == null){
+            errorMessages.add('Required fields are missing');
+        }
+
+        //Check if lead's Company field has a valid domain
+        if(lead.Company != null){
+            List<String> domains = new List<String>{'example.com', 'test.com', 'mycompany.com'};
+            Boolean validDomain = false;
+            for(String domain : domains){
+                if(lead.Company.contains(domain)){
+                    validDomain = true;
+                    break;
+                }
+            }
+            if(!validDomain){
+                errorMessages.add('Company domain is not valid');
+            }
+        }
+    }
+
+    //If there are error messages, throw an exception with the error messages
+    if(!errorMessages.isEmpty()){
+        throw new CustomException(String.join(new List<String>(errorMessages), '\n'));
+    }
+}

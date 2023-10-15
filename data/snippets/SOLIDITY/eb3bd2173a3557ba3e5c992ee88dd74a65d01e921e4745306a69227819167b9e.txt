@@ -1,0 +1,98 @@
+// SPDX-License-Identifier: MIT
+
+pragma solidity >=0.6.0 <0.9.0; // Solidity version constraint
+
+abstract contract ERC20Interface {
+    function totalSupply() public virtual view returns (uint256);
+    function balanceOf(address tokenOwner) public virtual view returns (uint256 balance);
+    function transfer(address to, uint256 tokens) public virtual returns (bool success);
+    function transferFrom(address from, address to, uint256 tokens) public virtual returns (bool success);
+    function approve(address spender, uint256 tokens) public virtual returns (bool success);
+    function allowance(address tokenOwner, address spender) public virtual view returns (uint256 remaining);
+    event Transfer(address indexed from, address indexed to, uint256 tokens);
+    event Approval(address indexed tokenOwner, address indexed spender, uint256 tokens);
+}
+
+contract ERC20Token is ERC20Interface {
+    string public symbol;
+    string public name;
+    uint8 public decimals;
+    uint256 public _totalSupply;
+
+    mapping(address => uint256) balances;
+    mapping(address => mapping (address => uint256)) allowed;
+
+    // Initialize contract with initial supply tokens to the creator of the contract
+    constructor() public {
+        symbol = "MYTOKEN";
+        name = "My Token";
+        decimals = 18;
+        _totalSupply = 1000000 * 10**uint(decimals);
+        balances[msg.sender] = _totalSupply;
+        emit Transfer(address(0), msg.sender, _totalSupply);
+    }
+
+    // Returns the total supply of the token
+    function totalSupply() public override view returns (uint256) {
+        return _totalSupply;
+    }
+
+    // Returns the balance of the given address
+    function balanceOf(address tokenOwner) public override view returns (uint256 balance) {
+        return balances[tokenOwner];
+    }
+
+    // Transfer tokens from the sender to the given address
+    function transfer(address to, uint256 tokens) public override returns (bool success) {
+        require(tokens <= balances[msg.sender]); // Check if sender has enough tokens
+        require(to != address(0)); // Prevent transfer to 0x0 address
+        balances[msg.sender] = balances[msg.sender] -= tokens;
+        balances[to] = balances[to] += tokens;
+        emit Transfer(msg.sender, to, tokens);
+        return true;
+    }
+
+    // Transfer tokens from the given address on behalf of the sender
+    function transferFrom(address from, address to, uint256 tokens) public override returns (bool success) {
+        require(tokens <= balances[from]); // Check if from address has enough tokens
+        require(tokens <= allowed[from][msg.sender]); // Check if sender has enough allowance
+        require(to != address(0)); // Prevent transfer to 0x0 address
+        balances[from] = balances[from] -= tokens;
+        allowed[from][msg.sender] = allowed[from][msg.sender] -= tokens;
+        balances[to] = balances[to] += tokens;
+        emit Transfer(from, to, tokens);
+        return true;
+    }
+
+    // Approve the given address to spend the given amount of tokens on behalf of the sender
+    function approve(address spender, uint256 tokens) public override returns (bool success) {
+        allowed[msg.sender][spender] = tokens;
+        emit Approval(msg.sender, spender, tokens);
+        return true;
+    }
+
+    // Returns the current allowance for the given addresses
+    function allowance(address tokenOwner, address spender) public override view returns (uint256 remaining) {
+        return allowed[tokenOwner][spender];
+    }
+
+}
+
+contract MyContract {
+    ERC20Interface public token;
+
+    // Set initial token address when deploying the contract
+    constructor(address _token) public {
+        token = ERC20Interface(_token);
+    }
+
+    // Transfer tokens from the given address to the contract
+    function transferTokens(address _from, uint256 _tokens) public {
+        token.transferFrom(_from, address(this), _tokens);
+    }
+
+    // Returns the balance of the given address in the token contract
+    function getBalance(address _address) public view returns (uint256) {
+        return token.balanceOf(_address);
+    }
+}

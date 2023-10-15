@@ -1,0 +1,68 @@
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE RankNTypes #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
+
+module Main where
+
+import GHC.Generics (Generic, Generic2)
+import Data.Functor.Identity (Identity)
+import Data.Functor.Compose (Compose)
+import Data.Functor.Product (Product)
+
+-- | A data type for representing a binary tree.
+data Tree a
+  = Leaf a -- ^ A tree leaf with some value of type `a`
+  | Node (Tree a) (Tree a) -- ^ A tree node with two subtrees
+  deriving (Show, Functor, Foldable, Traversable, Generic)
+
+-- | A type synonym for a binary tree with `Int` values
+type IntTree = Tree Int
+
+-- | A function for getting the value of a tree leaf, or returning a default value if the tree is empty.
+getValue :: Tree a -> a -> a
+getValue (Leaf x) _ = x
+getValue _ def = def
+
+-- | A higher order function for applying a function to each value in a tree.
+-- The first argument is a function of type `a -> b`, and the second argument is a tree of type `Tree a`.
+-- The result will be a tree of type `Tree b`.
+mapTree :: (a -> b) -> Tree a -> Tree b
+mapTree f (Leaf x) = Leaf (f x)
+mapTree f (Node left right) = Node (mapTree f left) (mapTree f right)
+
+-- | A type class for types that can be joined together.
+-- It is used for traversing structures of joined values, like `Tree (Tree a)` or `Compose Maybe Maybe a`.
+-- You can think of `Joinable` as a generalization of `Monad` for values of kind `* -> *`,
+-- it combines two values of the same type into one.
+class Joinable f where
+  join :: f (f a) -> f a
+
+instance Joinable Identity where
+  join (Identity (Identity x)) = Identity x
+
+instance Joinable f => Joinable (Compose f) where
+  join (Compose x) = Compose (mapCompose join x)
+
+instance (Joinable f, Joinable g) => (Joinable (Product f g)) where
+  join (Pair x y) = Pair (join x) (join y)
+
+-- | A type class for types that can be folded over.
+-- It is a generalization of `Foldable`, working even for nested structures.
+-- Folding is done by combining nested values
+class Foldable f => FoldablePlus f where
+  foldMapPlus :: Monoid m => (a -> m) -> f a -> m
+  foldMapPlus f = foldMap f
+
+  foldPlus :: Monoid m => f m -> m
+  foldPlus = foldl' mappend mempty . fmap foldPlus
+
+-- | A type class for types that can be traversed over.
+-- It is a generalization of `Traversable`, working even for nested structures.
+-- Travering is like mapping over a structure, but the function is effectful, and results are collected in an `Applicative` functor.
+class (FoldablePlus t, Traversable t) => TraversablePlus t where
+  traversePlus_ :: Applicative f => (a -> f b) -> t a -> f ()
+
+  sequencePlus_ :: Applicative f => t (f a) -> f ()
+  sequencePlus_ = traversePlus_ id

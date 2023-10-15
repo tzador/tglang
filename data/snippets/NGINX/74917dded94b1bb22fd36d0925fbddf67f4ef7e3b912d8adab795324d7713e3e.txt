@@ -1,0 +1,122 @@
+# This is a long and complex code snippet for NGINX
+
+# Set the user to "www-data" and group to "www-data"
+user www-data www-data;
+
+# Set the location of the NGINX logs
+# Access logs will be stored in "var/log/nginx/access.log"
+# Error logs will be stored in "var/log/nginx/error.log"
+access_log /var/log/nginx/access.log;
+error_log /var/log/nginx/error.log;
+
+# Set the worker processes to auto-detect the number of CPUs
+# This will optimize performance for the server
+worker_processes auto;
+
+# Set the maximum number of file descriptors that can be opened by this process
+# This will prevent file descriptor exhaustion and improve performance
+worker_rlimit_nofile 50000;
+
+# Configure the events module to optimize the server for high concurrency
+events {
+  worker_connections 1024; # Set the maximum number of simultaneous connections
+  use epoll; # Use epoll module for high performance
+  multi_accept on; # Enable multiple connections in one request 
+}
+
+# Set the main server block to listen on port 80
+server {
+  listen 80;
+
+  # Set the server name
+  server_name example.com;
+
+  # Set the root directory for this server block
+  root /var/www/example.com;
+
+  # Enable gzip compression for better resource utilization
+  # Enable caching and set the cache duration to 1 day
+  gzip on;
+  gzip_types text/plain text/css application/json;
+  gzip_max_age 1d;
+
+  # Set the location of the index file
+  index index.html;
+
+  # Enable caching for static assets with a cache duration of 1 week
+  location ~* \.(css|js|jpg|jpeg|png|gif|ico|woff|ttf|svg|svgz)$ {
+    expires 1w;
+    add_header Cache-Control "public, must-revalidate, proxy-revalidate";
+  }
+
+  # Configure caching for dynamic content
+  location ~* \.(php|html|htm)$ {
+    expires 1h;
+    add_header Cache-Control "public, must-revalidate, proxy-revalidate";
+  }
+
+  # Redirect all requests to HTTPS for secure connections
+  if ($scheme != "https") {
+    return 301 https://$host$request_uri;
+  }
+
+  # Enable HTTP/2 for improved performance
+  listen 443 ssl http2;
+
+  # Set the SSL certificate and key
+  ssl_certificate /etc/nginx/ssl/example.com.crt;
+  ssl_certificate_key /etc/nginx/ssl/example.com.key;
+
+  # Enable OCSP stapling for improved security
+  ssl_stapling on;
+  ssl_stapling_verify on;
+
+  # Enable HTTP Strict Transport Security (HSTS) for 1 year
+  add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload";
+
+  # Enable HTTP Public Key Pinning (HPKP) for 1 year
+  add_header Public-Key-Pins 'pin-sha256="12345"; pin-sha256="67890" max-age=31536000; includeSubDomains; preload";
+
+  # Configure the location of the SSL certificate revocation list (CRL)
+  ssl_crl /etc/nginx/crl/example.com.crl;
+
+  # Set the location of the SSL session cache
+  ssl_session_cache shared:SSL:10m;
+  ssl_session_timeout 10m;
+
+  # Enable the OCSP responder cache for improved performance
+  ssl_ocsp_cache shared:SSL:10m;
+
+  # Configure the header for X-Forwarded-For for correct client IP resolution
+  proxy_set_header X-Forwarded-For $remote_addr;
+
+  # Set up caching for proxy requests
+  proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=one:10m inactive=60m;
+  proxy_cache_key "$scheme$request_method$host$request_uri";
+  proxy_cache_valid 200 302 1h;
+  proxy_cache_valid 404 1m;
+
+  # Configure the proxy parameters
+  proxy_connect_timeout 30s;
+  proxy_read_timeout 120s;
+
+  # Pass the request to the upstream server
+  location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Port $server_port;
+    proxy_set_header X-Forwarded-Ssl on;
+  }
+
+  # Enable server-side caching for specific paths
+  location /cached {
+    proxy_cache my_cache;
+    proxy_cache_valid 200 301 302 1m;
+    proxy_cache_valid any 5m;
+    proxy_cache_bypass $http_pragma;
+    proxy_cache_bypass $http_authorization;
+    add_header X-Cache-Status $upstream_cache_status;
+  }
+}

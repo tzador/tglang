@@ -1,0 +1,55 @@
+METHOD PUBLIC VOID InitializeState ( ): /* This method initializes the database state. */
+    DEFINE INPUT PARAMETER setting AS CHARACTER NO-UNDO.
+
+    /* Create an instance of the State class. */
+    CREATE STATE state.
+
+    /* Set the state's setting property to the input parameter. */
+    state:setting = setting.
+
+    /* Get a handle to the database connection. */
+    DEFINE VARIABLE hDB AS HANDLE NO-UNDO.
+    hDB = DATASOURCE {&datasource-name}:HANDLE.
+
+    /* Start a transaction. */
+    HDB:START-TRANSACTION.
+
+    /* Query the database for the current state. */
+    FOR EACH stateTable:
+        FIND FIRST stateTable WHERE stateTable.setting = setting NO-ERROR.
+
+        IF AVAILABLE stateTable THEN /* state exists, update the database record. */
+            DO:
+                stateTable.state = state.
+                stateTable:UPDATABLE = TRUE.
+                stateTable:BUFFER-CREATE-MODE = TRUE.
+                stateTable:BUFFER-VALUE = state.
+                stateTable:BUFFER-RELEASE ().
+                stateTable:LOCK-DB (EXCLUSIVE-LOCK) NO-WAIT.
+                IF AVAILABLE stateTable THEN
+                    DO:
+                        stateTable:BUFFER-RELEASE ().
+                        stateTable:BUFFER-DELETE ().
+                        stateTable:BUFFER-CREATE ().
+                        stateTable:INSERT ().
+                    END.
+            END.
+        ELSE /* state does not exist, create a new database record. */
+            DO:
+                CREATE stateTable.
+                stateTable.setting = setting.
+                stateTable.state = state.
+                stateTable:UPDATABLE = TRUE.
+                stateTable:BUFFER-CREATE-MODE = TRUE.
+                stateTable:BUFFER-VALUE = state.
+                stateTable:BUFFER-RELEASE ().
+                stateTable:LOCK-DB(EXCLUSIVE-LOCK).
+                stateTable:BUFFER-RELEASE ().
+                stateTable:BUFFER-ADD-BUFFER ().
+                stateTable:BUFFER-RELEASE ().
+                stateTable:BUFFER-CREATE ().
+                stateTable:INSERT ().
+            END.
+    END.
+    HDB:END-TRANSACTION (COMMIT, NO-ERROR).
+END METHOD.

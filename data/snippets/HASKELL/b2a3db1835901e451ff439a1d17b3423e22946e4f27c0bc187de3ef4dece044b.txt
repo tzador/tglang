@@ -1,0 +1,39 @@
+{-# LANGUAGE TypeFamilies, DataKinds, GADTs #-}
+
+module Main where
+
+import GHC.TypeLits
+
+-- | A type family to compute the factorial of a natural number.
+type family Factorial (n :: Nat) :: Nat where
+  Factorial 0 = 1
+  Factorial n = n * Factorial (n - 1)
+
+-- | A GADT representing a type-level natural number.
+data Nat where
+  Zero :: Nat
+  Succ :: Nat -> Nat
+
+-- | A type class to prove that `n` is less than or equal to `m`.
+class (n <= m) where
+  -- | A witness that `n` is less than or equal to `m`.
+  proof :: proxy n -> proxy m -> Dict (n <= m)
+
+-- | An instance of `<=` for any natural number and `Zero`.
+instance n <= Zero where
+  proof _ _ = Dict
+
+-- | An instance of `<=` for any two natural numbers where the first is less than the second.
+instance n <= m => n <= Succ m where
+  proof _ _ = Dict
+
+-- | A type-level proof that `Factorial n` is greater than or equal to `n`.
+type family FactorialIsGte (n :: Nat) :: Constraint where
+  FactorialIsGte n = n <= Factorial n
+
+-- | A function that computes and prints the factorial of 5.
+main :: IO ()
+main = print (factorial 5)
+  where
+    factorial :: (Factorial n ~ FactorialIsGte n, KnownNat n) => Integer
+    factorial = natVal (Proxy :: Proxy n)

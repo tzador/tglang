@@ -1,0 +1,106 @@
+# This virtual host block listens on port 80 for incoming requests
+server {
+    listen 80;
+    
+    # This directive sets the server_name for the virtual host
+    server_name example.com;
+
+    # This block contains directives for the location "/"
+    location / {
+        # This directive sets the root directory for the location
+        root /var/www/example.com;
+
+        # This directive enables caching for the location
+        # The cache will be stored in the /var/cache/nginx directory
+        # It will have a maximum size of 10MB with a maximum age of 1 day
+        # Cached responses will be valid for 10 minutes
+        # Requests with cookies or authorization will not be cached
+        # The cached responses will have a custom header "X-Cache-Status"
+        # The cache will be purged when a POST request is made to the specified URL
+        # The cache will ignore any headers or arguments in the POST request
+        proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=cache:10m inactive=1d;
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+        proxy_cache_valid 200 10m;
+        proxy_no_cache 1;
+        proxy_cache_bypass $http_pragma;
+        proxy_cache_bypass $http_authorization;
+        add_header X-Cache-Status $upstream_cache_status;
+        proxy_cache_purge /purgecache;
+
+        # This directive sets the proxy pass to the backend server
+        proxy_pass http://backend;
+
+        # This directive enables caching for the proxy response
+        proxy_cache_revalidate on;
+
+        # This directive sets the virtual host config file for the proxy response
+        proxy_set_header Host $host:443;
+    }
+
+    # This block contains directives for the location "/static"
+    location /static/ {
+        # This directive sets the root directory for the location
+        root /var/www/example.com;
+
+        # This directive defines the cache control for the location
+        # Static files will be cached for 1 month and can be directly served from cache
+        # After 1 month, the browser will make a conditional request and the server will respond with 304 if the file has not changed
+        expires 1M;
+
+        # This directive enables gzip compression for files served from cache
+        gzip on;
+        gzip_vary on;
+        gzip_comp_level 6;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+        # This directive enables server side includes for files served from cache
+        ssi on;
+    }
+
+    # This block contains directives for the location "/images"
+    location /images/ {
+        # This directive sets the root directory for the location
+        root /var/www/example.com;
+
+        # This directive sets the read only flag for the location
+        # Requests to this location will not modify any existing files or create new ones
+        read_only on;
+
+        # This directive limits the maximum size of uploaded files to 50MB
+        client_max_body_size 50M;
+    }
+
+    # This block contains directives for the location "/admin"
+    location /admin {
+        # This directive sets the root directory for the location
+        root /var/www/example.com;
+
+        # This directive enables basic authentication for the location
+        # The "auth_basic_user_file" specifies the location of the authentication file
+        # The file must contain username and password pairs, separated by a colon
+        # This example uses the username "admin" with the password "password123"
+        # The file can be generated using the "htpasswd" command line tool
+        auth_basic "Restricted";
+        auth_basic_user_file /etc/nginx/.htpasswd;
+
+        # This directive restricts access to only requests from the local network
+        # Requests from other networks will be denied
+        allow 192.168.1.0/24;
+        deny all;
+    }
+
+    # This block contains directives for the location "/error"
+    location /error {
+        # This directive sets the root directory for the location
+        root /var/www/example.com;
+
+        # This directive defines the error pages for different HTTP status codes
+        error_page 404 /errors/404.html;
+        error_page 500 /errors/500.html;
+        error_page 502 /errors/502.html;
+        error_page 504 /errors/504.html;
+
+        # This directive sets the default error page for any other HTTP status codes
+        error_page 503 /errors/default.html;
+    }
+}

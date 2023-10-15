@@ -1,0 +1,57 @@
+/** This is a GAMS model for solving a mining transportation problem **/
+
+Sets
+    i   'mines'
+    j   'warehouses'
+    k   'routes' /1*10/
+    t   'time periods' /1*12/;
+
+Alias (i,ip), (j,jp), (k,kp);
+
+Parameters
+    c(i,j)   'transportation cost per unit' /$40, $55, $45,
+                                             $65, $60, $50,
+                                             $55, $50, $45/;
+
+Scalars
+    alpha         'distance factor'
+    beta          'time factor'
+    cap(i)        'mine capacity'
+    demand(j)     'warehouse demand'
+    truck_cap     'truck capacity'
+    truck_cost    'truck cost per hour';
+
+alpha = 1.2;
+beta = 1.5;
+
+cap(i) = 100;
+demand(j) = 50;
+truck_cap = 200;
+truck_cost = 100;
+
+Variables
+    x(i,j,k)     'shipment quantities'
+    t(i,j)       'travel time'
+    z            'total transportation cost';
+
+Positive Variables x, t;
+
+Equations
+    cost        'total transportation cost'
+    supply(i)   'mine supply'
+    demand(j)   'warehouse demand'
+    time(i,j)   'time constraint';
+
+cost..     z =e= sum((i,j,k), c(i,j)*x(i,j,k));
+
+supply(i).. sum((j,k), x(i,j,k)) =l= cap(i);
+
+demand(j).. sum((i,k), x(i,j,k)) =g= demand(j);
+
+time(i,j).. t(i,j) =e= alpha*(sum(k, x(i,j,k)/truck_cap)) + beta*(sum(k, t(i,j)*x(i,j,k)));
+
+Model mining_transport /all/;
+
+solve mining_transport using lp minimizing z;
+
+display x.l, t.l;

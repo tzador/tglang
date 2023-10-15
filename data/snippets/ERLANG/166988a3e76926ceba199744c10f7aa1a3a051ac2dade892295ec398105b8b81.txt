@@ -1,0 +1,49 @@
+-module(bfs).
+
+%% Public API
+-export([shortest_path/2]).
+
+%% Types
+-type edge() :: {node(), node()}.
+-type graph() :: [edge()].
+-type path() :: [node()].
+-type queue() :: {list(node()), list(node())}.
+
+%% Shortest Path Function
+shortest_path(Graph, {Start, End}) ->
+    {_, PathRev} = breadth_first_search(Graph, {{Start}, [{Start, null}]}, {[], []}),
+    lists:reverse([End | PathRev]).
+
+%% Breadth-First Search Helper Function
+breadth_first_search(_, {[], _} = Queue, {_, Visited} = Acc) ->
+    Acc;
+breadth_first_search(Graph, {Queue, []} = QueueAcc, Acc) ->
+    {[Node | RestQueue], Visited} = QueueAcc,
+    Neighbors = get_neighbors(Node, Graph),
+    NewVisited = [{N, Node} || N <- Neighbors, not lists:member(N, Visited)],
+    NewQueue = {RestQueue, NewVisited ++ Queue},
+    breadth_first_search(Graph, NewQueue, [{NewQueue, []}, Node | Acc]);
+breadth_first_search(Graph, {Queue, [{Node, Parent} | RestVisited]}, Acc) ->
+    AlreadyVisited = GetNeighbors = get_neighbors(Node, Graph),
+    {[N | RestQueue], Visited} = update_neighbor_queue(AlreadyVisited, RestVisited, Queue),
+    bfs(N, Parent, RestQueue, [{RestQueue, []} | Visited], [], N, Acc).
+
+%% Helper Function to Modify Queue
+update_neighbor_queue(_, _, {[], _} = QueueAcc) ->
+    QueueAcc;
+update_neighbor_queue(AlreadyVisited, Visited, {Queue, _} = QueueAcc) ->
+    NewVisited = [{N, null} || N <- AlreadyVisited, not lists:member(N, Visited)],
+    {[N | RestQueue], OriginalNewVisited} = QueueAcc,
+    NewQueue = {RestQueue, NewVisited ++ OriginalNewVisited},
+    {NewQueue, NewVisited}.
+
+%% Function to Retrieve Neighbors
+get_neighbors(Node, Graph) ->
+    lists:sort([neighbor(N, Node) || {Node, N} <- Graph]).
+
+%% Function to Build Neighbor Tuple
+neighbor(NodeA, NodeB) ->
+    case (NodeA == NodeB) of
+        true -> NodeB;
+        _ -> {NodeB,  NodeA}
+end.

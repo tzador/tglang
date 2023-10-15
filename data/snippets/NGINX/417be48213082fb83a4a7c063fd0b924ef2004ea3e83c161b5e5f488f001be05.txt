@@ -1,0 +1,62 @@
+# This is a complex NGINX configuration file
+
+# Global configuration
+worker_processes 4;
+error_log /var/log/nginx/error.log debug;
+
+events {
+    # Maximizing the number of connections for high throughput
+    worker_connections 1024;
+
+    # Use the event-driven and non-blocking polling method (epoll) for high performance
+    use epoll;
+
+    # Tuning the kernel to handle a large number of open files, which is crucial for high concurrency
+    # Note: These values may need to be adjusted depending on the server's resources
+    worker_rlimit_nofile 102400;
+    worker_rlimit_sigpending 32768;
+}
+
+http {
+    # Settings for the HTTP server
+    server {
+
+        # Listening on port 80 for http connections
+        listen 80;
+
+        # Enabling gzip compression for improved transfer speed and bandwidth usage
+        gzip on;
+        gzip_types text/plain text/css;
+        gzip_proxied any;
+        gzip_comp_level 5;
+        gzip_min_length 256;
+
+        # Configuring caching for static assets to improve performance
+        location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+            # Enable caching
+            proxy_cache_key "$request_uri";
+
+            # Cache for one week
+            proxy_cache_valid any 7d;
+        }
+
+        # Setting up virtual hosts to serve multiple domains from one server
+        server_name example1.com www.example1.com;
+        server_name example2.com www.example2.com;
+
+        # Configuring SSL for secure connections
+        listen 443 ssl;
+        ssl_certificate /path/to/ssl/certificate.crt;
+        ssl_certificate_key /path/to/ssl/private.key;
+
+        # Setting up reverse proxy for load balancing and caching
+        location / {
+            # Setting up load balancing between backend servers
+            proxy_pass http://backend_servers;
+
+            # Enabling caching for improved performance
+            proxy_cache_key "$request_uri";
+            proxy_cache_valid any 1m;
+        }
+    }
+}

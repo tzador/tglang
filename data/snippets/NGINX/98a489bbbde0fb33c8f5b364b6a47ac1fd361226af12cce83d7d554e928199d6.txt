@@ -1,0 +1,74 @@
+# NGINX configuration
+worker_processes  1; # number of worker processes
+error_log  /var/log/nginx/error.log warn; # path to error log
+pid        /var/run/nginx.pid; # path to PID file
+
+events {
+    worker_connections  1024; # max number of connections
+}
+
+http {
+    include       mime.types; # include MIME types
+    default_type  application/octet-stream; # default type
+
+    # logging
+    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log  /var/log/nginx/access.log  main; # path to access log
+
+    # load balancing
+    upstream backend { # name of upstream group
+        server app1.example.com:8080; # first server in group
+        server app2.example.com:8080; # second server in group
+    }
+
+    # server configuration
+    server {
+        listen       80; # port to listen on
+        server_name  example.com; # server name
+        root         /usr/share/nginx/html; # root directory
+
+        # main location block
+        location / {
+            proxy_pass  http://backend; # proxy to upstream group
+            proxy_set_header Host $host; # set host header
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # set x-forwarded-for header
+            proxy_set_header X-Real-IP $remote_addr; # set x-real-ip header
+            proxy_redirect off; # disable redirect
+            proxy_http_version 1.1; # HTTP version
+            proxy_set_header Connection ""; # set connection header
+        }       
+
+        # error page location block
+        error_page   404  /404.html; # display custom error page
+        location = /404.html { # custom error page location
+            root   /usr/share/nginx/html; # root directory for custom error page
+        } 
+
+        # static file location block
+        location ~* ^.+\.(jpg|jpeg|gif|png|ico|css|js|txt|html)$ { # regex for file types
+            root   /usr/share/nginx/html; # root directory
+            expires  30d; # cache-control header
+        }
+    }
+
+    # server configuration for API
+    server {
+        listen       80; # port to listen on
+        server_name  api.example.com; # server name
+        root         /usr/share/nginx/html/api; # root directory
+
+        # main location block for API
+        location / {
+            # custom API configuration here
+        }
+
+        # static file location block
+        location ~* ^.+\.(jpg|jpeg|gif|png|ico|css|js|txt|html|xml)$ { # regex for file types
+            root   /var/www/html/api; # root directory for API
+            expires  1d; # cache-control header
+        }
+    }
+}

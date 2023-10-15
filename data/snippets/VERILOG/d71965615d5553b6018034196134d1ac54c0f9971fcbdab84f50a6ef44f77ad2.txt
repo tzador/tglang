@@ -1,0 +1,72 @@
+//This code snippet demonstrates a complex floating point operation using the IEEE 754 standard
+`timescale 1ns / 1ps
+
+module floating_point_op(
+input [31:0] a,
+input [31:0] b,
+output [31:0] result,
+output [1:0] exception
+);
+
+reg [22:0] mantissa_a, mantissa_b;
+reg [8:0] exp_a, exp_b, exp_diff;
+wire [22:0] mantissa_result;
+wire [8:0] exp_result, final_exp_result;
+wire [22:0] shifted_mantissa_b;
+wire [22:0] shifted_mantissa_a;
+wire [23:0] extended_mantissa_b;
+wire [23:0] extended_mantissa_a;
+wire [32:0] temp_result;
+wire [31:0] result;
+
+assign exception = 2'b00;
+assign mantissa_a = a[22:0];
+assign mantissa_b = b[22:0];
+assign exp_a = a[30:23];
+assign exp_b = b[30:23];
+
+//compare exponents to determine which number has a larger magnitude
+if (exp_a > exp_b) begin
+    exp_diff = exp_a - exp_b;
+    //shift the smaller mantissa by the difference in exponents
+    assign shifted_mantissa_b = {1'b1, mantissa_b} >> exp_diff;
+    assign shifted_mantissa_a = {1'b1, mantissa_a};
+    assign extended_mantissa_b = {5'b0, shifted_mantissa_b};
+    assign extended_mantissa_a = {5'b0, shifted_mantissa_a};
+    assign final_exp_result = exp_a;
+end
+else begin
+    exp_diff = exp_b - exp_a;
+    assign shifted_mantissa_a = {1'b1, mantissa_a} >> exp_diff;
+    assign shifted_mantissa_b = {1'b1, mantissa_b};
+    assign extended_mantissa_b = {5'b0, shifted_mantissa_b};
+    assign extended_mantissa_a = {5'b0, shifted_mantissa_a};
+    assign final_exp_result = exp_b;
+end
+
+//perform addition or subtraction operation on mantissas depending on the sign bit of the two numbers
+if (a[31] == b[31]) begin
+    assign mantissa_result = extended_mantissa_a + extended_mantissa_b;
+end
+else begin
+    assign mantissa_result = extended_mantissa_a - extended_mantissa_b;
+end
+
+//normalize the result if necessary
+if (mantissa_result[23] == 1'b1) begin
+    assign mantissa_result = mantissa_result >> 1;
+    assign final_exp_result = final_exp_result + 1'b1;
+end
+
+//check for overflow or underflow
+if (final_exp_result > 8'hFE) begin
+    assign exception = 2'b11;
+end
+else if (final_exp_result < 8'h01) begin
+    assign exception = 2'b10;
+end
+else begin
+    assign result = {a[31] ^ b[31], final_exp_result, mantissa_result[22:0]};
+end
+
+endmodule

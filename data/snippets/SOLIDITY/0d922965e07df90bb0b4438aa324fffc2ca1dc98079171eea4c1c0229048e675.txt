@@ -1,0 +1,109 @@
+// Solidity contract for a decentralized marketplace with escrow function
+
+// Import necessary libraries
+import "./SafeMath.sol";
+import "./Ownable.sol";
+import "./Token.sol";
+
+// Contract definition
+contract Marketplace is Ownable {
+    
+    // Library instance for handling safe math operations
+    using SafeMath for uint;
+    
+    // Structure to define a product listing
+    struct Product {
+        string productName;
+        uint price;
+        uint quantity;
+        bool isAvailable;
+        address seller;
+        address buyer;
+    }
+    
+    // Declare token contract instance
+    Token private token;
+    
+    // Array to store all product listings
+    Product[] public productListings;
+    
+    // Event to emit when a new product is added to the marketplace
+    event ProductAdded(string productName, uint price, uint quantity);
+    
+    // Modifier to ensure that only the contract owner can add or remove products
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the contract owner can perform this action.");
+        _;
+    }
+    
+    // Constructor function to initialize the token contract instance
+    constructor(address _tokenAddress) public {
+        token = Token(_tokenAddress);
+    }
+    
+    // Function to add a new product to the marketplace
+    function addProduct(string memory _productName, uint _price, uint _quantity) public onlyOwner {
+        require(_quantity > 0, "Quantity must be greater than 0.");
+        
+        // Add the product to the array of product listings
+        productListings.push(Product(_productName, _price, _quantity, true, msg.sender, address(0)));
+        
+        // Emit the product added event
+        emit ProductAdded(_productName, _price, _quantity);
+    }
+    
+    // Function to initiate an escrow transaction for a specific product
+    function buyProduct(uint _productId) public payable {
+        // Get the product listing from the array
+        Product storage product = productListings[_productId];
+        
+        // Ensure that the product is available
+        require(product.isAvailable, "This product is no longer available.");
+        
+        // Ensure that the buyer is sending enough tokens to cover the price
+        uint totalPrice = product.price.mul(product.quantity);
+        require(msg.value == totalPrice, "Insufficient funds.");
+        
+        // Transfer tokens from the buyer to the seller and update product details
+        token.transfer(product.seller, totalPrice);
+        product.buyer = msg.sender;
+        product.isAvailable = false;
+    }
+    
+    // Function to release funds from escrow to the seller
+    function releaseFunds(uint _productId) public onlyOwner {
+        // Get the product listing from the array
+        Product storage product = productListings[_productId];
+        
+        // Ensure that the product has been purchased and that the buyer is the one calling this function
+        require(!product.isAvailable, "Product has not been purchased.");
+        require(msg.sender == product.buyer, "Only the buyer can release funds.");
+        
+        // Reset the product details to prepare for a new listing
+        product.price = 0;
+        product.quantity = 0;
+        product.isAvailable = false;
+        product.buyer = address(0);
+    }
+    
+    // Function to cancel a product listing and return the tokens to the seller
+    function cancelProduct(uint _productId) public {
+        // Get the product listing from the array
+        Product storage product = productListings[_productId];
+        
+        // Ensure that the product is available and that the seller is calling this function
+        require(product.isAvailable, "Product is no longer available.");
+        require(msg.sender == product.seller, "Only the seller can cancel this product listing.");
+        
+        // Transfer the tokens back to the seller and update product details
+        token.transfer(msg.sender, product.price.mul(product.quantity));
+        product.isAvailable = false;
+        product.buyer = address(0);
+    }
+    
+    // Function to get the total number of product listings
+    function getProductCount() public view returns (uint) {
+        return productListings.length;
+    }
+    
+}

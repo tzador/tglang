@@ -1,0 +1,67 @@
+// Define a schema
+const schema = `
+
+    # An object representing a book
+    type Book {
+        title: String!
+        author: String!
+        genre: String!
+    }
+
+    # The root query type.
+    type Query {
+        # Get a single book by title
+        getBook(title: String!): Book
+        # Get all books by a specific author
+        getBooksByAuthor(author: String!): [Book]
+        # Get all books by a specific genre
+        getBooksByGenre(genre: String!): [Book]
+    }
+
+    # Mutations to create, update, and delete books
+    type Mutation {
+        # Create a new book
+        createBook(title: String!, author: String!, genre: String!): Book!
+        # Update an existing book
+        updateBook(id: ID!, title: String, author: String, genre: String): Book!
+        # Delete a book
+        deleteBook(id: ID!): Boolean!
+    }
+`;
+
+// Define resolver functions
+const resolvers = {
+    Query: {
+        getBook: (parent, { title }, { books }) => books.find(book => book.title === title),
+        getBooksByAuthor: (parent, { author }, { books }) => books.filter(book => book.author === author),
+        getBooksByGenre: (parent, { genre }, { books }) => books.filter(book => book.genre === genre)
+    },
+    Mutation: {
+        createBook: (parent, { title, author, genre }, { books }) => {
+            const newBook = { id: books.length + 1, title, author, genre };
+            books.push(newBook);
+            return newBook;
+        },
+        updateBook: (parent, { id, title, author, genre }, { books }) => {
+            const book = books.find(book => book.id === id);
+            book.title = title || book.title;
+            book.author = author || book.author;
+            book.genre = genre || book.genre;
+            return book;
+        },
+        deleteBook: (parent, { id }, { books }) => {
+            const index = books.findIndex(book => book.id === id);
+            if (index < 0) {
+                throw new Error("Book not found!");
+            }
+            books.splice(index, 1);
+            return true;
+        }
+    }
+};
+
+// Implement schema and resolver functions using Apollo server
+const server = new ApolloServer({ typeDefs: schema, resolvers });
+server.listen(5000).then(({ url }) => {
+    console.log(`Server running at ${url}`);
+});

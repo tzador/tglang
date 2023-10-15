@@ -1,0 +1,53 @@
+*&---------------------------------------------------------------------*
+*& Report Z_CALCULATE_TAX
+*&---------------------------------------------------------------------*
+REPORT Z_CALCULATE_TAX.
+TABLES: T_TAX_RATE, T_SALES.
+************************************************************************
+* TYPES:
+************************************************************************
+TYPES: BEGIN OF TY_TAX_RATE,
+         TAX_GROUP TYPE T_TAX_RATE-TAX_GROUP,
+         COUNTRY TYPE T_TAX_RATE-COUNTRY,
+         TAX_PERCENTAGE TYPE T_TAX_RATE-TAX_PERCENTAGE,
+       END OF TY_TAX_RATE.
+TYPES: BEGIN OF TY_SALES,
+         MATNR TYPE T_SALES-MATNR,
+         COUNTRY TYPE T_SALES-COUNTRY,
+         AMOUNT TYPE T_SALES-AMOUNT,
+       END OF TY_SALES.
+************************************************************************
+* DATA DECLARATIONS:
+************************************************************************
+DATA: WA_TAX_RATE TYPE TY_TAX_RATE,
+      WA_SALES TYPE TY_SALES,
+      LT_TAX_RATE TYPE TABLE OF TY_TAX_RATE,
+      LT_SALES TYPE TABLE OF TY_SALES,
+      LV_TAX_AMOUNT TYPE P DECIMALS 2.
+************************************************************************
+* MAIN PROGRAM:
+************************************************************************
+START-OF-SELECTION.
+* Populate tax rate table
+SELECT * FROM T_TAX_RATE INTO TABLE LT_TAX_RATE.
+IF SY-SUBRC <> 0.
+  WRITE 'Error in selecting from T_TAX_RATE'.
+ENDIF.
+* Populate sales table
+SELECT * FROM T_SALES INTO TABLE LT_SALES.
+IF SY-SUBRC <> 0.
+  WRITE 'Error in selecting from T_SALES'.
+ENDIF.
+* Loop through sales table
+LOOP AT LT_SALES INTO WA_SALES.
+  CLEAR LV_TAX_AMOUNT.
+  * Loop through tax rate table
+  LOOP AT LT_TAX_RATE INTO WA_TAX_RATE
+    WHERE TAX_GROUP = WA_SALES-COUNTRY
+    AND COUNTRY = WA_SALES-COUNTRY.
+    * Calculate tax amount
+    LV_TAX_AMOUNT = ( WA_SALES-AMOUNT * WA_TAX_RATE-TAX_PERCENTAGE ) / 100.
+  ENDLOOP.
+  * Print tax amount for each sales record
+  WRITE: / 'Tax amount for sales', WA_SALES-MATNR, 'in country', WA_SALES-COUNTRY, ':', LV_TAX_AMOUNT.
+ENDLOOP.

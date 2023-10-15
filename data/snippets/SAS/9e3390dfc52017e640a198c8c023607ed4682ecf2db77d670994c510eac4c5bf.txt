@@ -1,0 +1,46 @@
+/* This is a SAS program to create a dataset and perform multiple regression */
+
+/* Import the necessary libraries for data manipulation and regression analysis */
+libname mydata '/folders/myfolders/data'; %* Set path to mydata folder *%;
+proc import datafile="/folders/myfolders/data/house_prices.csv" out=mydata.house_prices dbms=csv replace;
+run;
+
+/* Check the imported dataset */
+proc contents data=mydata.house_prices;
+run;
+
+/* Create a new dataset with selected columns from the imported dataset */
+data mydata.house_prices_new;
+set mydata.house_prices;
+keep SalePrice GrLivArea GarageArea YearBuilt OverallQual;
+run;
+
+/* Create a temporary dataset to perform data preparation tasks */
+data mydata.house_prices_prepared;
+set mydata.house_prices_new;
+/* Convert categorical variables to binary indicator variables */
+if OverallQual < 5 then OverallQual_binary = 0;
+else OverallQual_binary = 1;
+/* Create a new variable by combining two existing variables */
+TotalSF = GrLivArea + GarageArea;
+/* Drop the original variables used to create TotalSF */
+drop GrLivArea GarageArea;
+run;
+
+/* Perform multiple regression using PROC REG */
+proc reg data=mydata.house_prices_prepared;
+model SalePrice = YearBuilt OverallQual_binary TotalSF;
+run;
+
+/* Output the results in a formatted table */
+ods html style=statistical;
+title 'Regression Results';
+proc print data=mydata.house_prices_prepared;
+var SalePrice YearBuilt OverallQual_binary TotalSF;
+run;
+title;
+
+/* Save the results in a new dataset */
+data mydata.house_prices_regression;
+set mydata.house_prices_prepared;
+run;

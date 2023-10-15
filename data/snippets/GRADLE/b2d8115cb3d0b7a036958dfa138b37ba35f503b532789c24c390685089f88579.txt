@@ -1,0 +1,64 @@
+plugins {
+    // Adds the Java plugin to the build script
+    id 'java'
+
+    // Allows for using JUnit 5 tests in the project
+    id 'org.junit.platform.gradle.plugin' version '1.2.0'
+
+    // Plugin for generating code coverage reports
+    id 'jacoco'
+}
+
+// Define the Java version to be used for compilation
+sourceCompatibility = JavaVersion.VERSION_11
+targetCompatibility = JavaVersion.VERSION_11
+
+// Define dependencies for the project
+dependencies {
+    // JUnit 5 dependencies
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.4.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.4.2'
+
+    // Jacoco dependency for generating coverage reports
+    testImplementation 'org.mockito:mockito-junit-jupiter:3.1.0'
+
+    // Add external libraries to the project
+    // Here we use SLF4J for logging
+    implementation 'org.slf4j:slf4j-simple:1.7.30'
+    // Also add the Log4j SLF4J binding
+    runtimeOnly 'org.slf4j:slf4j-log4j12:1.7.30'
+
+    // Add the Apache Commons library for additional functionality
+    implementation 'org.apache.commons:commons-math3:3.6.1'
+}
+
+// Define tasks for generating code coverage reports
+jacocoTestReport {
+    // Define the location for the coverage report
+    reports {
+        xml.enabled false
+        csv.enabled false
+        html.destination file("${buildDir}/reports/jacoco")
+    }
+    // Define the task to run JUnit 5 tests with Jacoco enabled
+    afterEvaluate {
+        project.tasks.findAll { it.name.startsWith('test') }.each { task ->
+            project.tasks.create("jacoco${task.name}", JacocoReport) {
+                dependsOn(task)
+                group = 'Reporting'
+                description = "Runs ${task.name} tests and generates code coverage report using Jacoco."
+                reports {
+                    xml.enabled false
+                    csv.enabled false
+                    html.destination file("${buildDir}/reports/jacoco/${task.name}")
+                }
+
+                classDirectories = task.reports.junitPlatform.testsDirectory
+                // Use Jacoco to collect coverage data for the JUnit 5 tests
+                jacocoTaskName = "JacocoReport-${task.name}"
+                additionalSourceDirs = files(sourceSets.main.java.srcDirs)
+                additionalClassDirs = files(sourceSets.main.output)
+            }
+        }
+    }
+}

@@ -1,0 +1,58 @@
+/*---Set environment settings and import necessary data---*/      
+OPTIONS SOURCE SOURCE2 MPRINT MERGE VALIDVARNAME=ANY;
+/* Turn on options for larger source and source2 to be visible and to print to log */
+DATA exam_scores; 
+    /* Create new SAS dataset */
+    LENGTH StudentName $ 20 Score1 Score2 Score3 Score4 Score5 8;  
+    /* Define variable lengths in dataset */
+    INFILE pcfiles 
+    DLM=’09’x 
+    FIRSTOBS=2
+    DSD MISSOVER;  
+    /* Use delimiter and specify settings for input file */
+    INPUT StudentName $ Score1 Score2 Score3 Score4 Score5; 
+    /* Input data from specified variables */
+RUN; 
+    /* End DATA step */
+SET exam_scores;  
+    /* Assign data to new variable */
+if _N_ = 1 then delete;   
+    /* Use IF statement to delete first observation row */
+PROC PRINT DATA=exam_scores(obs=5) NOOBS;  
+    /* Use PROC PRINT to print first 5 rows of dataset without observation numbers */
+    TITLE 'Top 5 Student Exam Scores'; 
+    /* Add title to output */
+RUN; 
+    /* End PROC step */
+PROC MEANS DATA=exam_scores (drop=Score3 Score5) MAXDEC=2 
+    NWAY NOPRINT; 
+    /* Use PROC MEANS to calculate mean and standard deviation for Score1 and Score2 */
+    VAR Score1 Score2; 
+    /* Specify variables to be analyzed */
+OUTPUT OUT=means_summary MAX=stddev; 
+    /* Output mean and standard deviation to new dataset */
+TITLE 'Summary Statistics for Exam Scores'; 
+    /* Add title to output */
+RUN; 
+    /* End PROC step */
+PROC SORT DATA=means_summary OUT=means_summary_sorted; 
+    /* Use PROC SORT to sort data by descending standard deviation */
+    BY descending stddev; 
+RUN; 
+    /* End PROC step */ 
+DATA top_scores; 
+    /* Create new SAS dataset */
+    SET means_summary_sorted; 
+    /* Assign data from sorted dataset to new variable */
+    WHERE stddev > 5; 
+    /* Use WHERE statement to create subset of data where standard deviation is greater than 5 */
+    Score1_std = Score1 / stddev; 
+    /* Create new variable for z-score of Score1 */
+    Score2_std = Score2 / stddev; 
+    /* Create new variable for z-score of Score2 */
+RUN; 
+    /* End DATA step */
+PROC PRINT DATA=top_scores; 
+    /* Use PROC PRINT to print all observations in top_scores dataset */
+RUN; 
+    /* End PROC step */

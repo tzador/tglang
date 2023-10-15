@@ -1,0 +1,76 @@
+server {
+  listen 80;
+  server_name example.com;
+
+  location / {
+    root /var/www/example.com;
+    try_files $uri $uri/ =404;
+    # this directive sends all requests to index.php - especially importancolt for Linode's 1-click Apps
+    try_files $uri $uri/ /index.html;
+  }
+
+  location /images/ {
+    root /var/www/example.com;
+    autoindex on;
+  }
+
+  location ~ \.php$ {
+    fastcgi_pass unix:/var/run/php-fpm.sock; # pass PHP requests to PHP-FPM
+    fastcgi_index index.php;
+    # include the fastcgi parameters
+    include fastcgi_params;
+    # set the SCRIPT_FILENAME variable
+    fastcgi_param SCRIPT_FILENAME $request_filename;
+  }
+
+  location = /favicon.ico { access_log off; log_not_found off; }
+  location = /robots.txt  { access_log off; log_not_found off; }
+
+  # catch all
+  location / {
+    root /var/www/example.com;
+    # enable directory index
+    autoindex on;
+  }
+
+  # error pages
+  # maps requests to custom error pages
+  error_page 404 /404.html;
+  error_page 500 502 503 504 /50x.html;
+
+  # redirects
+  # to www (also covers https)
+  server {
+    listen       80;
+    server_name  example.com;
+    return       301 http://www.example.com$request_uri;
+  }
+
+  # to https
+  server {
+    listen 80;
+    listen 443 ssl;
+    server_name example.com;
+    return 301 https://$server_name$request_uri;
+  }
+
+  # logs
+  # all HTTP requests will be logged into the specified file
+  access_log /var/log/nginx/access.log;
+
+  # SSL configuration
+  # enable SSL
+  listen 443 ssl default_server;
+  listen [::]:443 ssl default_server;
+  include snippets/self-signed.conf;
+  include snippets/ssl-params.conf;
+
+  # enable HTTP/2
+  # must first be enabled on ssl default server
+  listen 443 ssl http2;
+  listen [::]:443 ssl http2;
+
+  # must specify the certificate and key
+  include snippets/ssl-example.com.conf;
+  include snippets/ssl-params.conf;
+}

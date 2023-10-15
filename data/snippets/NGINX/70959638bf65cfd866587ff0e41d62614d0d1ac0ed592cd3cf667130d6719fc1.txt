@@ -1,0 +1,72 @@
+# This is a sample configuration file for an NGINX web server.
+
+user www-data; # Set the user as www-data for security reasons
+
+worker_processes auto; # Automatically set the appropriate number of worker processes based on the available CPU cores
+
+pid /run/nginx.pid; # Location of the process ID file
+
+events { # This block defines the events that NGINX will handle
+  worker_connections 1024; # Limits the number of connections per worker process
+}
+
+http { # This block defines the configuration for HTTP
+  include /etc/nginx/mime.types; # Include the list of MIME types 
+  default_type application/octet-stream; # Sets the default MIME type
+
+  sendfile on; # Enables sending files directly to the client
+
+  # Compression settings
+  gzip on;
+  gzip_disable "msie6";
+
+  # Buffer size settings
+  client_body_buffer_size 10K;
+  client_header_buffer_size 1k;
+  client_max_body_size 8m;
+
+  # Location of logs
+  access_log /var/log/nginx/access.log;
+  error_log /var/log/nginx/error.log;
+
+  # Advanced options
+  server_tokens off; # Disable sending NGINX version number in response headers
+  include /etc/nginx/conf.d/*.conf; # Include any additional configuration files
+  include /etc/nginx/sites-enabled/*; # Include all enabled sites
+}
+
+server { # This block defines the configuration for a specific server
+  listen 80; # Sets the port that the server will listen on
+  server_name example.com; # Sets the server name
+  root /var/www/html; # Sets the root directory for serving files
+
+  location / { # This block defines the settings for the root location "/"
+    index index.html index.htm; # Sets the index files to be served
+  }
+
+  location /static/ { # This block defines the settings for the "/static" location
+    alias /var/www/static_files/; # Sets the root directory for serving files
+    expires 30d; # Sets the cache expiration time
+  }
+
+  location /api/ { # This block defines the settings for the "/api" location
+    proxy_pass http://127.0.0.1:8000; # Forwards the request to a backend server
+  }
+}
+
+upstream backend { # Define the backend server
+  server 127.0.0.1:8000; # Sets the IP and port of the backend server
+  server 127.0.0.1:8001;
+  server 127.0.0.1:8002;
+}
+
+server { # Configuration for load balancer server
+  listen 80; # Sets the port that the server will listen on
+  server_name loadbalancer.com; # Sets the server name
+  location / { # This block defines the settings for the root location "/"
+    proxy_pass http://backend; # Forwards the request to the backend server group
+    proxy_set_header Host $host; # Sets the "Host" header to the original host
+    proxy_set_header X-Real-IP $remote_addr; # Sets the "X-Real-IP" header to the client IP address
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # Sets the "X-Forwarded-For" header to include the original client IP address
+  }
+}

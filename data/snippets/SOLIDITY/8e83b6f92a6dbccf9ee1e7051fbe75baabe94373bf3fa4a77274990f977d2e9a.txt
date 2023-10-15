@@ -1,0 +1,113 @@
+/**
+ * @title CollateralizedEthereumLoan
+ * @dev This library allows for the creation and management of collateralized Ethereum loans.
+ */
+contract CollateralizedEthereumLoan {
+
+    // Constants
+    uint constant LOAN_INTEREST_RATE = 5; // Loan interest rate
+    uint constant LOAN_EXPIRATION = 30 days; // Loan expiration time
+    uint constant COLLATERAL_DROPOFF_RATE = 10; // Percentage decrease in collateral value each day
+
+    // Variables
+    address public borrower; // Address of the borrower
+    uint public loanAmount; // Amount of the loan in Wei
+    uint public loanExpiration; // Timestamp of when the loan expires
+    uint public currentCollateralValue; // Current value of the collateral in Wei
+    uint public remainingLoanAmount; // Remaining amount of the loan yet to be paid
+    uint public loanInterestAccrued; // Total amount of interest accrued on the loan
+    uint public daysPastExpiration; // Number of days that have passed since the loan expiration
+
+    // Events
+    event LoanCreated(address borrower, uint loanAmount, uint loanExpiration);
+    event LoanPaid(uint amountPaid, uint remainingLoanAmount);
+    event LoanDefaulted();
+
+    // Constructor
+    constructor(address _borrower, uint _loanAmount) public {
+        borrower = _borrower;
+        loanAmount = _loanAmount;
+        loanExpiration = now + LOAN_EXPIRATION;
+        currentCollateralValue = 0;
+        remainingLoanAmount = _loanAmount;
+        loanInterestAccrued = 0;
+        daysPastExpiration = 0;
+        emit LoanCreated(_borrower, _loanAmount, loanExpiration);
+    }
+
+    /**
+     * @dev Function to add collateral to the loan. 
+     * The collateral must have a value at least equal to the remaining loan amount.
+     * If the loan amount is paid off, any excess collateral will be returned to the borrower.
+     */
+    function addCollateral() public payable {
+        require(msg.value >= remainingLoanAmount, "Collateral must be equal or greater than the remaining loan amount.");
+        currentCollateralValue += msg.value;
+       
+        // If loan is fully paid off, return any excess collateral
+        if (remainingLoanAmount == 0) {
+            uint excessCollateral = msg.value - loanAmount;
+            msg.sender.transfer(excessCollateral);
+        }
+    }
+
+    /**
+     * @dev Function to pay off a portion of the loan.
+     * If the remaining loan amount is paid off, any excess will be returned to the borrower.
+     */
+    function repayLoan() public payable {
+        require(msg.value <= remainingLoanAmount, "Cannot repay more than the remaining loan amount.");
+        remainingLoanAmount -= msg.value;
+        loanInterestAccrued += calculateInterest(msg.value);
+
+        // If loan is fully paid off, return any excess
+        if (remainingLoanAmount == 0) {
+            uint excess = msg.value - calculateInterest(msg.value);
+            msg.sender.transfer(excess);
+        }
+
+        emit LoanPaid(msg.value, remainingLoanAmount);
+    }
+
+    /**
+     * @dev Function to calculate the accrued interest on a given payment amount.
+     * Interest is calculated based on the loan interest rate and the number of days past expiration.
+     */
+    function calculateInterest(uint _paymentAmount) internal view returns (uint) {
+        uint daysPassed = (now - loanExpiration) / 1 days;
+        uint dailyInterestRate = LOAN_INTEREST_RATE / 100;
+        return (_paymentAmount * dailyInterestRate * daysPassed);
+    }
+
+    /**
+     * @dev Function to handle loan expiration.
+     * If the loan is not repaid by the expiration date, the collateral will be liquidated and the loan defaulted.
+     */
+    function handleExpiration() internal {
+        if (now > loanExpiration) {
+            // Calculate collateral value after the expiration date
+            uint totalCollateralValue = currentCollateralValue - (currentCollateralValue * (daysPastExpiration * COLLATERAL_DROPOFF_RATE / 100));
+            
+            // Return remaining loan amount to the borrower
+            msg.sender.transfer(remainingLoanAmount);
+
+            // Liquidate and distribute remaining collateral among all parties
+            remainingLoanAmount = 0;
+            currentCollateralValue = 0;
+            uint remainingCollateral = totalCollateralValue - loanAmount;
+            borrower.transfer(remainingCollateral);
+            emit LoanDefaulted();
+        }
+        else {
+            // Update days past expiration
+            daysPastExpiration = (now - loanExpiration) / 1 days;
+        }
+    }
+
+    /**
+     * @dev Function to access details of the loan.
+     */
+    function getLoanDetails() public view returns (address, uint, uint, uint, uint, uint) {
+        return(borrower, loanAmount, loanExpiration, currentCollateralValue, remainingLoanAmount, loanInterestAccrued);
+    }
+}

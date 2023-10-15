@@ -1,0 +1,82 @@
+module type Grid = 
+  sig
+    type 'a t
+    val make : int -> int -> 'a -> 'a t
+    val get : 'a t -> int -> int -> 'a
+    val set : 'a t -> int -> int -> 'a -> 'a t
+    val fill : 'a t -> 'a -> 'a t
+    val map : ('a -> 'b) -> 'a t -> 'b t
+    val iter : ('a -> unit) -> 'a t -> unit
+    val fold_left : ('a -> 'b -> 'a) -> 'a -> 'b t -> 'a
+    val fold_right : ('a -> 'b -> 'b) -> 'b -> 'a t -> 'b
+    val row : 'a t -> int -> 'a array
+    val col : 'a t -> int -> 'a array
+    val rows : 'a t -> int
+    val cols : 'a t -> int
+    val iteri : (int -> int -> 'a -> unit) -> 'a t -> unit
+  end
+
+module Grid : Grid =
+  struct
+    type 'a t = 'a array array
+    let make m n c = Array.make_matrix m n c
+    let get t x y = t.(x).(y)
+    let set t x y e =
+      let a = Array.copy t.(x) in
+        a.(y) <- e;
+        t.unsafe_set x a
+    let fill t e = 
+      let m = Array.length t in
+        for i = 0 to m - 1 do
+          Array.fill t.(i) 0 (Array.length t.(i) - 1) e
+        done;
+        t
+    let map f t = 
+      let m = Array.length t in
+      let n = Array.length t.(0) in
+      let t' = Array.make_matrix m n (f t.(0).(0)) in
+        for i = 0 to m - 1 do
+          for j = 0 to n - 1 do
+            t'.(i).(j) <- f t.(i).(j)
+          done
+        done;
+        t'
+    let iter f t =
+      let m = Array.length t in
+      let n = Array.length t.(0) in
+        for i = 0 to m - 1 do
+          for j = 0 to n - 1 do
+            f t.(i).(j)
+          done
+        done
+    let fold_left f a t =
+      let m = Array.length t in
+        let rec loop i accu =
+          if i = m then accu
+          else 
+            let accu = Array.fold_left f accu t.(i) in
+            loop (succ i) accu
+        in 
+        loop 0 a
+    let fold_right f a t =
+      let m = Array.length t in
+        let rec loop i accu =
+          if i = 0 then accu
+          else
+            let accu = Array.fold_right f t.(i - 1) accu in
+            loop (pred i) accu
+        in
+        loop m a
+    let row t i = t.(i)
+    let col t j = Array.init (Array.length t) (fun i -> t.(i).(j))
+    let rows t = Array.length t
+    let cols t = Array.length t.(0)
+    let iteri f t =
+      let m = Array.length t in
+      let n = Array.length t.(0) in
+        for i = 0 to m - 1 do
+          for j = 0 to n - 1 do
+            f i j t.(i).(j)
+          done
+        done
+  end

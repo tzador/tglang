@@ -1,0 +1,41 @@
+server {
+  listen 80; # This directive tells NGINX to listen on port 80 for incoming connections
+
+  location / { # This directive defines the location to serve content from
+    root /var/www/html; # This specifies the root directory for the website
+    index index.html; # This directive specifies which file to serve by default
+  }
+
+  location /api { # This location block handles all requests to the API
+    proxy_pass http://localhost:3000; # This directive tells NGINX to proxy requests to the API server running on port 3000
+    proxy_http_version 1.1; # This specifies which version of HTTP to use for proxy requests
+    proxy_set_header Upgrade $http_upgrade; # This sets the Upgrade header to preserve WebSocket connections
+    proxy_set_header Host $host; # This sets the Host header to the original request's host
+    proxy_set_header Connection 'upgrade'; # This sets the Connection header to upgrade for WebSocket support
+    proxy_cache_bypass $http_upgrade; # This bypasses the cache for WebSocket connections
+  }
+
+  location /static/ { # This location block handles all requests for static files
+    alias /var/www/static/; # This specifies the directory where static files are stored
+    expires 1d; # This tells the browser to cache the response for 1 day
+  }
+
+  error_page 404 /404.html; # This directive defines what error page to serve when a 404 error occurs
+  error_page 500 502 503 504 /50x.html; # This directive defines what error page to serve when a 500, 502, 503, or 504 error occurs
+
+  location = /50x.html { # This location block handles specific requests for the 50x error page
+    root /var/www/errors/; # This specifies the directory where error pages are stored
+  }
+
+  location ~ \.php$ { # This location block handles all requests for PHP files
+    # FastCGI configuration settings
+    fastcgi_pass unix:/var/run/php/php7.0-fpm.sock; # This specifies the address of the FastCGI server
+    fastcgi_index index.php; # This tells NGINX which PHP file to use if one is not specified in the request
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; # This specifies the path to the PHP script to be executed
+    include fastcgi_params; # This includes fastcgi specific configuration files
+  }
+
+  location ~ /\.ht { # This location block handles all requests for files starting with a dot (hidden files)
+    deny all; # This directive denies access to these files
+  }
+}

@@ -1,0 +1,82 @@
+// This code snippet shows a complex data path in a synchronous design
+
+// Define inputs and outputs
+module datapath (
+    input wire clk, //clock signal
+    input wire reset, //reset signal
+    input wire [7:0] data_in, //8-bit data input
+    input wire write_en, //write enable signal
+    output reg [7:0] data_out, //8-bit data output
+    output wire done //done signal indicating operation completion
+    );
+
+// Internal signals
+reg [7:0] reg1, reg2, reg3; //three 8-bit registers
+reg [7:0] adder_result, multiplier_result, final_result; //intermediate results
+wire [7:0] data_in_reg; //register for storing data_in between clock cycles
+reg [2:0] state; //state variable for FSM
+wire [2:0] next_state; //next state variable for FSM
+
+/* --- START OF BOOLEAN EXPRESSIONS --- */
+// Determine next state based on current state
+assign next_state = (state == 0) ? 1 : //if state = 0, next state = 1
+                    (state == 1 && write_en) ? 2 : //if state = 1 and write_en = 1, next state = 2
+                    (state == 1 && !write_en) ? 0 : //if state = 1 and write_en = 0, next state = 0
+                    (state == 2) ? 3 : //if state = 2, next state = 3
+                    (state == 3) ? 0 : //if state = 3, next state = 0
+                    0; //default case, set next state = 0
+                
+// Determine whether operation is addition or multiplication based on write_en signal
+assign is_addition = (write_en) ? 1 : 0;
+
+// Calculate final_result based on is_addition signal
+assign final_result = (is_addition) ? adder_result : multiplier_result;
+
+// Determine done signal based on next_state signal
+assign done = (next_state == 3) ? 1 : 0;
+
+// Determine inputs for adder and multiplier based on data_in_reg and data_in signals
+assign add_a = (is_addition) ? data_in_reg : 0;
+assign add_b = (is_addition) ? data_in : 0;
+assign mult_a = (is_addition) ? 0 : data_in_reg;
+assign mult_b = (is_addition) ? 0 : data_in;
+/* --- END OF BOOLEAN EXPRESSIONS --- */
+
+// FSM to control data path operations
+always @(posedge clk) begin
+    if (reset) begin
+        state <= 0; //start in state 0
+    end else begin
+        state <= next_state; //transition to next state
+    end
+end
+
+// Register to store data input between clock cycles
+always @(posedge clk) begin
+    if (reset) begin
+        data_in_reg <= 0; //initialize to 0
+    end else begin
+        data_in_reg <= data_in; //store data_in
+    end
+end
+
+// Adder to perform addition operation
+always @(add_a or add_b) begin
+    adder_result <= add_a + add_b; //calculate result
+end
+
+// Multiplier to perform multiplication operation
+always @(mult_a or mult_b) begin
+    multiplier_result <= mult_a * mult_b; //calculate result
+end
+
+// Output register to store final result
+always @(posedge clk) begin
+    if (reset) begin
+        data_out <= 0; //initialize to 0
+    end else if (done) begin
+        data_out <= final_result; //store final result
+    end
+end
+
+endmodule //end of module datapath

@@ -1,0 +1,151 @@
+events {
+    # define the maximum number of connections that Nginx can handle
+    worker_connections 1024;
+}
+
+http {
+    # define the default port for Nginx to listen on
+    listen 80;
+
+    # define the default server for Nginx to use
+    server {
+        # define the domain name for the server
+        server_name www.example.com;
+
+        # define the location for the server to serve files from
+        # using regular expressions for flexible matching
+        location ~ ^/(images|css|js) {
+            # define the root directory for the files
+            root /var/www/example;
+
+            # add caching for static files to improve page load time
+            # using local file caching and http caching
+            expires 7d;
+            add_header Cache-Control "public";
+
+            # enable gzip compression for faster data transfer
+            gzip on;
+            gzip_comp_level 5; # define the compression level
+            gzip_types text/plain text/css application/javascript; # specify which file types to compress
+        }
+
+        # redirect all requests to HTTPS for secure connections
+        # using a permanent redirect to avoid duplicate content
+        return 301 https://$server_name$request_uri;
+    }
+
+    server {
+        # define the domain name for the server
+        server_name www.example.com;
+
+        # define the location for the server to serve files from
+        # using regular expressions for flexible matching
+        location ~ ^/(images|css|js) {
+            # define the root directory for the files
+            root /var/www/example;
+
+            # add caching for static files to improve page load time
+            # using local file caching and http caching
+            expires 7d;
+            add_header Cache-Control "public";
+
+            # enable gzip compression for faster data transfer
+            gzip on;
+            gzip_comp_level 5; # define the compression level
+            gzip_types text/plain text/css application/javascript; # specify which file types to compress
+        }
+
+        # enable HTTP/2 for improved website performance
+        listen 443 ssl http2;
+
+        # define SSL certificate and private key for secure connections
+        ssl_certificate /etc/nginx/ssl/example.crt;
+        ssl_certificate_key /etc/nginx/ssl/example.key;
+
+        # enable OCSP stapling for better SSL certificate status validation
+        ssl_stapling on;
+        ssl_stapling_verify on;
+
+        # enable strict transport security to force HTTPS connections
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload;";
+
+        # enable HTTP/2 server push for improved page load time
+        http2_push_preload on;
+
+        # enable reverse proxy caching for dynamic content
+        # to reduce server load and improve performance
+        proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=example_cache:10m inactive=60m;
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+
+        # specify server-side caching rules and timeout for dynamic content
+        proxy_cache_valid 200 302 5m;
+        proxy_cache_valid 404 1m;
+
+        # enable caching of HTTP headers for improved performance
+        proxy_cache_revalidate on;
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+
+        # enable gzip compression for faster data transfer
+        gzip on;
+        gzip_comp_level 5; # define the compression level
+        gzip_types text/html application/json; # specify which file types to compress
+
+        # set buffer sizes for nginx to handle large files
+        client_max_body_size 50m;
+        client_body_buffer_size 128k;
+        client_header_buffer_size 1k;
+        large_client_header_buffers 4 8k;
+
+        # enable proxy buffering for improved performance
+        proxy_buffering on;
+        proxy_buffer_size 128k;
+        proxy_busy_buffers_size 1024k;
+
+        # enable proxy disconnect timeout to avoid idle connections
+        proxy_ignore_headers X-Accel-Expires Expires Cache-Control;
+
+        # enable upstream keepalive connections for better performance
+        keepalive_timeout 60;
+        keepalive_requests 100;
+
+        # allow XML and JSON response buffering
+        proxy_buffers 8 16k;
+        proxy_buffer_size 256k;
+
+        # enable proxy pass for passing dynamic requests to backend server
+        location /api {
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header Host $host;
+            proxy_pass http://127.0.0.1:3000;
+        }
+
+        # enable proxy pass for serving static files
+        location /static {
+            proxy_pass http://127.0.0.1:8080/static/;
+        }
+
+        # enable virus scanning for uploaded files
+        # using the open source ClamAV software
+        # to protect against malicious files
+        # and prevent them from being served by Nginx
+        proxy_pass http://127.0.0.1:8000;
+        client_body_temp_path /var/nginx/client_temp;
+        client_body_in_file_only on;
+
+        # specific maximum upload size for specific file types
+        client_max_body_size 100m;
+        client_body_buffer_size 1m;
+        proxy_buffers 4 8m;
+        proxy_buffer_size 8m;
+
+        # set the chunk size for files
+        proxy_request_buffering on;
+        proxy_buffer_size 256k;
+        proxy_max_temp_file_size 512m;
+
+        # enable debugging for troubleshooting any issues
+        log_format debugging '$remote_addr - $remote_user [$time_local] '
+                                '"$request" $status ($request_time)';
+        access_log /var/log/nginx/debug.log debugging;
+    }
+}

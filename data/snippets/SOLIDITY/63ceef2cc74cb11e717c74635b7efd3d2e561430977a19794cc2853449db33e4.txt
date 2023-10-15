@@ -1,0 +1,72 @@
+// Code snippet to create a contract for an online marketplace with buyer and seller interactions
+
+// Declaring the contract 'Marketplace'
+contract Marketplace {
+
+    // State variables
+    address public owner; // Stores the address of the contract's owner
+    uint public productCount; // Stores the total number of products in the marketplace
+    
+    // Struct for storing product details
+    struct Product {
+        uint id; // Unique product ID
+        string name; // Name of the product
+        string description; // Description of the product
+        uint price; // Price of the product
+        address payable seller; // Address of the seller who added the product
+        bool sold; // Indicates if the product has been sold
+    }
+    
+    // Mapping to store all products in the marketplace
+    mapping(uint => Product) public products;
+    
+    // Events for when a product is added or sold
+    event ProductAdded(uint id, string name, string description, uint price, address payable seller);
+    event ProductSold(uint id, string name, uint price, address buyer);
+    
+    // Modifier to check if the caller is the contract owner
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the owner is allowed to call this function.");
+        _;
+    }
+    
+    // Constructor to set the contract owner
+    constructor() public {
+        owner = msg.sender;
+    }
+    
+    // Function to add a new product to the marketplace
+    function addProduct(string memory _name, string memory _description, uint _price) public {
+        require(bytes(_name).length > 0, "Name cannot be empty.");
+        require(bytes(_description).length > 0, "Description cannot be empty.");
+        require(_price > 0, "Product price should be greater than 0.");
+        
+        productCount++; // Increment the product count
+        
+        // Add the product to the marketplace using its ID as the key
+        products[productCount] = Product(productCount, _name, _description, _price, msg.sender, false);
+        
+        // Emit the event for the newly added product
+        emit ProductAdded(productCount, _name, _description, _price, msg.sender);
+    }
+    
+    // Function to buy a product from the marketplace
+    function buyProduct(uint _id) public payable {
+        // Check if the product exists
+        require(_id > 0 && _id <= productCount, "Invalid product ID.");
+        
+        Product memory product = products[_id]; // Get the product details
+        
+        // Check if the product has not been sold already and the price is correct
+        require(!product.sold, "Product has already been sold.");
+        require(msg.value == product.price, "Incorrect payment amount.");
+        
+        // Update the product sold status and transfer the funds to the seller
+        product.sold = true;
+        product.seller.transfer(msg.value);
+        
+        // Emit the event for the sold product
+        emit ProductSold(product.id, product.name, product.price, msg.sender);
+    }
+    
+}

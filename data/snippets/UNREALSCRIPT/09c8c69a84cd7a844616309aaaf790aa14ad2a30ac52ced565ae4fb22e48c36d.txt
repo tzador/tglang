@@ -1,0 +1,100 @@
+/*
+	The following code snippet is an example of a weapon fire function in UNREALSCRIPT.
+	It includes conditional statements, loops, and function calls.
+	The function shoots a raycast from the weapon and applies damage to any hit actors.
+*/
+
+/** Primary Fire function */
+function Fire(GameInfo GI, optional bool bViaReplication)
+{
+	if ( Role != ROLE_Authority )
+		return;
+		
+	local float DamagePerShot; // damage dealt per shot
+	local int i; // loop counter
+	local Actor HitActor; // hit actor from raycast
+	local Vector HitLocation; // location where raycast hits
+
+	if ( bViaReplication )
+	{
+		// if the weapon is being fired remotely, use GetUTVWeapons instead of Player.Weapons
+		foreach GetUTVWeapons(class<UDamageType> (WeaponDamageTypes[CurrentWeaponNum]))
+		{
+			if ( CurrentWeapon == none )
+				return;
+				
+			// initialize damage per shot based on weapon and game settings
+			DamagePerShot = CurrentWeapon.GetDamagePerShot() * GI.GameDifficulty;
+			
+			// if the weapon has a spread, calculate a random rotation
+			if ( CurrentWeapon.bSpreadEnabled )
+			{
+				local Rotator SpreadRotation;
+				
+				if ( currentPlayer.PlayerCamera.bAltFire )
+					SpreadRotation = GetAxes(3) * FRand( 0, 720 ) - GetAxes(2) * 360;
+				else
+					SpreadRotation = (GetAxes(3) * FRand() * CurrentWeapon.DefaultSpreadModifier - CurrentWeapon.SpreadModifierRotation);
+					
+				// multiply the spread rotation by the player's camera's rotation
+				SpreadRotation = SpreadRotation * currentPlayer.PlayerCamera.Rotation;
+				CurrentWeapon.AimRotation = SpreadRotation;
+			}
+			
+			// loop through each shot based on weapon's fire rate
+			for ( i = 0; i < CurrentWeapon.ShotsPerFire; i++ )
+			{
+				// create raycast
+				CurrentWeapon.CreateShot();
+				
+				// fire raycast from weapon's location and rotation
+				if ( CurrentWeapon.FireShot( HitActor, HitLocation ) )
+				{
+					// if the raycast hits an actor, apply damage
+					HitActor.TakeDamage( DamagePerShot, currentPlayer, HitLocation, FVector( Zeros ) );
+				}
+			}
+		}
+	}
+	else
+	{
+		// if the weapon is being fired locally, use Player.Weapons
+		foreach currentPlayer.PlayerPawn.Weapons(class<UDamageType> (WeaponDamageTypes[CurrentWeaponNum]))
+		{
+			if ( CurrentWeapon == none )
+				return;
+				
+			// initialize damage per shot based on weapon and game settings
+			DamagePerShot = CurrentWeapon.GetDamagePerShot() * GI.GameDifficulty;
+			
+			// if the weapon has a spread, calculate a random rotation
+			if ( CurrentWeapon.bSpreadEnabled )
+			{
+				local Rotator SpreadRotation;
+				
+				if ( currentPlayer.PlayerCamera.bAltFire )
+					SpreadRotation = GetAxes(3) * FRand( 0, 720 ) - GetAxes(2) * 360;
+				else
+					SpreadRotation = (GetAxes(3) * FRand() * CurrentWeapon.DefaultSpreadModifier - CurrentWeapon.SpreadModifierRotation);
+					
+				// multiply the spread rotation by the player's camera's rotation
+				SpreadRotation = SpreadRotation * currentPlayer.PlayerCamera.Rotation;
+				CurrentWeapon.AimRotation = SpreadRotation;
+			}
+			
+			// loop through each shot based on weapon's fire rate
+			for ( i = 0; i < CurrentWeapon.ShotsPerFire; i++ )
+			{
+				// create raycast
+				CurrentWeapon.CreateShot();
+				
+				// fire raycast from weapon's location and rotation
+				if ( CurrentWeapon.FireShot( HitActor, HitLocation ) )
+				{
+					// if the raycast hits an actor, apply damage
+					HitActor.TakeDamage( DamagePerShot, currentPlayer, HitLocation, FVector( Zeros ) );
+				}
+			}
+		}
+	}
+}

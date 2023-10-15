@@ -1,0 +1,45 @@
+module Main where
+import Data.Map (Map)
+import qualified Data.Map as Map
+
+data BST a = Leaf | Node (BST a) a (BST a)
+
+lookupBST :: Ord a => a -> BST a -> Maybe a
+lookupBST _ Leaf = Nothing
+lookupBST value (Node left curr right)
+  | value == curr = Just value
+  | value < curr = lookupBST value left
+  | otherwise = lookupBST value right
+
+insertBST :: Ord a => a -> BST a -> BST a
+insertBST value Leaf = Node Leaf value Leaf
+insertBST value (Node left curr right)
+  | value < curr = Node (insertBST value left) curr right
+  | otherwise = Node left curr (insertBST value right)
+
+removeBST :: Ord a => a -> BST a -> Maybe (BST a)
+removeBST _ Leaf = Nothing
+removeBST value (Node left curr right)
+  | value == curr = Just (mergeBSTs left right)
+  | value < curr = case removeBST value left of
+                     Nothing -> Nothing
+                     Just l -> Just (Node l curr right)
+  | otherwise = case removeBST value right of
+                   Nothing -> Nothing
+                   Just r -> Just (Node left curr r)
+  where
+    mergeBSTs :: Ord a => BST a -> BST a -> BST a
+    mergeBSTs Leaf bst = bst
+    mergeBSTs bst Leaf = bst
+    mergeBSTs (Node ls lc rs) bst = Node ls lc (insertBST' rs bst)
+    insertBST' Leaf (Node _ val _) = Node Leaf val Leaf
+    insertBST' Leaf Leaf = error "duplicate value"
+    insertBST' bst@(Node _ val _) t = Node (insertBST val bst) val t
+
+main :: IO ()
+main = do
+  let tree = foldr insertBST Leaf [8,3,4,1,6,8,9,10,2,7]
+      tree' = removeBST 8 tree
+  case tree' of
+    Nothing -> putStrLn "Value not found."
+    Just t -> putStrLn $ "Value found: " ++ show (lookupBST 8 t)

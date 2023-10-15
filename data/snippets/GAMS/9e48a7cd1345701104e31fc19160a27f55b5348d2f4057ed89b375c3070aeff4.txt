@@ -1,0 +1,71 @@
+Sets
+       i 'factories' /f1*f5/
+       j 'customers' /c1*c10/
+       k 'time periods' /tp1*tp7/;
+
+Parameters
+        d(j) 'demand in case'
+        b1(i) 'reg.prod.cap'
+        b2(i) 'ot.prod.cap'
+        b3(i) 'unit cost reg.prod'
+        b4(i) 'unit cost ot.prod';
+        
+Scalar m 'cost ratio' /3.5/;
+        
+Table c(i,j) 'transport cost'
+           c1     c2     c3     c4     c5     c6     c7     c8     c9     c10
+f1        16.9   18.3   13.6   14.5   15.1   15.9   18.7   17.3   14.2   19.3
+f2        17.1   15.2   12.2   19.1   18.6   14.8   11.3   16.8   16.5   19.7
+f3        14.4   18.9   17.8   17.7   11.4   14.1   12.8   18.5   13.8   17.6
+f4        16.8   14.9   18.1   13.3   17.8   15.2   17.6   13.9   15.4   11.3
+f5        11.7   14.5   17.2   14.7   11.3   16.2   17.1   12.8   11.9   15.3;
+
+Table h(i,j,k) 'avail cap in per'
+                  tp1   tp2   tp3   tp4   tp5   tp6   tp7
+f1.c1       1.0	  0.2   1.0   2.0   1.0	  1.0   1.0
+f1.c10	   0.9   0.4   1.8   0.9   1.0   1.0   1.0
+f3.c5       1.0   1.0   1.0   1.0   0.1   0.2   0.1
+f3.c10      2.0   7.0   6.0   3.0   1.0   1.0   1.0
+f4.c3       1.0   1.2   2.0   1.1   1.0   1.0   1.0
+f4.c7       1.0   1.2   2.0   1.1   1.0   1.0   0.2;
+
+Variables
+        x(i,j) 'transportation'
+        y(i) 'utilize lower'
+        z(i) 'utilize upper' ;
+
+Positive Variables x;
+Binary Variables y,z;
+
+Equations
+        profit        define obj. of the problem
+        balance(i)    production balance at factories
+        demand(j)     satisfy demand at customers
+        bounds(i)     upper and lower bounds on prod.
+        boundsmax(i)  upper bound if acctng. unit cost
+        totalcost     goal c of dual problem;
+
+profit..
+        totalcost =e= sum((i,j), c(i,j)*x(i,j));
+
+balance(i)..
+        b1(i)*y(i) + b2(i)*z(i) =e= sum(j, d(j)*x(i,j));
+
+demand(j)..
+        sum(i, x(i,j)) =e= d(j);
+
+bounds(i)..
+        b1(i)*y(i) =l= b3(i)*y(i);
+
+boundsmax(i)..
+        b2(i)*z(i) =l= b4(i)*z(i);
+
+totalcost..
+        totalcost =g= sum((i,j), c(i,j)*x(i,j)) - m*(sum(i, b1(i)*y(i)) + sum(i, b2(i)*z(i)));
+
+Model transport /profit, balance, demand, bounds, boundsmax, totalcost/;
+
+x.l(i,j) = h.l(i,j,'tp1');
+
+solve transport using LP minimizing totalcost;
+display x.l;

@@ -1,0 +1,277 @@
+//--------------------------------------------------------------------
+// The following code snippet uses UNREALSCRIPT to define a custom weapon 
+// with different firing modes and ammo types
+//--------------------------------------------------------------------
+
+class CustomWeapon extends Weapon;
+
+// Declare the different firing modes
+enum FiringModes
+{
+    FM_Single,
+    FM_Burst,
+    FM_FullAuto
+}
+
+// Declare the different ammo types
+enum AmmoTypes
+{
+    AT_Bullets,
+    AT_Lasers,
+    AT_Explosives
+}
+
+// Define the default attributes of the weapon
+var() int MaxAmmo;
+var() int ClipSize;
+var() FiringModes DefaultFiringMode;
+var() AmmoTypes DefaultAmmoType;
+var() int Damage;
+
+// Internal variables for tracking ammo and firing mode
+var int CurrentAmmo;
+state(NextFiringMode) FiringModes CurrentFiringMode;
+
+// Internal variables for tracking reload and cooldown timers
+var() float ReloadTime;
+var() float CooldownTime;
+var float CurrentReloadTime;
+var float CurrentCooldownTime;
+
+// Internal variables for tracking burst firing
+var() int BurstCount;
+var int CurrentBurstCount;
+
+// Internal variables for tracking recoil and spread
+var() float RecoilPitch;
+var() float RecoilYaw;
+var() float Spread;
+
+// Method for switching to the next firing mode
+state NextFiringMode()
+{
+    // Cycle through the firing modes and set the current mode
+    if(CurrentFiringMode == FM_Single)
+    {
+        CurrentFiringMode = FM_Burst;
+    }
+    else if(CurrentFiringMode == FM_Burst)
+    {
+        CurrentFiringMode = FM_FullAuto;
+    }
+    else
+    {
+        CurrentFiringMode = FM_Single;
+    }
+    
+    // Reset burst firing count
+    CurrentBurstCount = 0;
+    
+    // Return back to the previous state
+    PopState();
+}
+
+// Method for reloading the weapon
+state Reload()
+{
+    // Check if there is any ammo left
+    if(CurrentAmmo <= 0)
+    {
+        // Reload the weapon if there is still ammo in the clip
+        if(ClipSize > 0)
+        {
+            // Start the reload timer
+            CurrentReloadTime = ReloadTime;
+            
+            // Check if the reload timer has finished
+            while(CurrentReloadTime > 0)
+            {
+                // Reduce the reload time by the elapsed frame time
+                CurrentReloadTime -= GetElapsedFrameTime();
+                
+                // Wait until the next frame to continue the loop
+                WaitForFrame(1);
+            }
+            
+            // Refill the clip with ammo
+            CurrentAmmo = ClipSize;
+        }
+    }
+    
+    // Return back to the previous state
+    PopState();
+}
+
+// Method for firing a single shot
+state FireSingle()
+{
+    // Check if there is enough ammo to fire
+    if(CurrentAmmo > 0)
+    {
+        // Reduce the current ammo count
+        CurrentAmmo--;
+        
+        // Set the weapon's firing mode
+        SetFiringMode(FiringMode_SingleShot);
+        
+        // Fire a single shot with the specified damage
+        FireSingleShot(Damage);
+    }
+    
+    // Check if the weapon is now out of ammo
+    if(CurrentAmmo == 0)
+    {
+        // Reload the weapon
+        GotoState(Reload);
+    }
+}
+
+// Method for firing a burst shot
+state FireBurst()
+{
+    // Check if there is enough ammo and if the burst count has reached the limit
+    if(CurrentAmmo > 0 && CurrentBurstCount < BurstCount)
+    {
+        // Reduce the current ammo count
+        CurrentAmmo--;
+        
+        // Increase the current burst count
+        CurrentBurstCount++;
+        
+        // Set the weapon's firing mode
+        SetFiringMode(FiringMode_SingleShot);
+        
+        // Fire a single shot with the specified damage
+        FireSingleShot(Damage);
+        
+        // Wait for the specified cooldown time before firing the next shot
+        WaitFor(0, CooldownTime);
+        
+        // Return back to the current state to continue the burst shot
+        return fireBurst();
+    }
+    
+    // Check if the burst count has been reached and if there is still ammo remaining
+    if(CurrentBurstCount == BurstCount && CurrentAmmo > 0)
+    {
+        // Reload the weapon
+        GotoState(Reload);
+    }
+    
+    // Return back to the previous state
+    PopState();
+}
+
+// Method for firing in full auto mode
+state FireFullAuto()
+{
+    // Check if there is ammo remaining and if the cooldown time has passed
+    if(CurrentAmmo > 0 && CurrentCooldownTime <= 0)
+    {
+        // Reduce the current ammo count
+        CurrentAmmo--;
+        
+        // Set the weapon's firing mode
+        SetFiringMode(FiringMode_AutoShot);
+        
+        // Fire a single shot with the specified damage
+        FireSingleShot(Damage);
+        
+        // Wait for the specified cooldown time before firing the next shot
+        WaitFor(0, CooldownTime);
+        
+        // Return back to the current state to continue firing
+        return fireFullAuto();
+    }
+    
+    // Check if there is still ammo remaining,
+    // if the cooldown time has not reached zero yet,
+    // and if there is still time remaining before the cooldown time
+    if(CurrentAmmo > 0 && CurrentCooldownTime > 0 && GetElapsedFrameTime() < CurrentCooldownTime)
+    {
+        // Reduce the remaining cooldown time
+        CurrentCooldownTime -= GetElapsedFrameTime();
+        
+        // Wait until the next frame to continue the loop
+        WaitForFrame(1);
+        
+        // Return back to the current state to fire again
+        return fireFullAuto();
+    }
+    
+    // Check if the weapon is now out of ammo
+    if(CurrentAmmo == 0)
+    {
+        // Reload the weapon
+        GotoState(Reload);
+    }
+    
+    // Reset the cooldown time
+    CurrentCooldownTime = CooldownTime;
+    
+    // Return back to the previous state
+    PopState();
+}
+
+// Override the default fire function to handle the different firing modes
+function Fire()
+{
+    // Check the current firing mode and fire accordingly
+    if(DefaultFiringMode == FM_Single)
+    {
+        GotoState(FireSingle);
+    }
+    else if(DefaultFiringMode == FM_Burst)
+    {
+        GotoState(FireBurst);
+    }
+    else if(DefaultFiringMode == FM_FullAuto)
+    {
+        GotoState(FireFullAuto);
+    }
+}
+
+// Override the default reload function to handle the weapon's reload behavior
+function ReloadWeapon()
+{
+    // Check if the weapon is not currently reloading
+    if(CurrentState != Reload)
+    {
+        // Check if there is any ammo left in the clip
+        if(ClipSize > 0)
+        {
+            // Start the reload timer
+            CurrentReloadTime = ReloadTime;
+            
+            // Check if the reload timer has finished
+            while(CurrentReloadTime > 0)
+            {
+                // Reduce the reload time by the elapsed frame time
+                CurrentReloadTime -= GetElapsedFrameTime();
+                
+                // Wait until the next frame to continue the loop
+                WaitForFrame(1);
+            }
+            
+            // Refill the clip with ammo
+            CurrentAmmo = ClipSize;
+        }
+    }
+}
+
+// Override the default tick function to handle recoil and spread
+function Tick(float DeltaTime)
+{
+    // Calculate and apply recoil
+    local vector AddRecoil = vect(0,0,0);
+    AddRecoil[X] = FRandRange(-RecoilYaw, RecoilYaw);
+    AddRecoil[Y] = FRandRange(-RecoilPitch, RecoilPitch);
+    AddRotation(AddRecoil);
+    
+    // Calculate and apply spread
+    local rotator NewSpread = rot(0, FRandRange(-Spread, Spread), FRandRange(-Spread, Spread));
+    AddRotation(NewSpread);
+    
+    // Continue with the default tick behavior
+    Super.Tick(DeltaTime);
+}

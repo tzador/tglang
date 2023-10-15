@@ -1,0 +1,51 @@
+procedure TForm1.CheckForUpdates();
+var
+  HTTPClient: THTTPClient;
+  Response: IHTTPResponse;
+  UpdateInfo: TJSONObject;
+  VersionNum, UpdateURL: string;
+begin
+  // Create a new HTTP client for requesting update information
+  HTTPClient := THTTPClient.Create;
+
+  try
+    // Send a GET request to the update server
+    Response := HTTPClient.Get('https://www.example.com/update');
+
+    // Check if the response status code is 200 (OK)
+    if Response.StatusCode = 200 then
+    begin
+      // Parse the JSON response into a TJSONObject
+      UpdateInfo := TJSONObject.ParseJSONValue(Response.ContentAsString) as TJSONObject;
+
+      if UpdateInfo <> nil then
+      begin
+        // Get the version number and update URL from the JSON object
+        VersionNum := UpdateInfo.GetValue('version').Value;
+        UpdateURL := UpdateInfo.GetValue('url').Value;
+
+        // Check if the version number is greater than the current version
+        if CompareVersionNumbers(VersionNum, CurrentVersion) > 0 then
+        begin
+          // Display a message to the user
+          ShowMessage('A new update is available!');
+
+          // Download the update from the update URL
+          HTTPClient.Get(UpdateURL);
+        end
+        else
+        begin
+          // Display a message to the user
+          ShowMessage('No updates available.');
+        end;
+      end
+      else
+        ShowMessage('Error parsing update information.');
+    end
+    else
+      ShowMessage('Error requesting update information: ' + Response.StatusCode.ToString());
+  finally
+    // Free the HTTP client object
+    HTTPClient.Free;
+  end;
+end;

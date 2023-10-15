@@ -1,0 +1,143 @@
+class SHighScoreManager extends Object;
+/**
+ * High score manager class responsible for handling player scores. 
+ * 
+ * @param Owner The owning object.
+ */
+var const transient Owner;
+var const int MAX_SCORES = 10; // Maximum number of scores to store.
+var array<int> Scores; // Array of player scores.
+
+/* Default constructor. */
+function SHighScoreManager(Object owner)
+{
+    Super();
+
+    Owner = owner;
+
+    // Initialize scores array.
+    Scores = new array<int>(MAX_SCORES);
+}
+
+/* Add new score to the array, sorted from highest to lowest. */
+function AddScore(int newScore)
+{
+    // Check if the new score is higher than the last score in the array.
+    if (newScore >= Scores[MAX_SCORES - 1])
+    {
+        // Add new score at the end of the array.
+        Scores[MAX_SCORES - 1] = newScore;
+    }
+    else 
+    {
+        // Find the index where the new score should be inserted.
+        local int insertIndex;
+        for (insertIndex = 0; insertIndex < MAX_SCORES; insertIndex++)
+        {
+            if (newScore > Scores[insertIndex])
+            {
+                break;
+            }
+        }
+
+        // Shift the lower scores down in the array.
+        for (local int i = MAX_SCORES - 1; i > insertIndex; --i)
+        {
+            Scores[i] = Scores[i - 1];
+        }
+
+        // Insert the new score at the appropriate index.
+        Scores[insertIndex] = newScore;
+    }
+}
+
+/* Print out all the stored scores. */
+function ShowScores()
+{
+    // Loop through the scores array and print out each score.
+    for (local int i = 0; i < MAX_SCORES; i++)
+    {
+        log("High Score " $int(i + 1) $": " $string(Scores[i]) $" points");
+    }
+}
+
+/* Clear all the scores in the array. */
+function ClearScores()
+{
+    Scores = new array<int>(MAX_SCORES);
+}
+
+/**
+ * Save scores to persistent storage.
+ *
+ * @param SAVE_DIRECTORY The directory to save the scores in.
+ * @return bool Whether the save was successful or not.
+ */
+function SaveScores(string SAVE_DIRECTORY)
+{
+    // Construct file path.
+    local string savePath;
+    savePath = SAVE_DIRECTORY $"/highscores.sav";
+
+    // Open file for writing.
+    local File scoresFile;
+    if (!scoresFile.Open(savePath, EOpenMode::WriteOnly))
+    {
+        log("Failed to open file for writing");
+        return false;
+    }
+
+    // Write all scores to file.
+    for (local int i = 0; i < MAX_SCORES; i++)
+    {
+        scoresFile.WriteLine(string(Scores[i]));
+    }
+
+    // Close file.
+    scoresFile.Close();
+
+    // Log save success and return true.
+    log("High scores saved successfully");
+    return true;
+}
+
+/*
+ * Load scores from a saved file.
+ *
+ * @param LOAD_DIRECTORY The directory to load the scores from.
+ * @return bool Whether the load was successful or not.
+ */
+function LoadScores(string LOAD_DIRECTORY)
+{
+    // Construct file path.
+    local string loadPath;
+    loadPath = LOAD_DIRECTORY $"/highscores.sav";
+
+    // Open file for reading.
+    local File scoresFile;
+    if (!scoresFile.Open(loadPath, EOpenMode::ReadOnly))
+    {
+        log("Failed to open file for reading");
+        return false;
+    }
+
+    // Read all lines from file and save them as scores.
+    local int scoreIndex = 0;
+    local string line;
+    while (scoresFile.ReadLine(line))
+    {
+        Scores[scoreIndex] = int(line);
+        scoreIndex++;
+        if (scoreIndex == MAX_SCORES)
+        {
+            break;
+        }
+    }
+
+    // Close file.
+    scoresFile.Close();
+
+    // Log load success and return true.
+    log("High scores loaded successfully");
+    return true;
+}

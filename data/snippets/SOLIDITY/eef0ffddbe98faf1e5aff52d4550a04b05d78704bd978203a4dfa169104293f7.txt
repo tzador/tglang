@@ -1,0 +1,233 @@
+/**
+ * @title ERC721Full Non-Fungible Token Implementation
+ * @dev Implementation of the ERC721 non-fungible token standard, with full ERC721 functionality.
+ * Uses the openzeppelin-solidity library to inherit from the ERC721 and ERC721Enumerable contracts.
+ */
+contract ERC721Full is ERC721, ERC721Enumerable {
+    using SafeMath for uint256;
+
+    // Mapping from owner to list of owned token IDs
+    mapping (address => mapping (uint256 => bool)) private _ownedTokens;
+
+    // Mapping from token ID to index of the owner tokens list
+    mapping (uint256 => uint256) private _ownedTokensIndex;
+
+    // Array with all token ids, used for enumeration
+    uint256[] private _allTokens;
+
+    // Mapping from token id to position in the allTokens array
+    mapping(uint256 => uint256) private _allTokensIndex;
+
+    // Optional mapping for token URIs
+    mapping(uint256 => string) private _tokenURIs;
+
+    /**
+     * @dev Returns an URI for a given token ID. Throws if the token ID does not exist.
+     * @param tokenId uint256 ID of the token to query
+     */
+    function tokenURI(uint256 tokenId) external view returns (string memory) {
+        require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
+
+        return _tokenURIs[tokenId];
+    }
+
+    /**
+     * @dev Function to mint a new token
+     * Reverts if given token ID already exists or token's URI is an empty string
+     * @param to address of the future owner of the token
+     * @param tokenId uint256 ID of the token to be minted
+     */
+    function mint(address to, uint256 tokenId) external {
+        require(!_exists(tokenId), "ERC721: token already exists");
+
+        _mint(to, tokenId);
+        _setTokenURI(tokenId, "");
+    }
+
+    /**
+     * @dev Internal function to set the token URI for a given token
+     * Reverts if the token ID does not exist
+     * @param tokenId uint256 ID of the token to set its URI
+     * @param uri string URI to assign
+     */
+    function _setTokenURI(uint256 tokenId, string memory uri) internal {
+        require(_exists(tokenId), "ERC721Metadata: URI set of nonexistent token");
+        _tokenURIs[tokenId] = uri;
+    }
+
+    /**
+     * @dev Function to safely transfer tokens.
+     * Reverts if the target address is not a valid recipient.
+     * @param from address of the current owner of the token
+     * @param to address of the future owner of the token
+     * @param tokenId uint256 ID of the token to be transferred
+     */
+    function safeTransferFrom(address from, address to, uint256 tokenId) external {
+        // solium-disable-next-line arg-overflow
+        safeTransferFrom(from, to, tokenId, "");
+    }
+
+    /**
+     * @dev Function to safely transfer tokens.
+     * Reverts if the target address is not a valid recipient.
+     * @param from address of the current owner of the token
+     * @param to address of the future owner of the token
+     * @param tokenId uint256 ID of the token to be transferred
+     * @param data bytes data to send along with a safe transfer check
+     */
+    function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data) public {
+        _safeTransferFrom(from, to, tokenId, data);
+    }
+
+    /**
+     * @dev Internal function to safely transfer tokens.
+     * Reverts if the target address is not a valid recipient.
+     * @param from address of the current owner of the token
+     * @param to address of the future owner of the token
+     * @param tokenId uint256 ID of the token to be transferred
+     * @param data bytes data to send along with a safe transfer check
+     */
+    function _safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data) internal {
+        _transferFrom(from, to, tokenId);
+        require(_checkERC721Recipient(from, to, tokenId, data), "ERC721: transfer to non ERC721Receiver implementer");
+    }
+
+    /**
+     * @dev Function to transfer tokens.
+     * Internal function, used to call safeTransferFrom
+     * Reverts if the requestor is not the owner, approved or operator.
+     * @param from address of the current owner of the token
+     * @param to address of the future owner of the token
+     * @param tokenId uint256 ID of the token to be transferred
+     */
+    function _transferFrom(address from, address to, uint256 tokenId) internal {
+        require(_isApprovedOrOwner(msg.sender, tokenId), "ERC721: transfer caller is not owner nor approved");
+
+        _transferOwnership(from, to, tokenId);
+        _clearApproval(from, tokenId);
+    }
+
+    /**
+     * @dev Internal function to transfer ownership of a given token ID to another address.
+     * As opposed to transferFrom, this imposes no restrictions on msg.sender.
+     * Reverts if the token ID does not exist.
+     * @param from address of the current owner of the token
+     * @param to address of the new owner
+     * @param tokenId uint256 ID of the token to be transferred
+     */
+    function _transferOwnership(address from, address to, uint256 tokenId) internal {
+        require(_exists(tokenId), "ERC721: transfer of nonexistent token");
+        require(from == ownerOf(tokenId), "ERC721: transfer of token that is not own");
+
+        _clearApproval(from, tokenId);
+        _removeTokenFrom(from, tokenId);
+        _addTokenTo(to, tokenId);
+
+        emit Transfer(from, to, tokenId);
+    }
+
+    /**
+     * @dev Internal function to add a token ID to the list of a given address.
+     * @param to address representing the new owner of the given token ID
+     * @param tokenId uint256 ID of the token to be added to the tokens list of the given address
+     */
+    function _addTokenTo(address to, uint256 tokenId) internal {
+        _ownedTokensIndex[tokenId] = _ownedTokens[to].length;
+        _ownedTokens[to].push(tokenId);
+    }
+
+    /**
+     * @dev Internal function to remove a token ID from the list of a given address.
+     * @param from address representing the previous owner of the given token ID
+     * @param tokenId uint256 ID of the token to be removed from the tokens list of the given address
+     */
+    function _removeTokenFrom(address from, uint256 tokenId) internal {
+        // To prevent a gap in the tokens array, we store the last token in the index of the token to delete, and
+        // then delete the last slot (swap and pop).
+
+        uint256 lastTokenIndex = _ownedTokens[from].length.sub(1);
+        uint256 tokenIndex = _ownedTokensIndex[tokenId];
+
+        // When the token to delete is the last token, the swap operation is unnecessary
+        if (tokenIndex != lastTokenIndex) {
+            uint256 lastTokenId = _ownedTokens[from][lastTokenIndex];
+
+            _ownedTokens[from][tokenIndex] = lastTokenId; // Move the last token to the slot of the to-delete token
+            _ownedTokensIndex[lastTokenId] = tokenIndex; // Update the moved token's index
+        }
+
+        // This also deletes the contents at the last position of the array
+        _ownedTokens[from].length--;
+    }
+
+    /**
+     * @dev Internal function to check if the given address is the current owner of a certain token.
+     * @param claimant address to be checked
+     * @param tokenId uint256 ID of the token to validate ownership of
+     */
+    function _owns(address claimant, uint256 tokenId) internal view returns (bool) {
+        return _ownedTokens[claimant][tokenId];
+    }
+
+    /**
+     * @dev Internal function to check if the given address is the current approved owner of a certain token.
+     * @param claimant address to be checked
+     * @param tokenId uint256 ID of the token to validate approval of
+     */
+    function _approvedFor(address claimant, uint256 tokenId) internal view returns (bool) {
+        return _tokenApprovals[tokenId] == claimant;
+    }
+
+    /**
+     * @dev Internal function to check if a given address is an authorized operator for a given owner.
+     * @param operator address to be checked
+     * @param owner address of the owner
+     */
+    function _isApprovedForAll(address operator, address owner) internal view returns (bool) {
+        return _operatorApprovals[owner][operator];
+    }
+
+    /**
+     * @dev Internal function to remove a token from the list of all tokens.
+     * @param tokenId uint256 ID of the token to be removed
+     */
+    function _removeTokenFromAllTokensEnumeration(uint256 tokenId) internal {
+        // To prevent a gap in the tokens array, we store the last token in the index of the token to delete, and
+        // then delete the last slot (swap and pop).
+
+        uint256 lastTokenIndex = _allTokens.length.sub(1);
+        uint256 tokenIndex = _allTokensIndex[tokenId];
+
+        // When the token to delete is the last token, the swap operation is unnecessary. However, since this occurs so
+        // rarely (when the last minted token is burnt) that we still do the swap here to avoid the gas cost of adding
+        // an 'if' statement (like in _removeTokenFromOwnersEnumeration)
+        uint256 lastTokenId = _allTokens[lastTokenIndex];
+
+        _allTokens[tokenIndex] = lastTokenId; // Move the last token to the slot of the to-delete token
+        _allTokensIndex[lastTokenId] = tokenIndex; // Update the moved token's index
+
+        // This also deletes the contents at the last position of the array
+        _allTokens.length--;
+        _allTokensIndex[tokenId] = 0;
+    }
+
+    /**
+     * @dev Internal function to add a token to the list of all tokens.
+     * @param tokenId uint256 ID of the token to be added to the tokens list
+     */
+    function _addTokenToAllTokensEnumeration(uint256 tokenId) internal {
+        _allTokensIndex[tokenId] = _allTokens.length;
+        _allTokens.push(tokenId);
+    }
+
+    /**
+    * @dev Internal function to rescue any ERC721 token stuck in the contract accidentally and transfer it to the owner.
+    * It is recommended to use the ERC721.safeTransferFrom method instead.
+    * @param recipient address of the recipient of the token
+    * @param tokenId uint256 ID of the token to be rescued
+    */
+    function _rescueERC721(address recipient, uint256 tokenId) internal {
+        _clearApproval(ownerOf(tokenId), tokenId);
+        _transferOwnership(ownerOf(tokenId), recipient, tokenId);
+    }
+}

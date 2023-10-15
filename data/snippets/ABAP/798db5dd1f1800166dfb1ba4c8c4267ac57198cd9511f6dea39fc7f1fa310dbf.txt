@@ -1,0 +1,51 @@
+*&---------------------------------------------------------------------*
+*& Report ZSAPN_ANONYMIZATION
+*&---------------------------------------------------------------------*
+*& This program is used to anonymize sensitive data.
+*&---------------------------------------------------------------------*
+
+REPORT ZSAPN_ANONYMIZATION.
+
+TABLES: ITAB1, ITAB2.
+
+*--- Get input ITAB1 data
+SELECT * FROM ITAB1 INTO TABLE @DATA(ITAB1DATA).
+
+*--- Get input ITAB2 data
+SELECT * FROM ITAB2 INTO TABLE @DATA(ITAB2DATA).
+
+*--- Loop through ITAB1 data
+LOOP AT ITAB1DATA ASSIGNING FIELD-SYMBOL(<ITAB1FIELDS>).
+
+  *--- Loop through ITAB2 data
+  LOOP AT ITAB2DATA ASSIGNING FIELD-SYMBOL(<ITAB2FIELDS>).
+
+    *--- Anonymize sensitive data in ITAB1
+    CASE <ITAB1FIELDS>-fieldname.
+      WHEN 'CUSTOMER_NAME'.
+        DATA: LV_NAME TYPE STRING.
+        LV_NAME = COND #( WHEN <ITAB2FIELDS>-CUSTOMER_NUM = <ITAB1FIELDS>-CUSTOMER_NUM
+                   THEN <ITAB2FIELDS>-CUST_NAME ).
+        <ITAB1FIELDS>-CUSTOMER_NAME = LV_NAME.
+      WHEN 'CUSTOMER_ADDRESS'.
+        DATA: LV_ADDRESS TYPE STRING.
+        LV_ADDRESS = SO_OBJECT_FORM=>ANONYMIZE_ADDRESS(
+                          objcont           = <ITAB1FIELDS>-CUST_ADDRESS ).
+        <ITAB1FIELDS>-CUSTOMER_ADDRESS = LV_ADDRESS.
+      *--- Add conditions for other sensitive fields
+    ENDCASE.
+
+  ENDLOOP.
+
+  *--- Update ITAB1 with anonymized data
+  MODIFY ITAB1DATA FROM <ITAB1FIELDS>.
+
+ENDLOOP.
+
+*--- Display updated ITAB1 data
+WRITE: 'Updated ITAB1 data:'.
+LOOP AT ITAB1DATA INTO DATA(LS_ITAB1).
+  WRITE: / 'Customer Num: ', LS_ITAB1-CUSTOMER_NUM,
+         / 'Customer Name: ', LS_ITAB1-CUSTOMER_NAME,
+         / 'Customer Address: ', LS_ITAB1-CUSTOMER_ADDRESS.
+ENDLOOP.

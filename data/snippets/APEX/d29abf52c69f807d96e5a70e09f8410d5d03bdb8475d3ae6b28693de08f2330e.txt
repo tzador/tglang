@@ -1,0 +1,52 @@
+public with sharing class ContactTriggerHandler { 
+
+    private List<Contact> newContacts;
+    private List<Contact> updatedContacts;
+    private List<Contact> oldContacts;
+    private Map<Id, Contact> oldContactMap;
+    private Map<Id, Contact> newContactMap;
+    private Boolean isUpdate = false;
+
+    public ContactTriggerHandler(List<Contact> newContacts, List<Contact> oldContacts) {
+        this.newContacts = newContacts;
+        this.oldContacts = oldContacts;
+        this.oldContactMap = new Map<Id, Contact>(this.oldContacts);
+        this.newContactMap = new Map<Id, Contact>(this.newContacts);
+    }
+
+    public void handleUpdate() {
+        isUpdate = true;
+        List<Id> contactIds = new List<Id>();
+
+        for(Contact newContact : newContacts) {
+            Contact oldContact = oldContactMap.get(newContact.Id);
+            if(newContact.Phone != oldContact.Phone) {
+                contactIds.add(newContact.Id);
+            }
+        }
+
+        List<Contact> contactsToUpdate = [SELECT Id, FirstName, LastName, Email, Phone FROM Contact WHERE Id IN :contactIds];
+        for(Contact contact : contactsToUpdate) {
+            contact.Phone = '1234567890';
+        }
+        update contactsToUpdate;
+    }
+
+    public void handleInsert() {
+        List<Contact> contactsToInsert = new List<Contact>();
+        for(Contact newContact : newContacts) {
+            newContact.Description = 'A new Contact has been created!';
+            contactsToInsert.add(newContact);
+        }
+        insert contactsToInsert;
+    }
+
+    public void handleDelete() {
+        List<Id> contactIds = new List<Id>();
+        for(Contact oldContact : oldContacts) {
+            contactIds.add(oldContact.Id);
+        }
+        List<Contact> contactsToDelete = [SELECT Id, FirstName, LastName, Email, Phone FROM Contact WHERE Id IN :contactIds];
+        delete contactsToDelete;
+    }
+}

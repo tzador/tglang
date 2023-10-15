@@ -1,0 +1,56 @@
+# import necessary frameworks
+#import <Foundation/Foundation.h>
+#import <CoreLocation/CoreLocation.h>
+#import <CoreMotion/CoreMotion.h>
+
+@interface MyLocationManager: NSObject <CLLocationManagerDelegate>
+
+@property (strong, nonatomic) CLLocationManager *locationManager;
+@property (strong, nonatomic) CMMotionActivityManager *motionManager;
+
+@end
+
+@implementation MyLocationManager
+
+// initialize location and motion managers
+- (void)startLocationUpdates {
+    self.locationManager = [[CLLocationManager alloc] init];
+    self.locationManager.delegate = self;
+    self.locationManager.distanceFilter = kCLDistanceFilterNone; // set distance filter for all movements
+    self.locationManager.desiredAccuracy = kCLLocationAccuracyBestForNavigation;
+    [self.locationManager requestAlwaysAuthorization]; // request authorization for always accessing location
+    
+    self.motionManager = [[CMMotionActivityManager alloc] init];
+}
+
+// perform actions when location authorization status changes
+- (void)locationManager:(CLLocationManager *)manager didChangeAuthorizationStatus:(CLAuthorizationStatus)status {
+    if (status == kCLAuthorizationStatusAuthorizedAlways || status == kCLAuthorizationStatusAuthorizedWhenInUse) { // checks if user has given authorization for location always or when in use
+        [self.locationManager startUpdatingLocation]; // start updating location
+        [self.motionManager startActivityUpdatesToQueue:[NSOperationQueue currentQueue] withHandler:^(CMMotionActivity *activity) { // start updating motion data to current queue
+            NSString *activityString = [self updateActivityString:activity]; // call method to determine activity type
+            NSLog(@"%@", activityString);
+        }];
+    }
+}
+
+// determine activity type and return corresponding string
+- (NSString *)updateActivityString:(CMMotionActivity *)activity {
+    if (activity.stationary) {
+        return @"Stationary";
+    } else if (activity.walking) {
+        return @"Walking";
+    } else if (activity.running) {
+        return @"Running";
+    } else if (activity.automotive) {
+        return @"Driving";
+    } else if (activity.cycling) {
+        return @"Cycling";
+    } else if (activity.unknown) {
+        return @"Unknown Activity";
+    } else {
+        return @"Error retrieving activity";
+    }
+}
+
+@end

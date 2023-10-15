@@ -1,0 +1,109 @@
+pragma solidity ^0.8.0;
+
+/**
+ * @title ERC20 token with minting and burning functions
+ */
+contract ERC20 {
+    // Public variables of the token
+    string public name;
+    string public symbol;
+    uint8 public decimals;
+    uint256 public totalSupply;
+
+    // This creates an array with all balances
+    mapping (address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+    // This notifies clients about the amount burnt
+    event Burn(address indexed from, uint256 value);
+
+    /**
+     * @dev Constructor function
+     *
+     * Initializes contract with initial supply tokens to the creator of the contract
+     */
+    constructor() public {
+        name = "My Token"; // Set the name for display purposes
+        symbol = "MTK"; // Set the symbol for display purposes
+        decimals = 18; // Amount of decimals for display purposes
+        totalSupply = 1000000 * 10**uint256(decimals); // Update total supply with the decimal amount
+        balanceOf[msg.sender] = totalSupply; // Give the creator all initial tokens
+    }
+
+    /**
+     * @dev Function to transfer tokens
+     * 
+     * @param _to The address to transfer to
+     * @param _value The amount to be transferred
+     */
+    function transfer(address _to, uint256 _value) public {
+        require(_to != address(0)); // Prevent transfer to 0x0 address
+        require(_value <= balanceOf[msg.sender]); // Check if sender has enough tokens
+        
+        balanceOf[msg.sender] -= _value; // Subtract from the sender
+        balanceOf[_to] += _value; // Add the same to the recipient
+        
+        emit Transfer(msg.sender, _to, _value); // Notify anyone listening that the transfer took place
+    }
+
+    /**
+     * @dev Function to allow another address to spend tokens on behalf of the sender
+     * 
+     * @param _spender The address which will spend the funds
+     * @param _value The amount of tokens to be spent
+     */
+    function approve(address _spender, uint256 _value) public returns (bool success) {
+        allowance[msg.sender][_spender] = _value; // Allocate the allowance
+        
+        emit Approval(msg.sender, _spender, _value); // Notify anyone listening that the allowance has been set
+        
+        return true;
+    }
+
+    /**
+     * @dev Function to transfer tokens from one address to another
+     * 
+     * @param _from The address which you want to send tokens from
+     * @param _to The address which you want to transfer to
+     * @param _value The amount of tokens to be transferred
+     */
+    function transferFrom(address _from, address _to, uint256 _value) public {
+        require(_to != address(0)); // Prevent transfer to 0x0 address
+        require(_value <= balanceOf[_from]); // Check if sender has enough tokens
+        require(_value <= allowance[_from][msg.sender]); // Check if sender has enough allowance
+        
+        balanceOf[_from] -= _value; // Subtract from the sender
+        balanceOf[_to] += _value; // Add the same to the recipient
+        allowance[_from][msg.sender] -= _value; // Deduct allowance
+        
+        emit Transfer(_from, _to, _value); // Notify anyone listening that the transfer took place
+    }
+
+    /**
+     * @dev Function to mint new tokens
+     * 
+     * @param _to The address which will receive the minted tokens
+     * @param _amount The amount of tokens to mint
+     */
+    function mint(address _to, uint256 _amount) public {
+        require(msg.sender == owner); // Only contract owner can mint new tokens
+        
+        totalSupply += _amount; // Increase total supply
+        balanceOf[_to] += _amount; // Add the same to the recipient
+        
+        emit Transfer(address(0), _to, _amount); // Notify anyone listening that new tokens have been minted
+    }
+
+    /**
+     * @dev Function to burn tokens
+     * 
+     * @param _amount The amount of tokens to burn
+     */
+    function burn(uint256 _amount) public {
+        require(_amount <= balanceOf[msg.sender]); // Check if sender has enough tokens
+        
+        balanceOf[msg.sender] -= _amount; // Subtract from the sender
+        totalSupply -= _amount; // Decrease total supply
+        
+        emit Burn(msg.sender, _amount); // Notify anyone listening that tokens have been burnt
+    }
+}

@@ -1,0 +1,31 @@
+/**
+* This is a custom Apex trigger that calculates the average score for a group of students
+* based on their individual test scores.
+* It runs after insert or update of test scores and updates the average score field on the parent group record.
+*/
+trigger CalculateAverageScore on StudentTestScore__c (after insert, after update) {
+    // Query all test scores for the parent group record
+    List<StudentTestScore__c> testScores = [
+        SELECT Id, Score__c FROM StudentTestScore__c
+        WHERE Group__c = :Trigger.new[0].Group__c AND Id != :Trigger.new[0].Id
+    ];
+
+    // Calculate total score and count of scores
+    Decimal totalScore = 0;
+    Integer scoreCount = testScores.size();
+
+    // Loop through test scores and add up total score
+    for(StudentTestScore__c score : testScores) {
+        totalScore += score.Score__c;
+    }
+
+    // Get average score by dividing total score by score count
+    Decimal averageScore = totalScore / scoreCount;
+
+    // Update parent group record with average score
+    Group__c parentGroup = [
+        SELECT Id, AverageScore__c FROM Group__c WHERE Id = :Trigger.new[0].Group__c
+    ];
+    parentGroup.AverageScore__c = averageScore;
+    update parentGroup;
+}

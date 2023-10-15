@@ -1,0 +1,47 @@
+/* This code snippet generates a report of sales for a specific date range */
+
+/*  Define variables */
+DEFINE VARIABLE startDate AS DATE NO-UNDO.
+DEFINE VARIABLE endDate AS DATE NO-UNDO.
+
+/* Get user input for date range */
+PROMPT-FOR startDate VIEW-AS DATE LABEL "Start Date: ".
+PROMPT-FOR endDate VIEW-AS DATE LABEL "End Date: ".
+
+/* Set up report headers */
+DEFINE TEMP-TABLE tt-sales NO-UNDO
+    FIELD OrderDate AS DATE
+    FIELD Customer AS CHARACTER
+    FIELD Product AS CHARACTER
+    FIELD Price AS DECIMAL
+    INDEX OrderDate IS PRIMARY Unique Customer Product.
+ 
+/* Retrieve sales data from database */
+FOR EACH Sale WHERE Sale.OrderDate >= startDate AND Sale.OrderDate <= endDate NO-LOCK:
+    CREATE tt-sales.
+    ASSIGN
+        tt-sales.OrderDate = Sale.OrderDate
+        tt-sales.Customer = Sale.Customer
+        tt-sales.Product = Sale.Product
+        tt-sales.Price = Sale.Price.
+END.
+ 
+/* Print report headers */
+DEFINE VARIABLE dateFormat AS CHARACTER NO-UNDO.
+ASSIGN dateFormat = "99/99/9999".
+OUTPUT TO VALUE("report_sales_" + STRING(startDate, dateFormat) + "_" + STRING(endDate, dateFormat) + ".txt").
+PUT UNFORMATTED "Sales Report: " SKIP(2).
+PUT UNFORMATTED "Date Range: " + STRING(startDate, dateFormat) + " - " + STRING(endDate, dateFormat) SKIP(2).
+PUT UNFORMATTED "-----------------------------------------------------------------------------" SKIP(1).
+ 
+/* Print sales data */
+FOR EACH tt-sales NO-LOCK:
+    PUT UNFORMATTED tt-sales.OrderDate FORMAT "X(11)" SKIP(1).
+    PUT UNFORMATTED tt-sales.Customer SKIP(1).
+    PUT UNFORMATTED tt-sales.Product SKIP(1).
+    PUT UNFORMATTED STRING(tt-sales.Price, "&&&&&&.&&") SKIP(2).
+END.
+
+/* Save report file */
+OUTPUT CLOSE.
+MESSAGE "Sales report generated for date range " + STRING(startDate, dateFormat) + " - " + STRING(endDate, dateFormat) VIEW-AS ALERT-BOX INFO.

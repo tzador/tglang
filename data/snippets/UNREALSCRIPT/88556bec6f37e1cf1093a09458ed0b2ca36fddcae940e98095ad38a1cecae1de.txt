@@ -1,0 +1,64 @@
+class MyPlayer extends UTPawn;
+
+// Adds the 'TakeDamage' event to the MyPlayer class
+event TakeDamage(int DamageAmount, Pawn instigatedBy, vector HitLocation, vector Momentum, class<DamageType> DamageType, optional traceHitInfo, optional damageCauser)
+{
+    super.TakeDamage(DamageAmount, instigatedBy, HitLocation, Momentum, DamageType, DamageCauser);
+
+    // Checks if the hit location is within the HardHead socket
+    if(HitLocation == Mesh.GetSocketLocation('HardHead'))
+    {
+        // Clientside effect for the hit
+        MyHUD.ShowHitEffect();
+
+        // Applies a force to the player after taking damage
+        SetPhysics(PHYS_Falling);
+        Movement.ImpactPhysics(HitLocation, (Location - Velocity), 10 * DamageAmount);
+
+        // Multiplies the damage by 1.5 if the damage type is 'UTDamageType_Headshot'
+        if(DamageType == UTDamageType_Headshot)
+            DamageAmount *= 1.5;
+
+        // Applies the damage to the player
+        TakeDamageObject(DamageAmount, instigatedBy, HitLocation, Momentum, DamageType, traceHitInfo, damageCauser);
+    }
+}
+
+// Adds the 'FireWeapon' event to the MyPlayer class
+event FireWeapon(byte FireModeNum)
+{
+    super.FireWeapon(FireModeNum);
+
+    // Checks if the player has a weapon and if the fire mode is set to 'InstantHit'
+    if(Weapon != none && Weapon.CurrentFireMode.FireModeType == EFMType_InstantHit)
+    {
+        // Gets the start location and direction of the shot
+        local vector StartLocation = Weapon.GetSocketLocation(Weapon.CurrentFireMode.Socket);
+        local vector FireDir = Weapon.GetAim(StartLocation);
+
+        // Performs a trace for the hit detection
+        local Actor HitActor;
+        local Object.Vector HitLocation;
+        local Object.Vector HitNormal;
+        local HitInfo HitResult;
+        local PrimitiveComponent HitComponent;
+        if(Trace(StartLocation, StartLocation + FireDir * Weapon.CurrentRange, true, Weapon.Params.TraceOption, HitActor, HitLocation, HitNormal, HitResult, HitComponent))
+        {
+            // Checks if the hit actor is a pawn, if so, calls the 'TakeDamage' event on it
+            if(UTPawn(HitActor) != none)
+            {
+                UTPawn(HitActor).TakeDamage(Weapon.Damage, MyPlayer, HitLocation, vect(0,0,0), Weapon.DamageType, none, Weapon);
+            }
+
+            // Clientside effect for the hit
+            MyHUD.ShowHitEffect();
+
+            // Applies a force to the hit actor after taking damage
+            HitActor.SetPhysics(PHYS_Falling);
+            UTPawn(HitActor).Movement.ImpactPhysics(HitLocation, (Weapon.CurrentFireMode.DestroyedProjectionSource - Weapon.CurrentFireMode.DestroyedProjectionSourceNormalized), Weapon.Damage * 100);
+        }
+    }
+
+    // Increases the skill level of the player after firing a weapon
+    UTPlayerController(GetWorldInfo().Game.GetLocalPlayerController()).LevelUpSkill(ESkill_Weapons, UTSkill(MyPlayer.GetSkill(Eyezor:HiddenSkill())));
+}

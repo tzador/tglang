@@ -1,0 +1,66 @@
+/* This code snippet generates a report of item sales for a specified period */
+
+/* Define variables */
+DEFINE VARIABLE cFromDate AS CHARACTER NO-UNDO.
+DEFINE VARIABLE cToDate AS CHARACTER NO-UNDO.
+DEFINE VARIABLE hReport AS HANDLE NO-UNDO.
+DEFINE VARIABLE hQuery AS HANDLE NO-UNDO.
+DEFINE VARIABLE hBuffer AS HANDLE NO-UNDO.
+DEFINE VARIABLE i AS INTEGER NO-UNDO.
+DEFINE VARIABLE cItemName AS CHARACTER NO-UNDO.
+DEFINE VARIABLE iTotalSales AS INTEGER NO-UNDO.
+DEFINE VARIABLE dTotalRevenue AS DECIMAL NO-UNDO.
+
+/* Prompt user for date range */
+PROMPT-FOR cFromDate LABEL "Enter starting date (MM/DD/YYYY): ".
+PROMPT-FOR cToDate LABEL "Enter ending date (MM/DD/YYYY):".
+
+
+/* Connect to the database */
+CONNECT "sports2000" USER "user1" PASSWORD "pass1".
+
+/* Create a report */
+CREATE REPORT hReport.
+
+/* Add a query to the report */
+CREATE QUERY hQuery.
+hQuery:SET-BUFFERS(BUFFER customer,
+                   BUFFER sale,
+                   BUFFER item).
+hQuery:QUERY-PREPARE("FOR EACH item WHERE item.date BETWEEN ? AND ? 
+                      BREAK BY item.name 
+                      BREAK BY item.price DESCENDING NO-TOTALS").
+hQuery:QUERY-PARAMETERS(cFromDate, cToDate).
+
+/* Run the query */
+hQuery:QUERY-OPEN().
+hQuery:GET-FIRST().
+DO WHILE hQuery:AVAILABLE:
+
+  /* Get the buffer handle for the item */
+  hBuffer = hQuery:GET-BUFFER-HANDLE(3).
+
+  /* Increase the item's total sales by 1 */
+  ASSIGN i = i + 1.
+  ASSIGN iTotalSales = iTotalSales + 1.
+
+  /* Calculate the total revenue for the item */
+  ASSIGN dTotalRevenue = dTotalRevenue + (hBuffer:BUFFER-FIELD("sale.amount") * hBuffer:BUFFER-FIELD("item.price")).
+
+  /* Get the name of the item */
+  ASSIGN cItemName = hBuffer:BUFFER-FIELD("item.name").
+
+  /* Add the data to the report */
+  hReport:SET-FIELD("item.name", cItemName).
+  hReport:SET-FIELD("item.total-sales", iTotalSales FORMAT ">>>,>>>,>>9").
+  hReport:SET-FIELD("item.total-revenue", dTotalRevenue FORMAT ">>>,>>>,>>.9").
+
+  hQuery:GET-NEXT().
+END.
+
+/* Finalize the report and display it */
+hReport:REPORT-FINISH("Item Sales Report for " + cFromDate + " to " + cToDate).
+MSG-BOX("Item Sales Report generated successfully").
+
+/* Disconnect from the database */
+DATABASE DISCONNECT ALL.

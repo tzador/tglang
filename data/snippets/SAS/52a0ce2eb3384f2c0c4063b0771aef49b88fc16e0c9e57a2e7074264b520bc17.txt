@@ -1,0 +1,70 @@
+/* This code segment reads in a dataset containing information about customer purchases and performs clustering analysis using the k-means algorithm */
+
+/* Set options and import dataset */
+options nodate nonumber;
+data sales;
+    infile 'customer_purchases.csv' dlm = ','; /* set delimiter to comma */
+    input customer_id $ product_name $ purchase_amount;
+run;
+
+/* Create a variable with the total amount spent by each customer */
+proc sql;
+    create table sales_total as
+    select customer_id, sum(purchase_amount) as total_sales
+    from sales
+    group by customer_id;
+quit;
+
+/* Select only the top 100 customers with the highest total sales */
+proc sort data = sales_total out = top100(keep = customer_id) descending;
+    by total_sales;
+run;
+
+/* Merge the top 100 customers dataset with the original sales dataset */
+data top100_sales;
+    merge top100(in=top1) sales(in=top2); /* merge by customer_id */
+    by customer_id;
+    if top1 and top2; /* keep only the top 100 customers and their purchases */
+run;
+
+/* Assign random starting values for the k-means algorithm */
+data random_centroids;
+    set top100_sales nobs=num_obs; /* get number of observations */
+    centroid_num = 1; /* initialize centroid number */
+    do until (eof);
+        random_point = int(ranuni(12345)*num_obs)+1; /* generate random number between 1 and num_obs */
+        output;
+        eof = feof(); /* check if end of file reached */
+    end;
+    stop; /* stop reading from top100_sales when end of file reached */
+run;
+
+/* Perform k-means algorithm using PROC CLUSTER */
+options centile=2 fluent;
+proc cluster data= top100_sales outtree=tree outstat=stats outcent=centroids maxclusters=4 maxiter=10 stdize;
+    var purchase_amount; /* variable to cluster on */
+    id customer_id;
+    runtree; /* run k-means algorithm and create output datasets */
+quit;
+
+/* Print the results of the clustering analysis */
+proc print data=centroids label noobs;
+    var customer_id group_num;
+    label group_num = 'Cluster Number';
+    run;
+proc freq data=top100_sales;
+    tables group_num;
+    run;
+
+/* Export results to an output dataset */
+data clustering_results;
+    set tree;
+    if parent ne .; /* filter out parent nodes */
+    drop which_node children dist_within dist_within_num;
+    run;
+
+/* Visualize the clustering results in a scatter plot */
+proc sgplot data=clustering_results;
+    title 'K-means Clustering of Top 100 Customers by Purchase Amount';
+    scatter x=avg_within y=group_num/ xaxis display=(nolabel) grid label='Average Within Cluster Distance' labelattrs=(weight=bold) valueattrs=(weight=bold); /* plot average within cluster distances for each cluster */
+    run;

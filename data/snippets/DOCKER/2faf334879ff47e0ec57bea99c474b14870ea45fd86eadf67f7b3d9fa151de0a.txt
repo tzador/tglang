@@ -1,0 +1,27 @@
+# Define a multi-stage build in Dockerfile
+FROM golang:1.15 as builder
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy and download go.mod and go.sum files to cache dependencies
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy the local package files to the container's workspace
+COPY . .
+
+# Build the application inside the container
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o myapp .
+
+# Use a minimal base image with only the necessary runtime dependencies
+FROM alpine:latest
+
+# Copy the binary from the builder stage to the final alpine image
+COPY --from=builder /app/myapp /myapp
+
+# Set the working directory to the location of the binary
+WORKDIR /
+
+# Set the default command to run when starting the container
+CMD ["/myapp"]

@@ -1,0 +1,60 @@
+events {
+    # defines the maximum number of simultaneous connections that can be open by NGINX
+    worker_connections 1024;
+}
+
+http {
+    # tell NGINX to use the worker connections defined in the 'events' section
+    # for processing incoming requests
+    # also enables the use of certain features like gzip compression and caching
+    server {
+        listen 80;
+        server_name example.com;
+        
+        # defines the location of the NGINX web root directory
+        root /var/www/html;
+        
+        # enables gzip compression for faster content delivery
+        gzip on;
+        
+        # sets the types of files that should be compressed
+        gzip_types text/plain text/css application/json;
+        
+        # sets the maximum size of a file that can be compressed
+        gzip_max_filesize 1M;
+        
+        # enables caching for faster content retrieval
+        # allows the browser to store certain files for a set period of time
+        location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+            expires 1w;
+        }
+        
+        # sets up proxy server to handle requests from NGINX 
+        # to an application listening on port 3000
+        location /api/ {
+            proxy_pass http://localhost:3000/;
+        }
+        
+        # location block for handling requests ending with /about
+        location /about {
+            # returns a 301 status code and redirects to /about-us
+            return 301 https://www.example.com/about-us;
+        }
+        
+        # location block for handling requests ending with .php
+        location ~\.php$ {
+            # pass the request to the FastCGI server listening on port 9000
+            fastcgi_pass 127.0.0.1:9000;
+            # sets the type of request being passed to the FastCGI server
+            fastcgi_param REQUEST_METHOD $request_method;
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            fastcgi_param SCRIPT_NAME $fastcgi_script_name;
+        }
+        
+        # location block to handle requests for the '/' path
+        location / {
+            # returns a 404 error if the requested file or directory does not exist
+            try_files $uri $uri/ =404;
+        }
+    }
+}

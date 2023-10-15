@@ -1,0 +1,26 @@
+#Dockerfile for multi-stage build
+
+#Stage 1: Base Image
+FROM node:12.14.1-alpine as base
+WORKDIR /app
+EXPOSE 3000
+
+#Stage 2: Dependencies and Build
+FROM base as dependencies
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+#Stage 3: Production Image
+FROM node:12.14.1-alpine as production
+WORKDIR /app
+COPY --from=dependencies /app/dist ./dist
+COPY --from=dependencies /app/node_modules ./node_modules
+CMD ["node", "dist/server.js"]
+
+#Stage 4: Development Image
+FROM base as development
+WORKDIR /app
+COPY --from=dependencies /app/node_modules ./node_modules
+CMD ["npm", "run", "dev"]

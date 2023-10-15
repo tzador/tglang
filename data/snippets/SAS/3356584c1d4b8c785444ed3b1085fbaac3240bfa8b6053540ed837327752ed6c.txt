@@ -1,0 +1,56 @@
+/*This is a SAS program for creating a dashboard*/
+
+/*Set the library path for the data source*/
+libname data_lib "C:\Users\Documents\Datasets";
+
+/*Create a new data set for the dashboard*/
+data dashboard_data;
+    set data_lib.employee_data; /*Set the data source to the employee_data table*/
+
+    /*Create a calculated variable for the total sales by multiplying the sales and quantity columns*/
+    total_sales = sales * quantity; 
+
+    /*Create a calculated variable for the commission earned based on the total sales*/
+    if total_sales <= 10000 then commission = total_sales * 0.05;
+    else if total_sales > 10000 and total_sales <= 25000 then commission = total_sales * 0.08;
+    else commission = total_sales * 0.12;
+
+    /*Create a calculated variable for the bonus earned based on the commission and employee's rating*/
+    select;
+        when rating = "Excellent" then bonus = commission * 0.2;
+        when rating = "Good" then bonus = commission * 0.1;
+        when rating = "Satisfactory" then bonus = commission * 0.05;
+        otherwise bonus = 0;
+    end;
+
+    /*Create a calculated variable for the total earnings by summing the commission and bonus*/
+    total_earnings = commission + bonus;
+
+    /*Sort the data by employee ID in ascending order*/
+    proc sort data = dashboard_data;
+        by employee_id;
+    run;
+
+    /*Create the output data set for the dashboard and only keep the necessary variables*/
+    data dashboard_output;
+        set dashboard_data (keep = employee_id total_sales commission bonus total_earnings);
+
+        /*Create a calculated variable for the average commission earned by dividing total sales by the number of employees*/
+        avg_commission = total_sales / nobs;
+
+        /*Create a calculated variable for the average bonus earned by dividing total bonus by the number of employees*/
+        avg_bonus = bonus / nobs;
+
+        /*Create a calculated variable for the total number of employees*/
+        num_employees = nobs;
+    run;
+
+/*Create the dashboard visualization using PROC SGPLOT*/
+proc sgplot data = dashboard_output;
+    title "Employee Sales and Earnings Dashboard";
+    vbar employee_id / response = total_sales fillattrs = (color = blue) datalabel = total_sales;
+    vbar employee_id / response = commission fillattrs = (color = green) datalabel = commission;
+    vbar employee_id / response = bonus fillattrs = (color = purple) datalabel = bonus;
+    xaxis label = "Employee ID";
+    yaxis label = "Amount";
+run;

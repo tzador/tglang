@@ -1,0 +1,30 @@
+// This code snippet creates a custom task called “generateDocs”
+// that downloads a file from a URL, unzips it, and generates documentation from it.
+
+task generateDocs(type: Download) { // Defines the task "generateDocs"
+    src 'https://example.com/document.zip' // Specifies the URL of the file to be downloaded
+    dest buildDir // Specifies the destination directory for the downloaded file
+    onlyIf { project.hasProperty('generateDocs') } // Checks if the "generateDocs" property is present
+
+    doLast {
+        into file("build/docs") // Specifies the directory to unzip into
+        from zipTree(src) // Specifies the file to be unzipped
+        include 'docs/**' // Selectively unzips only the "docs" folder and its contents
+    }
+}
+
+task unzipDocs(type: Copy) { // Defines the task "unzipDocs"
+    dependsOn generateDocs // Specifies that this task depends on the "generateDocs" task for execution
+
+    from generateDocs.outputFile // Specifies the unzipped file
+    into file("build/finalDocs") // Specifies the destination directory for the unzipped file
+}
+
+task generateHtmlDocs(type: Exec) { // Defines the task "generateHtmlDocs"
+    dependsOn unzipDocs // Specifies that this task depends on the "unzipDocs" task for execution
+
+    executable 'doxygen' // Specifies the executable for generating documentation
+    args '-g', 'DoxygenConfig' // Specifies the arguments for the doxygen executable
+    args '-b', 'html', 'build/finalDocs' // Generates html documentation from the unzipped file
+    workingDir rootDir // Specifies the project directory as the working directory for the executable
+}

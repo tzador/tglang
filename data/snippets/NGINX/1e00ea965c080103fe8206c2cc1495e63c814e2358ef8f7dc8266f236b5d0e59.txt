@@ -1,0 +1,124 @@
+#########################
+## NGINX CONFIGURATION ##
+#########################
+
+# This is a comment in NGINX configuration
+
+# Start the server block
+server {
+    # Listen on port 80 for incoming requests
+    listen 80;
+    
+    # Define the server name
+    server_name example.com;
+
+    # Set the root directory for the website
+    root /var/www/example;
+
+    # Enable gzip compression
+    gzip on;
+
+    # Define the allowed HTTP methods
+    if ($request_method ~* "(GET|POST)") {
+        add_header 'Access-Control-Allow-Methods' 'GET, POST';
+    }
+
+    # Enable caching for static files
+    location ~* \.(css|js|png|jpg|gif)$ {
+        expires 1d;
+        add_header Cache-Control "public";
+    }
+
+    # Redirect all HTTP requests to HTTPS
+    if ($scheme = "http") {
+        return 301 https://$server_name$request_uri;
+    }
+
+    # Enable server-side caching with Proxy Cache
+    proxy_cache_path  /var/cache/nginx/example levels=1:2 keys_zone=example_cache:10m inactive=60m;
+    proxy_cache_key "$scheme$request_method$host$request_uri";
+    proxy_temp_path /var/cache/nginx/temp;
+
+    # Set the proxy cache size and cache lock time
+    proxy_cache_valid 200 302 60m;
+    proxy_cache_valid 404 1m;
+    proxy_cache_valid 500 502 503 504 1m;
+    proxy_cache_lock on;
+
+    # Proxy cache bypass for authenticated users
+    proxy_cache_bypass $http_pragma;
+    proxy_cache_revalidate on;
+
+    # Enable SSL with Let's Encrypt certificate
+    ssl_certificate /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+
+    # Enable OCSP Stapling for faster and more secure SSL/TLS connections
+    resolver 8.8.8.8;
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    ssl_trusted_certificate /etc/letsencrypt/live/example.com/chain.pem;
+
+    # Enable HTTP Strict Transport Security (HSTS)
+    add_header Strict-Transport-Security max-age=31536000;
+
+    # Enable server-side includes (SSI)
+    ssi on;
+
+    # Enable server-side kipping
+    ignore_invalid_headers on;
+    recursive_error_pages on;
+
+    # Enable response rate limiting
+    limit_req_zone $binary_remote_addr zone=example_rate:10m rate=10r/s;
+    limit_req_status 429;
+    limit_req_log_level error;
+    limit_conn_zone $binary_remote_addr zone=example_conn:10m;
+
+    # Enable error and access logs
+    error_log /var/log/nginx/error.log;
+    access_log /var/log/nginx/access.log;
+
+    # Set the maximum file upload size
+    client_max_body_size 20M;
+
+    # Enable server-side error pages
+    error_page 403 /errors/nginx/403.html;
+    error_page 404 /errors/nginx/404.html;
+    error_page 500 502 503 504 /errors/nginx/5xx.html;
+
+    # Enable custom error pages
+    location = /errors/ {
+        internal;
+        root /var/www/example/errors;
+    }
+
+    # Enable basic authentication
+    auth_basic "Restricted";
+    auth_basic_user_file /etc/nginx/.htpasswd;
+
+    # Configure caching for static content
+    location ~* \.(png|jpg|jpeg|gif|ico)$ {
+        expires 30d;
+        log_not_found off;
+    }
+
+    location ~* \.(css|js|swf|flv)$ {
+        expires 1d;
+        log_not_found off;
+    }
+
+    # Pass PHP requests to PHP-FPM
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php7.4-fpm.sock;
+    }
+
+    # Enable browser caching of assets
+    location ~* .(svg|gif|ico)$ {
+        expires 7d;
+        log_not_found off;
+    }
+}
+
+# End the server block and reload configuration

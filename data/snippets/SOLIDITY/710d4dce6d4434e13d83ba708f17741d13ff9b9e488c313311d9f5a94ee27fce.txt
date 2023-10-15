@@ -1,0 +1,96 @@
+pragma solidity ^0.8.0;
+
+// @title SampleToken
+// @dev This contract implements a simple ERC20 token with minting, burning, and transfer functionality
+contract SampleToken {
+    // @dev Variables to store token name, symbol, and total supply
+    string public name = "Sample Token";
+    string public symbol = "SMP";
+    uint256 public totalSupply;
+
+    // @dev Mapping to track token balances for each address
+    mapping(address = uint256) balances;
+
+    // @dev Mapping to track the allowance given by a token owner to a specific spender
+    mapping(address = mapping(address = uint256)) allowances;
+
+    // @dev Event emitted when tokens are transferred from one address to another
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
+    // @dev Event emitted when tokens are minted to a specific address
+    event Mint(address indexed to, uint256 value);
+
+    // @dev Event emitted when tokens are burned from a specific address
+    event Burn(address indexed from, uint256 value);
+
+    // @dev Constructor to set the initial total supply and the creator as the owner
+    constructor(uint256 _initialSupply) {
+        totalSupply = _initialSupply;
+        balances[msg.sender] = _initialSupply;
+    }
+
+    // @dev Returns the balance of a specific address
+    function balanceOf(address _owner) public view returns (uint256) {
+        return balances[_owner];
+    }
+
+    // @dev Returns the allowance given by a token owner to a specific spender
+    function allowance(address _owner, address _spender) public view returns (uint256) {
+        return allowances[_owner][_spender];
+    }
+
+    // @dev Allows a specific address to transfer tokens to another address if they have enough balance and allowance
+    function transfer(address _to, uint256 _value) public returns (bool) {
+        require(_to != address(0), "Cannot transfer tokens to the zero address");
+        require(_value <= balances[msg.sender], "Not enough balance");
+        require(_value <= allowances[msg.sender][_to], "Not enough allowance");
+
+        balances[msg.sender] -= _value;
+        balances[_to] += _value;
+        allowances[msg.sender][_to] -= _value;
+        emit Transfer(msg.sender, _to, _value);
+        return true;
+    }
+
+    // @dev Allows a specific address to transfer tokens on behalf of a token owner if they have enough allowance
+    function transferFrom(address _from, address _to, uint256 _value) public returns (bool) {
+        require(_to != address(0), "Cannot transfer tokens to the zero address");
+        require(_value <= balances[_from], "Not enough balance");
+        require(_value <= allowances[_from][msg.sender], "Not enough allowance");
+
+        balances[_from] -= _value;
+        balances[_to] += _value;
+        allowances[_from][msg.sender] -= _value;
+        emit Transfer(_from, _to, _value);
+        return true;
+    }
+
+    // @dev Allows the owner to give allowance to a specific address to transfer tokens on their behalf
+    function approve(address _spender, uint256 _value) public returns (bool) {
+        allowances[msg.sender][_spender] = _value;
+        return true;
+    }
+
+    // @dev Allows the owner to mint new tokens and add them to the total supply
+    function mint(address _to, uint256 _value) public returns (bool) {
+        require(msg.sender == owner, "Only the owner can mint new tokens");
+        require(_to != address(0), "Cannot mint tokens to the zero address");
+
+        totalSupply += _value;
+        balances[_to] += _value;
+        emit Mint(_to, _value);
+        return true;
+    }
+
+    // @dev Allows the owner to burn existing tokens and reduce the total supply
+    function burn(address _from, uint256 _value) public returns (bool) {
+        require(msg.sender == owner, "Only the owner can burn tokens");
+        require(_from != address(0), "Cannot burn tokens from the zero address");
+        require(_value <= balances[_from], "Not enough balance to burn");
+
+        totalSupply -= _value;
+        balances[_from] -= _value;
+        emit Burn(_from, _value);
+        return true;
+    }
+}

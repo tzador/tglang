@@ -1,0 +1,76 @@
+*&---------------------------------------------------------------------*
+*& Report ZDEMO_COMPLEX_CODE_SNIPPET
+*&
+*& This report generates a list of customers with their corresponding
+*& orders and total sales
+*&
+*&---------------------------------------------------------------------*
+REPORT ZDEMO_COMPLEX_CODE_SNIPPET.
+
+* Data declarations for internal tables to store data retrieved from database
+DATA: lt_customers TYPE TABLE OF kna1,
+      lt_orders TYPE TABLE OF vbaK,
+      lt_order_items TYPE TABLE OF vbap.
+
+* Selection screen for input
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME.
+PARAMETERS: p_cust TYPE kunnr OBLIGATORY,
+            p_date TYPE sy-datum DEFAULT sy-datum.
+SELECTION-SCREEN END OF BLOCK b1.
+
+* Internal tables to store calculated values
+DATA: lt_cust_sales TYPE TABLE OF zcust_sales,
+      lt_order_sales TYPE TABLE OF zorder_sales.
+
+* Fetch customer data based on input
+SELECT * FROM kna1 INTO TABLE lt_customers WHERE kunnr = p_cust.
+
+* Fetch all orders for customer within the given date
+SELECT * FROM vbaK INTO TABLE lt_orders
+       WHERE kunnr = p_cust
+       AND erdat <= p_date.
+
+LOOP AT lt_orders INTO ls_orders.
+
+  * Fetch all items for each order
+  SELECT * FROM vbap INTO TABLE lt_order_items
+         WHERE vbeln = ls_orders-vbeln.
+
+  * Calculate total sales for each item
+  DATA(lv_item_total) = REDUCE i( INIT total = 0 FOR wa IN lt_order_items
+                                   WHERE vbeln = ls_orders-vbeln
+                             NEXT total = total + wa-netwr ).
+
+  * Calculate total sales for each order
+  DATA(lv_order_total) = REDUCE i( INIT total = 0 FOR wa IN lt_order_items
+                                   WHERE vbeln = ls_orders-vbeln
+                             NEXT total = total + lv_item_total ).
+
+  * Add data to internal table for customer sales
+  lt_cust_sales = CORRESPONDING #( ls_orders lt_cust_sales
+                            total sales = lv_order_totals ).
+
+  * Add data to internal table for order sales
+  lt_order_sales = CORRESPONDING #( lt_order_items lt_order_sales
+                                total sales = lv_item_total ).
+
+  CLEAR: lt_order_items.
+
+ENDLOOP.
+
+* Output list of customers
+WRITE: / 'List of Customers:', /.
+LOOP AT lt_cust_sales INTO ls_cust_sales.
+  WRITE: / ls_cust_sales-name, ls_cust_sales-email, ls_cust_sales-sales.
+ENDLOOP.
+
+* Output list of orders
+WRITE: / 'List of Orders:', /.
+LOOP AT lt_order_sales INTO ls_order_sales.
+  WRITE: / ls_order_sales-order_number,
+         ls_order_sales-item_number,
+         ls_order_sales-description,
+         ls_order_sales-quantity,
+         ls_order_sales-unit_price,
+         ls_order_sales-total_price.
+ENDLOOP.

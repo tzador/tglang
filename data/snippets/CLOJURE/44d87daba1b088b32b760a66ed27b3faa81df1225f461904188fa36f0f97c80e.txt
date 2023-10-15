@@ -1,0 +1,21 @@
+(defmacro defrecord 
+  "Same as (def name (create-struct ..))"
+  {:added "1.0"}
+  [name & opts]
+  (assert-args
+    (mapcat #(if (list? %) [% '%]
+              [(keyword %) %])  ; <<-- complex code using mapcat and if function
+            (if (symbol? (first opts)) (next opts) opts)))
+  `(do ~@(let [fields (mapcat
+                        #(if (list? %) [% (first %2)]
+                           [(keyword %) %])
+                        (if (symbol? (first opts)) (next opts) opts))
+              base-part (concat (list 'create-struct)
+                                (list name)
+                                fields)]
+          (list `(def ~name ~base-part)
+                `(defn ~(symbol (str name "_map->" )) [m#]
+                   (apply map-> (class ~name) m#))
+                `(defmacro ~(symbol (str name "->" )) [x#] (list '~name x#)))
+                ; <<-- more complex code using concat, list, def, defn and defmacro
+                (cons 'do (map #(list '. % name) fields)))))

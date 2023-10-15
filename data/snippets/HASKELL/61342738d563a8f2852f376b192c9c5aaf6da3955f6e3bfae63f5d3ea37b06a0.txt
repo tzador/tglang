@@ -1,0 +1,77 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE UndecidableInstances #-}
+
+module Main where
+
+import Data.List (genericLength)
+import Control.Monad.Error
+
+class Monad m => MonadDialog m where
+  ask :: String -> m String
+  tell :: String -> m ()
+
+instance MonadDialogIO Dialog where
+  -- Using IO for example, but could be any other monad
+  type InnerMonad Dialog = IO 
+
+  ask' question = liftIO $ do
+    putStr question
+    getLine
+
+  tell' message = liftIO $ putStrLn message
+
+class Exception e => MonadException e m where
+  throw :: e -> m a
+  catch :: m a -> (e -> m a) -> m a
+  block :: m a -> m a
+  unblock :: m a -> m a
+
+instance MonadDialogIO (ErrorT String IO) where
+  type InnerMonad (ErrorT String IO) = IO
+
+  ask' question = liftIO $ do
+    putStr question
+    getLine
+
+  tell' message = liftIO $ putStrLn message
+
+instance MonadException IOException (ErrorT String IO) where
+  throw e = ErrorT $ return (Left $ show e)
+  catch (ErrorT m) h = ErrorT $ m `catch` (\e -> runErrorT $ h e)
+  block (ErrorT m) = ErrorT $ block m
+  unblock (ErrorT m) = ErrorT $ unblock m
+
+data User = User { username :: String, password :: String} deriving (Show)
+
+getUser :: MonadDialog m => m User
+getUser = do
+  username <- ask "Username: "
+  password <- ask "Password: "
+  return $ User username password
+
+validateUser :: MonadDialogIO m => User -> m Bool
+validateUser user = do
+  valid <- liftIO $ do
+    -- code to check user information
+    -- example code, replace with actual authentication method
+    putStrLn "Performing validation..."
+    return $ username user == "john" && password user == "password123"
+  if valid
+    then return True
+    else throw $ IOError $ userError "Authentication failed"
+
+main :: IO ()
+main = do
+  --Use the ErrorT transformer to handle exceptions in the IO monad
+  result <- runErrorT $ do
+    --get user information
+    user <- getUser
+    --validate user
+    valid <- validateUser user
+    if valid
+      then tell "Welcome, John!"
+      else throw $ userError "Invalid username or password"
+  case result of
+    Left e -> putStrLn $ "Error: " ++ e
+    Right _ -> return ()

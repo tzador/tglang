@@ -1,0 +1,54 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
+module Main where
+
+import Data.Data (cast)
+import Data.Typeable (TyCon, Typeable, cast, typeOf)
+import GHC.Exts (Constraint)
+import Language.Haskell.TH (Type(..), TypeQ, appT, conT, varT)
+import Text.Read (readMaybe)
+
+-- | A convenient data type that represents a @Typeable@ constraint,
+-- also when using @-XConstraintKinds@.
+data Typ (c :: * -> Constraint) = forall a. (c a, Typeable a) => Typ (Proxy a)
+
+-- | Generates a @TypeQ@ that embeds a given @Typ@ as a constraint.
+toConstrApp :: Typ c -> TypeQ
+toConstrApp (Typ p) = conT (typeOf p) `appT` varT (varName p)
+
+-- | Same as @toConstrApp@, but for a list of @Typ@s.
+class ToConstrApps cs where
+  toConstrApps :: typ c => [Typ c] -> [TypeQ]
+  toConstrApps = map toConstrApp
+
+instance ToConstrApps '[] where
+  toConstrApps _ = []
+
+instance (ToConstrApps cs, typ c) => ToConstrApps (Typ c ': cs) where
+  toConstrApps (x : xs) = toConstrApp x : toConstrApps xs
+
+-- | Generates a TH expression for a concrete type dynamic cast.
+genCastExp :: TypeQ -> TypeQ -> ExpQ
+genCastExp ti ei = do
+  r <- newName "r"
+  let t = conT (mkName "Typeable.Dynamic") `appT` ti
+      e = conT (mkName "fromDynamic") `appT` ei `appT` varE r
+  lam1E (varP r) (varE t >>= (\t' -> appE e (sigE t' (conT (mkName "Maybe")))))
+
+annotate :: ( ToConstrApps cs
+            , Typeable t
+            , Typ (Typeable :-* t) `Interspersing` cs
+            )
+         => Tt a
+         -> (Annotated (Typeable :-* t), [ExpQ])
+annotate tt@(Tt tq) = (an, maybeToList (genCastExp ti ei))
+  where ti = conT (mkName "Typeable") `appT` tq
+        ei = conT (mkName "External") `appT` tq
+        an = Annotated (Typ Proxy :*: Just r ::: Typs :*: ss ::: Init) ::: gs
+  where ti = conT (mkName "Typeable") `appT` tq
+        ei = conT (mkName "External") `appT` tq
+        an = Annotated (Typ Proxy :*: Just r ::: Typs :*: ss ::: Init) ::: gs

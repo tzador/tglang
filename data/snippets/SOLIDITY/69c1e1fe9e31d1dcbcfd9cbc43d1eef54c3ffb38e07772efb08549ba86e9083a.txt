@@ -1,0 +1,89 @@
+pragma solidity >= 0.4.22 < 0.7.0;    //Version specification for Solidity
+
+/**
+* @title InsuranceContract
+* @dev This contract is responsible for handling insurance contracts between two parties
+*/
+contract InsuranceContract {
+    
+    //Variables to store contract details
+    address private owner;
+    address private insurer;
+    address payable private customer;
+    uint private amount;
+    bool private approved;
+    bool private expired;
+    
+    //Event to emit when contract is created
+    event ContractCreated(address indexed insurer, address indexed customer, uint amount); 
+    
+    /**
+    * @dev Modifier to check if the caller is the contract owner
+    */
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the owner can call this function.");
+        _;
+    }
+    
+    /**
+    * @dev Modifier to check if the contract is approved
+    */
+    modifier onlyApproved() {
+        require(approved, "Contract is not yet approved.");
+        _;
+    }
+    
+    /**
+    * @dev Constructor function to create the contract
+    * @param _insurer The address of the insurer
+    * @param _customer The address of the customer
+    * @param _amount The amount of the contract
+    */
+    constructor(address _insurer, address _customer, uint _amount) public {
+        owner = msg.sender; //Sets the owner of the contract
+        insurer = _insurer;
+        customer = payable(_customer);
+        amount = _amount;
+        approved = false;
+        expired = false;
+        
+        emit ContractCreated(insurer, customer, amount); //Emits the event for contract creation
+    }
+    
+    /**
+    * @dev Function to approve the contract
+    */
+    function approveContract() public onlyOwner {
+        approved = true;
+    }
+    
+    /**
+    * @dev Function to get contract details
+    * @return Address of the insurer
+    * @return Address of the customer
+    * @return Amount of the contract
+    * @return Whether or not the contract is approved
+    * @return Whether or not the contract has expired
+    */
+    function getContractDetails() public view returns (address, address, uint, bool, bool) {
+        return (insurer, customer, amount, approved, expired);
+    }
+    
+    /**
+    * @dev Function to make payment to the insurer when contract is approved
+    */
+    function makePayment() public payable onlyApproved {
+        require(msg.value == amount, "Incorrect payment amount."); // checks if payment amount is correct
+        require(!expired, "Contract has expired."); // checks if contract has expired
+        require(msg.sender == customer, "Only the customer can make payments.");
+        
+        insurer.transfer(amount); // transfers amount to the insurer
+    }
+    
+    /**
+    * @dev Function to expire the contract
+    */
+    function expireContract() public onlyOwner {
+        expired = true;
+    }
+}

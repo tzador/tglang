@@ -1,0 +1,143 @@
+// This code snippet is a simple weapon class in the UnrealScript programming language.
+
+// Declaring the class named 'Weapon', which extends from 'Inventory' class
+class Weapon extends Inventory;
+
+// Defining constants for weapon states
+const byte WS_NONE = 0;
+const byte WS_RELOADING = 1;
+const byte WS_FIRING = 2;
+const byte WS_FIRINGALT = 3;
+ 
+// Declaring weapon state variable, default value is WS_NONE
+var byte WeaponState = WS_NONE;
+ 
+// Declaring weapon firing time variables
+var float FireTime;
+var float RefireTime;
+ 
+// Declaring weapon animation variables
+var float WeaponRecoil;
+var float WeaponRecoilTime;
+
+// Declaring statistics variables for the weapon
+var int AmmoCount;
+var int ClipSize;
+var float FireRate;
+var string DamageType;
+ 
+// Function to handle ammo pickup, increments ammo count and updates HUD
+event AddAmmo(int Amount)
+{
+    AmmoCount += Amount;
+    UpdateHUD();
+}
+ 
+// Function to check if weapon can fire
+function bool CanFire()
+{
+    // Weapon must not be reloading, and must have ammo
+    if (WeaponState == WS_RELOADING)
+        return false;
+    if (AmmoCount <= 0)
+        return false;
+ 
+    return true;
+}
+ 
+// Function to handle weapon firing
+function FireWeapon(float DeltaTime)
+{
+    // Check if weapon can fire
+    if (!CanFire())
+        return;
+ 
+    // Set weapon state to firing
+    WeaponState = WS_FIRING;
+ 
+    // Update recoil and firing time
+    WeaponRecoil = FMax(0, WeaponRecoil - DeltaTime);
+    FireTime += DeltaTime;
+    
+    // Check if time to fire another shot
+    if (FireTime >= FireRate) {
+        FireTime -= FireRate;
+        
+        // Create a new projectile at the weapon's location
+        spawn(class'DummyProjectile',, Location + (Rotation.Vector() * 50));
+        
+        // Decrease ammo count
+        AmmoCount--;
+ 
+        // Check if no more ammo left
+        if (AmmoCount <= 0)
+            SetWeaponState(WS_RELOADING);
+    }
+ 
+    // Update HUD with current ammo count
+    UpdateHUD();
+}
+ 
+// Function to handle alternative firing mode
+function FireWeaponAlt(float DeltaTime)
+{
+    // Check if weapon can fire
+    if (!CanFire())
+        return;
+ 
+    // Set weapon state to alternative firing
+    WeaponState = WS_FIRINGALT;
+ 
+    // Update recoil and firing time
+    WeaponRecoil = FMax(0, WeaponRecoil - DeltaTime);
+    FireTime += DeltaTime;
+ 
+    // Check if time to fire another shot
+    if (FireTime >= FireRate) {
+        FireTime -= FireRate;
+        
+        // Create a new projectile at the weapon's location
+        spawn(class'DummyAltProjectile',, Location + (Rotation.Vector() * 50));
+        
+        // Decrease ammo count
+        AmmoCount--;
+ 
+        // Check if no more ammo left
+        if (AmmoCount <= 0)
+            SetWeaponState(WS_RELOADING);
+    }
+ 
+    // Update HUD with current ammo count
+    UpdateHUD();
+}
+ 
+// Function to handle weapon reload
+function ReloadWeapon()
+{
+    // Check if weapon is already reloading or no ammo left
+    if (WeaponState == WS_RELOADING
+        || AmmoCount >= ClipSize)
+        return;
+ 
+    // Set weapon state to reloading
+    SetWeaponState(WS_RELOADING);
+ 
+    // Do reloading animation and wait for reload time
+    PlayWeaponAnimation('Reload');
+    WorldInfo.SetTimer(ReloadTime);
+}
+ 
+// Function to handle weapon state changing
+function SetWeaponState(byte NewState)
+{
+    // Only change state if different from current state
+    if (NewState != WeaponState)
+        WeaponState = NewState;
+}
+ 
+// Function to update HUD with current ammo count and weapon state
+function UpdateHUD()
+{
+    // Display ammo count and weapon state on HUD
+    HUDDisplay('Ammo: $AmmoCount - Weapon State: $WeaponState');
+}

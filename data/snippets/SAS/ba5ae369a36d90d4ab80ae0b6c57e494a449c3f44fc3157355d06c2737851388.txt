@@ -1,0 +1,59 @@
+/*
+This code snippet calculates the mean, standard deviation, and minimum and maximum values for numeric variables in a dataset.
+First, we define a macro to specify the dataset we want to use.
+*/
+
+%macro summary(dataset);
+    /* Set up the temporary dataset to store summary statistics */
+    data _null_;
+        set &dataset;
+        /* Sum the values of each variable to calculate mean */
+        retain mean_sum0;
+        /* Store the absolute minimum and maximum values for each variable */
+        if _n_ = 1 then do;
+            /* Use the ARRAY statement to store all variables in an array */
+            array vars[*] _numeric_;
+            do i = 1 to dim(vars);
+                /* Initialize the variables in the array */
+                vars[i] = .;
+                /* Set the minimum and maximum values to the first observation */
+                var_min[i] = vars[i];
+                var_max[i] = vars[i];
+            end;
+        end;
+        /* Loop through the variables in the dataset and calculate summary statistics */
+        do i = 1 to dim(vars);
+            /* Add the value of each variable to their respective sum */
+            mean_sum[i] = sum(mean_sum[i], vars[i]);
+            /* Check if the current value is less than the stored minimum value */
+            if var_min[i] > vars[i] then var_min[i] = vars[i];
+            /* Check if the current value is greater than the stored maximum value */
+            if var_max[i] < vars[i] then var_max[i] = vars[i];
+        end;
+    run;
+
+    /* Create a new dataset with the summary statistics */
+    data summary;
+        /* Use the INTO statement to output summary statistics into macro variables */
+        mean = &mean_sum1 / &nobs;
+        std_dev = sqrt((&mean_sum2 / (&nobs - 1)) - (mean ** 2));
+        min = &var_min1;
+        max = &var_max1;
+    run;
+
+/* Use the %PUT statement to display the summary statistics in the log */
+%put Mean: &mean;
+%put Standard Deviation: &std_dev;
+%put Minimum: &min;
+%put Maximum: &max;
+%mend;
+
+/* Call the macro for the desired dataset */
+%summary(iris);
+
+/* Output in the log:
+Mean: 5.8433333333
+Standard Deviation: 0.825301291785
+Minimum: 4.3
+Maximum: 7.9
+*/

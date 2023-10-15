@@ -1,0 +1,125 @@
+--This code snippet creates a generic data structure in Ada.
+generic
+   type Key_Type is private;  --creates a generic type for key values
+   type Element_Type is private;  --creates a generic type for element values
+package Data_Structure is
+
+   type Map is private;  --creates a private data type for the map structure
+
+   procedure Add (Map : in out Map; Key : in Key_Type; Element : in Element_Type);  --adds a new element to a map
+   function Get (Map : in Map; Key : in Key_Type) return Element_Type;  --returns the element associated with the given key
+   procedure Remove (Map : in out Map; Key : in Key_Type);  --removes the element associated with the given key
+   function Is_Empty (Map : in Map) return Boolean;  --checks if the map is empty
+   function Contains (Map : in Map; Key : in Key_Type) return Boolean;  --checks if the map contains the given key
+
+private
+
+   type Node;  --creates a private data type for a node in the map
+   type Node_Ptr is access Node;  --creates a pointer to a node in the map
+
+   type Map is
+      record
+         Size : Natural := 0;  --keeps track of the map size
+         Root : Node_Ptr := null;  --points to the root node of the map
+      end record;
+
+   type Node is
+      record
+         Key : Key_Type;  --stores the key value
+         Element : Element_Type;  --stores the element value
+         Left : Node_Ptr := null;  --points to the left child node
+         Right : Node_Ptr := null;  --points to the right child node
+      end record;
+
+   procedure Add (Map : in out Map; Key : in Key_Type; Element : in Element_Type) is
+      function Rec_Add (Current : in Node_Ptr) return Node_Ptr is  --recursive function for adding a new node to the map
+      begin
+         if Current = null then
+            return new Node'(Key => Key, Element => Element);  --creates a new node with the provided key and element values
+         elsif Key < Current.Key then
+            Current.Left := Rec_Add (Current.Left);
+         elsif Key > Current.Key then
+            Current.Right := Rec_Add (Current.Right);
+         else
+            raise Constraint_Error;  --raises an error if the key already exists in the map
+         end if;
+         return Current;
+      end Rec_Add;
+
+   begin
+      Map.Root := Rec_Add (Map.Root);  --calls the recursive function
+      Map.Size := Map.Size + 1;  --increments the map size
+   end Add;
+
+   function Get (Map : in Map; Key : in Key_Type) return Element_Type is
+      function Rec_Get (Current : in Node_Ptr) return Element_Type is  --recursive function for retrieving an element from the map
+         begin
+            if Current = null then
+               raise Constraint_Error;  --raises an error if the key does not exist in the map
+            elsif Key = Current.Key then
+               return Current.Element;  --returns the element if the key matches the current node's key
+            elsif Key < Current.Key then
+               return Rec_Get (Current.Left);
+            else
+               return Rec_Get (Current.Right);
+            end if;
+         end Rec_Get;
+
+   begin
+      return Rec_Get (Map.Root);  --calls the recursive function
+   end Get;
+
+   procedure Remove (Map : in out Map; Key : in Key_Type) is
+      function Rec_Remove (Parent : in out Node_Ptr; Current : in Node_Ptr) return Node_Ptr is  --recursive function for removing a node from the map
+      begin
+         if Current = null then
+            raise Constraint_Error;  --raises an error if the key does not exist in the map
+         elsif Key = Current.Key then
+            if Current.Left = null and Current.Right = null then
+               return null;  --deletes the node if it has no child nodes
+            elsif Current.Left = null or Current.Right = null then
+               return Current.Left or Current.Right;  --returns the child node if the current node has only one child node
+            else
+               Next_Node : Node_Ptr := Current.Right;
+               while Next_Node.Left /= null loop
+                  Next_Node := Next_Node.Left;
+               end loop;
+               Current.Key := Next_Node.Key;  --replaces the current node's key and element values with the ones from the next node in the sorted order
+               Current.Element := Next_Node.Element;
+               Current.Right := Rec_Remove (Current.Right, Next_Node.Key);
+               return Current;
+            end if;
+         elsif Key < Current.Key then
+            Current.Left := Rec_Remove (Current.Left, Key);
+         else
+            Current.Right := Rec_Remove (Current.Right, Key);
+         end if;
+         return Current;
+      end Rec_Remove;
+   begin
+      Map.Root := Rec_Remove (Map.Root, Key);  --calls the recursive function
+      Map.Size := Map.Size - 1;  --decrements the map size
+   end Remove;
+
+   function Is_Empty (Map : in Map) return Boolean is
+   begin
+      return Map.Size = 0;  --returns true if the map size is 0, otherwise returns false
+   end Is_Empty;
+
+   function Contains (Map : in Map; Key : in Key_Type) return Boolean is
+      function Rec_Contains (Current : in Node_Ptr) return Boolean is  --recursive function for checking if the map contains the given key
+      begin
+         if Current = null then
+            return false;  --returns false if the key does not exist in the map
+         elsif Key = Current.Key then
+            return true;  --returns true if the key matches the current node's key
+         elsif Key < Current.Key then
+            return Rec_Contains (Current.Left);
+         else
+            return Rec_Contains (Current.Right);
+         end if;
+      end Rec_Contains;
+   begin
+      return Rec_Contains (Map.Root);  --calls the recursive function
+   end Contains;
+end Data_Structure;

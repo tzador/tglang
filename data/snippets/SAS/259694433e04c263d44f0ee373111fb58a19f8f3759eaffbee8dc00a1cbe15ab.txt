@@ -1,0 +1,70 @@
+/* This is a SAS code snippet that uses a macro to generate a report with multiple variables */
+
+/* Define a macro that takes in a dataset and a list of variables as parameters */
+%macro multi_var_report(data, var_list);
+    
+    /* Create a title for the report */
+    title "Report of Multiple Variables in &data Dataset";
+    
+    /* Set the output directory for the report */
+    ods html path="C:\Reports\" body="report_multi_var.html";
+    
+    /* Begin the report and specify the dataset */
+    ods listing close;
+    ods html style=sasweb;
+    proc report data = &data;
+    
+    /* Create a column for each variable in the var_list parameter */
+    %do i=1 %to %sysfunc(countw(&var_list));
+        define %scan(&var_list,&i) / "Variable %scan(&var_list,&i)";
+    %end;
+    
+    /* Specify a summary statistic for each variable */
+    %do i=1 %to %sysfunc(countw(&var_list));
+        compute %scan(&var_list,&i);
+            %scan(&var_list,&i)_mean = mean(%scan(&var_list,&i));
+            %scan(&var_list,&i)_min = min(%scan(&var_list,&i));
+            %scan(&var_list,&i)_max = max(%scan(&var_list,&i));
+        endcomp;
+    %end;
+    
+    /* Use the features of PROC REPORT to style and format the report */
+    %macro create_style_table();
+        proc template;
+            define style styles.notebook;
+                parent = styles.default;
+                style report from table /
+                    frame = void
+                    rules = groups;
+                style header from header /
+                    font = "Arial";
+                style columnheader from columnheader /
+                    font = "Arial"
+                    background = lightgray;
+                style data from data /
+                    font = "Arial"
+                    background = white;
+                style rowheader from rowheader /
+                    background = white;
+                style summary from summary /
+                    font = "Arial";
+        end;
+    %mend;
+    %create_style_table;
+    ods html5 (id = myhtml5) options (id=myoptions) style = styles.notebook;
+    run;
+    
+    /* Close the report and ods output */
+    %let nobs = %sysfunc(observed(&data));
+    %let nvars = %sysfunc(countw(&var_list));
+    proc report data = &data label nowindows space = %sysfunc(max(%sysfunc(max(%&nobs,%&nvars)),I))ps;
+    run;
+    ods html close;
+    ods listing;
+    
+    /* Open the report in the default web browser */
+    x "C:\Reports\report_multi_var.html";
+%mend multi_var_report;
+
+/* Call the macro to generate the report using the 'sales' dataset and variables 'product', 'salesperson', and 'total_sales' */
+%multi_var_report(sales, product salesperson total_sales);

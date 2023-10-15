@@ -1,0 +1,73 @@
+/* This is a SAS code snippet to compute summary statistics for a given dataset */
+
+/* Set up the library location for the dataset */
+LIBNAME mydata "/path/to/data";
+
+/* Create a macro variable to store the dataset name */
+%let data_name = mydata.mydataset;
+
+/* Use PROC MEANS to compute summary statistics for all variables */
+proc means data=&data_name;
+  var _numeric_; /* Using the wildcard _numeric_ to select all numeric variables */
+  output out=stats; /* Creating an output dataset to store the statistics */
+run;
+
+/* Check for missing values in the dataset */
+data stats;
+  set stats;
+  array vars _numeric_; /* Creating an array of all numeric variables */
+  do i = 1 to dim(vars); /* Looping through all variables in the array */
+    if missing(vars[i]) then vars[i] = .; /* Replacing missing values with a dot */
+  end;
+  drop i; /* Drop the temporary variable used in the loop */
+run;
+
+/* Create a table of the summary statistics */
+proc print data=stats;
+run;
+
+/* Calculate correlations between variables */
+proc corr data=&data_name;
+  var _numeric_; /* Using the wildcard _numeric_ to select all numeric variables */
+run;
+
+/* Create a table of the correlation coefficients */
+proc print data=stats;
+run;
+
+/* Calculate skewness and kurtosis for each variable */
+proc univariate data=&data_name noprint;
+  var _numeric_; /* Using the wildcard _numeric_ to select all numeric variables */
+  output out=skewkurt n=count mean=mean std=std skew=skew kurt=kurt; /* Creating an output dataset with the statistics */
+run;
+
+/* Create a table of the skewness and kurtosis values */
+proc print data=skewkurt;
+run;
+
+/* Calculate confidence intervals for the mean of a specified variable */
+proc ttest data=&data_name;
+  var var_name; /* Specify the variable of interest */
+  output out=ttest mean=mean lower=lower upper=upper; /* Creating an output dataset with the confidence interval information for the mean */
+run;
+
+/* Create a table of the confidence interval for the mean */
+proc print data=ttest;
+run;
+
+/* Calculate the percentage of missing values for each variable */
+proc freq data=&data_name;
+  table _numeric_ / missing; /* Using the wildcard _numeric_ to select all numeric variables and requesting missing value counts */
+  output out=miss nmiss=nmiss; /* Create an output dataset with the number of missing values for each variable */
+run;
+
+/* Creating a new variable to store the percentage of missing values */
+data miss;
+  set miss;
+  percent = round(nmiss/count,0.01) * 100; /* Calculate the percentage of missing values */
+  label percent='Percent Missing'; /* Give the new variable a descriptive label */
+run;
+
+/* Create a table of the percentage of missing values */
+proc print data=miss;
+run;

@@ -1,0 +1,57 @@
+import scala.io.Source
+import akka.actor.{Props, ActorSystem, Actor, ActorRef}
+
+//create an Actor that handles requests
+class RequestHandler extends Actor {
+  def receive = {
+    //handle HTTP GET requests
+    case HttpRequest(method, path, headers, body) if method == "GET" =>
+      //parse the path to get the file name
+      val fileName = path.substring(1)
+      //open the file and read its contents
+      val fileContents = Source.fromFile(fileName).mkString
+      //send the contents back as a response
+      sender() ! HttpResponse(200, List(("Content-Type", "text/plain")), fileContents)
+  }
+}
+
+//create an Actor that handles responses
+class ResponseHandler extends Actor {
+  def receive = {
+    //handle successful responses
+    case HttpResponse(status, headers, body) if status == 200 =>
+      println(s"Received response with status code $status and headers $headers")
+      println(s"Response body: $body")
+    //handle errors
+    case Error(status, message) =>
+      println(s"Received error with status code $status and message $message")
+  }
+}
+
+//create an Actor system using the Actor DSL
+val actorSystem = ActorSystem("WebServer")
+
+//create an Actor that will handle incoming requests
+val requestHandler = actorSystem.actorOf(Props[RequestHandler], name = "requestHandler")
+
+//create an Actor that will handle responses
+val responseHandler = actorSystem.actorOf(Props[ResponseHandler], name = "responseHandler")
+
+//create a mock HTTP request
+val httpRequest = HttpRequest("GET", "/index.html", List(("Host", "localhost:8080")), "")
+//send the request to the request handler
+requestHandler ! httpRequest
+
+//create a mock HTTP request with incorrect method
+val httpBadRequest = HttpRequest("POST", "/index.html", List(("Host", "localhost:8080")), "")
+//send the request to the request handler
+requestHandler ! httpBadRequest
+
+//create a case class representing a HTTP request
+case class HttpRequest(method: String, path: String, headers: List[(String, String)], body: String)
+
+//create a case class representing a HTTP response
+case class HttpResponse(status: Int, headers: List[(String, String)], body: String)
+
+//create a case class representing an error response
+case class Error(status: Int, message: String)

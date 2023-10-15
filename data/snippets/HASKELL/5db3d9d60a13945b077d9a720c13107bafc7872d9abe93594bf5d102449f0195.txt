@@ -1,0 +1,96 @@
+{-# LANGUAGE TypeFamilies #-}
+
+import Data.Proxy
+import Data.Kind
+
+type family LeftAssoc (x :: k1 -> k2 -> k3) y z where
+  LeftAssoc x y z = x y z
+
+type family MiddleAssoc (x :: k1 -> k2 -> k3) (y :: k4 -> k1) (z :: k2) where
+  MiddleAssoc x y z = x (y z)
+
+type family RightAssoc (x :: k1 -> k2 -> k3) (y :: k4 -> k3) (z :: k2) where
+  RightAssoc x y z = x (y z)
+
+data Validation (f :: Type -> Type) (a :: Type) = Valid a | Invalid (f a)
+
+class Functor f => Applicative' f where
+  type Wrapped f :: Type -> Type
+  type Wrapped f = Id
+
+  type Mapped f :: Type -> Type where
+    Mapped f = Wrapped f
+
+  type Unmapped f :: Type -> Type where
+    Unmapped f = Wrapped f
+
+  type Extracted f :: (Type -> Type) -> Type -> Type
+  type Extracted f = Wrapped f
+
+  map :: ((a -> b) -> Extracted f t) -> Mapped f a -> Unmapped f b
+
+  type Validated f :: Type -> Type where
+    Validated f = Wrapped f
+
+  type Invalidated f :: Type -> Type where
+    Invalidated f = Wrapped f
+
+  validate :: (a -> b) -> Extracted f a -> Validated f b
+
+  type Result f :: Type -> Type
+  type Result f = Extracted f
+
+  combine :: (a -> b -> c) -> Result f a -> Result f b -> Result f c
+
+newtype Id a = Id
+  { unId :: a
+  }
+
+instance Applicative' Id where
+  map f (Id a) = Id (f a)
+  validate f (Id a) = Id (f a)
+  combine f (Id a) (Id b) = Id (f a b)
+
+instance Applicative' Maybe where
+  type Wrapped Maybe = MaybeT
+
+  map f m = MaybeT (Just (unMaybeT m) >>= maybe (pure Nothing) (pure . Just . f))
+  validate f m = MaybeT (Just (unMaybeT m) >>= maybe (pure Nothing) (pure . Just . f))
+  combine f m1 m2 = MaybeT (mcombine (unMaybeT m1) (unMaybeT m2))
+
+newtype MaybeT a = MaybeT
+  { unMaybeT :: Maybe a
+  }
+
+instance Applicative' Either where
+  type Wrapped Either = EitherT
+
+  map f m = EitherT $ do
+    e <- unEitherT m
+    case e of
+      Left l -> pure (Left l)
+      Right a -> pure (Right (f a))
+  validate f m = EitherT $ do
+    e <- unEitherT m
+    case e of
+      Left l -> pure (Left l)
+      Right a -> pure (Right (f a))
+  combine f m1 m2 = EitherT $ do
+    e1 <- unEitherT m1
+    e2 <- unEitherT m2
+    case (e1, e2) of
+      (Left l, _) -> pure (Left l)
+      (_, Left l) -> pure (Left l)
+      (Right a1, Right a2) -> pure (Right (f a1 a2))
+
+newtype EitherT e a = EitherT
+  { unEitherT :: Either e a
+  }
+
+newtype ValidationT f a = ValidationT
+  { unValidationT :: f (Validation f a)
+  }
+
+instance Applicative' f => Applicative (ValidationT f) where
+  pure = ValidationT . pure . Valid
+  ValidationT f <*> ValidationT a = ValidationT $ combine (<*>) f a

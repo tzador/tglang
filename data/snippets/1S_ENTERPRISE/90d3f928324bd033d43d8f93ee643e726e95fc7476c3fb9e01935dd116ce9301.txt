@@ -1,0 +1,113 @@
+EP_ExecutionOfStorage = New Object("EP.ExecutionOfStorage", EP_ExecutionOfStorageHandler);
+
+Procedure EP_ExecutionOfStorageHandler(Parameters)
+    // Start of procedure
+    // Receives parameters from execution of a storage
+    // Parameters:
+    //   - CurrentExecutor - the object executing the storage
+    //   - ReturnValue - the storage return value
+    //   - IsError - flag indicating if the execution of the storage resulted in an error
+    //   - ErrorMessage - the error message, if the execution resulted in an error
+    //   - Debug - flag indicating if debugging is enabled
+    //   - WritingResults - additional parameters necessary for writing execution results
+    //   - Runtime - object with additional information about the runtime environment
+    If Parameters.RunningMode = EP_ExecutionMode.Server Then
+        // If running in server mode, start the server task
+        ServerStartingParameters = New Structure;
+        ServerStartingParameters.Insert("Executor", Parameters.CurrentExecutor);
+        ServerStartingParameters.Insert("ReturnValue", Parameters.ReturnValue);
+        ServerStartingParameters.Insert("IsError", Parameters.IsError);
+        ServerStartingParameters.Insert("ErrorMessage", Parameters.ErrorMessage);
+        ServerStartingParameters.Insert("Debug", Parameters.Debug);
+        ServerStartingParameters.Insert("WritingResults", Parameters.WritingResults);
+        ServerInstance = New ServerTask("ExecutionOfStorage", ServerStartingParameters);
+        ServerInstance.Start();
+    Else
+        // If running in client or background mode, start the client task
+        ClientStartingParameters = New Structure;
+        ClientStartingParameters.Insert("Executor", Parameters.CurrentExecutor);
+        ClientStartingParameters.Insert("ReturnValue", Parameters.ReturnValue);
+        ClientStartingParameters.Insert("IsError", Parameters.IsError);
+        ClientStartingParameters.Insert("ErrorMessage", Parameters.ErrorMessage);
+        ClientStartingParameters.Insert("Debug", Parameters.Debug);
+        ClientInstance = New ClientTask("ExecutionOfStorage", ClientStartingParameters);
+        ClientInstance.Start();
+    EndIf;
+EndProcedure;
+
+Procedure EP_WaitForResult(Parameters)
+    // Start of procedure
+    // Receives parameters from execution of a storage
+    // Parameters:
+    //   - RequestId - identifier of the request for which the result is being waited
+    //   - Timeout - timeout (in seconds) for waiting for the result
+    //   - ReturnedValue - output parameter for the storage return value
+    //   - IsError - output parameter for the flag indicating if the execution of the storage resulted in an error
+    //   - ErrorMessage - output parameter for the error message, if the execution resulted in an error
+    //   - Debug - flag indicating if debugging is enabled
+    //   - WritingResults - additional parameters necessary for writing execution results
+    //   - Runtime - object with additional information about the runtime environment
+    CurrentRequest = None;
+    Try
+        // Try to find the request by the provided identifier
+        CurrentRequest = RequestManager.GetRequest(Parameters.RequestId);
+    Catch
+        // If the request was not found, return an error
+        // Error message is returned in case debugging is enabled
+        If Parameters.Debug Then
+            Parameters.IsError = True;
+            Parameters.ErrorMessage = "Request with identifier " + String(Parameters.RequestId) + " was not found.";
+        Else
+            // If debugging is not enabled, return a generic error message
+            Parameters.IsError = True;
+            Parameters.ErrorMessage = "An error occurred during execution. Please check the logs for more information.";
+        EndIf;
+        Return;
+    EndTry;
+
+    If CurrentRequest = None Then
+        // If the request is None, return an error
+        // Error message is returned in case debugging is enabled
+        If Parameters.Debug Then
+            Parameters.IsError = True;
+            Parameters.ErrorMessage = "Request with identifier " + String(Parameters.RequestId) + " was not found.";
+        Else
+            // If debugging is not enabled, return a generic error message
+            Parameters.IsError = True;
+            Parameters.ErrorMessage = "An error occurred during execution. Please check the logs for more information.";
+        EndIf;
+        Return;
+    EndIf;
+
+    While CurrentRequest.Status <> EP_Status.Completed Do
+        // Wait for the request to be completed
+        // Timeout can be set in parameters
+        // If timeout is exceeded, return an error
+        // Error message is returned in case debugging is enabled
+        If Parameters.Timeout > 0 Then
+            WaitTimeout = Timeout(Parameters.Timeout * 1000);
+            If Not WaitTimeout Then
+                If Parameters.Debug Then
+                    Parameters.IsError = True;
+                    Parameters.ErrorMessage = "Timeout exceeded for request with identifier " + String(Parameters.RequestId);
+                Else
+                    // If debugging is not enabled, return a generic error message
+                    Parameters.IsError = True;
+                    Parameters.ErrorMessage = "An error occurred during execution. Please check the logs for more information.";
+                EndIf;
+                Return;
+            EndIf;
+        Else
+            WaitTimeout = True;
+        EndIf;
+    EndWhile;
+
+    // Get the result from the request
+    Parameters.ReturnedValue = CurrentRequest.Result;
+
+    // Check if there was an error during execution
+    If CurrentRequest.Error Then
+        Parameters.IsError = True;
+        Parameters.ErrorMessage = CurrentRequest.ErrorMessage;
+    EndIf;
+EndProcedure;

@@ -1,0 +1,81 @@
+# Define a schema for a blog post object
+type BlogPost {
+  id: ID!
+  title: String!
+  body: String!
+  author: User!
+  comments: [Comment]!
+}
+
+# Define a schema for a user object
+type User {
+  id: ID!
+  username: String!
+  email: String!
+  posts: [BlogPost]!
+}
+
+# Define a schema for a comment object
+type Comment {
+  id: ID!
+  text: String!
+  author: User!
+  post: BlogPost!
+}
+
+# Define a query to get a single blog post by its ID
+type Query {
+  blogPost(id: ID!): BlogPost!
+}
+
+# Define a mutation to create a new blog post
+type Mutation {
+  createBlogPost(title: String!, body: String!, author: ID!): BlogPost!
+}
+
+# Define a resolver to handle the query to get a single blog post
+const resolvers = {
+  Query: {
+    blogPost: (parent, { id }, { db }) => {
+      const post = db.blogPosts.find(post => post.id === id); // Find the blog post with matching ID in the database
+      if (!post) {
+        throw new Error("No blog post found with that ID."); // Throw an error if no blog post is found
+      }
+      return post; // Return the blog post if found
+    },
+  },
+  Mutation: {
+    createBlogPost: (parent, { title, body, author }, { db }) => {
+      const newPost = { // Create a new blog post object with provided arguments
+        id: Math.floor(Math.random() * 1000), // Generate a random ID for the post
+        title,
+        body,
+        author,
+        comments: [],
+      };
+      db.blogPosts.push(newPost); // Add the new blog post to the database
+      return newPost; // Return the newly created post
+    },
+  },
+  BlogPost: {
+    author: (parent, args, { db }) => {
+      return db.users.find(user => user.id === parent.author); // Find the user who wrote the blog post
+    },
+    comments: (parent, args, { db }) => {
+      return db.comments.filter(comment => comment.post === parent.id); // Find all comments for the current blog post
+    },
+  },
+  User: {
+    posts: (parent, args, { db }) => {
+      return db.blogPosts.filter(post => post.author === parent.id); // Find all blog posts written by the current user
+    },
+  },
+  Comment: {
+    author: (parent, args, { db }) => {
+      return db.users.find(user => user.id === parent.author); // Find the user who wrote the comment
+    },
+    post: (parent, args, { db }) => {
+      return db.blogPosts.find(post => post.id === parent.post); // Find the blog post that the comment belongs to
+    },
+  },
+};

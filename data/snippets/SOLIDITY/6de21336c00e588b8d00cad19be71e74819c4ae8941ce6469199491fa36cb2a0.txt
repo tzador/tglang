@@ -1,0 +1,97 @@
+pragma solidity ^0.8.0; //Defines the version of Solidity used
+
+interface ERC20 {
+    //ERC20 standard interface for tokens
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+}
+
+//Contract that implements the ERC20 interface
+contract MyToken is ERC20 {
+    string public constant name = "My Token"; //Token name
+    string public constant symbol = "MTK"; //Token symbol
+    uint8 public constant decimals = 18; //Number of decimals
+
+    mapping (address => uint256) private _balances; //Mapping for storing balances
+    mapping (address => mapping (address => uint256)) private _allowances; //Mapping for storing allowances
+
+    uint256 private _totalSupply; //Total supply of tokens
+
+    //Returns the total supply of tokens
+    function totalSupply() public view override returns (uint256) {
+        return _totalSupply;
+    }
+
+    //Returns the balance of the given address
+    function balanceOf(address account) public view override returns (uint256) {
+        return _balances[account];
+    }
+
+    //Returns the allowance given by the owner to the spender
+    function allowance(address owner, address spender) public view override returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    //Transfers tokens from the msg.sender to the recipient
+    function transfer(address recipient, uint256 amount) public override returns (bool) {
+        _transfer(msg.sender, recipient, amount);
+        return true;
+    }
+
+    //Approves the given spender to spend the specified amount of tokens on behalf of the msg.sender
+    function approve(address spender, uint256 amount) public override returns (bool) {
+        _approve(msg.sender, spender, amount);
+        return true;
+    }
+
+    //Transfers tokens from the given sender to the given recipient, using the allowance of the msg.sender
+    function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
+        _transfer(sender, recipient, amount);
+        _approve(sender, msg.sender, _allowances[sender][msg.sender] - amount);
+        return true;
+    }
+
+    //Internal function to transfer tokens from one address to another
+    function _transfer(address sender, address recipient, uint256 amount) internal {
+        require(sender != address(0), "ERC20: transfer from the zero address"); //Sender cannot be the 0 address
+        require(recipient != address(0), "ERC20: transfer to the zero address"); //Recipient cannot be the 0 address
+        require(_balances[sender] >= amount, "ERC20: transfer amount exceeds balance"); //Sender must have enough balance
+
+        _balances[sender] -= amount; //Deduct amount from sender's balance
+        _balances[recipient] += amount; //Add amount to recipient's balance
+        emit Transfer(sender, recipient, amount); //Emit transfer event
+    }
+
+    //Internal function to approve the given spender to spend the specified amount of tokens on behalf of the owner
+    function _approve(address owner, address spender, uint256 amount) internal {
+        require(owner != address(0), "ERC20: approve from the zero address"); //Owner cannot be the 0 address
+        require(spender != address(0), "ERC20: approve to the zero address"); //Spender cannot be the 0 address
+
+        _allowances[owner][spender] = amount; //Set allowance for spender
+        emit Approval(owner, spender, amount); //Emit approval event
+    }
+
+    //Function to mint new tokens
+    function mint(address account, uint256 amount) public {
+        require(account != address(0), "ERC20: mint to the zero address"); //Minting to the 0 address is not allowed
+        _totalSupply += amount; //Increase total supply
+        _balances[account] += amount; //Add amount to the account's balance
+        emit Transfer(address(0), account, amount); //Emit transfer event from 0 address to the account
+    }
+
+    //Function to burn tokens
+    function burn(address account, uint256 amount) public {
+        require(account != address(0), "ERC20: burn from the zero address"); //Burning from the 0 address is not allowed
+        require(_balances[account] >= amount, "ERC20: burn amount exceeds balance"); //Account must have enough balance to burn
+        _balances[account] -= amount; //Deduct amount from account's balance
+        _totalSupply -= amount; //Decrease total supply
+        emit Transfer(account, address(0), amount); //Emit transfer event from account to 0 address
+    }
+}

@@ -1,0 +1,62 @@
+-module(player_server).
+-export([start/0]).
+-behaviour(gen_server).
+
+%%% API functions
+-export([get_players/0, add_player/1, remove_player/1]).
+
+%%% Callback functions
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+
+%%% Data types
+-record(state, {players=[]}).
+
+%%% API functions %%%
+
+%% @doc Starts the player server process.
+start() ->
+    gen_server:start({local, ?MODULE}, ?MODULE, [], []).
+
+%% @doc Retrieves all players in the state.
+get_players() ->
+    gen_server:call(?MODULE, get_players).
+
+%% @doc Adds a new player to the state.
+add_player(Player) ->
+    gen_server:call(?MODULE, {add_player, Player}).
+
+%% @doc Removes a player from the state.
+remove_player(PlayerId) ->
+    gen_server:call(?MODULE, {remove_player, PlayerId}).
+
+%%% Callback functions %%%
+
+%% @doc Initializes the server state.
+init([]) ->
+    {ok, #state{players = []}}.
+
+%% @doc Handles synchronous calls from API functions.
+handle_call(get_players, _From, State) ->
+    {reply, State#state.players, State};
+handle_call({add_player, Player}, _From, State) ->
+    NewPlayers = State#state.players ++ [Player],
+    {reply, ok, State#state{players = NewPlayers}};
+handle_call({remove_player, PlayerId}, _From, State) ->
+    NewPlayers = lists:delete({PlayerId, _}, State#state.players),
+    {reply, ok, State#state{players = NewPlayers}}.
+
+%% @doc Handles asynchronous cast messages.
+handle_cast(_Msg, State) ->
+    {noreply, State}.
+
+%% @doc Handles miscellaneous system messages.
+handle_info(_Info, State) ->
+    {noreply, State}.
+
+%% @doc Handles termination of server process.
+terminate(_Reason, _State) ->
+    ok.
+
+%% @doc Handles code changes if the server is Hot-Reloaded.
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.

@@ -1,0 +1,78 @@
+module Main exposing (main)
+
+import Browser
+import Html exposing (Html, div, img, text, button, form, input, label, a, ul, li)
+import Html.Events exposing (onClick, onInput)
+import Http
+import Json.Decode exposing (int, string, (:=))
+import Json.Encode as Encode
+
+type alias Model = // type alias for the model
+    { name : String
+    , age : Int
+    , city : String
+    }
+
+type Msg
+    = UpdateName String // message for updating the name field
+    | UpdateAge Int // message for updating the age field
+    | UpdateCity String // message for updating the city field
+    | GetUser // message for triggering an HTTP request to get user data
+    | UserFetched (Result String Model) // message for receiving the response from HTTP request
+
+init = // init function for the initial state of the model
+    { name = ""
+    , age = 0
+    , city = ""
+    }
+
+view model = // view function for rendering the HTML
+    div []
+        [ form []
+            [ label [] [ text "Name" ]
+            , input [ onInput UpdateName ] []
+            , label [] [ text "Age" ]
+            , input [ onInput UpdateAge ] []
+            , label [] [ text "City" ]
+            , input [ onInput UpdateCity ] []
+            , button [ onClick GetUser ] [ text "Get User" ]
+            ]
+        , case model of
+            { name = "", age = 0, city = "" } -> // conditional rendering based on model state
+                text "No user data retrieved yet."
+            { name, age, city } ->
+                div []
+                    [ text "Name: " ++ text name
+                    , text "Age: " ++ text (String.fromInt age)
+                    , text "City: " ++ text city
+                    ]
+        ]
+
+update msg model = // update function for handling messages and updating the model
+    case msg of
+        UpdateName name ->
+            { model | name = name }
+        UpdateAge age ->
+            { model | age = age }
+        UpdateCity city ->
+            { model | city = city }
+        GetUser ->
+            ( model, Http.get { url = "https://fakeapi.com/user", expect = Http.expectJson UserFetched userDataDecoder } )
+        UserFetched (Ok userData) ->
+            { model | name = userData.name, age = userData.age, city = userData.city }
+        UserFetched (Err err) ->
+            model
+
+userDataDecoder = // decoder for the user data received from HTTP request
+    string "name"
+        |> andMap (int "age")
+        |> andMap (string "city")
+        |> Decode.map3 Model // combining the decoding of different fields into the model type
+
+main =
+    Browser.element // entry point for the Elm application
+        { init = init
+        , view = view
+        , update = update
+        , subscriptions = \_ -> Sub.none
+        }

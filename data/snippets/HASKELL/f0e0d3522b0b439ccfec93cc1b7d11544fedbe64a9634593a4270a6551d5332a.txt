@@ -1,0 +1,35 @@
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE DeriveGeneric #-}
+
+import GHC.Generics
+import Data.Typeable (Typeable)
+import Data.Kind (Type)
+
+-- | GADT for creating a heterogeneous list
+data HList (ts :: [Type]) where
+  HNil :: HList '[]
+  (:::) :: a -> HList ts -> HList (a ': ts)
+
+-- | Generic function for printing out a heterogeneous list
+hPrint :: forall ts. ShowList ts => HList ts -> IO ()
+hPrint HNil = putStrLn "HNil"
+hPrint (x ::: xs) = (putStrLn $ show x) >> (hPrint xs)
+
+-- | Typeclass for showing a list of types
+class ShowList (ts :: [Type]) where
+  showList :: HList ts -> [String]
+
+instance ShowList '[] where
+  showList HNil = []
+
+instance (Show x, ShowList xs) => ShowList (x ': xs) where
+  showList (x ::: xs) = (show x) : (showList xs)
+
+main :: IO ()
+main = do
+  -- Create an HList with strings, ints, and bools
+  let myList = "hello" ::: (123 :: Int) ::: (True :: Bool) ::: HNil 
+
+  -- Print the list using our generic function
+  hPrint myList
+  -- Output: ["hello", "123", "True"]

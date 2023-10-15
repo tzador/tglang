@@ -1,0 +1,135 @@
+class MyPlayer extends UDKPawn;
+
+/**
+This is a custom player class that extends the default UDKPawn class.
+It will contain additional functionality and customization options for our player character.
+*/
+
+// Property declaration for a camera component to be attached to the player
+var() const CameraComponent PlayerCameraComponent;
+
+// Event called upon player taking damage from any source
+event TakeDamage(int DamageAmount, Pawn instigatedBy, Vector HitLocation, Vector Momentum, name HitBone, vector HitNormal, Class <DamageType> DamageType)
+
+{
+// Check if player is currently blocking and if so, reduce damage taken
+if(IsBlocking())
+{
+DamageAmount = DamageAmount/2;
+}
+
+// Call the default TakeDamage event from the parent class to handle the remaining damage calculation
+Super.TakeDamage(DamageAmount, instigatedBy,HitLocation,Momentum,HitBone,HitNormal,DamageType);
+}
+
+/**
+Function called when the player presses the block button.
+This function will play an animation and toggle the IsBlocking property to true.
+*/
+function StartBlock()
+{
+    // Play block animation
+    PlaySharedAnimation('block', 1.0, 0.2);
+
+    // Set IsBlocking property to true
+    IsBlocking = true;
+}
+
+/**
+Function called when the player releases the block button.
+This function will play an animation and toggle the IsBlocking property to false.
+*/
+function StopBlock()
+{
+    // Play unblock animation
+    PlaySharedAnimation('unblock', 1.0, 0.2);
+
+    // Set IsBlocking property to false
+    IsBlocking = false;
+}
+
+/**
+Function called when the player presses the primary fire button.
+This function will spawn a projectile from the player's current location and rotation.
+It will also apply a force to the projectile to simulate a firing motion.
+*/
+function FireProjectile()
+{
+    // Spawn projectile at player's location and rotation
+    local Projectile ProjectileActor;
+    ProjectileActor = Spawn(class'Projectile',,, Location, Rotation);
+
+    // Apply force to projectile in the direction the player is facing
+    ProjectileActor.AdjustDirection(Rotation.Vector());
+
+    // Apply impulse to simulate firing motion
+    ProjectileActor.SetPhysics(PHYS_Projectile);
+    ProjectileActor.setVelocity(Rotation.Vector() * ProjectileActor.GetVelocity().Size());
+}
+
+/**
+Function called when the player presses the secondary fire button.
+This function will create a trace from the player's camera and check for any enemies within a certain distance.
+If an enemy is found, it will take damage based on the player's current weapon.
+If no enemy is found, it will display a missed shot message.
+*/
+function FireRaycast()
+{
+    // Define a trace query object
+    local Actor HitActor;
+    local Vector HitLocation;
+    local Vector HitNormal;
+    local Vector StartTrace;
+    local vector EndTrace;
+    local Vector Dir;
+    local ProjectileTrace Data;
+    local TraceHitInfo HitInfo;
+
+    // Set the start and end locations for the trace based on the player's camera component
+    StartTrace = PlayerCameraComponent.GetLocation();
+    EndTrace = StartTrace + PlayerCameraComponent.GetRotation().Vector() * 2000;
+
+    // Set the trace collision parameters and send the trace request
+    Data.TraceFlags = 0 | PlatformerConstants.Collision_Projectile
+    Data.Range = 8000.0;
+    Data.StartTrace = StartTrace;
+    Data.EndTrace = EndTrace;
+    Data.Momentum = Velocity;
+
+    // Perform the trace and store the information in the HitInfo object
+    if(TraceProjectile(PlayerCameraComponent, EndTrace, HitInfo, Data) == 0)
+    {
+        // Check if the hit actor is an enemy and if so, apply damage based on the player's weapon and display a hit message
+        if(HitActor != None && HitActor.IsA(Enemy))
+        {
+            HitActor.TakeDamage(weaponDamage, self, HitLocation, Dir, AActor.AdaptNormal(HitNormal, AActor(WorldInfo).GlobalGravity));
+            ShowHitMessage();
+        }
+        else
+        {
+            // Display a missed shot message
+            ShowMissedShotMessage();
+        }
+    }
+}
+
+/**
+Function called from the HUD to display a message when the player hits an enemy.
+*/
+function ShowHitMessage()
+{
+    local string Message;
+    Message = "You hit the enemy!";
+    Canvas.SetPos(Float(Canvas.ClipX) / 2.0, Float(Canvas.ClipY) / 2.0, Canvas.CurFont) - Canvas. TextSize(Message) - 2, Canvas.CurFont);
+    Canvas.DrawColor = ? ? 127;
+}
+/**
+Function called from the HUD to display a message when the player misses a shot.
+*/
+function ShowMissedShotMessage()
+{
+    local string Message;
+    Message = "You missed your shot!";
+    Canvas.SetPos(Float(Canvas.ClipX) / 2.0, Float(Canvas.ClipY) / 2.0, Canvas.CurFont) - Canvas. TextSize(Message) - 2, Canvas.CurFont);
+    Canvas.DrawColor = 127 ? ?;
+}

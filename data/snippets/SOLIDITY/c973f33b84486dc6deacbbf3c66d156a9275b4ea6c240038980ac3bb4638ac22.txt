@@ -1,0 +1,99 @@
+// SPDX-License-Identifier: MIT
+
+pragma solidity ^0.8.4;
+
+// Library for managing ownership of contracts
+contract Owned{
+    address public owner;
+
+    // Event to signal owner has been changed
+    event OwnerChanged(address indexed previousOwner, address indexed newOwner);
+
+    // Modifier to restrict certain functions to only be callable by owner
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this function.");
+        _;
+    }
+
+    // Constructor to set initial owner on contract creation
+    constructor() {
+        owner = msg.sender;
+    }
+
+    // Function to transfer ownership to a new address
+    function transferOwnership(address newOwner) public onlyOwner {
+        require(newOwner != address(0), "New owner cannot be a zero address.");
+        emit OwnerChanged(owner, newOwner);
+        owner = newOwner;
+    }
+}
+
+// Interface for ERC20 token contract
+interface IERC20 {
+    function transfer(address to, uint256 value) external returns (bool);
+    function transferFrom(address from, address to, uint256 value) external returns (bool);
+    function balanceOf(address who) external view returns (uint256);
+    event Transfer(address indexed from, address indexed to, uint256 value);
+}
+
+// Token contract that implements the Owned and IERC20 interfaces
+contract Token is Owned, IERC20 {
+    string public constant name = "My Token"; // Token name
+    string public constant symbol = "MTK"; // Token symbol
+    uint8 public constant decimals = 18; // Number of decimals for token
+    uint256 constant totalSupply = 1000000 * 10**uint256(decimals); // Total supply of tokens
+
+    // Mapping to track token balances of addresses
+    mapping(address => uint256) private _balances;
+    // Mapping to track approved transfers of tokens
+    mapping(address => mapping(address => uint256)) private _allowances;
+
+    // Constructor to mint all initial tokens to owner
+    constructor() {
+        _balances[owner] = totalSupply;
+    }
+
+    // Function to transfer tokens to a specified address
+    function transfer(address to, uint256 value) external override returns (bool) {
+        require(to != address(0), "Cannot transfer tokens to a zero address.");
+        require(value <= _balances[msg.sender], "Insufficient funds for transfer.");
+        _balances[msg.sender] -= value;
+        _balances[to] += value;
+        emit Transfer(msg.sender, to, value);
+        return true;
+    }
+
+    // Function to approve a specified address to transfer tokens on sender's behalf
+    function approve(address spender, uint256 value) external override returns (bool) {
+        require(spender != address(0), "Cannot approve transfer to a zero address.");
+        _allowances[msg.sender][spender] = value;
+        emit Approval(msg.sender, spender, value);
+        return true;
+    }
+
+    // Function to transfer tokens from a specified address on sender's behalf
+    function transferFrom(address from, address to, uint256 value) external override returns (bool) {
+        require(from != address(0), "Cannot transfer tokens from a zero address.");
+        require(to != address(0), "Cannot transfer tokens to a zero address.");
+        require(value <= _balances[from], "Insufficient funds for transfer.");
+        require(value <= _allowances[from][msg.sender], "Transfer amount exceeds allowance.");
+        _balances[from] -= value;
+        _balances[to] += value;
+        _allowances[from][msg.sender] -= value;
+        emit Transfer(from, to, value);
+        return true;
+    }
+
+    // Function to check token balance of a specified address
+    function balanceOf(address who) external view override returns (uint256) {
+        return _balances[who];
+    }
+
+    // Function to check the approved transfer amount from sender to a specified address
+    function allowance(address owner, address spender) external view override returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    // Event to signal when a transfer of tokens has been approved
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+}

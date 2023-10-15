@@ -1,0 +1,125 @@
+; This code snippet is a long and complex assembly program that defines a function for calculating the Fibonacci numbers up to a given input.
+; This function uses recursion to calculate the numbers and stores them in an array.
+
+section .data
+    fib_array:      dd 0, 1          ; array to store the fibonacci numbers
+    max_size:       equ 10           ; max size of array
+    index:          equ 2            ; starting index of array
+    
+section .text
+    global _main:
+    _main:
+        push ebp                    ; prologue
+        mov ebp, esp
+        
+        mov ecx, max_size           ; counter for loop to initialize first two numbers in the array
+        mov esi, index
+        mov edi, fib_array
+        
+    ; initializing first two numbers of array with values 0 and 1 respectively
+    first_two:
+        mov dword [edi], dword [ebx]
+        add ebx, 4
+        inc esi
+        dec ecx
+        cmp ecx, 0
+        jne first_two
+        
+    ; calling function to calculate fibonacci numbers
+    ; input is stored in ebx register
+    call _fibonacci
+    
+    ; printing the fibonacci numbers
+    mov ecx, max_size          ; counter for loop to print
+    mov esi, index
+    mov edi, fib_array
+    
+    print_loop:
+        mov eax, dword [edi]   ; moving number to eax for printing
+        call _print_num        ; function to print number
+        inc esi
+        add edi, 4
+        dec ecx
+        cmp ecx, 0
+        jne print_loop
+        
+    ; cleaning up stack
+    mov esp, ebp
+    pop ebp
+    ret
+   
+; recursive function to find fibonacci numbers
+; accepts one input in ebx register
+_fibonacci:
+    push ebp                    ; prologue
+    mov ebp, esp
+    push ebx                    ; saving input
+    
+    cmp ebx, 0                  ; check if input is 0 or 1
+    je return_num
+    cmp ebx, 1
+    je return_num
+    
+    ; calling function recursively to calculate fibonacci numbers
+    dec ebx                     ; decrease input for next call
+    call _fibonacci
+    add ebx, 1                  ; increase input for next call
+    
+    ; storing result in array
+    mov eax, dword [ebp + 8]    ; accessing input from stack
+    add dword [eax], dword [ebp + 4]     ; summing previous two numbers and storing in array
+    
+    ; returning the result
+    mov eax, ebx                ; moving input to eax for return
+    pop ebx                     ; restoring input
+    leave                       ; epilogue
+    ret
+    
+; function to print a number
+; input is in eax register
+_print_num:
+    push eax                ; saving input
+    mov ecx, 0              ; counter for digits in number
+    
+    ; loop to count number of digits in number
+    count_digits:
+        inc ecx             ; increase counter
+        div dword 10        ; dividing number by 10
+        cmp eax, 0          ; check if number is 0
+        jne count_digits
+        
+    ; loop to print digits in reverse order
+    ; input is in eax register
+    print_digits:
+        mov ebx, 10             ; divisor for getting digit
+        div ebx                 ; getting least significant digit
+        add eax, '0'            ; converting digit to ASCII
+        push eax                ; pushing digit to stack
+        shr eax, 8              ; shifting number to remove least significant digit
+        loop print_digits       ; repeating until all digits are printed
+        
+    ; loop to pop digits from stack and print
+    pop_digits:
+        pop eax                 ; popping digit from stack
+        mov ebx, 4              ; system call for printing
+        mov ecx, 1              ; file descriptor
+        mov edx, 1              ; number of bytes to print
+        int 0x80                ; calling system call
+        loop pop_digits         ; repeating until all digits are printed
+        
+    ; printing new line
+    mov eax, 0x0a               ; ASCII code for new line
+    mov ebx, 1                  ; system call for printing
+    mov ecx, 1                  ; file descriptor
+    mov edx, 1                  ; number of bytes to print
+    int 0x80                    ; calling system call
+    
+    ; cleaning up stack
+    pop eax                     ; restoring input
+    ret
+    
+return_num:
+    ; returning the input if it is 0 or 1
+    mov eax, ebx                ; moving input to eax for return
+    leave                       ; epilogue
+    ret

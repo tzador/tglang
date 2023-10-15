@@ -1,0 +1,240 @@
+/*
+This code snippet is an example of a complex AI behavior tree in UNREALSCRIPT.
+The behavior tree controls the actions and decisions of an AI character in a game. 
+It is a flexible and reusable way to structure AI logic.
+*/
+
+class AIBehaviorTree extends Actor
+    placeable;
+
+//Defines an AI controller for the AI character
+var() AIController AIController;
+
+//Defines a list of nodes that make up the behavior tree
+var() array<BehaviorNode> BehaviorNodes;
+
+//Called when the AI character is spawned
+event PostBeginPlay()
+{
+    Super.PostBeginPlay();
+    InitializeTree();
+}
+
+//Initializes the behavior tree by creating and connecting nodes
+function InitializeTree()
+{
+    //Create and connect movement node
+    MovementNode MovementNode;
+    MovementNode.TargetLocation = GetEnemyLocation();
+    BehaviorNodes.AddItem(MovementNode);
+
+    //Create and connect attack node
+    AttackNode AttackNode;
+    AttackNode.Target = FindClosestTarget();
+    BehaviorNodes.AddItem(AttackNode);
+
+    //Create and connect idle node
+    IdleNode IdleNode;
+    BehaviorNodes.AddItem(IdleNode);
+
+    //Create and connect success node
+    SuccessNode SuccessNode;
+    BehaviorNodes.AddItem(SuccessNode);
+
+    //Connect root node to child nodes
+    RootNode.ChildNodes.AddItem(MovementNode);
+    RootNode.ChildNodes.AddItem(AttackNode);
+    RootNode.ChildNodes.AddItem(IdleNode);
+
+    //Connect child nodes to success node
+    MovementNode.ChildNodes.AddItem(SuccessNode);
+    AttackNode.ChildNodes.AddItem(SuccessNode);
+    IdleNode.ChildNodes.AddItem(SuccessNode);
+}
+
+//Called every tick to update the behavior tree
+function Tick(float DeltaTime)
+{
+    //Loop through all nodes in the tree
+    foreach BehaviorNode in BehaviorNodes
+    {
+        //Execute node if it is active and has child nodes
+        if(BehaviorNode.IsActive && BehaviorNode.ChildNodes.Length > 0)
+        {
+            //Execute child nodes and get result
+            int ChildResult = BehaviorNode.ChildNodes.Execute(DeltaTime);
+
+            //Update the current node's state based on the result
+            BehaviorNode.UpdateState(ChildResult);
+        }
+        //Abort and reset tree if a node fails
+        else if(BehaviorNode.State == BehaviorState.FAILED)
+        {
+            AbortTree();
+            ResetTree();
+            break;
+        }
+    }
+
+    //Check if tree has successfully completed
+    if(RootNode.State == BehaviorState.SUCCESS)
+    {
+        OnTreeCompleted();
+    }
+}
+
+//Aborts the behavior tree and resets all nodes
+function AbortTree()
+{
+    //Loop through all nodes and abort them
+    foreach BehaviorNode in BehaviorNodes
+    {
+        BehaviorNode.Abort();
+    }
+}
+
+//Resets the behavior tree to its initial state
+function ResetTree()
+{
+    //Loop through all nodes and reset them
+    foreach BehaviorNode in BehaviorNodes
+    {
+        BehaviorNode.Reset();
+    }
+}
+
+//Called when the behavior tree has successfully completed
+event OnTreeCompleted()
+{
+    //Do something in the game world
+}
+
+//Definitions for different types of behavior nodes
+enum BehaviorState
+{
+    INACTIVE,
+    ACTIVE,
+    SUCCESS,
+    FAILED
+}
+
+class BehaviorNode extends Object
+    placeable
+{
+    //Defines the current state of the node
+    var BehaviorState State;
+
+    //Defines the nodes that are connected to this one
+    var() array<BehaviorNode> ChildNodes;
+
+    //Defines whether this node is currently active and should be executed
+    var() bool IsActive;
+
+    //Executes the node by returning an integer value representing the result
+    function int Execute(float DeltaTime)
+    {
+        //Default execution returns success
+        return BehaviorState.SUCCESS;
+    }
+
+    //Updates the current state of the node based on the result of the child nodes
+    function UpdateState(int ChildResult)
+    {
+        //Default state update returns the result of the child nodes
+        State = BehaviorState(ChildResult);
+    }
+
+    //Resets the node to its initial state
+    function Reset()
+    {
+        //Default reset sets the state to inactive
+        State = BehaviorState.INACTIVE;
+    }
+
+    //Aborts the node, stopping its execution and setting it to a failed state
+    function Abort()
+    {
+        State = BehaviorState.FAILED;
+    }
+}
+
+//Defines a node that makes the AI character move towards a target location
+class MovementNode extends BehaviorNode
+{
+    //Defines the target location for the AI character to move towards
+    var() vector TargetLocation;
+
+    //Overrides the default execution to move towards the target location
+    function int Execute(float DeltaTime)
+    {
+        Super.Execute(DeltaTime);
+
+        //Calculate movement direction
+        vector MovementDirection = TargetLocation - AICaracter.Location;
+        MovementDirection *= DeltaTime;
+
+        //Move AI character towards target location
+        AICaracter.SetLocation(AICaracter.Location + MovementDirection);
+        
+        //Return success if AI character is close enough to target location
+        if(VSize(AICaracter.Location - TargetLocation) < 100)
+        {
+            return BehaviorState.SUCCESS;
+        }
+
+        //Return active to continue moving towards the target location
+        return BehaviorState.ACTIVE;
+    }
+}
+
+//Defines a node that makes the AI character attack a target
+class AttackNode extends BehaviorNode
+{
+    //Defines the target for the AI character to attack
+    var() Actor Target;
+
+    //Overrides the default execution to make the AI character attack the target
+    function int Execute(float DeltaTime)
+    {
+        Super.Execute(DeltaTime);
+
+        //Check if target is still alive
+        if(!Target.bIsDead)
+        {
+            //Attack target and return active to continue attacking
+            AICaracter.Attack(Target);
+            return BehaviorState.ACTIVE;
+        }
+        //If target is dead, return success
+        else
+        {
+            return BehaviorState.SUCCESS;
+        }
+    }
+}
+
+//Defines a node that makes the AI character do nothing
+class IdleNode extends BehaviorNode
+{
+    //Overrides the default execution to do nothing
+    function int Execute(float DeltaTime)
+    {
+        Super.Execute(DeltaTime);
+
+        //Return success to do nothing and move on to next node
+        return BehaviorState.SUCCESS;
+    }
+}
+
+//Defines a node that indicates the successful completion of the behavior tree
+class SuccessNode extends BehaviorNode
+{
+    //Overrides the default execution to do nothing
+    function int Execute(float DeltaTime)
+    {
+        Super.Execute(DeltaTime);
+
+        //Return success to indicate the completion of the tree
+        return BehaviorState.SUCCESS;
+    }
+}

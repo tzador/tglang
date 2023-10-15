@@ -1,0 +1,56 @@
+{-# LANGUAGE  LambdaCase #-} 
+module Main where 
+import Control.Exception 
+import Data.Function 
+import Text.Printf 
+import System.IO 
+
+-- | A recursive function that takes an integer and outputs the length of its collatz sequence
+collatzLength :: Integer -> Integer 
+collatzLength = fix . (memoize $ \f n -> case n of 
+                                        1 -> 1 
+                                        n 
+                                         | even n -> 1 + call n `seq` f (n `div` 2) 
+                                         | otherwise -> 1 + call n `seq` f (3 * n + 1) 
+                        ) where 
+    call n = HashMap.lookup n memoMap `throw` (ErrorCall $ printf "Collatz sequence for %d did not terminate!" n) 
+    memoMap = Prelude.foldl (\m i -> HashMap.insert i (f i) m) HashMap.empty [1..50] 
+
+------------------1---------2----3----4----------------
+--1. Enables the LambdaCase extension 
+--2. Main module for the program 
+--3. Import control exception package 
+--4. Import function control, text printing, and system input/output
+
+-- | Main function that takes an Integer as input and outputs the length of its collatz sequence 
+main :: IO () 
+main = getLine >>= putStrLn . show . collatzLength . read 
+
+memoize :: ((Integer -> a) -> Integer -> a) -> Integer -> a 
+memoize f = (map f [0..] !!) 
+
+call :: Integer -> Integer 
+call n 
+    | even n = collatzLength (n `div` 2) 
+    | otherwise = collatzLength (3 * n + 1) 
+
+map :: (Integer -> (Integer -> a) -> a) -> [(Integer -> a) -> a] 
+map f = map ((map f) !! ) 
+
+------------------1----------------------------------------------------2----------------3
+--1. Defines a memoize function that takes a function and an argument and returns a memoized result 
+--2. Declares a recursive function call that takes an Integer as input and returns an Integer 
+--3. Uses the map function to apply the provided function to each element in the list [0..]
+
+-----------------1---------------2
+--1. Declares a map function that takes a function and applies it to the list [1..50] 
+--2. Uses the HashMap insert function to insert each element of the list [1..50] along with the result of applying the provided function to that element into the memoMap hashmap 
+
+-- | Throws an error if the call function is unable to look up a value in the memoMap 
+throw :: a -> b -> a 
+throw a b = a 
+
+--------------------------1--------------------2-----------------------------------------3
+--1. Defines a collatzLength function that takes an Integer as input and outputs the length of its collatz sequence 
+--2. Uses the fix function to take the output of the memoize function and return it as the collatzLength function 
+--3. The function passed into the memoize function creates a HashMap and inserts the values from the list [1..50] along with the result of applying the function to that value, and then recursively calls the function until it reaches the base case of 1

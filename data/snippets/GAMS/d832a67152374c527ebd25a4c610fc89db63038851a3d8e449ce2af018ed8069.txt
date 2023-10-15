@@ -1,0 +1,43 @@
+SET i 'index of nodes'
+/
+1
+2
+3
+4
+/;
+SET j 'index of arcs /
+2-3
+3-4
+4-1
+/;
+SET P(i,j) 'possible paths from node i to j' /
+1.2
+1.2.3
+1.2.3.4
+1.2.3.4.1
+/;
+
+ALIAS(i,j);
+PARAMETER F(i,j) 'flow variable' /
+1.2   2-3
+1.2.3   3-4
+1.2.3.4   4-1
+/;
+VARIABLES x(i,j) 'flow variable';
+
+EQUATIONS flow_balance(i,j) 'flow balance at each node';
+flow_balance(i,j).. sum(P(i,j), x(i,j)) =e= F(i,j);
+
+MODEL network_flow /all/;
+
+x.up(i,j) = F.l(i,j);
+OPTION optcr=0.001;
+SOLVE network_flow using lp minimizing sum(P(i,j), x(i,j));
+
+FILE output /'network_flow_output.txt'/;
+PUT output "Node\tArc\tFlow";
+LOOP({i,j},
+  PUT output i.tl j.tl x.l(i,j).tl;
+); 
+
+EXECUTE_UNLOAD 'network_flow_output', output;

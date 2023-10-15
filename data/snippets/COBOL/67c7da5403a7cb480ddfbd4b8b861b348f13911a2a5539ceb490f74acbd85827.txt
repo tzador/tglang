@@ -1,0 +1,90 @@
+IDENTIFICATION DIVISION.                      * Identification division.
+       PROGRAM-ID. SAMPLE.
+
+       ENVIRONMENT DIVISION.                         * Environment division.
+       CONFIGURATION SECTION.
+       SPECIAL-NAMES.
+           DECIMAL-POINT IS COMMA.                   * Set decimal point to comma.
+
+       INPUT-OUTPUT SECTION.
+       FILE-CONTROL.
+          SELECT SALES-FILE ASSIGN TO 'SALES.DAT'     * Select input file.
+              ORGANIZATION IS SEQUENTIAL
+              ACCESS IS SEQUENTIAL.
+
+          SELECT OUTPUT-FILE ASSIGN TO 'REPORT.TXT'   * Select output file.
+              ORGANIZATION IS LINE SEQUENTIAL.
+       
+       DATA DIVISION.                                 * Data division.
+       FILE SECTION.                                  * File section.
+       FD SALES-FILE                                   * File descriptor for input file.
+          RECORD CONTAINS 120 CHARACTERS               * Define record length.
+          LABEL RECORDS ARE STANDARD
+          DATA RECORD IS SALES-REC.
+       01 SALES-REC.
+          05 SALES-NO PIC 9(5).                        * Sales number.
+          05 CUSTOMER-NO PIC X(10).                    * Customer number.
+          05 SALE-DATE PIC X(8).                       * Sale date.
+          05 SALE-AMOUNT PIC 9(10)V99.                 * Sale amount.
+
+       FD OUTPUT-FILE                                  * File descriptor for output file.
+          RECORD CONTAINS 80 CHARACTERS                * Define record length.
+          LABEL RECORDS ARE STANDARD
+          DATA RECORD IS OUTPUT-REC.
+       01 OUTPUT-REC PIC X(80).                        * Output record.
+
+       WORKING-STORAGE SECTION.                       * Working storage section.
+       01 HEADER-TEXT.
+          05 FILLER PIC X(20) VALUE 'SALES REPORT'.    * Header text for output.
+
+       PROCEDURE DIVISION.                            * Procedure division.
+       100-MAIN SECTION.                              * Main section.
+          OPEN INPUT SALES-FILE                       * Open input file.
+               OUTPUT OUTPUT-FILE                     * Open output file.
+          MOVE HEADER-TEXT TO OUTPUT-REC              * Move header to output record.
+          WRITE OUTPUT-REC                            * Write to output file.
+          PERFORM 200-START UNTIL SALES-FILE AT END    * Perform start section until end of file.
+          CLOSE SALES-FILE                            * Close input file.
+               OUTPUT-FILE                            * Close output file.
+          STOP RUN.
+
+       200-START SECTION.                             * Start section.
+          READ SALES-FILE INTO SALES-REC              * Read record from input file.
+          AT END                                      * End of file condition.
+             GO TO 300-END.                           * Go to end section.
+          DISPLAY 'Sales number: ' SALES-NO            * Display sales number.
+          DISPLAY 'Customer number: ' CUSTOMER-NO      * Display customer number.
+          DISPLAY 'Sale date: ' SALE-DATE              * Display sale date.
+          DISPLAY 'Sale amount: ' SALE-AMOUNT          * Display sale amount.
+          PERFORM 210-FORMAT-DATA                     * Perform format data section.
+          WRITE OUTPUT-REC                            * Write to output file.
+          PERFORM 200-START UNTIL SALES-FILE AT END    * Perform start section until end of file.
+          
+       210-FORMAT-DATA SECTION.                       * Format data section.
+          MOVE SALES-NO TO OUTPUT-REC (1:5)           * Move sales number to output record.
+          MOVE CUSTOMER-NO TO OUTPUT-REC (7:10)        * Move customer number to output record.
+          MOVE SALE-DATE TO OUTPUT-REC (18:8)          * Move sale date to output record.
+          MOVE SALE-AMOUNT TO OUTPUT-REC (39:13)       * Move sale amount to output record.
+          
+       300-END SECTION.                               * End section.
+          MOVE 'Total Sales: ' TO OUTPUT-REC          * Move total sales label to output record.
+          PERFORM 310-CALC-TOTAL-SALES                * Perform calculation of total sales.
+          WRITE OUTPUT-REC                            * Write to output file.
+          
+       310-CALC-TOTAL-SALES SECTION.                  * Calculation of total sales section.
+          MOVE 0 TO WS-TOTAL-SALES                     * Initialize total sales variable.
+          PERFORM 320-REPEAT-UNTIL-EOF.               * Perform repeat section until end of file.
+          MOVE WS-TOTAL-SALES TO OUTPUT-REC (50:13)    * Move total sales to output record.
+          
+       320-REPEAT-UNTIL-EOF SECTION.                  * Repeat section until end of file.
+          IF SALE-AMOUNT NOT EQUAL TO ZERO            * If sale amount is not zero.
+             ADD SALE-AMOUNT TO WS-TOTAL-SALES.       * Add sale amount to total sales.
+             READ SALES-FILE INTO SALES-REC           * Read next record from input file.
+             IF SALES-FILE AT END; GO TO 999-EOF.     * If end of file, go to end of file section.
+          END-IF.
+          
+       999-EOF SECTION.                               * End of file section.
+          CONTINUE                                     
+          EXIT                                        * Exit perform.
+          
+       END PROGRAM SAMPLE.

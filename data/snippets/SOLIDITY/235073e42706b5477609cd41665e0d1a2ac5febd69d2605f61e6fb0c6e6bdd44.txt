@@ -1,0 +1,78 @@
+/**
+ * @title TokenLock
+ * @dev This contract allows locking of ERC20 tokens until certain conditions are met.
+ * The contract owner can set the lock period and the unlock conditions.
+ * The locked tokens can be withdrawn by the owner or the recipient only after the lock period has ended.
+ */
+contract TokenLock {
+    address public owner;
+    IERC20 public token;
+    mapping(address => uint256) public lockedAmounts;
+    mapping(address => uint256) public unlockTimes;
+
+    event TokensLocked(address indexed beneficiary, uint256 amount, uint256 unlockTime);
+    event TokensUnlocked(address indexed beneficiary, uint256 amount);
+
+    /**
+     * @dev Constructor function to set the contract owner and the token address.
+     * @param _tokenAddress address The address of the ERC20 token contract.
+     */
+    constructor(address _tokenAddress) public {
+        owner = msg.sender;
+        token = IERC20(_tokenAddress);
+    }
+
+    /**
+     * @dev Function to lock tokens for a specific beneficiary.
+     * @param _beneficiary address The address of the beneficiary.
+     * @param _amount uint256 The amount of tokens to be locked.
+     * @param _unlockTime uint256 The time at which the tokens can be unlocked.
+     */
+    function lockTokens(address _beneficiary, uint256 _amount, uint256 _unlockTime) external {
+        require(msg.sender == owner, "You are not the owner of this contract.");
+        require(_beneficiary != address(0), "Please provide a valid beneficiary address.");
+        require(_amount > 0, "Please provide a valid amount of tokens.");
+        require(_unlockTime > block.timestamp, "Please provide a valid unlock time.");
+        require(token.balanceOf(address(this)) > _amount, "The contract does not have enough tokens to lock.");
+
+        lockedAmounts[_beneficiary] = _amount;
+        unlockTimes[_beneficiary] = _unlockTime;
+        emit TokensLocked(_beneficiary, _amount, _unlockTime);
+    }
+
+    /**
+     * @dev Function to unlock tokens for a specific beneficiary.
+     * @param _beneficiary address The address of the beneficiary.
+     */
+    function unlockTokens(address _beneficiary) external {
+        require(msg.sender == owner || msg.sender == _beneficiary, "You are not the owner or the recipient.");
+        require(unlockTimes[_beneficiary] <= block.timestamp, "Tokens are still locked.");
+
+        uint256 amount = lockedAmounts[_beneficiary];
+        require(amount > 0, "No tokens to unlock for this beneficiary.");
+
+        lockedAmounts[_beneficiary] = 0;
+        unlockTimes[_beneficiary] = 0;
+
+        token.transfer(_beneficiary, amount);
+        emit TokensUnlocked(_beneficiary, amount);
+    }
+
+    /**
+     * @dev Function to check the amount of locked tokens for a specific beneficiary.
+     * @param _beneficiary address The address of the beneficiary.
+     * @return uint256 The amount of locked tokens.
+     */
+    function getLockedAmount(address _beneficiary) external view returns(uint256) {
+        return lockedAmounts[_beneficiary];
+    }
+
+    /**
+     * @dev Function to check the unlock time for a specific beneficiary.
+     * @param _beneficiary address The address of the beneficiary.
+     * @return uint256 The unlock time.
+     */
+    function getUnlockTime(address _beneficiary) external view returns(uint256) {
+        return unlockTimes[_beneficiary];
+    }
+}

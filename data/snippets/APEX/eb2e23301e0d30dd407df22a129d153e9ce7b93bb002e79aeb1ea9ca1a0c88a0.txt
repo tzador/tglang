@@ -1,0 +1,51 @@
+// create a list of accounts
+List<Account> accountList = new List<Account>();
+// add accounts to the list
+accountList.add(new Account(Name = 'John Smith', Industry = 'Technology'));
+accountList.add(new Account(Name = 'Jane Doe', Industry = 'Finance'));
+accountList.add(new Account(Name = 'Bob Williams', Industry = 'Manufacturing'));
+
+// loop through the list and update each account's shipping country
+for(Account acc : accountList){
+    acc.ShippingCountry = 'USA';
+}
+
+// insert the updated accounts into the database
+Database.SaveResult[] srList = Database.insert(accountList, false);
+
+// check for errors and display if any
+for(Database.SaveResult sr : srList){
+    if(!sr.isSuccess()){
+        System.debug('An error occurred while saving account with name ' + sr.getAccount().Name);
+    }
+}
+
+// create a map to store the account ids and their related opportunities
+Map<Id, List<Opportunity>> accOppMap = new Map<Id, List<Opportunity>>();
+
+// query for all opportunities related to the accounts
+List<Opportunity> oppList = [SELECT Id, Name, AccountId FROM Opportunity WHERE AccountId IN :accountList];
+
+// loop through the opportunity list and add each opportunity to the corresponding account's list in the map
+for(Opportunity opp : oppList){
+    if(accOppMap.containsKey(opp.AccountId)){
+        accOppMap.get(opp.AccountId).add(opp);
+    } else {
+        accOppMap.put(opp.AccountId, new List<Opportunity>{opp});
+    }
+}
+
+// update the opportunities and their related accounts' shipping country
+for(Id accId : accOppMap.keySet()){
+    List<Opportunity> oppsToUpdate = accOppMap.get(accId);
+    for(Opportunity opp : oppsToUpdate){
+        opp.ShippingCountry = 'USA';
+    }
+    Database.update(oppsToUpdate, false);
+}
+
+// delete all accounts in the list
+Database.delete(accountList);
+
+// display success message
+System.debug('All accounts and their related opportunities have been updated and deleted successfully.');

@@ -1,0 +1,73 @@
+/*
+    This is a complex Gradle build script, showcasing various tasks and dependencies.
+*/
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '2.2.0.RELEASE'
+    id 'io.spring.dependency-management' version '1.0.8.RELEASE'
+}
+
+repositories {
+    jcenter()
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    runtimeOnly 'org.postgresql:postgresql'
+}
+
+task compileJavaWithVersion(type: JavaCompile) {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+    options.compilerArgs += '-parameters'
+    classpath += files(sourceSets.main.output.resourcesDir)
+}
+
+task generateDocs(type: Javadoc) {
+    classpath = sourceSets.main.compileClasspath
+    source = sourceSets.main.allJava
+    destinationDir = documentationDir
+    options.links("https://docs.oracle.com/javase/8/docs/api/", "https://docs.spring.io/spring/docs/5.2.0.RELEASE/javadoc-api/")
+    options.addStringOption('Xdoclint:none', '-quiet')
+}
+
+task runIntegrationTests(type: Test) {
+    afterTest { descriptor, result ->
+        println "Executing integration tests for $descriptor.name with result: $result"
+    }
+}
+
+task deployToServer(type: Copy) {
+    description = "Deploys built artifacts to server"
+    from('build/libs/') {
+        include '*.jar'
+    }
+    into 'server/releases'
+    dependsOn generateDocs
+}
+
+task functionalTest(dependsOn: ['test', 'runIntegrationTests', 'deployToServer']) {
+    description = "Runs functional tests on deployed server"
+    doLast {
+        println "Running functional tests"
+    }
+}
+
+task buildAll(dependsOn: ['clean', 'compileJavaWithVersion', 'generateDocs', 'deployToServer', 'functionalTest']) {
+    description = "Builds all project artifacts and runs integration and functional tests"
+    doLast {
+        println "All build tasks completed"
+    }
+}
+
+task clean(type: Delete) {
+    delete documentationDir
+    delete 'server/releases'
+}
+
+build {
+    tasks.clean.dependsOn clean
+}

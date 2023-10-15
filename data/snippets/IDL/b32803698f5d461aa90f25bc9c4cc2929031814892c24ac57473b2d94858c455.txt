@@ -1,0 +1,63 @@
+pro test_window
+; This procedure creates a resizable GUI window
+; Inputs:
+;   width - The desired width of the window in pixels
+;   height - The desired height of the window in pixels
+;   title - The title to be displayed on the window
+;   top - The top position of the window on the screen in pixels
+;   left - The left position of the window on the screen in pixels
+;   widgets - An array of widgets to be displayed in the window
+; Retrieved from https://www.exelisvis.com/docs/WINDOW.html
+
+  ; Create the window with the desired dimensions and title
+  window = WIDGET_BASE(WIDTH=width, HEIGHT=height, TITLE=title, TOP=top, LEFT=left)
+
+  ; Loop through the array of widgets and add them to the window
+  for i=0, N_ELEMENTS(widgets)-1 do begin
+    widget = widgets[i]
+
+    ; Add the widget to the window with a unique ID
+    WIDGET_CONTROL, window, ADD=widget, ID=i
+  endfor
+
+  ; Display the window on the screen
+  WIDGET_CONTROL, window, SET_VALUE='SHOW'
+
+  ; Wait for the user to interact with the window
+  event = WIDGET_INFO(window, /EVENT)
+
+  ; If the user closes the window, destroy it and exit the procedure
+  if event eq 'DESTROY' then begin
+    WIDGET_CONTROL, window, /DESTROY
+    return
+  endif
+
+  ; Otherwise, handle the specific event
+  case event of
+    'MOUSE_MOVE': begin
+      ; Get the current mouse position
+      mouse_pos = WIDGET_EVENT.MOUSE.WHERE
+
+      ; Update the coordinates of any relevant widgets
+      for i=0, N_ELEMENTS(widgets)-1 do begin
+        ; Depending on the type of widget, update the coordinates accordingly
+        case WIDGET_INFO(widgets[i], /TYPE) of
+          'SLIDER': WIDGET_CONTROL, widgets[i], CURRENT_X=mouse_pos[0], CURRENT_Y=mouse_pos[1]
+          'TEXT': WIDGET_CONTROL, widgets[i], XOFFSET=mouse_pos[0], YOFFSET=mouse_pos[1]
+          'BUTTON': WIDGET_CONTROL, widgets[i], UNIT_X=mouse_pos[0], UNIT_Y=mouse_pos[1]
+        endcase
+      endfor
+    end
+    'VALUE_CHANGE': begin
+      ; Get the ID of the widget that triggered the event
+      widget_id = WIDGET_EVENT.ID
+
+      ; Get the current value of the widget
+      value = WIDGET_CONTROL(widgets[widget_id], GET_VALUE=)
+
+      ; Do something with the value
+      IF (value GT 0) TheN Print, 'Value is positive'
+      ELSE TheN Print, 'Value is negative'
+    end
+  endcase
+end

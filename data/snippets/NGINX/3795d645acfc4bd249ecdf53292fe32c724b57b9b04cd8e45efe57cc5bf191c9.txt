@@ -1,0 +1,84 @@
+#This configuration block sets up a server to listen on port 80
+server {
+    listen 80;
+
+    #Defines the root directory for server files
+    root /var/www/mywebsite;
+
+    #Sets up server name and aliases
+    server_name mywebsite.com www.mywebsite.com;
+
+    #Sets up error logs and access logs
+    error_log /var/log/nginx/error.log;
+    access_log /var/log/nginx/access.log;
+
+    location / {
+        index index.html index.htm;
+    }
+
+    #Block to handle requests to the /images/ directory
+    location /images/ {
+        #Sets up caching for images with a 1-week expiration
+        expires 7d;
+
+        #Allows only GET requests to the images directory
+        limit_except GET {
+            deny all;
+        }
+    }
+
+    #Block to handle requests to the /api/ directory
+    location /api/ {
+        #Sets up proxy pass to backend server for handling API requests
+        proxy_pass http://127.0.0.1:8080;
+
+        #Sets up connection timeouts and buffer sizes
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+        proxy_buffering on;
+        proxy_buffers 8 16k;
+        proxy_buffer_size 16k;
+
+        #Sets up caching for API responses with a 1-hour expiration
+        expires 1h;
+
+        #Sets up response gzip compression
+        gzip on;
+        gzip_types text/plain text/css application/json;
+    }
+}
+
+#Configuration block for HTTPS server
+server {
+    #Listens on port 443 for HTTPS requests
+    listen 443 ssl;
+
+    #Defines the root directory for server files
+    root /var/www/mywebsite;
+
+    #Sets up server name and aliases
+    server_name mywebsite.com www.mywebsite.com;
+
+    #Sets up SSL certificate and key for secure connections
+    ssl_certificate /etc/nginx/cert/mywebsite.crt;
+    ssl_certificate_key /etc/nginx/cert/mywebsite.key;
+
+    #Sets up HTTPS redirect for non-secure requests
+    return 301 https://mywebsite.com$request_uri;
+
+    location / {
+        index index.html index.htm;
+    }
+
+    #Block to handle requests to the /images/ directory
+    location /images/ {
+        #Sets up caching for images with a 1-week expiration
+        expires 7d;
+
+        #Allows only GET requests to the images directory
+        limit_except GET {
+            deny all;
+        }
+    }
+}

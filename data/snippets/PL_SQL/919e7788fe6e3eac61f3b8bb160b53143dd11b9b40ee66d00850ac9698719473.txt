@@ -1,0 +1,52 @@
+DECLARE 
+    -- Declare variables
+    emp_record emp_table%rowtype; -- Record variable to hold employee data
+    net_salary NUMBER(10,2); -- Variable to hold calculated net salary
+BEGIN    
+    -- Calculate net salary
+    SELECT 
+        salary * 0.90 INTO net_salary -- Calculate net salary (90% of original salary)
+    FROM 
+        emp_table
+    WHERE 
+        id = emp_record.id; -- Get employee id from record variable
+    
+    -- Update employee record with net salary
+    UPDATE 
+        emp_table 
+    SET 
+        net_salary = net_salary 
+    WHERE 
+        id = emp_record.id; -- Set calculated net salary for employee record
+    
+    -- Print success message
+    DBMS_OUTPUT.PUT_LINE('Net salary calculated and updated successfully for employee ' || emp_record.name);
+
+    -- Check if employee is eligible for bonus
+    IF net_salary > 5000 THEN -- If net salary is greater than 5000
+        emp_record.is_eligible := 'Y'; -- Set is_eligible field in record variable to 'Y'
+    ELSE
+        emp_record.is_eligible := 'N'; -- Set is_eligible field in record variable to 'N'
+    END IF;
+    
+    -- Insert updated record into audit table
+    INSERT INTO 
+        emp_audit_table 
+    VALUES 
+        (emp_record.id, emp_record.name, net_salary, emp_record.is_eligible); -- Insert record into audit table
+    
+    -- Print success message
+    DBMS_OUTPUT.PUT_LINE('Employee record updated and inserted into audit table successfully for employee ' || emp_record.name);
+    
+    -- Commit changes
+    COMMIT;
+    
+EXCEPTION
+    -- Handle exceptions
+    WHEN NO_DATA_FOUND THEN -- If no data is found for given employee id
+        DBMS_OUTPUT.PUT_LINE('Employee not found.');
+    WHEN OTHERS THEN -- For any other exception
+        DBMS_OUTPUT.PUT_LINE('An error has occurred. ' || SQLERRM); -- Print error message
+        ROLLBACK; -- Rollback changes
+END;
+/

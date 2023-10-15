@@ -1,0 +1,52 @@
+#This function takes in a string and encrypts it using AES encryption with a 256-bit key
+function Encrypt-String {
+    param (
+        [string]$InputString, #the string to be encrypted
+        [string]$Key #the key used for encryption
+    )
+    
+    #convert the key from string to byte array
+    $KeyBytes = [System.Text.Encoding]::UTF8.GetBytes($Key)
+
+    #create new AES encryption object with a 256-bit key and CBC mode
+    $AES = New-Object System.Security.Cryptography.AesCryptoServiceProvider
+    $AES.KeySize = 256
+    $AES.Mode = [System.Security.Cryptography.CipherMode]::CBC
+
+    #create an empty byte array for the encrypted data
+    $EncryptedBytes = [byte[]]::new
+
+    #initialize a new memory stream for writing the encrypted data
+    $MemoryStream = New-Object System.IO.MemoryStream
+
+    #create a new encryption transformer using the key and the memory stream
+    $Encryptor = $AES.CreateEncryptor($KeyBytes, $AES.IV)
+
+    #initialize a new crypto stream for encrypting the data
+    $CryptoStream = New-Object System.Security.Cryptography.CryptoStream($MemoryStream, $Encryptor, [System.Security.Cryptography.CryptoStreamMode]::Write)
+    
+    #convert the input string to a byte array for encryption
+    $InputBytes = [System.Text.Encoding]::UTF8.GetBytes($InputString)
+    
+    #write the encrypted data to the crypto stream
+    $CryptoStream.Write($InputBytes, 0, $InputBytes.Length)
+
+    #flush the contents of the crypto stream to make sure all data is written
+    $CryptoStream.FlushFinalBlock()
+
+    #copy the encrypted data from the memory stream to the byte array
+    $MemoryStream.ToArray() | ForEach-Object { $EncryptedBytes += $_ }
+
+    #close the memory stream and crypto stream
+    $MemoryStream.Close()
+    $CryptoStream.Close()
+
+    #return the encrypted data as a base64-encoded string
+    [System.Convert]::ToBase64String($EncryptedBytes)
+}
+
+#sample usage
+Encrypt-String "Hello world!" "MySecretKey"
+
+#output
+#"d+AXZJd6bi3tHZXzWQtxqg=="

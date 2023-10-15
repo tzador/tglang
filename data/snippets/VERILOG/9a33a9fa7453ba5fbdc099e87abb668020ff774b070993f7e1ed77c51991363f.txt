@@ -1,0 +1,153 @@
+// This is a code snippet in VERILOG demonstrating a 4-bit SHA-256 hash function
+
+module SHA256(input clock, input [3:0] data, output reg [31:0] hash);
+
+	// Initialize constants
+
+	reg [31:0] K [63:0];
+	K[0] = 0x428A2F98; K[1] = 0x71374491; K[2] = 0xB5C0FBCF; K[3] = 0xE9B5DBA5;
+	K[4] = 0x3956C25B; K[5] = 0x59F111F1; K[6] = 0x923F82A4; K[7] = 0xAB1C5ED5;
+	K[8] = 0xD807AA98; K[9] = 0x12835B01; K[10] = 0x243185BE; K[11] = 0x550C7DC3;
+	K[12] = 0x72BE5D74; K[13] = 0x80DEB1FE; K[14] = 0x9BDC06A7; K[15] = 0xC19BF174;
+	K[16] = 0xE49B69C1; K[17] = 0xEFBE4786; K[18] = 0x0FC19DC6; K[19] = 0x240CA1CC;
+	K[20] = 0x2DE92C6F; K[21] = 0x4A7484AA; K[22] = 0x5CB0A9DC; K[23] = 0x76F988DA;
+	K[24] = 0x983E5152; K[25] = 0xA831C66D; K[26] = 0xB00327C8; K[27] = 0xBF597FC7;
+	K[28] = 0xC6E00BF3; K[29] = 0xD5A79147; K[30] = 0x06CA6351; K[31] = 0x14292967;
+	K[32] = 0x27B70A85; K[33] = 0x2E1B2138; K[34] = 0x4D2C6DFC; K[35] = 0x53380D13;
+	K[36] = 0x650A7354; K[37] = 0x766A0ABB; K[38] = 0x81C2C92E; K[39] = 0x92722C85;
+	K[40] = 0xA2BFE8A1; K[41] = 0xA81A664B; K[42] = 0xC24B8B70; K[43] = 0xC76C51A3;
+	K[44] = 0xD192E819; K[45] = 0xD6990624; K[46] = 0xF40E3585; K[47] = 0x106AA070;
+	K[48] = 0x19A4C116; K[49] = 0x1E376C08; K[50] = 0x2748774C; K[51] = 0x34B0BCB5;
+	K[52] = 0x391C0CB3; K[53] = 0x4ED8AA4A; K[54] = 0x5B9CCA4F; K[55] = 0x682E6FF3;
+	K[56] = 0x748F82EE; K[57] = 0x78A5636F; K[58] = 0x84C87814; K[59] = 0x8CC70208;
+	K[60] = 0x90BEFFFA; K[61] = 0xA4506CEB; K[62] = 0xBEF9A3F7; K[63] = 0xC67178F2;
+
+	// Initialize variables
+
+	reg [31:0] H, S0, S1, T1, T2, a, b, c, d, e, f, g, h, data_expanded [63:0];
+	reg [31:0] W [63:0];
+	reg [63:0] temp1, temp2, ch, maj, sigma0, sigma1;
+
+	// Initial hash values
+
+	H[0] = 0x6A09E667; H[1] = 0xBB67AE85; H[2] = 0x3C6EF372; H[3] = 0xA54FF53A;
+	H[4] = 0x510E527F; H[5] = 0x9B05688C; H[6] = 0x1F83D9AB; H[7] = 0x5BE0CD19;
+
+	always@(posedge clock) begin
+
+		// Expansion step
+		for (int i = 0; i < 16; i = i + 1) begin
+			W[i] = data[i];
+		end
+		for (int i = 16; i < 64; i = i + 1) begin
+			W[i] = W[i-16] + sigma0(W[i-15]) + W[i-7] + sigma1(W[i-2]);
+		end
+
+		// Initialize working variables
+		a = H[0];
+		b = H[1];
+		c = H[2];
+		d = H[3];
+		e = H[4];
+		f = H[5];
+		g = H[6];
+		h = H[7];
+
+		// Compression step
+		for (int i = 0; i < 64; i = i + 1) begin
+			ch = (e & f) ^ (~e & g);
+			maj = (a & b) ^ (a & c) ^ (b & c);
+			S0 = (a >>> 2) ^ (a >>> 13) ^ (a >>> 22);
+			S1 = (e >>> 6) ^ (e >>> 11) ^ (e >>> 25);
+			temp1 = h + S0 + ch + K[i] + W[i];
+			temp2 = S1 + maj;
+			h = g;
+			g = f;
+			f = e;
+			e = d + temp1;
+			d = c;
+			c = b;
+			b = a;
+			a = temp1 + temp2;
+		end
+
+		// Update hash values
+		H[0] = a + H[0];
+		H[1] = b + H[1];
+		H[2] = c + H[2];
+		H[3] = d + H[3];
+		H[4] = e + H[4];
+		H[5] = f + H[5];
+		H[6] = g + H[6];
+		H[7] = h + H[7];
+
+		// Calculate final hash
+		hash = H[0] << 128 | H[1] << 96 | H[2] << 64 | H[3] << 32 | H[4] | H[5] | H[6] | H[7];
+	end
+
+	// Functions
+
+	// Rotate right logical function
+	function [31:0] >>> (input [31:0] x, input [4:0] n);
+		>>> = (x >>> n) & {>> {(31-n){1'b0}, (n){1'b1}}};
+	endfunction
+
+	// Rotate left logical function
+	function [31:0] <<< (input [31:0] x, input [4:0] n);
+		<<< = (x << n) & {n{1'b0}, x >>> (32-n)};
+	endfunction
+
+	// Right shift function
+	function [31:0] >>>> (input [31:0] x, input [4:0] n);
+		if (n > 31) begin
+			>>>> = 0;
+		end
+		else begin
+			>>>> = x >>> n;
+		end
+	endfunction
+
+	// Bitwise AND function
+	function [31:0] & (input [31:0] x, input [31:0] y);
+		for (int i = 0; i < 32; i = i + 1) begin
+			&[i] = x[i] & y[i];
+		end
+	endfunction
+
+	// Bitwise NOT function
+	function [31:0] ~ (input [31:0] x);
+		for (int i = 0; i < 32; i = i + 1) begin
+			~[i] = !x[i];
+		end
+	endfunction
+
+	// Bitwise XOR function
+	function [31:0] ^ (input [31:0] x, input [31:0] y);
+		for (int i = 0; i < 32; i = i + 1) begin
+			^[i] = x[i] ^ y[i];
+		end
+	endfunction
+
+	// AND, OR, and XOR functions
+	function [31:0] shrand (input [31:0] x, input [31:0] y, input [31:0] z);
+		shrand = (x & y) ^ (~x & z);
+	endfunction
+
+	function [31:0] shb (input [31:0] x, input [31:0] y, input [31:0] z);
+		shb = x ^ y ^ z;
+	endfunction
+
+	function [31:0] par (input [31:0] x, input [31:0] y, input [31:0] z);
+		par = (x & y) ^ (x & z) ^ (y & z);
+	endfunction
+
+	// Sigma functions
+	function [31:0] sigma0 (input [31:0] x);
+		sigma0 = (x >>> 7) ^ (x >>> 18) ^ (x >>> 3);
+	endfunction
+
+	function [31:0] sigma1 (input [31:0] x);
+		sigma1 = (x >>> 17) ^ (x >>> 19) ^ (x >>> 10);
+	endfunction
+
+endmodule

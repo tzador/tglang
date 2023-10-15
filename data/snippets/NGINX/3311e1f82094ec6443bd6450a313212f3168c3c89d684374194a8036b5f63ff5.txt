@@ -1,0 +1,54 @@
+# Set up server to listen on port 80 using the TCP protocol
+server {
+    listen 80;
+
+    # Set server name to mydomain.com
+    server_name mydomain.com;
+
+    # Define location for root of website
+    root /var/www/mydomain.com;
+
+    # Enable gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    # Set up caching for static assets
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js|woff|woff2|ttf|svg)$ {
+        expires 1d;
+        add_header Vary Accept-Encoding;
+        access_log off;
+    }
+
+    # Set up proxy to pass PHP requests to a backend server
+    location ~ \.php$ {
+        proxy_pass http://127.0.0.1:9000;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Deny access to hidden files
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # Serve custom error pages
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html {
+        root /usr/share/nginx/html;
+    }
+
+    # Define security settings
+    # Disable server tokens
+    server_tokens off;
+
+    # Set up rate limiting
+    limit_req_zone $binary_remote_addr zone=one:10m rate=1r/s;
+
+    # Set expires and X-XSS-Protection headers
+    add_header X-XSS-Protection "1; mode=block";
+    expires max;
+}

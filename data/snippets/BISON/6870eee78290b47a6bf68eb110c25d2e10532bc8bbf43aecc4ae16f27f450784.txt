@@ -1,0 +1,270 @@
+%{
+// The following code snippet is compiled/interpreted by the BISON programming language
+// BISON, also known as GNU Bison, is a general-purpose parser generator that converts a grammar description for an LALR(1) context-free grammar into a C program to parse that grammar.
+// This code snippet creates a simple calculator using BISON's lexer and parser functionality.
+// Author: John Doe
+// Date: August 26, 2021
+// License: MIT
+
+#include <stdio.h>
+#include <stdlib.h>
+
+// Define the different tokens that can be recognized by the lexer
+%token NUMBER
+%token ADD SUB MULTIPLY DIVIDE POWER
+
+// Define the precedence of the different operators
+// Higher number = higher precedence
+%left ADD SUB       // Addition and subtraction have the same precedence
+%left MULTIPLY DIVIDE       // Multiplication and division have the same precedence
+%left POWER  // Power has the highest precedence
+
+// Define the grammar rules for the calculator
+// The expressions are based on Reverse Polish Notation (RPN)
+%%
+program: /* empty */          // Empty program
+        | program statement ';' { printf("%d\n", $2); } // Print the result of the statement
+        ;
+
+statement: NUMBER            // A statement can be just a number
+         | statement statement ADD    // Add two statements
+         | statement statement SUB    // Subtract one statement from the other
+         | statement statement MULTIPLY    // Multiply two statements
+         | statement statement DIVIDE  // Divide one statement by the other
+         | statement statement POWER   // Raise the first statement to the power of the second statement
+         ;
+
+// Define the lexer rules to recognize the different tokens
+// Regular expressions are used to match patterns for each token
+// The token name must be in uppercase
+[0-9]+   { return NUMBER; }    // Match positive integers, returns the NUMBER token
+
+"+"   { return ADD; }          // Match a plus sign, returns the ADD token
+"-"   { return SUB; }          // Match a minus sign, returns the SUB token
+"*"   { return MULTIPLY; }     // Match an asterisk, returns the MULTIPLY token
+"/"   { return DIVIDE; }       // Match a forward slash, returns the DIVIDE token
+"^"   { return POWER; }        // Match a caret, returns the POWER token
+
+// Ignore whitespace
+[ \t]   { /* Ignore whitespace */ }
+\n      { /* Ignore newline characters */ }
+
+// If an invalid character is found, output an error
+.       { fprintf(stderr, "Invalid character %c\n", *yytext); exit(-1); }
+
+// Define the main function to read input from stdin and run the lexer and parser
+int main() {
+    // Start the lexer
+    yylex();
+    // Run the parser
+    yyparse();
+    // Return 0 to indicate successful execution
+    return 0;
+}
+ 
+// Define the error handling function for the parser
+void yyerror(const char* s) {
+    // Print the error message
+    fprintf(stderr, "Parse error: %s\n", s);
+    // Exit with an error code
+    exit(-1);
+}
+%}
+ 
+// Define the actual lexer code to generate a tokenizer
+ 
+// Define the input buffer size
+%define parse.error verbose
+%define parse.lac full
+%define pars e.ltype void *
+
+// Define the token type
+%token_type int
+ 
+// Define the token value
+%union {
+    int tokenValue;
+}
+ 
+// Define the actual lexer code to generate a tokenizer
+%define parse.error verbose
+%define parse.lac full
+%define parse.ltype void *
+ 
+%code requires {
+#include <stdio.h>
+#include <stdlib.h>
+#include "calc.tab.h"       // Include the generated parser header file
+}
+ 
+%code {
+int yylex(void);
+void yyerror(const char* s);
+}
+ 
+%code requires {
+int yylex(void);
+void yyerror(const char* s);
+}
+ 
+%token NUMBER ADD SUB MULTIPLY DIVIDE POWER
+ 
+%left ADD SUB MULTIPLY DIVIDE POWER
+ 
+%type <tokenValue> NUMBER
+ 
+%%
+ 
+program: /* empty */
+        | program statement ';' { printf("%d\n", $2); }
+        ;
+ 
+statement: NUMBER            // A statement can be just a number
+         | statement statement ADD    // Add two statements
+         | statement statement SUB    // Subtract one statement from the other
+         | statement statement MULTIPLY    // Multiply two statements
+         | statement statement DIVIDE  // Divide one statement by the other
+         | statement statement POWER   // Raise the first statement to the power of the second statement
+         ;
+ 
+// The lexer function that returns tokens to the parser
+int yylex(void) {
+    // Declare a variable to hold the current token
+    int token;
+    // Read the next character from stdin
+    token = getchar();
+ 
+    // Check if the character is a number
+    if (isdigit(token)) {
+        // Convert the character to an integer and return the NUMBER token
+        yylval.tokenValue = token - '0';
+        return NUMBER;
+    }
+    // Check if the character is an operator
+    if (token == '+' || token == '-' || token == '*' || token == '/' || token == '^') {
+        // Return the appropriate token
+        return token;
+    }
+    // Ignore whitespace and newline characters
+    if (token == ' ' || token == '\n') {
+        return yylex(); // Recursively call the lexer function to get the next token
+    }
+    // Return an error if an invalid character is found
+    yyerror("invalid character");
+    return 0;
+}
+ 
+// The error handling function for the parser
+void yyerror(const char* s) {
+    // Print the error message
+    fprintf(stderr, "Parse error: %s\n", s);
+    // Exit with an error code
+    exit(-1);
+}
+ 
+// The main function to run the lexer and parser on input from stdin
+int main() {
+    // Start the lexer
+    yylex();
+    // Run the parser
+    yyparse();
+    // Return 0 to indicate successful execution
+    return 0;
+}
+ 
+// Define the code to generate the parser, using the bison library code template
+%code bison {
+    #include <stdio.h>
+    #include <stdlib.h>
+}
+ 
+// Define the generated syntax tree structure
+%define parse.error verbose
+%define parse.lac full
+%define parse.ltype void *
+ 
+%prec POWER
+ 
+// Define the tokens and their corresponding values
+%token NUMBER ADD SUB MULTIPLY DIVIDE POWER
+ 
+// Define the rules for the grammar
+%type <tokenValue> NUMBER
+ 
+%%
+ 
+program: /* empty */
+        | program statement ';' { printf("%d\n", $2); }   // Print the result of the statement
+ 
+statement: NUMBER            // A statement can be just a number
+         | statement statement ADD    // Add two statements
+         | statement statement SUB    // Subtract one statement from the other
+         | statement statement MULTIPLY    // Multiply two statements
+         | statement statement DIVIDE  // Divide one statement by the other
+         | statement statement POWER   // Raise the first statement to the power of the second statement
+         ;
+ 
+// The function to handle different types of statements and perform the appropriate operations
+int yyerror(const char *s) {
+    // Declare variables for the two statements and the operator
+    int s1, s2, op;
+    // Check which type of statement is encountered
+    switch (*s) {
+        case ADD:
+            // Get the operator from the first statement
+            op = $2;
+            // Get the two statements from the second and third arguments
+            s1 = $1;
+            s2 = $3;
+            // Perform the addition and return the result
+            return s1 + s2;
+        case SUB:
+            // Get the operator from the first statement
+            op = $2;
+            // Get the two statements from the second and third arguments
+            s1 = $1;
+            s2 = $3;
+            // Perform the subtraction and return the result
+            return s1 - s2;
+        case MULTIPLY:
+            // Get the operator from the first statement
+            op = $2;
+            // Get the two statements from the second and third arguments
+            s1 = $1;
+            s2 = $3;
+            // Perform the multiplication and return the result
+            return s1 * s2;
+        case DIVIDE:
+            // Get the operator from the first statement
+            op = $2;
+            // Get the two statements from the second and third arguments
+            s1 = $1;
+            s2 = $3;
+            // Perform the division and return the result
+            return s1 / s2;
+        case POWER:
+            // Get the operator from the first statement
+            op = $2;
+            // Get the two statements from the second and third arguments
+            s1 = $1;
+            s2 = $3;
+            // Perform the power operation and return the result
+            return pow(s1, s2);
+    }
+    // If an invalid operator is encountered, return an error
+    return -1;
+}
+%%
+ 
+// Define the main function to read input from stdin and run the lexer and parser
+int main() {
+    // Start the lexer
+    yylex();
+    // Run the parser
+    yyparse();
+    // Return 0 to indicate successful execution
+    return 0;
+}
+ 
+// Indicate the end of the grammar
+END

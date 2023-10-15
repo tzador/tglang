@@ -1,0 +1,87 @@
+//Contract to create an ERC20 token with minting and burning capabilities
+
+pragma solidity ^0.8.0; //specifies the compiler version
+
+interface IERC20 { //ERC20 token interface
+   function totalSupply() external view returns (uint256); //returns the total supply of the token
+   function balanceOf(address account) external view returns (uint256); //returns the balance of a specific account
+   function transfer(address recipient, uint256 amount) external returns (bool); //transfer tokens from the sender's account to the recipient's account
+   function allowance(address owner, address spender) external view returns (uint256); //returns the amount of tokens that the spender is allowed to spend on behalf of the owner
+   function approve(address spender, uint256 amount) external returns (bool); //sets the allowance amount for the spender
+   function transferFrom(address sender, address recipient, uint256 amount) external returns (bool); //transfer tokens from a specific address (sender) to another address (recipient)
+   event Transfer(address indexed from, address indexed to, uint256 value); //event triggered when tokens are transferred
+   event Approval(address indexed owner, address indexed spender, uint256 value); //event triggered when the allowance amount is set
+}
+
+contract MyToken is IERC20 { //contract that implements the ERC20 token interface
+   
+   string public name = "My Token"; //name of the token
+   string public symbol = "MTK"; //symbol of the token
+   uint8 public decimals = 18; //number of decimals for display purposes
+   
+   address public owner; //address of the owner
+   
+   mapping (address => uint256) private balances; //mapping to track token balances of each address
+   mapping (address => mapping (address => uint256)) private allowed; //mapping to track the allowance amount for each address
+   
+   uint256 private _totalSupply; //variable to store the total supply of the token
+   
+   constructor() { //constructor function
+       owner = msg.sender; //set the owner as the address that deployed the contract
+       _totalSupply = 1000000000 * (10 ** uint256(decimals)); //set the total supply to 1 billion tokens with 18 decimals
+       balances[msg.sender] = _totalSupply; //assign the total supply to the owner's balance
+   }
+   
+   function totalSupply() external view override returns (uint256) { //implementation of the totalSupply function in the interface
+       return _totalSupply;
+   }
+   
+   function balanceOf(address account) external view override returns (uint256) { //implementation of the balanceOf function in the interface
+       return balances[account];
+   }
+   
+   function transfer(address recipient, uint256 amount) external override returns (bool) { //implementation of the transfer function in the interface
+       require(balances[msg.sender] >= amount, "Insufficient balance"); //check if the sender has enough balance
+       require(recipient != address(0), "Invalid recipient"); //check if the recipient address is valid
+       balances[msg.sender] -= amount; //deduct the amount from the sender's balance
+       balances[recipient] += amount; //credit the amount to the recipient's balance
+       emit Transfer(msg.sender, recipient, amount); //trigger the transfer event
+       return true;
+   }
+   
+   function allowance(address owner, address spender) external view override returns (uint256) { //implementation of the allowance function in the interface
+       return allowed[owner][spender];
+   }
+   
+   function approve(address spender, uint256 amount) external override returns (bool) { //implementation of the approve function in the interface
+       require(spender != address(0), "Invalid spender"); //check if the spender address is valid
+       allowed[msg.sender][spender] = amount; //set the allowance amount for the spender
+       emit Approval(msg.sender, spender, amount); //trigger the approval event
+       return true;
+   }
+   
+   function transferFrom(address sender, address recipient, uint256 amount) external override returns (bool) { //implementation of the transferFrom function in the interface
+       require(balances[sender] >= amount, "Insufficient balance"); //check if the sender has enough balance
+       require(allowed[sender][msg.sender] >= amount, "Exceeds allowance"); //check if the allowance amount is enough
+       require(recipient != address(0), "Invalid recipient"); //check if the recipient address is valid
+       balances[sender] -= amount; //deduct the amount from the sender's balance
+       balances[recipient] += amount; //credit the amount to the recipient's balance
+       allowed[sender][msg.sender] -= amount; //deduct the allowance amount from the spender's allowance
+       emit Transfer(sender, recipient, amount); //trigger the transfer event
+       return true;
+   }
+   
+   function mint(uint256 amount) public { //function to mint new tokens
+       require(msg.sender == owner, "Only owner can mint tokens"); //only the owner can mint tokens
+       balances[owner] += amount; //credit the new tokens to the owner's balance
+       _totalSupply += amount; //increase the total supply
+       emit Transfer(address(0), owner, amount); //trigger the transfer event from the null address to the owner
+   }
+   
+   function burn(uint256 amount) public { //function to burn tokens
+       require(balances[msg.sender] >= amount, "Insufficient balance"); //check if the sender has enough balance
+       balances[msg.sender] -= amount; //deduct the amount from the sender's balance
+       _totalSupply -= amount; //decrease the total supply
+       emit Transfer(msg.sender, address(0), amount); //trigger the transfer event from the sender to the null address
+   }
+}

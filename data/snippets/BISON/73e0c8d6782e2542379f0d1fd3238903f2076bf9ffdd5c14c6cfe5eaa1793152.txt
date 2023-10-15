@@ -1,0 +1,275 @@
+%{
+    #include <stdio.h>
+    #include <string.h>
+%}
+
+/* Declare tokens */
+%token <strval> IDENTIFIER
+%token <intval> INTEGER
+
+%% /* grammar rules */
+start:
+       program
+;
+
+program:
+       statement_list |
+       /* empty string */
+;
+
+statement_list:
+       statement |
+       statement_list statement
+;
+
+statement:
+       expr_statement |
+       decl_statement |
+       loop_statement |
+       control_statement |
+       func_statement
+;
+
+expr_statement:
+       expression ';'
+;
+
+decl_statement:
+       decl_assign |
+       decl ';' |
+       IDENTIFIER ';'
+;
+
+loop_statement:
+       while_loop |
+       for_loop
+;
+
+control_statement:
+       if_statement |
+       switch_statement
+;
+
+func_statement:
+       type IDENTIFIER '(' parameter_list ')' compound_statement
+;
+
+decl_assign:
+       type IDENTIFIER '=' expression ';'
+;
+
+while_loop:
+       WHILE '(' expression ')' compound_statement
+;
+
+for_loop:
+       FOR '(' decl_assign expression ';' expression ')' compound_statement
+;
+
+if_statement:
+       IF '(' expression ')' compound_statement |
+       IF '(' expression ')' compound_statement ELSE compound_statement
+;
+
+switch_statement:
+       SWITCH '(' IDENTIFIER ')' '{' case_list '}'
+;
+
+case_list:
+       /* empty string */ |
+       case_item |
+       case_list case_item
+;
+
+case_item:
+       TYPE ':' statement_list BREAK ';'
+;
+
+parameter_list:
+       /* empty string */ |
+       parameter |
+       parameter_list ',' parameter
+;
+
+parameter:
+       type IDENTIFIER
+;
+
+compound_statement:
+       '{' '}' |
+       '{' statement_list '}' |
+       '{' return_statement '}'
+;
+
+return_statement:
+       RETURN expression ';' |
+       RETURN ';'
+;
+
+expression:
+       logical_expr |
+       logical_expr '?' logical_expr ':' logical_expr
+;
+
+logical_expr:
+       equality_expr |
+       logical_expr LOGICAL_OP equality_expr
+;
+
+equality_expr:
+       relational_expr |
+       equality_expr EQ_OP relational_expr |
+       equality_expr NE_OP relational_expr
+;
+
+relational_expr:
+       additive_expr |
+       relational_expr LT_OP additive_expr |
+       relational_expr LE_OP additive_expr |
+       relational_expr GT_OP additive_expr |
+       relational_expr GE_OP additive_expr
+;
+
+additive_expr:
+       multiplicative_expr |
+       additive_expr '+' multiplicative_expr |
+       additive_expr '-' multiplicative_expr
+;
+
+multiplicative_expr:
+       factor |
+       multiplicative_expr '*' factor |
+       multiplicative_expr '/' factor |
+       multiplicative_expr '%' factor
+;
+
+factor:
+       UNARY_OP factor |
+       '(' expression ')' |
+       primary
+;
+
+primary:
+       IDENTIFIER |
+       INTEGER |
+       FLOAT |
+       STRING |
+       func_call |
+       array
+;
+
+func_call:
+       IDENTIFIER '(' arg_list ')'
+;
+
+arg_list:
+       /* empty string */ |
+       expression |
+       arg_list ',' expression
+;
+
+array:
+       '[' primary ']'
+;
+
+%% /* extra code outside grammar rules */
+
+/* convert `< strval >` token type to C string */
+char *convert_strval(char *str) {
+    return strdup(str);
+}
+
+/* convert `< intval >` token type to C int */
+int convert_intval(char *str) {
+    return atoi(str);
+}
+
+/* return value from function statement */
+void return_value(char *val) {
+    printf("Function returned value: %s\n", val);
+}
+
+/* calculate and return result from expression statement */
+int calculate(int left, char op, int right) {
+    if (op == '+') {
+        return left + right;
+    } else if (op == '-') {
+        return left - right;
+    } else if (op == '*') {
+        return left * right;
+    } else if (op == '/') {
+        return left / right;
+    } else {
+        return left % right;
+    }
+}
+
+/* main function */
+int main(int argc, char *argv[]) {
+    /* call parser */
+    yyparse();
+
+    return 0;
+}
+
+%% /* Flex definitions */
+
+/* ignore whitespace */
+[ \t\r\n]  { /* do nothing */ }
+
+/* match identifiers */
+[a-z][a-zA-Z0-9]*  {
+    /* assign token type and value */
+    yylval.strval = convert_strval(yytext);
+    return IDENTIFIER;
+}
+
+/* match integers */
+[0-9]+ {
+    /* assign token type and value */
+    yylval.intval = convert_intval(yytext);
+    return INTEGER;
+}
+
+/* match operators */
+"="|">"|"<"|"+|-|*|/|%"  {
+    return yytext[0];
+}
+
+/* match logical operators */
+"&&"|"||"|"!"  {
+    return yytext[0];
+}
+
+/* match relation operators */
+"<="|">="|"=="|"!="  {
+    return yytext;
+}
+
+/* match keywords */
+"if"  {
+    return IF;
+}
+"else"  {
+    return ELSE;
+}
+"while"  {
+    return WHILE;
+}
+"for"  {
+    return FOR;
+}
+"switch"  {
+    return SWITCH;
+}
+"return"  {
+    return RETURN;
+}
+"break"  {
+    return BREAK;
+}
+
+%% /* Flex code for error handling */
+
+/* handle unknown tokens */
+. {\n printf("Syntax Error: unknown token '%s'\n", yytext);\n yyterminate();\n}

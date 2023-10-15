@@ -1,0 +1,83 @@
+# Set the minimum required version of CMake
+cmake_minimum_required(VERSION 3.12)
+
+# Set the project name
+project(MyProject)
+
+# Add a library target
+add_library(mylib
+    src/myfile.cpp
+    src/anotherfile.cpp
+)
+
+# Set library properties
+target_include_directories(mylib PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> # Include directory during build
+    $<INSTALL_INTERFACE:include> # Include directory during install
+)
+set_target_properties(mylib PROPERTIES
+    CXX_STANDARD 11 # Set standard to C++11
+    CXX_STANDARD_REQUIRED ON
+)
+
+# Add an executable target
+add_executable(myexe
+    src/main.cpp
+)
+
+# Link myexe with mylib
+target_link_libraries(myexe PRIVATE
+    mylib
+)
+
+# Optional: Set install paths
+include(GNUInstallDirs)
+set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/MyProject)
+set(INSTALL_BINDIR ${CMAKE_INSTALL_BINDIR})
+set(INSTALL_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR})
+
+# Create and install package config file
+include(CMakePackageConfigHelpers)
+configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/MyProjectConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/MyProjectConfig.cmake
+    INSTALL_DESTINATION ${INSTALL_CONFIGDIR}
+)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/MyProjectConfig.cmake
+    DESTINATION ${INSTALL_CONFIGDIR}
+)
+
+# Optional: Create and install version file
+write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/MyProjectConfigVersion.cmake
+    VERSION 1.0.0
+    COMPATIBILITY SameMajorVersion
+)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/MyProjectConfigVersion.cmake
+    DESTINATION ${INSTALL_CONFIGDIR}
+)
+
+# Install targets and include files
+install(TARGETS mylib myexe
+    EXPORT MyProject-targets
+    RUNTIME DESTINATION ${INSTALL_BINDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+install(DIRECTORY include/ DESTINATION ${INSTALL_INCLUDEDIR})
+install(EXPORT MyProject-targets
+    FILE MyProjectTargets.cmake
+    NAMESPACE MyProject::
+    DESTINATION ${INSTALL_CONFIGDIR}
+)
+
+# Optional: Generate and install package configuration file for use with find_package()
+export(EXPORT MyProject-targets FILE "${CMAKE_CURRENT_BINARY_DIR}/MyProjectTargets.cmake")
+install(EXPORT MyProject-targets
+    FILE MyProjectTargets.cmake
+    NAMESPACE MyProject::
+    DESTINATION ${INSTALL_CONFIGDIR}
+)
+
+# Optional: Create and install test executable target
+enable_testing()
+add_test(NAME MyProject_test COMMAND myexe)
+install(TARGETS myexe DESTINATION ${INSTALL_BINDIR})

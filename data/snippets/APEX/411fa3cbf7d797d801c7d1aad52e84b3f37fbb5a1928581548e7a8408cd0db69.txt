@@ -1,0 +1,47 @@
+//  **Set up import statement for Salesforce integration**
+import static (org.apache.http.client.methods.HttpPost);
+import (org.apache.http.HttpResponse);
+import (org.apache.http.client.CredentialsProvider);
+
+// **Set up class for Salesforce API integration**
+public class SalesforceAPIIntegration {
+    private String baseUrl;
+    private CredentialsProvider credsProvider;
+
+    // **Create constructor method for Salesforce API integration class**
+    public SalesforceAPIIntegration(String baseUrl, CredentialsProvider credsProvider) {
+        this.baseUrl = baseUrl;
+        this.credsProvider = credsProvider;
+    }
+
+    // **Create method to generate Salesforce access token**
+    public String generateAccessToken() {
+        // **Create HTTP POST request to Salesforce OAuth token endpoint**
+        HttpPost request = new HttpPost(this.baseUrl + '/services/oauth2/token');
+
+        // **Add basic authentication header using credentials provider**
+        BasicCredentialsProvider credsProvider = new BasicCredentialsProvider();
+        credsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials('client_id', 'client_secret'));
+        request.addHeader(org.apache.http.HttpHeaders.AUTHORIZATION, 'Basic ' + EncodingUtil.base64Encode(credsProvider.getCredentials(AuthScope.ANY).getUserName() + ':' + credsProvider.getCredentials(AuthScope.ANY).getPassword()));
+
+        // **Add request parameters for Salesforce OAuth token endpoint**
+        StringEntity params = new StringEntity('grant_type=password&client_id=' + EncodingUtil.urlEncode('client_id') + '&client_secret=' + EncodingUtil.urlEncode('client_secret') + '&username=' + EncodingUtil.urlEncode('username') + '&password=' + EncodingUtil.urlEncode('password'));
+        request.setEntity(params);
+
+        // **Execute HTTP request and get response**
+        HttpResponse response = new DefaultHttpClient().execute(request);
+
+        // **Parse response and extract access token**
+        JSONParser parser = JSON.createParser(response.getEntity().getContent());
+        String accessToken;
+        while (parser.nextToken() != null) {
+            if (parser.getCurrentToken() == JsonToken.FIELD_NAME && parser.getCurrentName() == 'access_token') {
+                parser.nextToken();
+                accessToken = parser.getText();
+            }
+        }
+
+        // **Return access token**
+        return accessToken;
+    }
+}

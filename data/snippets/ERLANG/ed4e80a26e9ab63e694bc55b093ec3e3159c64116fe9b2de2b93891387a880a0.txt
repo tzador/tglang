@@ -1,0 +1,76 @@
+-module(csv_parser).
+%% This module parses a CSV file and returns a list of lists representing the data.
+-export([parse_csv/1]).
+
+%% Imported libraries
+-include_lib("stdlib/include/qlc.hrl").
+-include_lib("stdlib/include/csv.hrl").
+
+%% Function to parse CSV file into lists
+-spec parse_csv(string()) -> list(list()).
+parse_csv(Filename) ->
+    {ok, Binary} = file:read_file(Filename),  % Reads the CSV file as binary data
+    {ok, [Headers | Data]} = csv:parse(Binary), % Parses the binary data into a list of lists
+    List = [Headers | Data], % Combines the headers and data into one list
+    Headers = parse_headers(Headers), % Calls the function to parse the headers into atoms
+    Data = parse_data(Data, Headers), % Calls the function to parse the data into proper types
+    List.
+
+%% Function to parse headers into atoms
+-spec parse_headers(list()) -> list(atom()).
+parse_headers(Headers) ->
+    [atomize(Header) || Header <- Headers].
+
+%% Helper function to convert a string into an atom 
+-spec atomize(string()) -> atom().
+atomize(String) ->
+    list_to_existing_atom(String).
+
+%% Function to parse data into proper types
+-spec parse_data(list(), list(atom())) -> list(list()).
+parse_data(Data, Headers) ->
+    [parse_row(Row, Headers) || Row <- Data].
+
+%% Helper function to parse a single row into proper types based on the headers
+%% Uses pattern matching and recursion
+parse_row(Row, Headers) ->
+    case {Row, Headers} of
+        {[], _} -> [];  % If row is empty, return empty list
+        {[Value | Rest], [Header | HRest]} ->
+            case {parse_type(Value, Header), parse_row(Rest, HRest)} of
+                {Value, Rest} -> [Value | Rest]
+            end
+    end.
+
+%% Helper function to parse a single value into the correct type based on the header
+-spec parse_type(string(), atom()) -> any().
+parse_type(Value, Header) ->
+    case Header of
+        date -> parse_date(Value);  % If header is 'date', parse value into date format
+        price -> parse_price(Value)  % If header is 'price', parse value into float format
+    end.
+
+%% Helper function to parse a date string into {Year, Month, Day} tuple
+-spec parse_date(string()) -> {integer(), integer(), integer()} | string().
+parse_date(Date) ->
+        case string:tokens(Date, "-") of
+          [YearStr, MonthStr, DayStr] ->
+            try
+                {list_to_integer(YearStr), list_to_integer(MonthStr), list_to_integer(DayStr)}
+            catch
+                error:badarg ->
+                    Date
+            end;
+          _ ->
+            Date
+        end.
+
+%% Helper function to parse a price string into float
+-spec parse_price(string()) -> float() | string().
+parse_price(Price) ->
+    try
+        list_to_float(Price)
+    catch
+        error:badarg ->
+            Price
+    end.

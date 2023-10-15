@@ -1,0 +1,58 @@
+-- Declare temporary table
+CREATE TEMP TABLE temp_order_summary
+(
+    order_id INT,
+    total_amount NUMERIC(10,2),
+    product_name CHARACTER VARYING(50),
+    product_quantity INT,
+    customer_name CHARACTER VARYING(100)
+);
+
+-- Select data from orders table
+SELECT orders.id AS order_id,
+       orders.total_amount,
+       products.name AS product_name,
+       order_items.quantity AS product_quantity,
+       customers.full_name AS customer_name
+FROM orders
+JOIN order_items ON orders.id = order_items.order_id
+JOIN products ON order_items.product_id = products.id
+JOIN customers ON orders.customer_id = customers.id
+WHERE orders.status = 'completed'
+AND orders.date > '2020-01-01'
+AND orders.date < '2020-12-31'
+GROUP BY orders.id, orders.total_amount, products.name, order_items.quantity, customers.full_name
+ORDER BY orders.total_amount DESC;
+
+-- Insert data into temporary table
+INSERT INTO temp_order_summary
+SELECT order_id, total_amount, product_name, product_quantity, customer_name
+FROM (
+    -- Subquery to rank orders by total amount
+    SELECT orders.id AS order_id,
+           orders.total_amount,
+           products.name AS product_name,
+           order_items.quantity AS product_quantity,
+           customers.full_name AS customer_name,
+           ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY total_amount DESC) AS row_num
+    FROM orders
+    JOIN order_items ON orders.id = order_items.order_id
+    JOIN products ON order_items.product_id = products.id
+    JOIN customers ON orders.customer_id = customers.id
+    WHERE orders.status = 'completed'
+    AND orders.date > '2020-01-01'
+    AND orders.date < '2020-12-31'
+    GROUP BY orders.id, orders.total_amount, products.name, order_items.quantity, customers.full_name
+) AS ranked_orders
+WHERE ranked_orders.row_num = 1 -- Only select top order for each order_id
+
+-- Select data from temporary table
+SELECT order_id AS "Order ID",
+       product_name AS "Product Name",
+       product_quantity AS "Product Quantity",
+       customer_name AS "Customer Name"
+FROM temp_order_summary
+ORDER BY total_amount DESC;
+
+-- Drop temporary table
+DROP TABLE IF EXISTS temp_order_summary;

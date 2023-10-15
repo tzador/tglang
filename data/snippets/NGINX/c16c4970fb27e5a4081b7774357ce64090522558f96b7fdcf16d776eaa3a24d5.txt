@@ -1,0 +1,51 @@
+server {
+    listen 80;
+    
+    server_name example.com www.example.com;
+    
+    location / {
+        proxy_pass http://localhost:8000; # Passes incoming requests to specified port
+        proxy_set_header Host $host; # Sets Host header to match original request
+    }
+    
+    location /docs {
+        root /var/www/docs; # Specifies root directory for handling this path
+        try_files $uri $uri/ /index.html; # Attempts to serve requested file, then directory, then index.html
+    }
+    
+    location ~ \.php$ {
+        fastcgi_pass unix:/var/run/php/php7.4-fpm.sock; # Passes PHP requests to FastCGI server listening on specified socket
+        include fastcgi_params; # Includes standard FastCGI parameters
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; # Sets script filename based on document root and requested URL
+    }
+    
+    location ~ /\.ht {
+        deny all; # Denies access to hidden files beginning with .ht
+    }
+    
+    # Error pages for 401, 403, 404, and 500 responses
+    error_page 401 /error/401.html;
+    error_page 403 /error/403.html;
+    error_page 404 /error/404.html;
+    error_page 500 /error/500.html;
+    
+    # Custom error pages
+    location /error/ {
+        internal; # Specifies that requests for these pages should not be accessible from outside
+        alias /var/www/errors/; # Specifies directory where error pages are stored
+    }
+    
+    # Cache settings for static files
+    location ~* \.(css|js|jpg|jpeg|png|gif|ico)$ {
+        expires 30d; # Sets expiration time for cached files
+        add_header Pragma public; # Adds Pragma header for caching
+        add_header Cache-Control "public, must-revalidate, proxy-revalidate"; # Adds Cache-Control header for caching
+        access_log off; # Turns off access logs for these files
+    }
+    
+    # Gzip settings
+    gzip on; # Enables gzip compression for responses
+    gzip_comp_level 5; # Sets compression level for gzip to 5
+    gzip_min_length 256; # Sets minimum file size for compression to be enabled
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript; # Specifies which file types should be compressed
+}

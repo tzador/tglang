@@ -1,0 +1,102 @@
+*& Report Z_RECURSIVE_LOOP_DEMO
+
+REPORT z_recursive_loop_demo.
+
+*&---------------------------------------------------------------------*
+*&      Type Declarations
+*&---------------------------------------------------------------------*
+
+TYPES: BEGIN OF t_branch,
+         branch_id TYPE i,
+         parent_id TYPE i,
+         name TYPE char30,
+       END OF t_branch.
+
+TYPES: tt_branches TYPE TABLE OF t_branch WITH DEFAULT KEY.
+
+*&---------------------------------------------------------------------*
+*&      Data Declarations
+*&---------------------------------------------------------------------*
+
+DATA:
+  lv_top_parent TYPE i,
+  lv_branch_id  TYPE i,
+  lv_parent_id  TYPE i,
+  lt_branches   TYPE tt_branches.
+
+*&---------------------------------------------------------------------*
+*&      Internal Tables Initialization
+*&---------------------------------------------------------------------*
+
+INITIALIZE lt_branches.
+
+*&---------------------------------------------------------------------*
+*&      Data Insertion into Internal Table
+*&---------------------------------------------------------------------*
+
+lt_branches = VALUE tt_branches(
+  ( branch_id = 100 parent_id = 0 name = 'Parent Branch' )
+  ( branch_id = 200 parent_id = 100 name = 'Child Branch 1' )
+  ( branch_id = 300 parent_id = 100 name = 'Child Branch 2' )
+  ( branch_id = 400 parent_id = 200 name = 'Grandchild Branch 1' )
+  ( branch_id = 500 parent_id = 200 name = 'Grandchild Branch 2' )
+  ( branch_id = 600 parent_id = 300 name = 'Grandchild Branch 3' )
+).
+
+*&---------------------------------------------------------------------*
+*&      Recursive Loop to Create Branch Hierarchy
+*&---------------------------------------------------------------------*
+
+FORM create_hierarchy USING parent_id.
+  DATA: lv_branch TYPE t_branch.
+
+  READ TABLE lt_branches INTO lv_branch WITH KEY parent_id = parent_id.
+
+  IF sy-subrc = 0.
+    WRITE: / lv_branch-name.
+    lv_parent_id = lv_branch-branch_id.
+
+    CREATE DATA lv_branch-branch_id.
+    lv_branch-branch_id->parent_id = lv_parent_id.
+    lv_branch-branch_id->name = 'Child Branch'.
+
+    APPEND lv_branch-branch_id TO lt_branches.
+  ELSE.
+    RETURN.
+  ENDIF.
+
+  CALL FUNCTION 'Z_RECURSIVE_LOOP_DEMO'
+    DESTINATION IN GROUP 'DEMO'
+    EXPORTING
+      parent_id = lv_branch-branch_id->parent_id.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*&      Main Program
+*&---------------------------------------------------------------------*
+
+START-OF-SELECTION.
+
+*&---------------------------------------------------------------------*
+*&      Get Top Parent ID
+*&---------------------------------------------------------------------*
+
+SORT lt_branches BY parent_id DESCENDING.
+READ TABLE lt_branches INDEX 1 INTO DATA(lr_top_parent).
+
+lv_top_parent = lr_top_parent->parent_id.
+
+*&---------------------------------------------------------------------*
+*&      Recursive Loop
+*&---------------------------------------------------------------------*
+
+create_hierarchy( lv_top_parent ).
+
+*&---------------------------------------------------------------------*
+*&      Print Final Branch Hierarchy
+*&---------------------------------------------------------------------*
+
+LOOP AT lt_branches INTO DATA(lr_branch).
+  WRITE: / lr_branch-name.
+ENDLOOP.

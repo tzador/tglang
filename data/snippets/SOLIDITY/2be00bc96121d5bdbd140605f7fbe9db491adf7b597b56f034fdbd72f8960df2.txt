@@ -1,0 +1,91 @@
+// Contract for managing an escrow system
+contract EscrowSystem {
+    // State variables
+    address public buyer;
+    address public seller;
+    address public arbiter;
+    uint public price;
+    uint public arbiterFee;
+    uint public creationTime;
+    bool public releaseStatus;
+    mapping(address => uint) public balanceByParty;
+    
+    // Constructor
+    constructor(address _buyer, address _seller, address _arbiter, uint _arbiterFee) public payable {
+        // Assign values to state variables
+        buyer = _buyer;
+        seller = _seller;
+        arbiter = _arbiter;
+        price = msg.value;
+        arbiterFee = _arbiterFee;
+        creationTime = now;
+        releaseStatus = false;
+        
+        // Set balances for parties
+        balanceByParty[buyer] = price;
+        balanceByParty[seller] = 0;
+        balanceByParty[arbiter] = arbiterFee;
+    }
+    
+    // Function to release funds to seller and arbiter (if satisfied)
+    function releaseFunds() public {
+        // Only buyer or arbiter can call this function
+        require(msg.sender == buyer || msg.sender == arbiter, "Only buyer or arbiter can release funds");
+        
+        // Check if enough time has passed since creation
+        require(now >= creationTime + 1 hours, "Cannot release funds yet");
+        
+        // Check if release status is false
+        require(!releaseStatus, "Funds already released");
+        
+        // Transfer funds to seller and arbiter
+        seller.transfer(price);
+        arbiter.transfer(arbiterFee);
+        
+        // Update release status
+        releaseStatus = true;
+    }
+    
+    // Function to refund funds to buyer and arbiter (if not satisfied)
+    function refundFunds() public {
+        // Only seller or arbiter can call this function
+        require(msg.sender == seller || msg.sender == arbiter, "Only seller or arbiter can refund funds");
+        
+        // Check if enough time has passed since creation
+        require(now >= creationTime + 1 hours, "Cannot refund funds yet");
+        
+        // Check if release status is false
+        require(!releaseStatus, "Funds already released");
+        
+        // Transfer funds to buyer and arbiter
+        buyer.transfer(price);
+        arbiter.transfer(arbiterFee);
+        
+        // Update release status
+        releaseStatus = true;
+    }
+    
+    // Function to withdraw funds by parties
+    function withdrawFunds() public {
+        // Only buyer, seller, or arbiter can call this function
+        require(msg.sender == buyer || msg.sender == seller || msg.sender == arbiter, "Only buyer, seller, or arbiter can withdraw funds");
+        
+        // Check if release status is true
+        require(releaseStatus, "Funds must be released first");
+        
+        // Get balance of caller
+        uint balance = balanceByParty[msg.sender];
+        
+        // Check if balance is greater than 0
+        require(balance > 0, "No funds to withdraw");
+        
+        // Set balance to 0 and transfer funds
+        balanceByParty[msg.sender] = 0;
+        msg.sender.transfer(balance);
+    }
+    
+    // Function to retrieve contract balance (funds held)
+    function getContractBalance() public view returns(uint) {
+        return address(this).balance;
+    }
+}

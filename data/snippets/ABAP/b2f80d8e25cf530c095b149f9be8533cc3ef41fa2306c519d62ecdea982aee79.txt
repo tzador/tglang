@@ -1,0 +1,81 @@
+REPORT zserialize.
+
+* Declarations *
+TABLES: mara. "Material Master
+TYPES: BEGIN OF ty_material, "Material structure
+         matnr TYPE mara-matnr, "Material number
+         meins TYPE mara-meins, "Base unit of measure
+         n_lgnum TYPE lgnum, "Warehouse number
+         n_stalt TYPE stalt, "Storage location
+       END OF ty_material.
+
+TYPES: BEGIN OF ty_materialqty, "Material quantity structure
+         material TYPE ty_material, "Material structure
+         qty TYPE vrkme, "Quantity
+       END OF ty_materialqty.
+
+DATA: i_materials TYPE STANDARD TABLE OF ty_material WITH HEADER LINE, "Internal table of material structure
+      i_materialqtys TYPE STANDARD TABLE OF ty_materialqty WITH HEADER LINE, "Internal table of material quantity structure
+      i_xml TYPE string, "XML code string
+      ws_client TYPE sncpl CLIENT DEFAULT sy-mandt, "SAP client
+      ws_proxy TYPE sncpl BAPI_CREATEMATVEC, "Proxy for BAPI to create material and move to other storage location
+      ws_logon TYPE sncpl logon_context, "Logon context for creating BAPI session
+      ws_handle TYPE sncpl handle.
+      
+* Get material data from database *
+SELECT matnr meins n_lgnum n_stalt
+  FROM mara
+  INTO TABLE i_materials
+  WHERE matnr IN ('ABC123', 'DEF456'). "Material numbers to be serialized
+
+* Loop through material data *
+LOOP AT i_materials INTO DATA(ls_material).
+  
+  DATA(ls_materialqty) = VALUE ty_materialqty( material = ls_material ). "Material quantity with selected material
+  APPEND ls_materialqty TO i_materialqtys.
+  
+ENDLOOP.
+
+* Create XML string with serialized data *
+CALL METHOD cl_abap_serializer=>serialize
+  EXPORTING
+    data = i_materialqtys
+    format = cl_abap_serializer=>co_format_pretty
+  RECEIVING
+    result = i_xml.
+
+* Create BAPI session *
+CALL FUNCTION 'TH_USER_CONNECT'
+  EXPORTING
+    tcode = 'BAPI'
+    client = ws_client
+  IMPORTING
+    return = ws_handle
+  EXCEPTIONS
+    system_failure = 1
+    OTHERS = 2.
+
+* Initialize logon context *
+ws_logon = ws_handle.
+
+* Call BAPI to create materials and move to other storage location *
+CALL METHOD cl_soap_proxy_provider_bapi=>execute_bapi
+  EXPORTING
+    bapi_name = 'BAPI_CREATEMATVEC'
+    logon_context = ws_logon
+    ws_https_address = 'http://my.sandbox.api.com'
+    client = ws_client
+  IMPORTING
+    message = ws_proxy
+  TABLES
+    t_material = i_materials.
+
+* Disconnect BAPI session *
+CALL FUNCTION 'TH_USER_DISCONNECT'
+  EXPORTING
+    user = ws_handle.
+
+* Check if materials were successfully created and moved *
+IF sy-subrc = 0.
+  WRITE 'Materials were successfully created and moved to the new storage location.'.
+ENDIF.

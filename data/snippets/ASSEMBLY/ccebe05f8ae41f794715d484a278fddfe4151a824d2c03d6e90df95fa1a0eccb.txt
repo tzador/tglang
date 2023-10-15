@@ -1,0 +1,101 @@
+;; This program calculates the nth term of Fibonacci sequence
+;; Takes input n from user
+
+global _start
+
+section .data
+msg db 'Enter the value of n: '
+msg2 db 'The nth term of Fibonacci sequence is: '
+LF db 0xA  ;; Line feed character
+tab db ' '  ;; Tab character
+
+section .bss
+n resb 5  ;; Reserve 5 bytes for storing input
+result resb 10  ;; Reserve 10 bytes for storing result
+
+section .text
+_start:
+  ;; Print message to enter n
+  mov rax, 1  ; System call number for write
+  mov rdi, 1  ; File descriptor for stdout
+  mov rsi, msg  ; Message to be printed
+  mov rdx, 24  ; Length of message
+  syscall
+
+  ;; Read input from user
+  mov rax, 0  ; System call number for read
+  mov rdi, 0  ; File descriptor for stdin
+  mov rsi, n  ; Location to store input
+  mov rdx, 5  ; Maximum number of bytes to read
+  syscall
+
+  ;; Convert input from ASCII to integer
+  xor rax, rax  ; Clear RAX, used for integer conversion
+  mov rcx, 5  ; Counter for loop (since 5 bytes were reserved)
+  .loop:
+    sub byte [n + rcx-1], 48  ; Convert from ASCII to integer
+    imul rax, 10        ; Multiply current integer by 10
+    add al, [n + rcx-1] ; Add current integer to RAX
+    dec rcx             ; Decrement counter
+    jnz .loop
+  mov [n], rax  ; Store input as integer in n
+
+  ;; Calculate nth term of Fibonacci sequence
+  ;; Start with first two terms initialized as 0 and 1
+  mov rax, 0  ; First term
+  mov rbx, 1  ; Second term
+  mov rcx, [n]  ; Loop counter set to n
+  cmp rcx, 1  ; If n is 1, skip loop
+  je .end_loop
+  ;; Loop to calculate nth term
+  .loop2:
+    mov rdx, rbx  ; Move current term to RDX
+    add rbx, rax  ; Add previous term to current term
+    mov rax, rdx  ; Move current term to RAX
+    dec rcx  ; Decrement loop counter
+    cmp rcx, 1  ; If n reached, end loop
+    je .end_loop
+    jmp .loop2  ; Jump back to loop
+  .end_loop:
+    ;; Store result in memory
+    mov [result], rbx
+
+  ;; Convert result from integer to ASCII
+  xor rax, rax  ; Clear RAX for ASCII conversion
+  mov rcx, 10  ; Counter for loop
+  mov rdx, 1  ; Multiplier for current digit
+  .loop3:
+    mov rbx, [result]  ; Move result to RBX
+    imul rbx, rdx  ; Multiply by current digit position
+    add rbx, 48  ; Convert to ASCII
+    inc rax  ; Increment RAX
+    add [result + rax], bl  ; Add ASCII character to result
+    inc rdx  ; Increment multiplier
+    dec rcx  ; Decrement loop counter
+    cmp rcx, 0  ; If all 10 digits have been processed, end loop
+    je .end_loop2
+    jmp .loop3  ; Jump back to loop
+  .end_loop2:
+    ;; Add line feed character to result
+    mov rax, [result]
+    add al, LF
+    mov [result], rax
+
+  ;; Print message informing user of result
+  mov rax, 1  ; System call number for write
+  mov rdi, 1  ; File descriptor for stdout
+  mov rsi, msg2  ; Message to be printed
+  mov rdx, 40  ; Length of message
+  syscall
+
+  ;; Print result
+  mov rax, 1  ; System call number for write
+  mov rdi, 1  ; File descriptor for stdout
+  mov rsi, result  ; Result to be printed
+  mov rdx, 11  ; Length of result (10 digits + line feed)
+  syscall
+
+  ;; Exit program
+  mov rax, 60  ; System call number for exit
+  mov rdi, 0   ; Return value for success
+  syscall

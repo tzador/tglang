@@ -1,0 +1,86 @@
+plugins {
+    id 'java'
+    id 'com.github.johnrengelman.shadow' version '6.1.0'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'junit:junit:4.13'
+
+    // Example of a complex dependency tree
+    implementation (group: 'org.springframework', name: 'spring-core', version: '5.3.1') {
+        exclude group: 'commons-logging', module: 'commons-logging'
+        exclude group: 'org.slf4j', module: 'slf4j-log4j12'
+        exclude group: 'org.slf4j', module: 'jcl-over-slf4j'
+        exclude group: 'ch.qos.logback', module: 'logback-classic'
+        transitive = false
+    }
+    implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.11'
+    implementation group: 'com.google.guava', name: 'guava', version: '29.0-jre'
+
+    // Example of a conditional dependency
+    implementation platform("org.hibernate:hibernate-bom:5.4.23.Final") {
+        // Check if project property 'usePostgres' is set to true
+        if (project.hasProperty('usePostgres')) {
+            // Use PostgreSQL dialect if property is set to true
+            apply false, script{
+                imports "org.hibernate.dialect.PostgreSQLDialect"
+                doCall { setProperty 'hibernate.dialect', value }
+            }
+        } else {
+            // Default to H2 database dialect if property is not set
+            apply false, script{
+                imports "org.hibernate.dialect.H2Dialect"
+                doCall { setProperty 'hibernate.dialect', value }
+            }
+        }
+    }
+}
+
+// Example of a custom task
+task customizeProjectSettings {
+    doLast {
+        println("Task to customize project settings")
+        project.setProperty("version", "1.0.0")
+        project.setProperty("buildNumber", "101")
+    }
+}
+
+// Example of a task dependency
+jar {
+    dependsOn customizeProjectSettings
+}
+
+// Example of using the Shadow plugin to create an executable JAR
+shadowJar {
+    zip64 true
+
+    // Exclude unnecessary files from JAR
+    exclude 'META-INF/*.RSA', 'META-INF/*.DSA', 'META-INF/*.SF'
+
+    // Additional configurations for manifest file
+    mergeServiceFiles() {
+        service 'com.example.app.service.ServiceA'
+        service 'com.example.app.service.ServiceB'
+    }
+}
+
+// Example of defining and using properties
+project.ext {
+    applicationName = 'Example App'
+    applicationVersion = project.property('version')
+}
+
+// Example of custom task execution based on properties
+task buildAndZip(type: Zip) {
+    from "./build/libs"
+    archiveFileName = "${project.ext.applicationName}-${project.ext.applicationVersion}.zip"
+
+    // Only run task if application version property is set
+    onlyIf {
+        project.hasProperty('version')
+    }
+}

@@ -1,0 +1,93 @@
+defmodule ShoppingCart do
+  @moduledoc """
+  This module represents a shopping cart for an e-commerce application.
+  It includes functions for adding and removing items, calculating the total cost, and placing an order.
+  """
+
+  @doc """
+  Represents the shopping cart state containing a list of items and a total cost.
+  """
+  defstruct items: [], total_cost: 0
+
+  @doc """
+  Adds an item to the shopping cart and updates the total cost.
+  If the item already exists in the cart, its quantity will be incremented.
+  Params:
+    - cart: the current shopping cart
+    - item: the item to be added
+    - quantity: the quantity of the item to be added
+  Returns:
+    - updated cart with the item added
+  """
+  def add_item(cart, item, quantity) do
+    new_items = insert_or_update(cart.items, item, quantity)
+    new_total_cost = calculate_total_cost(cart.total_cost, item, quantity)
+    %__MODULE__{cart | items: new_items, total_cost: new_total_cost}
+  end
+
+  @doc """
+  Removes an item from the shopping cart and updates the total cost.
+  If the item quantity is less than or equal to the specified quantity, the item will be completely removed.
+  Params:
+    - cart: the current shopping cart
+    - item: the item to be removed
+    - quantity: the quantity of the item to be removed
+  Returns:
+    - updated cart with the item removed
+  """
+  def remove_item(cart, item, quantity) do
+    new_items = delete_or_update(cart.items, item, quantity)
+    new_total_cost = calculate_total_cost(cart.total_cost, item, -quantity)
+    %__MODULE__{cart | items: new_items, total_cost: new_total_cost}
+  end
+
+  @doc """
+  Calculates the total cost of the items in the shopping cart.
+  Params:
+    - total_cost: the current total cost
+    - item: the item to be added or removed
+    - quantity: the quantity of the item to be added or removed
+  Returns:
+    - the updated total cost
+  """
+  defp calculate_total_cost(total_cost, item, quantity) do
+    total_cost + (item.price * quantity)
+  end
+
+  @doc """
+  Inserts a new item into a list of existing items or updates the quantity if the item already exists.
+  Params:
+    - items: the current list of items
+    - new_item: the item to be added
+    - quantity: the quantity of the item to be added
+  Returns:
+    - the updated list of items
+  """
+  defp insert_or_update(items, new_item, quantity) do
+    case Enum.find(items, fn {item, _} -> item == new_item end) do
+      nil -> [{new_item, quantity} | items]
+      {existing_item, existing_quantity} -> [{existing_item, existing_quantity + quantity} | items -- [{existing_item, existing_quantity}]]
+    end
+  end
+
+  @doc """
+  Deletes an item from the list of items or updates the quantity if it is greater than the specified quantity.
+  Params:
+    - items: the current list of items
+    - item: the item to be removed
+    - quantity: the quantity of the item to be removed
+  Returns:
+    - the updated list of items
+  """
+  defp delete_or_update(items, item, quantity) do
+    case Enum.find(items, fn {existing_item, existing_quantity} -> existing_item == item end) do
+      nil -> items
+      {existing_item, existing_quantity} -> 
+        if existing_quantity <= quantity do
+          items -- [{existing_item, existing_quantity}]
+        else
+          [{existing_item, existing_quantity - quantity} | items -- [{existing_item, existing_quantity}]]
+        end
+    end
+  end
+end

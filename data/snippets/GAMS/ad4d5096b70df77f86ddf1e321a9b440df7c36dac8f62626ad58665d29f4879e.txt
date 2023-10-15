@@ -1,0 +1,39 @@
+$Title A production and distribution problem
+Set
+  i Factor inputs
+  j Production processes
+  k Markets/Regions
+  tk Economic lifetime of machines
+  jk Investments in machines
+Parameters
+  a(i,j) Technical coefficients
+  p(k) Market prices
+  annual_demand(k) Annual demand per market/region
+  deps(j,tk) Economic lifetime profile of machines
+Variables
+  z Total cost
+  x(i) Amount of factor inputs
+  y(j,k) Amount of production process in each market/region
+  d(j,tk) Number of times to reinvest in machines
+  r(j,tk) Residual value of machines
+Positive Variable x,y,d,r
+Equations
+  Cost Objective Function
+  TechConst(j) Technical feasibility!
+  MarketConst(i,k) Market-targetting constraints
+  FactorContrib(i) Factor availability constraints
+  MachineLifetimeConst1(j,tk) Maximum number of machine reincarnations
+  MachineLifetimeConst2(jk,tk) Forecast residual value of machinery
+  MachineLifetimeConst3(jk,tk) Maximum recycled investment allowed
+FinalValue MachineLifetimeFinal(jk);
+Cost.. z =E= sum((i,j), a(i,j)*x(i)) + sum((j,k), p(k)*y(j,k)) + sum((j,tk), deps(j,tk)*(d(j,tk)*exp(-0.15*tk/10)*r(j,tk)));
+TechConst(j).. sum(i, a(i,j)*x(i)) =L= (annual_demand(k)/sum(i, a(i,j)*x(i)))*sum((j,k), y(j,k));
+MarketConst(i,k).. sum(j, y(j,k)) =E= annual_demand(k);
+FactorContrib(i).. x(i) =L= sum(j, y(j,k)*a(i,j));
+MachineLifetimeConst1(j,tk).. d(j,tk) =L= 1 + d(j,tk-1);
+MachineLifetimeConst2(jk,tk).. r(jk,tk) =E= r(jk,tk-1)/2;
+MachineLifetimeConst3(jk,tk).. sum(d(j,tk)*exp(-0.15*tk/10)*r(jk,tk)) =L= deps(jk,tk);
+MachineLifetimeFinal(jk).. r(jk,tk) =E= r(jk,tk+1);
+Model ProductionDistrib /all/;
+solve ProductionDistrib using lp minimizing z;
+display x.l, y.l, d.l, r.l;

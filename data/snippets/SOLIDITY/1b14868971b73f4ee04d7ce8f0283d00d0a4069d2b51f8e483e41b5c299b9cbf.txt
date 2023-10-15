@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+// Importing the OpenZeppelin Contracts library
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+/**
+ * @title Market
+ * @dev The Market contract allows users to buy and sell items on the marketplace
+ */
+contract Market is Ownable {
+    
+    // Struct to store information of each item on the marketplace
+    struct Item {
+        address seller;
+        address buyer;
+        string itemName;
+        uint256 price;
+    }
+    
+    // Mapping to keep track of all items on the marketplace
+    mapping (uint256 => Item) public items;
+    
+    // Event emitted when a new item is listed
+    event ItemListed(uint256 itemId, string itemName, uint256 price);
+    
+    // Event emitted when an item is sold
+    event ItemSold(uint256 itemId, address seller, address buyer, uint256 price);
+    
+    // Counter to keep track of number of items on the marketplace
+    uint256 public itemCount;
+    
+    constructor() Ownable() {}
+    
+    /**
+     * @dev Function to list a new item on the marketplace
+     * @param _itemName Name of the item
+     * @param _price Price of the item
+     */
+    function listItem(string memory _itemName, uint256 _price) public onlyOwner {
+        // Incrementing the counter for number of items
+        itemCount++;
+        
+        // Storing item details in the items mapping
+        items[itemCount].seller = msg.sender;
+        items[itemCount].itemName = _itemName;
+        items[itemCount].price = _price;
+        
+        // Emitting the ItemListed event
+        emit ItemListed(itemCount, _itemName, _price);
+    }
+    
+    /**
+     * @dev Function to buy an item from the marketplace
+     * @param _itemId ID of the item to be bought
+     */
+    function buyItem(uint256 _itemId) public payable {
+        // Validating that the item exists
+        require(items[_itemId].seller != address(0), "Item does not exist");
+        
+        // Validating that the buyer is not the seller
+        require(msg.sender != items[_itemId].seller, "Seller cannot buy their own item");
+        
+        // Validating that the correct amount is sent
+        require(msg.value == items[_itemId].price, "Incorrect amount sent");
+        
+        // Sending the payment to the seller
+        items[_itemId].seller.transfer(msg.value);
+        
+        // Updating the buyer of the item
+        items[_itemId].buyer = msg.sender;
+        
+        // Emitting the ItemSold event
+        emit ItemSold(_itemId, items[_itemId].seller, items[_itemId].buyer, msg.value);
+    }
+    
+}

@@ -1,0 +1,75 @@
+-module(maze_solver).
+
+% define the maze as a list of lists containing 1s and 0s (1 = wall, 0 = path)
+maze = [[1,1,1,1,1,1,1,1,1,1],
+        [1,0,0,1,0,0,0,0,0,1],
+        [1,0,0,0,0,1,0,1,0,1],
+        [1,0,1,1,1,1,1,1,0,1],
+        [1,0,0,0,1,0,0,0,0,1],
+        [1,0,1,0,1,1,1,1,1,1],
+        [1,0,1,0,0,0,0,0,0,1],
+        [1,0,1,1,1,1,1,1,1,1],
+        [1,0,0,0,0,0,0,0,0,1],
+        [1,1,1,1,1,1,1,1,1,1]].
+
+% function to find the starting position in the maze
+find_start_position() ->
+    % loop through rows to find starting position in the first column
+    {_, StartingRow} = lists:min([ {X,Y} || X <- lists:seq(1,length(maze)), Y <- lists:seq(1,length(hd(maze))), maze == 0]),
+    % loop through columns to find starting position in the first row
+    {StartingRow, StartingColumn} = lists:min([ {X,Y} || X <- lists:seq(1,length(hd(maze))), Y <- lists:seq(1,length(maze)), lists:nth(X, hd(maze)) == 0]),
+    {StartingRow, StartingColumn}.
+
+% function to solve the maze using breadth-first search
+% takes in the maze and the starting position
+bfs(Maze, StartingPosition) ->
+    % initialize empty queue for nodes to be explored
+    Queue = queue:new(),
+    % initialize empty list for visited positions
+    Visited = [],
+    % add starting position to queue
+    NewQueue = queue:in(StartingPosition, Queue),
+    solve_bfs(Maze, NewQueue, Visited).
+
+% recursive function to solve the maze using breadth-first search
+% takes in the maze, current queue, and visited positions
+solve_bfs(Maze, Queue, Visited) ->
+    % check if the queue is empty (no more nodes to explore)
+    case queue:is_empty(Queue) of
+        true ->
+            % no solution found
+            {error, "No solution found"};
+        false ->
+            % get the first position in the queue
+            {First, Rest} = queue:out(Queue),
+            % check if the position has been visited already
+            case lists:member(First, Visited) of
+                true ->
+                    % skip position and move on to next one
+                    solve_bfs(Maze, Rest, Visited);
+                false ->
+                    % add position to visited list
+                    NewVisited = [First | Visited],
+                    % check if the position is the end of the maze
+                    case First == {length(Maze), length(hd(Maze))} of
+                        true ->
+                            % end of maze reached, return solution
+                            {ok, "Solution found"};
+                        false ->
+                            % get list of adjacent positions (up, down, left, right)
+                            AdjacentPositions = [ {FirstRow-1, FirstColumn}, {FirstRow+1, FirstColumn}, {FirstRow, FirstColumn-1}, {FirstRow, FirstColumn+1} ],
+                            % filter out any positions that are not within the maze or are walls
+                            ValidAdjacents = lists:filter(fun({X, Y}) -> X >= 1 andalso X =< length(Maze) andalso Y >= 1 andalso Y =< length(hd(Maze)) andalso lists:nth(X, lists:nth(Y, Maze)) == 0 end, AdjacentPositions),
+                            % add valid adjacent positions to the queue
+                            NewQueue = queue:in(ValidAdjacents, Rest),
+                            % recursively call solve_bfs with updated queue and visited positions
+                            solve_bfs(Maze, NewQueue, NewVisited)
+                    end
+            end
+    end.
+
+% call the bfs function with the maze and starting position to get the solution
+Solution = bfs(maze, find_start_position()).
+
+% print the solution
+io:format("The solution is: ~p~n", [Solution]).

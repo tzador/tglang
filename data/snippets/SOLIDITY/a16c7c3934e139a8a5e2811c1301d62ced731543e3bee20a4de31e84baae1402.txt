@@ -1,0 +1,116 @@
+/**
+* Contract to handle ownership and transfer of ERC20 tokens
+*/
+contract ERC20Token {
+    
+    // Variables to track total supply, name, and symbol of the token
+    uint256 public totalSupply;
+    string public name;
+    string public symbol;
+    
+    // Mapping of token balances for each address
+    mapping (address => uint256) public balanceOf;
+    
+    // Mapping of approvals for token transfers
+    mapping (address => mapping (address => uint256)) public allowance;
+    
+    // Event to notify when a token transfer occurs
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    
+    // Event to notify when an approval for token transfer occurs
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    
+    // Constructor to initialize token details and total supply
+    constructor(string memory _name, string memory _symbol, uint256 _totalSupply) public {
+        name = _name;
+        symbol = _symbol;
+        totalSupply = _totalSupply;
+        
+        // Assign total supply to contract creator
+        balanceOf[msg.sender] = _totalSupply;
+        
+        // Emit Transfer event to notify of initial token transfer
+        emit Transfer(address(0), msg.sender, _totalSupply);
+    }
+    
+    /**
+     * Internal function to check for valid token transfer
+     */
+    function _transfer(address _from, address _to, uint256 _value) internal {
+        // Ensure sender has enough tokens to transfer
+        require(balanceOf[_from] >= _value, "Insufficient balance.");
+        
+        // Protect against sending tokens to 0x0 address
+        require(_to != address(0), "Cannot send tokens to 0x0 address.");
+        
+        // Subtract tokens from sender's balance
+        balanceOf[_from] -= _value;
+        
+        // Add tokens to receiver's balance
+        balanceOf[_to] += _value;
+        
+        // Emit Transfer event to notify of token transfer
+        emit Transfer(_from, _to, _value);
+    }
+    
+    /**
+     * Function to transfer tokens to a specified address
+     * @param _to The address to transfer tokens to
+     * @param _value The amount of tokens to transfer
+     * @return Boolean indicating successful transfer
+     */
+    function transfer(address _to, uint256 _value) public returns (bool) {
+        // Call internal transfer function
+        _transfer(msg.sender, _to, _value);
+        
+        // Return true to indicate successful transfer
+        return true;
+    }
+    
+    /**
+     * Function to approve tokens for a specified address to spend on the sender's behalf
+     * @param _spender The address to approve for token spending
+     * @param _value The amount of tokens to approve
+     * @return Boolean indicating successful approval
+     */
+    function approve(address _spender, uint256 _value) public returns (bool) {
+        // Set the allowance for spender on the sender's behalf
+        allowance[msg.sender][_spender] = _value;
+        
+        // Emit Approval event to notify of approval
+        emit Approval(msg.sender, _spender, _value);
+        
+        // Return true to indicate successful approval
+        return true;
+    }
+    
+    /**
+     * Function to transfer tokens from a specified address to another
+     * @param _from The address to transfer tokens from
+     * @param _to The address to transfer tokens to
+     * @param _value The amount of tokens to transfer
+     * @return Boolean indicating successful transfer
+     */
+    function transferFrom(address _from, address _to, uint256 _value) public returns (bool) {
+        // Ensure sender has enough tokens to transfer
+        require(balanceOf[_from] >= _value, "Insufficient balance.");
+        
+        // Ensure sender has approval for the transfer amount
+        require(allowance[_from][msg.sender] >= _value, "Insufficient allowance.");
+        
+        // Subtract tokens from sender's balance
+        balanceOf[_from] -= _value;
+        
+        // Add tokens to receiver's balance
+        balanceOf[_to] += _value;
+        
+        // Decrease allowance of sender for spender by transfer amount
+        allowance[_from][msg.sender] -= _value;
+        
+        // Emit Transfer event to notify of token transfer
+        emit Transfer(_from, _to, _value);
+        
+        // Return true to indicate successful transfer
+        return true;
+    }
+}

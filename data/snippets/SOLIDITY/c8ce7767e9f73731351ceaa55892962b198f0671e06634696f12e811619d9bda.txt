@@ -1,0 +1,212 @@
+pragma solidity ^0.8.0;
+
+/// @title An ERC-20 token contract
+/// @notice Implements the basic functionality of an ERC-20 token
+/// @dev Uses the OpenZeppelin library for safe math operations and roles management
+
+import "./IERC20.sol";
+import "./SafeMath.sol";
+import "./Roles.sol";
+
+contract MyToken is IERC20 {
+
+    using SafeMath for uint256;
+
+    /// @dev The total supply of the token
+    uint256 private _totalSupply;
+
+    /// @dev The name of the token
+    string private _name;
+
+    /// @dev The symbol of the token
+    string private _symbol;
+
+    /// @dev The decimal places of the token
+    uint8 private _decimals;
+
+    /// @dev The mapping of balances to addresses
+    mapping(address => uint256) private _balances;
+
+    /// @dev The mapping of allowances from one address to another
+    mapping(address => mapping(address => uint256)) private _allowances;
+
+    using Roles for Roles.Role;
+
+    /// @dev The roles for the token contract
+    Roles.Role private _minters;
+    Roles.Role private _burners;
+    Roles.Role private _pausers;
+
+    /// @dev Emitted when new tokens are minted
+    event Mint(address indexed to, uint256 amount);
+
+    /// @dev Emitted when tokens are burned
+    event Burn(address indexed from, uint256 amount);
+
+    /// @dev Emitted when the contract is paused
+    event Paused(address account);
+
+    /// @dev Emitted when the contract is unpaused
+    event Unpaused(address account);
+
+    constructor(string memory name_, string memory symbol_, uint8 decimals_) {
+        _name = name_;
+        _symbol = symbol_;
+        _decimals = decimals_;
+    }
+
+    /// @notice The name of the token
+    function name() public view returns (string memory) {
+        return _name;
+    }
+
+    /// @notice The symbol of the token
+    function symbol() public view returns (string memory) {
+        return _symbol;
+    }
+
+    /// @notice The decimal places of the token
+    function decimals() public view returns (uint8) {
+        return _decimals;
+    }
+
+    /// @notice The total supply of the token
+    function totalSupply() public view override returns (uint256) {
+        return _totalSupply;
+    }
+
+    /// @notice The balance of the given address
+    function balanceOf(address account) public view override returns (uint256) {
+        return _balances[account];
+    }
+
+    /// @notice Transfer tokens from the sender to a given address
+    function transfer(address recipient, uint256 amount) public override returns (bool) {
+        _transfer(msg.sender, recipient, amount);
+        return true;
+    }
+
+    /// @notice Approve a given amount of tokens to a given address
+    function approve(address spender, uint256 amount) public override returns (bool) {
+        _approve(msg.sender, spender, amount);
+        return true;
+    }
+
+    /// @notice The amount that is allowed to be transferred from one address to another
+    function allowance(address owner, address spender) public view override returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    /// @notice Transfer tokens from one address to another if the sender is approved for it
+    function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
+        _transfer(sender, recipient, amount);
+        _approve(sender, msg.sender, _allowances[sender][msg.sender].sub(amount));
+        return true;
+    }
+
+    /// @notice Mint new tokens and add them to the given address's balance
+    function mint(address account, uint256 amount) public onlyMinter returns (bool) {
+        _mint(account, amount);
+        return true;
+    }
+
+    /// @notice Burn tokens from the given address's balance
+    function burn(address account, uint256 amount) public onlyBurner returns (bool) {
+        _burn(account, amount);
+        return true;
+    }
+
+    /// @notice Pause the contract to prevent transfers and approvals
+    function pause() public onlyPauser {
+        _pause();
+    }
+
+    /// @notice Unpause the contract to allow transfers and approvals
+    function unpause() public onlyPauser {
+        _unpause();
+    }
+
+
+    //// INTERNAL FUNCTIONS ////
+
+    /// @dev Transfer tokens from one address to another
+    function _transfer(address sender, address recipient, uint256 amount) internal {
+        require(sender != address(0), "Transfer from the zero address is not allowed");
+        require(recipient != address(0), "Transfer to the zero address is not allowed");
+        require(amount > 0, "Transferred amount must be greater than zero");
+        require(_balances[sender] >= amount, "Sender does not have enough balance");
+
+        _balances[sender] = _balances[sender].sub(amount);
+        _balances[recipient] = _balances[recipient].add(amount);
+
+        emit Transfer(sender, recipient, amount);
+    }
+
+    /// @dev Approve a given amount of tokens to a given address
+    function _approve(address owner, address spender, uint256 amount) internal {
+        require(owner != address(0), "Cannot approve from the zero address");
+        require(spender != address(0), "Cannot approve to the zero address");
+
+        _allowances[owner][spender] = amount;
+        emit Approval(owner, spender, amount);
+    }
+
+    /// @dev Mint new tokens and add them to the given address's balance
+    function _mint(address account, uint256 amount) internal {
+        require(account != address(0), "Cannot mint to the zero address");
+        require(_minters.has(msg.sender), "Only a minter can mint tokens");
+
+        _totalSupply = _totalSupply.add(amount);
+        _balances[account] = _balances[account].add(amount);
+
+        emit Mint(account, amount);
+        emit Transfer(address(0), account, amount);
+    }
+
+    /// @dev Burn tokens from the given address's balance
+    function _burn(address account, uint256 amount) internal {
+        require(account != address(0), "Cannot burn from the zero address");
+        require(_burners.has(msg.sender), "Only a burner can burn tokens");
+        require(_balances[account] >= amount, "Account does not have enough tokens to burn");
+
+        _balances[account] = _balances[account].sub(amount);
+        _totalSupply = _totalSupply.sub(amount);
+
+        emit Burn(account, amount);
+        emit Transfer(account, address(0), amount);
+    }
+
+    /// @dev Pause the contract to prevent transfers and approvals
+    function _pause() internal {
+        require(_pausers.has(msg.sender), "Only a pauser can pause the contract");
+
+        _pause();
+        emit Paused(msg.sender);
+    }
+
+    /// @dev Unpause the contract to allow transfers and approvals
+    function _unpause() internal {
+        require(_pausers.has(msg.sender), "Only a pauser can unpause the contract");
+
+        _unpause();
+        emit Unpaused(msg.sender);
+    }
+
+    /// @dev Modifier to restrict access to a certain function to only minters
+    modifier onlyMinter() {
+        require(_minters.has(msg.sender), "Caller does not have minter role");
+        _;
+    }
+
+    /// @dev Modifier to restrict access to a certain function to only burners
+    modifier onlyBurner() {
+        require(_burners.has(msg.sender), "Caller does not have burner role");
+        _;
+    }
+
+    /// @dev Modifier to restrict access to a certain function to only pausers
+    modifier onlyPauser() {
+        require(_pausers.has(msg.sender), "Caller does not have pauser role");
+        _;
+    }
+}

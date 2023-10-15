@@ -1,0 +1,56 @@
+server {
+  listen 80;  # Port on which the server will listen
+  server_name www.example.com;  # Domain name for the server
+  root /var/www/example.com; # Document root for the server
+  index index.html index.php; # Default page if no specific path is requested
+
+  location / { # Top-level location block
+    try_files $uri $uri/ =404; # Attempts to serve existing file or directory, or returns 404 error
+    autoindex on; # Enables directory listing
+    charset UTF-8; # Sets response charset
+    proxy_pass http://127.0.0.1:3000; # Proxies requests to specified backend server
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # Sets header for client IP
+    proxy_set_header Host $http_host; # Sets header for client Host
+  }
+
+  location /api/ { # Location block for API endpoints
+    proxy_pass http://127.0.0.1:8000; # Proxies requests to API backend server
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # Sets header for client IP
+    proxy_set_header Host $http_host; # Sets header for client Host
+    proxy_redirect off; # Disables redirects from backend server
+    proxy_buffering off; # Disables buffering of responses from backend server
+  }
+
+  location ~* \.php$ { # Location block for PHP files
+    try_files $uri =404; # Attempts to serve existing file, or returns 404 error
+    fastcgi_split_path_info ^(.+\.php)(/.+)$; # Splits the path info for PHP processing
+    fastcgi_pass unix:/var/run/php-fpm.sock; # Path to PHP-FPM socket for processing requests
+    fastcgi_index index.php; # Default file to be processed if no specific file is requested
+    fastcgi_param SCRIPT_FILENAME $request_filename; # Sets the script filename for PHP processing
+    include fastcgi_params; # Includes common fastcgi configuration parameters
+  }
+
+  error_page 404 /404.html; # Custom error page for 404 errors
+  location = /404.html { # Location block for custom error page
+    internal; # Only serves the file from internal requests 
+  }
+
+  error_page 500 502 503 504 /50x.html; # Custom error page for 50x errors
+  location = /50x.html { # Location block for custom error page
+    internal; # Only serves the file from internal requests
+  }
+
+  # HTTPS configuration
+  listen 443 ssl; # Port on which server listens for HTTPS requests
+  server_name www.example.com; # Domain name for HTTPS server
+  ssl_certificate /path/to/certificate.pem; # Path to SSL certificate file
+  ssl_certificate_key /path/to/private_key.pem; # Path to private key file
+  ssl_protocols TLSv1.2 TLSv1.3; # Specifies which SSL protocols are enabled
+  ssl_ciphers HIGH:!aNULL:!MD5; # Specifies which ciphers are enabled for SSL encryption
+  ssl_prefer_server_ciphers on; # Enables preferential cipher negotiation on server side
+
+  location /secure/ { # Location block for secure endpoints
+    auth_basic "Restricted Content"; # Enables basic authentication
+    auth_basic_user_file /etc/nginx/.htpasswd; # Specifies the location of the password file
+  }
+}

@@ -1,0 +1,56 @@
+*&---------------------------------------------------------------------*
+*& Report Z_TEST_REPORT
+*&---------------------------------------------------------------------*
+*
+* This report creates a table with orders and their corresponding
+* materials and displays the total quantity of each material.
+* It uses nested loops to read data from different tables.
+*
+*&---------------------------------------------------------------------*
+REPORT Z_TEST_REPORT.
+
+* Tables for storing data
+TABLES: vbak, vbap, mara.
+
+* Internal table for storing output report
+DATA: it_report TYPE STANDARD TABLE OF vbap, 
+      wa_report LIKE LINE OF it_report.
+
+* Selection Screen
+DATA: s_vbeln TYPE vbap-vbeln, 
+      s_matnr TYPE vbap-matnr.
+
+* Total quantity variable
+DATA: lv_total TYPE vbap-werks.
+
+* Select Options for selection screen
+PARAMETERS: p_vbeln TYPE vban-vbeln DEFAULT '0000000000',
+            p_matnr TYPE mara-matnr DEFAULT '000000000000000000'.
+
+* Start-of-selection event
+START-OF-SELECTION.
+
+* Nested loops for reading data from tables
+SELECT vbeln matnr FROM vbap 
+  INTO CORRESPONDING FIELDS OF TABLE it_report
+  WHERE vbeln = p_vbeln AND
+        matnr = p_matnr.
+
+  SELECT werks FROM vbak WHERE vbeln = it_report-vbeln.
+
+    SELECT * FROM mara INTO CORRESPONDING FIELDS OF TABLE it_report
+      WHERE matnr = it_report-matnr.
+
+  ENDSELECT.
+
+ENDSELECT.
+
+* Loop through internal table and calculate total quantity
+LOOP AT it_report INTO wa_report.
+  ADD wa_report-werks TO lv_total. 
+ENDLOOP. 
+
+* Output for report
+WRITE: / 'Order Number: ', it_report-vbeln,
+             'Material Number:', it_report-matnr,
+             'Total Quantity:', lv_total.

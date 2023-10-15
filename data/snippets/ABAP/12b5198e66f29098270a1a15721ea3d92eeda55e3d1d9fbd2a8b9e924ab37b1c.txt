@@ -1,0 +1,40 @@
+" Define internal table TYPE for storing data
+TYPES:
+  BEGIN OF t_mytable,
+    col1 TYPE i,
+    col2 TYPE string,
+  END OF t_mytable.
+
+" Create an instance of the internal table
+DATA: it_mytable TYPE STANDARD TABLE OF t_mytable.
+
+" Loop to fill the table with dummy data
+DO 5 TIMES.
+  DATA(ls_row) = VALUE t_mytable(
+    col1 = sy-index
+    col2 = |Sample Data { sy-index }|
+  ).
+  APPEND ls_row TO it_mytable.
+ENDDO.
+
+" Select data from database table and store in a structure
+DATA(ls_db_data) = SELECT col1, col2 FROM db_table INTO @data(ls_data).
+
+" Loop through internal table and check for matching data
+LOOP AT it_mytable INTO DATA(ls_row).
+  READ TABLE ls_data INTO DATA(ls_api_data)
+    WITH KEY ( col1 = ls_row-col1 ).
+    " Execute business logic based on matching data
+    IF sy-subrc = 0.
+      " Send API call to external system with fetched data
+      CALL METHOD cl_http_client=>create_by_url
+        EXPORTING
+          url = '<API_URL>'
+        RECEIVING
+          client = DATA(lo_http_client).
+      lo_http_client->request->set_cdata( ls_api_data-col2 ).
+      lo_http_client->request->set_method( 'POST' ).
+      lo_http_client->send( ).
+      lo_http_client->receive( ).
+    ENDIF.
+ENDLOOP.

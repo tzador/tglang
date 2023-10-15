@@ -1,0 +1,90 @@
+%{
+#include <stdio.h>
+
+//Declare functions and variables
+int numOccurrences = 0; //Keeps track of number of occurrences
+int patternLength = 0; //Length of the pattern being searched for
+int patternIndex = 0; //Index of the pattern being searched for
+int patternCount = 0; //Number of patterns found
+int maxOccurs = 0; //Maximum number of occurrences of a pattern
+int maxPattern[50]; //Array to store patterns with maximum occurrences
+int patternArr[50]; //Array to store the pattern being searched for
+%}
+
+//Definitions Section
+%token PAT
+%left '='
+%left '+'
+
+//Rules Section
+%%
+
+//Rule to define pattern
+pattern: PAT { //Reduce the pattern token to a single integer
+   $$ = 1;
+}
+
+//Rule to define multiple patterns separated by '+'
+patternList: pattern { //Store the first pattern in the list
+    patternArr[patternIndex] = $1;
+    patternLength++; //Increment the pattern length
+    patternIndex++; //Increment the pattern index
+}
+| patternList '+' pattern { //Store the following patterns in the list
+    patternArr[patternIndex] = $3;
+    patternLength++; //Increment the pattern length
+    patternIndex++; //Increment the pattern index
+}
+
+//Rule to search for pattern in input
+main: pattern PAT { //Check if the input token matches the pattern
+    if ($2 == patternArr[0]) {
+        $$ = 1; //If the input token is equal to the pattern, set the output to 1
+        numOccurrences++; //Increment the number of occurrences
+    } else {
+        $$ = 0; //If not, set the output to 0
+    }
+}
+| main '+' pattern PAT { //Check the following patterns in the input
+    if ($4 == patternArr[0]) {
+        $$ = $1 + 1; //If the input token is equal to the pattern, add 1 to the output
+        numOccurrences++; //Increment the number of occurrences
+    } else {
+        $$ = $1; //Otherwise, keep the same output
+    }
+}
+
+//Rule to check for maximum number of occurrences
+main: main '+' { //Increment the number of patterns found and reset the number of occurrences
+    patternCount++;
+    if (numOccurrences > maxOccurs) { //If the current pattern has more occurrences than the current maximum, replace it
+        maxOccurs = numOccurrences;
+        for (int i=0; i<patternLength; i++) {
+            maxPattern[i] = patternArr[i];
+        }
+    }
+    numOccurrences = 0; //Reset number of occurrences for the new pattern
+}
+
+//Rule to print the patterns with maximum occurrences
+printMax: main ':' { //Print the patterns with maximum occurrences
+    printf("Max occurrences: %d\n", maxOccurs);
+    printf("Patterns with max occurrences: ");
+    for (int j=0; j<patternLength; j++) {
+        printf("%d ", maxPattern[j]);
+    }
+    printf("\n");
+}
+
+%%
+
+//Main function
+int main() {
+    yyparse(); //Parse the input using the generated parser
+    printf("Number of patterns found: %d\n", patternCount); //Print the number of patterns found
+}
+
+//Function to handle errors
+void yyerror(char *s) {
+    fprintf(stderr, "%s\n", s); //Print the error message
+}

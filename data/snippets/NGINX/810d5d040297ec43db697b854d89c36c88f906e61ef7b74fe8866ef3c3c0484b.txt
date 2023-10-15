@@ -1,0 +1,119 @@
+# Basic NGINX configuration file with server block and multiple server names
+
+# Sets the user and group that will be used by NGINX
+user nginx nginx;
+
+# Sets the number of worker processes (or threads)
+# that will handle the incoming requests
+worker_processes 4;
+
+# Sets the maximum number of connections that can be accepted by NGINX
+# at the same time
+worker_connections 1024;
+
+# Sets the location of the error log file
+error_log /var/log/nginx/error.log;
+
+# Sets the path for the access log file
+# and sets the format for the logged information
+access_log /var/log/nginx/access.log main;
+
+# Defines a new server block for the first server name
+server {
+    # Sets the server name
+    server_name www.example.com;
+
+    # Specifies the root directory for this server
+    root /var/www/example;
+
+    # Enables server-side caching for this server
+    proxy_cache_path /var/cache/nginx/example levels=1:2 keys_zone=example:10m inactive=60m;
+
+    # Sets the default error page for this server
+    error_page 404 /404.html;
+
+    # Includes other configuration files under this server block
+    include /etc/nginx/conf.d/*.conf;
+
+    # Defines the location for serving static files
+    location /static {
+        # Disables logging for this location
+        access_log off;
+
+        # Sets the caching behaviour for this location
+        # and allows HTTP requests to modify cached files
+        expires 1h;
+        add_header Cache-Control "public";
+
+        # Sets the root directory for serving static files
+        root /var/www/example/static;
+    }
+
+    # Defines the location for serving dynamic files
+    location / {
+        # Enables logging for this location
+        # and sets the log format
+        access_log /var/log/nginx/example.log main;
+
+        # Passes the request to the FastCGI server listening on the specified port
+        fastcgi_pass 127.0.0.1:8000;
+
+        # Defines the FastCGI server parameters
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param QUERY_STRING $query_string;
+        fastcgi_param REQUEST_METHOD $request_method;
+        fastcgi_param CONTENT_TYPE $content_type;
+        fastcgi_param CONTENT_LENGTH $content_length;
+
+        # Disables buffering of responses from the FastCGI server
+        fastcgi_buffering off;
+        fastcgi_keep_conn on;
+    }
+}
+
+# Defines another server block for the second server name
+server {
+    # Sets the server name
+    server_name api.example.com;
+
+    # Includes other configuration files under this server block
+    include /etc/nginx/conf.d/*.conf;
+
+    # Defines the location for serving API requests
+    location / {
+        # Passes the request to another upstream server
+        # that handles the API requests
+        proxy_pass http://127.0.0.1:8080;
+
+        # Enables request buffering and sets the buffer size
+        proxy_buffering on;
+        proxy_buffer_size 1k;
+
+        # Enables server-side compression of responses
+        gzip on;
+        gzip_comp_level 5;
+    }
+}
+
+# Defines a third server block for the third server name
+server {
+    # Sets the server name
+    server_name blog.example.com;
+
+    # Includes other configuration files under this server block
+    include /etc/nginx/conf.d/*.conf;
+
+    # Defines the location for serving blog posts
+    location / {
+        # Passes the request to another upstream server
+        # that handles the blog post requests
+        proxy_pass http://127.0.0.1:8888;
+
+        # Enables caching of responses for this location
+        proxy_cache example;
+
+        # Enables server-side compression of responses
+        gzip on;
+        gzip_comp_level 5;
+    }
+}

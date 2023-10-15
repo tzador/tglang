@@ -1,0 +1,121 @@
+// Import libraries
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/ERC20.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Counters.sol";
+
+// Define contract
+contract MyToken is ERC20 {
+    using Counters for Counters.Counter;
+    Counters.Counter private _tokenIds;
+    
+    // Create custom constructor
+    constructor() ERC20("MyToken", "MTK") {
+        _mint(msg.sender, 1000 * (10 ** uint256(decimals()))); // Mint initial supply of tokens to contract deployer
+    }
+    
+    // Define mapping for token holders and their balances
+    mapping(address => uint256) private _balances;
+    
+    // Create function to check balance of an address
+    function balanceOf(address account) public view override returns (uint256) {
+        return _balances[account];
+    }
+    
+    // Create function to transfer tokens from sender to recipient
+    function transfer(address recipient, uint256 amount) public override returns (bool) {
+        require(recipient != address(0), "ERC20: transfer to the zero address");
+        require(amount > 0, "Amount must be greater than zero");
+        require(_balances[msg.sender] >= amount, "Insufficient balance");
+        
+        _balances[msg.sender] = _balances[msg.sender] - amount;
+        _balances[recipient] = _balances[recipient] + amount;
+        
+        emit Transfer(msg.sender, recipient, amount);
+        
+        return true;
+    }
+    
+    // Define event for token transfers
+    event Transfer(address indexed from, address indexed to, uint256 amount);
+    
+    // Create function to approve a user to transfer tokens on behalf of the sender
+    function approve(address spender, uint256 amount) public override returns (bool) {
+        require(spender != address(0), "ERC20: approve to the zero address");
+        require(amount > 0, "Amount must be greater than zero");
+        
+        _allowances[msg.sender][spender] = amount;
+        
+        emit Approval(msg.sender, spender, amount);
+        
+        return true;
+    }
+    
+    // Define mapping for approved transfer amounts
+    mapping(address => mapping(address => uint256)) private _allowances;
+    
+    // Create function to transfer tokens on behalf of sender
+    function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
+        require(recipient != address(0), "ERC20: transfer to the zero address");
+        require(amount > 0, "Amount must be greater than zero");
+        require(_balances[sender] >= amount, "Insufficient balance");
+        require(_allowances[sender][msg.sender] >= amount, "Transfer amount exceeds allowance");
+        
+        _balances[sender] = _balances[sender] - amount;
+        _balances[recipient] = _balances[recipient] + amount;
+        _allowances[sender][msg.sender] = _allowances[sender][msg.sender] - amount;
+        
+        emit Transfer(sender, recipient, amount);
+        
+        return true;
+    }
+    
+    // Create function to check allowance for a transfer
+    function allowance(address owner, address spender) public view override returns (uint256) {
+        return _allowances[owner][spender];
+    }
+    
+    // Define event for approval of transfer
+    event Approval(address indexed owner, address indexed spender, uint256 amount);
+    
+    // Create function to mint new tokens
+    function mint(address account, uint256 amount) public {
+        require(account != address(0), "ERC20: mint to the zero address");
+        require(amount > 0, "Amount must be greater than zero");
+        
+        _tokenIds.increment();
+        uint256 tokenId = _tokenIds.current();
+        
+        _balances[account] = _balances[account] + amount;
+        _totalSupply = _totalSupply + amount;
+        
+        emit Transfer(address(0), account, amount);
+        emit Transfer(account, address(0), tokenId);
+    }
+    
+    // Define mapping for owner of a token and its approved spender
+    mapping(uint256 => address) private _tokenApprovals;
+    
+    // Create function to approve a user to transfer a specific token
+    function approve(address spender, uint256 tokenId) public {
+        require(msg.sender == ownerOf(tokenId), "ERC721: approve caller is not owner nor approved for all");
+        require(spender != address(0), "ERC721: approve to the zero address");
+        
+        _tokenApprovals[tokenId] = spender;
+        
+        emit Approval(ownerOf(tokenId), spender, tokenId);
+    }
+    
+    // Create function to transfer a specific token
+    function transferFrom(address from, address to, uint256 tokenId) public {
+        require(_isApprovedOrOwner(msg.sender, tokenId), "ERC721: transfer caller is not owner nor approved");
+        require(ownerOf(tokenId) != address(0), "ERC721: invalid token id");
+        require(to != address(0), "ERC721: transfer to the zero address");
+        
+        _clearApproval(tokenId);
+        
+        _balances[from] = _balances[from] - 1;
+        _balances[to] = _balances[to] + 1;
+        _tokenOwners[tokenId] = to;
+        
+        emit Transfer(from, to, tokenId);
+    }
+}

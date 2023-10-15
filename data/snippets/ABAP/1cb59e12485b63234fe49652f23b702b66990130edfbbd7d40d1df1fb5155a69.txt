@@ -1,0 +1,55 @@
+*&---------------------------------------------------------------------*
+*& Report ZDEMO_REPORT
+*&
+*&---------------------------------------------------------------------*
+*& Date: 06/01/2021
+*& Author: John Smith
+*& Description: This report is used to display data from multiple tables
+*&---------------------------------------------------------------------*
+REPORT ZDEMO_REPORT.
+
+* Data declarations
+DATA: ls_customer TYPE zcustomer,
+      ls_address TYPE zaddress,
+      lt_orders TYPE TABLE OF zorders,
+      lt_items TYPE TABLE OF zitems,
+      lv_total TYPE i.
+
+* Selection screen
+PARAMETERS: p_customerno TYPE zcustomer-customer_number OBLIGATORY.
+PARAMETERS: p_order TYPE zorders-order_number DEFAULT '000000'.
+
+* Start-of-selection event
+START-OF-SELECTION.
+
+* Select customer data
+SELECT SINGLE * INTO ls_customer FROM zcustomer WHERE customer_number = p_customerno.
+
+* Select customer address data
+SELECT SINGLE * INTO ls_address FROM zaddress WHERE customer_number = ls_customer-customer_number.
+
+* Select data from orders table
+SELECT * INTO TABLE lt_orders FROM zorders WHERE customer_number = p_customerno AND order_number <= p_order.
+
+* Loop through orders table and perform calculations
+LOOP AT lt_orders ASSIGNING FIELD-SYMBOL(<ls_order>).
+  SELECT * INTO TABLE lt_items FROM zitems WHERE order_number = <ls_order>-order_number.
+  SORT lt_items BY amount DESCENDING.
+  DELETE ADJACENT DUPLICATES FROM lt_items COMPARING items_number.
+  LOOP AT lt_items ASSIGNING FIELD-SYMBOL(<ls_item>).
+    ADD <ls_item>-amount TO lv_total.
+  ENDLOOP.
+ENDLOOP.
+
+* Output results to screen
+WRITE:/ 'Customer name:', ls_customer-customer_name,
+       'Customer address:', ls_address-street,
+       ls_address-city, ls_address-zipcode,
+       ls_address-country.
+
+LOOP AT lt_orders INTO ls_orders.
+  WRITE:/ 'Order number:', ls_orders-order_number,
+         'Order date:', ls_orders-order_date.
+ENDLOOP.
+
+WRITE:/ 'Total amount of all orders:', lv_total.

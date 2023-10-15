@@ -1,0 +1,36 @@
+# This is a powershell script that automates the process of creating a virtual machine in Azure
+# Import the necessary PowerShell modules
+Import-Module -Name AzureRM.Compute
+Import-Module -Name AzureRM.Resources
+
+# Set variables for the resource group and virtual network
+$resourceGroupName = "MyResourceGroup"
+$location = "East US"
+$virtualNetworkName = "MyVNet"
+
+# Create the resource group
+New-AzureRmResourceGroup -Name $resourceGroupName -Location $location
+
+# Create a virtual network in the resource group
+$virtualNetwork = New-AzureRmVirtualNetwork -ResourceGroupName $resourceGroupName -Name $virtualNetworkName -Location $location -AddressPrefix 192.168.0.0/16
+
+# Create a subnet within the virtual network
+$subnetConfig = Add-AzureRmVirtualNetworkSubnetConfig -Name "MySubnet" -AddressPrefix 192.168.1.0/24 -VirtualNetwork $virtualNetwork
+
+# Create a public IP for the virtual machine
+$publicIP = New-AzureRmPublicIpAddress -Name "MyPublicIP" -ResourceGroupName $resourceGroupName -Location $location -AllocationMethod Dynamic
+
+# Create a virtual machine configuration
+$virtualMachineConfig = New-AzureRmVMConfig -VMName "MyVM" -VMSize "Standard_D2_V2"
+
+# Retrieve the latest Windows Server image from Azure
+$virtualMachineConfig = Set-AzureRmVMOperatingSystem -VM $virtualMachineConfig -Windows -ComputerName "MyVM" -Credential (Get-Credential) -ProvisionVMAgent -EnableAutoUpdate
+
+# Add the network interface to the virtual machine configuration
+$virtualMachineConfig = Add-AzureRmVMNetworkInterface -VM $virtualMachineConfig -Id $networkInterface.Id
+
+# Create the virtual machine in Azure
+New-AzureRmVM -ResourceGroupName $resourceGroupName -Location $location -VM $virtualMachineConfig
+
+# Output the virtual machine's public IP address
+Write-Output "The public IP address for the virtual machine is $($publicIP.IpAddress)"

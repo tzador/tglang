@@ -1,0 +1,71 @@
+type alias User =
+  { firstName : String
+  , lastName : String
+  , age : Int
+  , email : String
+  }
+
+type UserRequest
+  = GetUser String -- Get a user by their email address
+  | UpdateUser User -- Update an existing user
+
+type Msg
+  = UserFetched (Maybe User) -- After a GET request, contains the user data
+  | UpdateFailed String -- After a PUT request, contains the error message
+
+type alias Model =
+  { user : Maybe User
+  , error : Maybe String
+  , isLoading : Bool
+  }
+
+init : Model
+init =
+  { user = Nothing
+  , error = Nothing
+  , isLoading = False
+  }
+
+-- Fetches user data from an API endpoint
+getUser : String -> Cmd Msg
+getUser email =
+  Task.attempt UserFetched (Http.getString ("https://example.com/api/users/" ++ email))
+
+-- Updates user data to an API endpoint
+updateUser : User -> Cmd Msg
+updateUser user =
+  Task.attempt UpdateFailed (Http.putString ("https://example.com/api/users/" ++ user.email) (Json.Encode.object [ ("firstName", Json.Encode.string user.firstName), ("lastName", Json.Encode.string user.lastName), ("age", Json.Encode.int user.age), ("email", Json.Encode.string user.email) ]))
+
+-- Handles incoming messages and updates the model accordingly
+update : Msg -> Model -> (Model, Cmd Msg)
+update msg model =
+  case msg of
+    UserFetched (Just user) ->
+      -- If the response contains a user, update the model with the user data
+      ({ model | user = Just user, error = Nothing, isLoading = False }, Cmd.none)
+
+    UserFetched Nothing ->
+      -- If the response contains no user, update the model with an error message
+      ({ model | error = Just "User not found", isLoading = False }, Cmd.none)
+
+    UpdateFailed errorMessage ->
+      -- If the PUT request fails, update the model with the error message
+      ({ model | error = Just errorMessage, isLoading = False }, Cmd.none)
+
+    _ ->
+      -- If the message is irrelevant, do not update the model
+      (model, Cmd.none)
+
+-- Subscribes to incoming messages and updates the model accordingly
+subscriptions : Model -> Sub Msg
+subscriptions model =
+  Sub.none
+
+view : Model -> Html Msg
+view model =
+  div [] [
+    input [ placeholder "First Name" ] [],
+    input [ placeholder "Last Name" ] [],
+    input [ placeholder "Age" ] [],
+    input [ placeholder "Email" ] []
+  ]

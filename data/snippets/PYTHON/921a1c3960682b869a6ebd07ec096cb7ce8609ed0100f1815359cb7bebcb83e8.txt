@@ -1,0 +1,115 @@
+# Import necessary libraries
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Define a class for a neural network
+class NeuralNetwork:
+    # Initialize the neural network
+    def __init__(self, num_layers, input_dim, output_dim):
+        self.num_layers = num_layers
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        
+        # Initialize random weights and biases for each layer by sampling from a normal distribution
+        self.weights = [np.random.normal(size=(self.input_dim, self.input_dim))]
+        self.biases = [np.random.normal(size=(1, self.input_dim))]
+        for i in range(self.num_layers - 1):
+            self.weights.append(np.random.normal(size=(self.input_dim, self.input_dim)))
+            self.biases.append(np.random.normal(size=(1, self.input_dim)))
+    
+    # Define the sigmoid function for activation
+    def sigmoid(self, x):
+        return 1 / (1 + np.exp(-x))
+    
+    # Define the derivative of the sigmoid function
+    def sigmoid_derivative(self, x):
+        return x * (1 - x)
+    
+    # Define the forward propagation method
+    def forward_propagation(self, X):
+        # Initialize the input layer as the input data
+        self.layers = [X]
+        # Perform forward propagation for each layer
+        for i in range(self.num_layers):
+            # Calculate the dot product of the input with the weights and add the bias term
+            layer = self.sigmoid(np.dot(self.layers[i], self.weights[i]) + self.biases[i])
+            # Add the activated layer to the list of layers
+            self.layers.append(layer)
+        # Return the final output layer
+        return self.layers[-1]
+    
+    # Define the backpropagation method
+    def backpropagation(self, X, y):
+        # Perform forward propagation
+        self.forward_propagation(X)
+        
+        # Initialize an empty list for storing the errors of each layer
+        errors = []
+        # Calculate the error of the output layer
+        output_error = y - self.layers[-1]
+        # Add the error to the list of errors
+        errors.append(output_error)
+        
+        # Perform backpropagation for each hidden layer
+        for i in range(self.num_layers - 1, 0, -1):
+            # Calculate the error of the hidden layer
+            hidden_error = errors[-1].dot(self.weights[i].T) * self.sigmoid_derivative(self.layers[i])
+            # Add the error to the list of errors
+            errors.append(hidden_error)
+        
+        # Reverse the list of errors to match the order of layers
+        errors.reverse()
+        
+        # Update the weights and biases for each layer
+        for i in range(self.num_layers):
+            self.weights[i] += self.layers[i].T.dot(errors[i])
+            self.biases[i] += np.sum(errors[i], axis=0, keepdims=True)
+    
+    # Define the training method
+    def train(self, X, y, epochs, learning_rate):
+        # Perform training for the specified number of epochs
+        for epoch in range(epochs):
+            # Perform one cycle of forward and backward propagation for each data point
+            for sample in range(X.shape[0]):
+                self.forward_propagation(X[sample])
+                self.backpropagation(X[sample], y[sample])
+            
+            # If desired, print the training progress at regular intervals
+            if (epoch + 1) % 100 == 0:
+                print("Epoch:", epoch + 1, "Loss:", np.mean(np.square(y - self.forward_propagation(X))))
+        
+        # Plot the training loss over the number of epochs
+        plt.plot(range(1, epochs + 1), np.mean(np.square(y - self.forward_propagation(X)), axis=1))
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.title("Training Loss over Epochs")
+        plt.show()
+        
+    # Define the prediction method
+    def predict(self, X):
+        # Perform forward propagation and return the output layer
+        return self.forward_propagation(X)
+
+# Create a neural network with 3 layers, an input dimension of 2 and an output dimension of 1
+network = NeuralNetwork(3, 2, 1)
+# Create input and output data for training
+X = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
+y = np.array([[0], [1], [1], [0]])
+
+# Train the network for 1000 epochs with a learning rate of 0.1
+network.train(X, y, 1000, 0.1)
+
+# Use the trained network to make predictions on new data
+X_test = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
+predictions = network.predict(X_test)
+
+# Print the predictions
+print("Predicted Outputs:", predictions)
+
+# Expected Output:
+
+Predicted Outputs: [[0.01171287]
+ [0.97034391]
+ [0.96589084]
+ [0.03987942]]

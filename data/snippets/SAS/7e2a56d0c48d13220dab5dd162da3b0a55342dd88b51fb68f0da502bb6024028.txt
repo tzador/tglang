@@ -1,0 +1,52 @@
+/*This section of the code defines the data set 'students', with variables 'name', 'age', and 'gpa'
+and reads in the data from the external file 'student_list.csv' */
+data students;
+	infile "student_list.csv" dlm=',' dsd firstobs=2;
+	length name $20;
+	input name $ age gpa;
+run;
+
+/*This section of the code creates a temporary data set 'temp' with the same variables as 'students' 
+and filters out any students with a GPA below 3.0*/
+data temp;
+	set students;
+	where gpa >= 3.0;
+run;
+
+/*This section of the code calculates the average GPA of the remaining students
+and assigns it to the macro variable 'avg_gpa' for later use*/
+proc means data=temp mean noprint;
+	var gpa;
+	output out=avg_gpa (drop=_type_ _freq_) mean=;
+run;
+
+/*This section of the code creates a new variable 'grade' in the 'students' data set based on the
+student's GPA, using conditional logic*/
+data students;
+	set students;
+	if gpa >= 3.5 then grade = "A";
+	else if gpa >= 3.0 then grade = "B";
+	else if gpa >= 2.0 then grade = "C";
+	else grade = "F";
+run;
+
+/*This section of the code calculates the number of students in each grade (A, B, C, F) and outputs
+the results to a new data set 'grade_count'*/
+proc freq data=students;
+	tables grade / out=grade_count;
+run;
+
+/*This section of the code merges the 'grade_count' data set with the 'avg_gpa' data set
+using the 'grade' variable as the key*/
+data final;
+	merge grade_count (in=a) avg_gpa (in=b);
+	by grade;
+	if a and b;
+run;
+
+/*This section of the code prints a report showing the average GPA and number of students in each grade*/
+proc print data=final;
+	title "Student Grade Report";
+	var grade total gpa;
+	label grade="Grade" total="Number of Students" gpa="Average GPA";
+run;

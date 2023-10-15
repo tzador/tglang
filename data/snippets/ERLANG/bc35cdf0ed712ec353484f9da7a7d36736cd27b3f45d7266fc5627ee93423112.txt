@@ -1,0 +1,119 @@
+-module(data_structures).
+
+%% -------------------- AVL Tree Implementation -------------------- %%
+  
+%% AVL tree node record
+-record(avl_node, {key, value, left, right, height}).
+
+%% check if a node is a leaf
+is_leaf(Node) ->
+    Node#avl_node.height == 0.
+
+%% check if a node is balanced
+is_balanced(Node) ->
+  case Node of
+    false -> true;
+    #avl_node{left = L, right = R} ->
+      abs((L#avl_node.height) - (R#avl_node.height)) =< 1
+  end.
+
+%% calculate the height of a node
+calculate_height(Node) ->
+  Node#avl_node.height + 1.
+
+%% update the height of a node
+update_height(Node) ->
+  case is_balanced(Node) of
+    true -> calculate_height(Node);
+    false -> -1
+  end.
+
+%% perform a right rotation on a node
+right_rotate(Node) ->
+  #avl_node{key = K, value = V, left = L, right = R} = Node,
+  R_left = R#avl_node.left,
+  New_right = #avl_node{key = K, value = V, left = R_left, right = L},
+  New_left = #avl_node{key = R#avl_node.key, value = R#avl_node.value, left = R#avl_node.right, right = New_right},
+  New_left#avl_node.height = update_height(New_left),
+  New_left.
+
+%% perform a left rotation on a node
+left_rotate(Node) ->
+  #avl_node{key = K, value = V, left = L, right = R} = Node,
+  L_right = L#avl_node.right,
+  New_left = #avl_node{key = K, value = V, left = L_right, right = R},
+  New_right = #avl_node{key = L#avl_node.key, value = L#avl_node.value, left = New_left, right = L#avl_node.left},
+  New_right#avl_node.height = update_height(New_right),
+  New_right.
+
+%% balance the AVL tree after an insertion or deletion
+balance_tree(Node) ->
+  case Node of
+    false -> ok;
+    #avl_node{left = L, right = R} when (L#avl_node.height - R#avl_node.height) > 1 ->
+      case is_balanced(L) of
+        false ->
+          case (L#avl_node.left#avl_node.height) - (L#avl_node.right#avl_node.height) of
+            -1 ->
+              New_right = left_rotate(L#avl_node.right),
+              #avl_node{key = L#avl_node.key, value = L#avl_node.value, left = L#avl_node.left, right = New_right};
+            _ ->
+              New_node = right_rotate(L),
+              right_rotate(New_node)
+          end;
+        true ->
+          right_rotate(Node)
+      end;
+    #avl_node{left = L, right = R} when (L#avl_node.height - R#avl_node.height) < -1 ->
+      case is_balanced(R) of
+        false ->
+          case (R#avl_node.right#avl_node.height) - (R#avl_node.left#avl_node.height) of
+            -1 ->
+              New_left = right_rotate(R#avl_node.left),
+              #avl_node{key = R#avl_node.key, value = R#avl_node.value, left = New_left, right = R#avl_node.right};
+            _ ->
+              New_node = left_rotate(R),
+              left_rotate(New_node)
+          end;
+        true ->
+          left_rotate(Node)
+      end;
+    _ ->
+      Node
+  end.
+
+%% insert a new node into the AVL tree
+insert({Key, Value}, false) ->
+  #avl_node{key = Key, value = Value, left = false, right = false, height = 0};
+insert({Key, Value}, #avl_node{key = K, value = V, left = L, right = R, height = H}) when Key < K ->
+  New_left = insert({Key, Value}, L),
+  #avl_node{key = K, value = V, left = New_left, right = R, height = H};
+insert({Key, Value}, #avl_node{key = K, value = V, left = L, right = R, height = H}) when Key > K ->
+  New_right = insert({Key, Value}, R),
+  #avl_node{key = K, value = V, left = L, right = New_right, height = H};
+insert({_, _}, Node) ->
+  Node.
+
+%% delete a node from the AVL tree
+delete(Key, #avl_node{key = K, value = V, left = L, right = R, height = H}) when Key < K ->
+  New_left = delete(Key, L),
+  #avl_node{key = K, value = V, left = New_left, right = R, height = H};
+delete(Key, #avl_node{key = K, value = V, left = L, right = R, height = H}) when Key > K ->
+  New_right = delete(Key, R),
+  #avl_node{key = K, value = V, left = L, right = New_right, height = H};
+delete(Key, #avl_node{key = K, value = _, left = false, right = false, height = H}) when Key == K ->
+  false;
+delete(_, Node) ->
+  Node.
+
+%% retrieve a value from the AVL tree using a key
+lookup(Key, false) ->
+  false;
+lookup(Key, #avl_node{key = K, value = V, left = L, right = R, height = H}) when Key < K ->
+  lookup(Key, L);
+lookup(Key, #avl_node{key = K, value = V, left = L, right = R, height = H}) when Key > K ->
+  lookup(Key, R);
+lookup(Key, #avl_node{key = K, value = V, left = L, right = R, height = H}) when Key == K ->
+  V.
+
+%% -------------------- End of AVL Tree Implementation -------------------- %%

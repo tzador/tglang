@@ -1,0 +1,82 @@
+{-# LANGUAGE OverloadedStrings #-}
+
+module Main where
+
+-- import libraries
+import Data.Text.Encoding (decodeUtf8)
+import Data.Word (Word8)
+import qualified Data.ByteString as B
+import qualified Data.Text as T
+import qualified Control.Monad.Trans.State.Strict as S
+
+-- define custom type
+type NavigationState = S.StateT [T.Text] IO ()
+
+-- define function
+runNavigation :: NavigationState -> IO [T.Text]
+runNavigation navigation = fst <$> S.runStateT navigation []
+
+-- define data structures
+data MenuItem = MenuItem
+  { itemName :: T.Text
+  , itemLocation :: Maybe T.Text
+  , itemChildren :: [MenuItem]
+  }
+
+data NavigationTree = NavigationTree
+  { rootLabel :: T.Text
+  , rootChildren :: [MenuItem]
+  }
+
+-- define helper functions
+findMenuItem :: T.Text -> NavigationTree -> Maybe MenuItem
+findMenuItem name (NavigationTree label children) =
+  case filter (\item -> itemName item == name) children of
+    [item] -> Just item
+    _ -> Nothing
+
+getNavigationState :: NavigationTree -> NavigationState
+getNavigationState navigationTree =
+  let
+    navigateDown :: NavigationState
+    navigateDown = S.modify (\stack -> case stack of
+      (label:labels) -> label : label : labels
+      [] -> [])
+    getCurrentItem :: NavigationState
+    getCurrentItem = do
+      stack <- S.get
+      case stack of
+        [] -> S.lift $ putStrLn "No current item."
+        (label:_) -> S.lift $ putStrLn $ "Current item is: " ++ T.unpack label
+    navigateToItem :: MenuItem -> NavigationState
+    navigateToItem menuItem = do
+      stack <- S.get
+      S.put $ itemName menuItem : stack
+  in
+  do
+    navigateDown
+    case findMenuItem (rootLabel navigationTree) navigationTree of
+      Just rootItem -> do
+        navigateToItem rootItem
+        getCurrentItem
+        return []
+      Nothing -> do
+        getCurrentItem
+        return []
+
+-- main function
+main :: IO ()
+main = do
+  let menuItems =
+        [ MenuItem "Home" (Just "/") []
+        , MenuItem "About" (Just "/about") []
+        , MenuItem "Products" (Just "/products") [ MenuItem "Small Products" (Just "/small-products") []
+                                                , MenuItem "Large Products" (Just "/large-products") []
+                                                ]
+        , MenuItem "Contact" Nothing []
+        ]
+      navigationTree = NavigationTree "Navigation Menu" menuItems
+      navigationState = getNavigationState navigationTree
+  putStrLn "Running navigation..."
+  navigationResult <- runNavigation navigationState
+  putStrLn $ "Navigation finished. Result: " ++ show navigationResult

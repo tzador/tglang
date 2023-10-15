@@ -1,0 +1,72 @@
+//This contract creates a decentralized marketplace for buying and selling products.
+//It implements the ERC721 token standard for non-fungible tokens.
+pragma solidity ^0.8.0;
+
+//Declaring import for ERC721 and SafeMath libraries
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+
+contract Marketplace is ERC721 {
+    
+    using SafeMath for uint256; //Importing SafeMath library to prevent overflow error
+    
+    //Struct for storing product details
+    struct Product {
+        string name;
+        uint256 price;
+        address seller;
+        bool isSold;
+    }
+    
+    //Array to store all products listed on the marketplace
+    Product[] public products;
+    
+    //Mapping to track the ownership of products
+    mapping (uint256 => address) public productToOwner;
+    
+    //Event to be emitted when a new product is listed
+    event ProductListed(uint256 indexed productId, string name, uint256 price, address seller);
+    
+    //Function to list a new product
+    function listProduct(string memory _name, uint256 _price) public {
+        require(_price > 0, "Price cannot be zero");
+        
+        //Creating new product instance
+        Product memory newProduct = Product({
+           name: _name,
+           price: _price,
+           seller: msg.sender,
+           isSold: false
+        });
+        
+        //Pushing product to products array and updating ownership mapping
+        uint256 newProductId = products.push(newProduct) - 1;
+        productToOwner[newProductId] = msg.sender;
+        
+        //Minting new ERC721 token for the product and sending it to the seller
+        _mint(msg.sender, newProductId);
+        
+        emit ProductListed(newProductId, _name, _price, msg.sender); //Emitting product listed event
+    }
+    
+    //Function to buy a product
+    function buyProduct(uint256 _productId) public payable {
+        require(productToOwner[_productId] != address(0), "Invalid product ID"); //Checking if product exists
+        require(msg.sender != productToOwner[_productId], "Cannot buy your own product");
+        require(msg.value == products[_productId].price, "Incorrect value sent");
+        
+        products[_productId].isSold = true; //Marking product as sold
+        
+        //Transferring ether to the seller
+        payable(products[_productId].seller).transfer(msg.value);
+        
+        //Transferring ERC721 token ownership to the buyer
+        _transfer(productToOwner[_productId], msg.sender, _productId);
+    }
+    
+    //Function to get total number of products listed on the marketplace
+    function totalProducts() public view returns (uint256) {
+        return products.length;
+    }
+    
+}

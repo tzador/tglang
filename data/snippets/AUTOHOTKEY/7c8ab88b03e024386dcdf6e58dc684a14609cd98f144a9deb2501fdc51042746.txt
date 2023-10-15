@@ -1,0 +1,113 @@
+; This code snippet creates a customizable hotkey manager using AutoHotkey
+
+; Setting up variables for hotkey customization
+#SingleInstance force
+mode := ""
+key1 := ""
+key2 := ""
+command := ""
+hotkeys := []
+
+; Creating GUI window for hotkey manager
+Gui, Add, Text,, Choose a hotkey mode:
+Gui, Add, Radio, vmodeToolTip, ToolTip Mode
+Gui, Add, Radio, vmodeKeyCombo, Key Combo Mode
+Gui, Add, Button, gChooseHotkeyMode, Confirm
+Gui, Show, Center
+
+; Define function to handle hotkeys
+HotkeyManager(mode, key1, key2, command) {
+    ; Check mode to determine hotkey behavior
+    if (mode = "toolTip") {
+        ; Set hotkey to display tooltip and exit
+        Hotkey, %key1%, ToolTip, %command%
+        return
+    } else {
+        ; Define hotkey combination
+        hotkeyCombo := key1 . "+" . key2
+        ; Set hotkey to execute command and exit
+        Hotkey, %hotkeyCombo%, Call, %command%
+        return
+    }
+}
+
+; Define function to add hotkey to hotkey manager
+AddHotkey(mode, key1, key2, command) {
+    ; Call HotkeyManager function to set hotkey
+    HotkeyManager(mode, key1, key2, command)
+    ; Add hotkey to hotkeys array for later customization
+    hotkeys.insert(key1,key2,command)
+}
+
+; Define function to choose hotkey mode
+ChooseHotkeyMode:
+    ; Get selected mode from GUI
+    GuiControlGet, mode, checked, modeToolTip
+    ; Check if mode is empty, meaning user did not select a mode
+    if (mode = "")
+        MsgBox, Please choose a hotkey mode.
+    else {
+        ; Close GUI
+        Gui, Destroy
+        ; Show hotkey customization GUI
+        Gui, Add, Text,, Please choose a hotkey and command:
+        Gui, Add, Text, y+5 w80, Hotkey:
+        Gui, Add, Edit, vkey1, %key1%
+        Gui, Add, Edit, vkey2, %key2%
+        Gui, Add, Text, y+8 w80, Command:
+        Gui, Add, Edit, vcommand, %command%
+        Gui, Add, Button, gAddHotkey, Add Hotkey
+        Gui, Add, Button, gSaveAndClose, Save and Close
+        Gui, Show, Center
+        ; Disable hotkey for GUI window to prevent conflicts
+        Hotkey, Enter, off
+        ; If user selected key combo mode, set default key combo
+        if (mode = "keyCombo") {
+            key1 := "Ctrl"
+            key2 := "A"
+        }
+        ; Set hotkey to choose hotkey and command
+        Hotkey, Enter, gChooseHotkeyAndCommand
+    }
+return
+
+; Define function to choose hotkey and command
+ChooseHotkeyAndCommand:
+    ; Get current key and command from GUI
+    GuiControlGet, key1, key1
+    GuiControlGet, key2, key2
+    GuiControlGet, command, command
+    ; Check if key and command are empty, meaning user did not enter them
+    if (key1 = "" or command = "")
+        MsgBox, Please choose a hotkey and command.
+    else {
+        ; Enable hotkey for GUI window
+        Hotkey, Enter, on
+        ; Call AddHotkey function to add hotkey to hotkey manager
+        AddHotkey(mode, key1, key2, command)
+        ; Reset hotkey variables for next customization
+        key1 := ""
+        key2 := ""
+        ; Refresh GUI with updated hotkeys array values
+        GuiControl,, key1, %key1%
+        GuiControl,, key2, %key2
+        ; Display success message
+        MsgBox, Hotkey %key1%+%key2% successfully added for command: %command%.
+    }
+return
+
+; Define function to save and close hotkey manager
+SaveAndClose:
+    ; Save hotkey settings to a file
+    FileDelete, Hotkeys.ahk
+    for each, hotkey in hotkeys {
+        ; Create hotkey command in format expected by HotkeyManager function
+        hotkeyCommand := hotkey[1] . "," . hotkey[2] . "," . hotkey[3]
+        ; Append hotkey command to file
+        FileAppend, `nHotkeyManager("toolTip","","",%hotkeyCommand%)`, Hotkeys.ahk
+    }
+    ; Display success message
+    MsgBox, Hotkeys successfully saved to file: Hotkeys.ahk
+    ; Close hotkey manager
+    ExitApp
+return

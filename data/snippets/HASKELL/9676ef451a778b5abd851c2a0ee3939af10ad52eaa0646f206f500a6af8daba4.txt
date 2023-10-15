@@ -1,0 +1,50 @@
+data BinaryTree a = EmptyTree | Node a (BinaryTree a) (BinaryTree a)
+
+insert :: Ord a => a -> BinaryTree a -> BinaryTree a
+insert x EmptyTree = Node x EmptyTree EmptyTree
+insert x (Node val left right)
+  | x == val = Node x left right
+  | x < val = Node val (insert x left) right
+  | x > val = Node val left (insert x right)
+
+search :: Ord a => a -> BinaryTree a -> Maybe a
+search _ EmptyTree = Nothing
+search x (Node val left right)
+  | x == val = Just val
+  | x < val = search x left
+  | x > val = search x right
+
+toList :: BinaryTree a -> [a]
+toList EmptyTree = []
+toList (Node val left right) = toList left ++ [val] ++ toList right
+
+depth :: BinaryTree a -> Int
+depth EmptyTree = 0
+depth (Node _ left right) = 1 + max (depth left) (depth right)
+
+fold :: (a -> b -> b) -> b -> BinaryTree a -> b
+fold f z EmptyTree = z
+fold f z (Node val left right) = f val (fold f (fold f z right) left)
+
+instance Functor BinaryTree where
+  fmap _ EmptyTree = EmptyTree
+  fmap f (Node val left right) = Node (f val) (fmap f left) (fmap f right)
+
+instance Applicative BinaryTree where
+  pure x = Node x EmptyTree EmptyTree
+  EmptyTree <*> _ = EmptyTree
+  _ <*> EmptyTree = EmptyTree
+  (Node f leftF rightF) <*> (Node x leftX rightX) =
+    Node (f x) (leftF <*> leftX) (rightF <*> rightX)
+
+instance Monad BinaryTree where
+  return x = Node x EmptyTree EmptyTree
+  EmptyTree >>= _ = EmptyTree
+  (Node val left right) >>= f =
+    let newLeftTree = left >>= f
+        newRightTree = right >>= f
+        newTree = Node val newLeftTree newRightTree
+    in f val `merge` newTree
+    where merge (Node newVal newLeftTree newRightTree) oldTree =
+          Node newVal (merge newLeftTree oldTree) (merge newRightTree oldTree)
+        merge EmptyTree oldTree = oldTree

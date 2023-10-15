@@ -1,0 +1,70 @@
+//Defines a contract 'Market'
+contract Market {
+    string marketName; //Variable to store market name
+    
+    //Event to log market creation
+    event LogMarketCreated(string marketName);
+    
+    //Constructor function to initialize market name
+    constructor(string name) public {
+        marketName = name;
+        
+        emit LogMarketCreated(name);
+    }
+    
+    //Function to get market name
+    function getMarketName() public view returns (string) {
+        return marketName;
+    }
+    
+    //Modifier to check if caller is the creator of the market
+    modifier onlyCreator() {
+        require(msg.sender == creator, "Only the creator can perform this action.");
+        _;
+    }
+    
+    //Array to store products in the market
+    Product[] products;
+    
+    //Struct to define a product
+    struct Product {
+        string name; //Product name
+        uint price; //Product price
+        address seller; //Seller's address
+        address buyer; //Buyer's address
+    }
+    
+    //Event to log product creation
+    event LogProductCreated(string productName, uint price);
+    
+    //Function to add a product to the market
+    function addProduct(string name, uint price) public onlyCreator {
+        //Create a new Product instance with given details
+        Product memory product = Product({
+            name: name,
+            price: price,
+            seller: msg.sender,
+            buyer: address(0)
+        });
+        
+        //Add product to products array
+        products.push(product);
+        
+        emit LogProductCreated(name, price);
+    }
+    
+    //Function to buy a product from the market
+    function buyProduct(uint productId) public payable {
+        //Get the product from products array using productId
+        Product storage product = products[productId];
+        
+        //Check if enough Ether is sent to cover product price
+        require(msg.value == product.price, "Not enough Ether sent to cover product price.");
+        
+        //Transfer the product price to the seller's address
+        product.seller.transfer(msg.value);
+        
+        //Update product buyer's address
+        product.buyer = msg.sender;
+    }
+}

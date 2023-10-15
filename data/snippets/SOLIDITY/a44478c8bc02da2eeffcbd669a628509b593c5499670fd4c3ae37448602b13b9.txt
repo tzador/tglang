@@ -1,0 +1,67 @@
+pragma solidity >=0.7.0 <0.9.0; 	// version declaration
+
+interface IERC20 {				// interface
+	function totalSupply() external view returns (uint256);		// view function
+    function balanceOf(address account) external view returns (uint256);	// view function
+    function transfer(address recipient, uint256 amount) external returns (bool);	// transfer function
+    function allowance(address owner, address spender) external view returns (uint256);	// view function
+    function approve(address spender, uint256 amount) external returns (bool);	// approve function
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);	// transferFrom function
+
+    event Transfer(address indexed from, address indexed to, uint256 amount);	// event
+    event Approval(address indexed owner, address indexed spender, uint256 amount);	// event
+}
+
+contract ERC20 is IERC20 {		// contract that implements the interface
+	uint256 totalSupply;		// state variable
+	string public name = "My Token";	// public variable
+    string public symbol = "MT";		// public variable
+    uint8 public decimals = 18; 		// public variable
+
+    mapping(address => uint256) balances;		// mapping data structure to keep track of token balances
+    mapping(address => mapping(address => uint256)) allowed;	// nested mapping data structure to keep track of allowances
+
+    constructor() public {		// constructor function
+        totalSupply = 100 * 10 ** decimals;		// assign initial total supply
+        balances[msg.sender] = totalSupply;		// assign total supply to contract deployer
+    }
+
+	function totalSupply() external view override returns (uint256) {	// view function to return total supply
+        return totalSupply;
+    }
+
+    function balanceOf(address account) external view override returns (uint256) {	// view function to return token balance of an address
+        return balances[account];
+    }
+
+    function transfer(address recipient, uint256 amount) external override returns (bool) {	// transfer function
+        require(amount > 0);	// validate that amount is not 0
+        require(amount <= balances[msg.sender]);	// validate that sender has enough balance
+        balances[msg.sender] = balances[msg.sender] - amount;	// deduct amount from sender's balance
+        balances[recipient] = balances[recipient] + amount;	// add amount to recipient's balance
+        emit Transfer(msg.sender, recipient, amount);	// emit event
+        return true;
+    }
+
+    function allowance(address owner, address spender) external view override returns (uint256) {	// view function to return allowance given by owner to spender
+        return allowed[owner][spender];
+    }
+
+    function approve(address spender, uint256 amount) external override returns (bool) {	// approve function
+        require(amount > 0);	// validate that amount is not 0
+        allowed[msg.sender][spender] = amount;	// set allowance for spender by sender
+        emit Approval(msg.sender, spender, amount);	// emit event
+        return true;
+    }
+
+    function transferFrom(address sender, address recipient, uint256 amount) external override returns (bool) {	// transferFrom function
+        require(amount > 0);	// validate that amount is not 0
+        require(amount <= balances[sender]);	// validate that sender has enough balance
+        require(amount <= allowed[sender][msg.sender]);	// validate that sender has given enough allowance to msg.sender
+		balances[sender] = balances[sender] - amount;	// deduct amount from sender's balance
+        balances[recipient] = balances[recipient] + amount;	// add amount to recipient's balance
+        allowed[sender][msg.sender] = allowed[sender][msg.sender] - amount;	// deduct amount from allowed allowance
+        emit Transfer(sender, recipient, amount);	// emit event
+        return true;
+    } 
+}

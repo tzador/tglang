@@ -1,0 +1,120 @@
+/**
+ * @title MyToken
+ * @dev A simple ERC20 token with burning and freezing capabilities.
+ */
+
+//Define the contract
+contract MyToken {
+    //Initialize the total supply of tokens
+    uint256 totalSupply;
+    
+    //Define an event for when tokens are burned
+    event Burn(address indexed burner, uint256 value);
+
+    //Define an event for when tokens are frozen
+    event Freeze(address indexed freezer, address indexed target);
+
+    //Define an event for when tokens are thawed
+    event Thaw(address indexed freezer, address indexed target);
+
+    //Define a mapping to keep track of frozen accounts
+    mapping(address => bool) public frozenAccounts;
+
+    //Create a mapping to store balances
+    mapping(address => uint256) public balanceOf;
+
+    //Define the token symbol and its decimal places
+    string public symbol;
+    uint8 public decimals;
+
+    //Set the minimum and maximum allowable amount to be transferred
+    uint256 public constant MIN_TRANSFER_AMOUNT = 100;
+    uint256 public constant MAX_TRANSFER_AMOUNT = 100000;
+
+    /**
+     * @dev Constructor function to initialize token parameters
+     */
+    constructor(string memory _symbol, uint8 _decimals) public {
+        //Set initial total supply of tokens (100,000)
+        totalSupply = 100000 * (10 ** uint256(_decimals));
+
+        //Assign initial total supply to the contract creator
+        balanceOf[msg.sender] = totalSupply;
+
+        //Set the token symbol and decimals
+        symbol = _symbol;
+        decimals = _decimals;
+    }
+
+    /**
+     * @dev Function to transfer tokens to a specified address
+     * @param _to The address to which the tokens will be transferred
+     * @param _value The amount of tokens to be transferred
+     */
+    function transfer(address _to, uint256 _value) public returns (bool) {
+        //Make sure the transfer amount is within the allowed range
+        require(_value >= MIN_TRANSFER_AMOUNT && _value <= MAX_TRANSFER_AMOUNT);
+
+        //Make sure the sender has enough tokens
+        require(balanceOf[msg.sender] >= _value);
+
+        //Check if the recipient is a frozen account
+        require(!frozenAccounts[_to]);
+
+        //Transfer the tokens
+        balanceOf[msg.sender] -= _value;
+        balanceOf[_to] += _value;
+
+        return true;
+    }
+
+    /**
+     * @dev Function to burn a specific amount of tokens
+     * @param _value The amount of tokens to be burned
+     */
+    function burn(uint256 _value) public returns (bool) {
+        //Make sure the sender has enough tokens
+        require(balanceOf[msg.sender] >= _value);
+
+        //Subtract the burnt tokens from the balance
+        balanceOf[msg.sender] -= _value;
+
+        //Update the total supply
+        totalSupply -= _value;
+
+        //Trigger the burn event
+        emit Burn(msg.sender, _value);
+
+        return true;
+    }
+
+    /**
+     * @dev Function to freeze a specific address
+     * @param _target The address to be frozen
+     */
+    function freeze(address _target) public {
+        //Ensure the sender has the permission to freeze accounts
+        require(msg.sender == owner);
+
+        //Freeze the target account
+        frozenAccounts[_target] = true;
+
+        //Trigger the freeze event
+        emit Freeze(msg.sender, _target);
+    }
+
+    /**
+     * @dev Function to thaw a specific address
+     * @param _target The address to be thawed
+     */
+    function thaw(address _target) public {
+        //Ensure the sender has the permission to thaw accounts
+        require(msg.sender == owner);
+
+        //Unfreeze the target account
+        frozenAccounts[_target] = false;
+
+        //Trigger the thaw event
+        emit Thaw(msg.sender, _target);
+    }
+}

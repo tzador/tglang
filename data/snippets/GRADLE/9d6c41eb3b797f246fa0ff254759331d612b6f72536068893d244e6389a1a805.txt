@@ -1,0 +1,95 @@
+plugins {
+  // Applies the java plugin to the project
+  id 'java'
+
+  // Applies the maven-publish plugin to the project
+  id 'maven-publish' }
+
+group 'com.example'
+version '1.0-SNAPSHOT'
+
+// Definition of custom task
+task zipSources(type: Zip) {
+  // Specifies the inputs for the task
+  inputs.dir 'src/main/java'
+
+  // Specifies the outputs for the task
+  outputs.file "$buildDir/output.zip"
+
+  // Specifies the content to be zipped
+  from 'src/main/java'
+  include '**/*.java'
+
+  // Adds a description for the task
+  description 'Zips all java source files from src/main/java directory'
+}
+
+// Definition of custom plugin extension
+class MyPluginExtension {
+  String outputDirectory = "build/custom"
+
+  // Setter method for outputDirectory
+  def setOutputDirectory(String outputDirectory) {
+    this.outputDirectory = outputDirectory
+  }
+}
+
+// Adds a new MyPluginExtension object with the name 'myPlugin'
+// Access the extension using 'myPlugin' in build scripts
+ext {
+  myPlugin = new MyPluginExtension()
+}
+
+// Adds a new custom task to run after the 'build' task
+task createOutputDirectory(type: Copy, dependsOn: build) {
+  // Sets the destination directory to the one specified in the MyPluginExtension
+  into myPlugin.outputDirectory
+
+  // Copies files from the build directory to the specified output directory
+  from "$buildDir"
+  exclude 'tmp'
+}
+
+// Adds a new publishing method for Maven
+publishing {
+  // Configures the publications section
+  publications {
+    // Adds a new Maven publication
+    maven(MavenPublication) {
+      // Specifies the group and artifact ids for the publication
+      groupId 'com.example'
+      artifactId 'my-app'
+      version '1.0'
+
+      // Specifies the files to be included in the publication
+      from components.java
+
+      // Specifies the pom configuration for the publication
+      pom {
+        name 'My Application'
+        description 'A simple application'
+        url 'https://www.example.com/my-app'
+      }
+    }
+  }
+
+  // Specifies the repositories to which the publication should be published
+  repositories {
+    // Adds a new Maven repository
+    maven {
+      // Specifies the URL for the repository
+      url 'https://www.example.com/maven-repo'
+
+      // Specifies the authentication credentials for the repository
+      credentials {
+        username 'user'
+        password 'password'
+      }
+    }
+  }
+}
+
+// Defines a new task 'publish' which publishes the Maven publication
+task publish(dependsOn: 'publishToMavenLocal') {
+  // Runs the Maven publishing tasks and then publishes to the local repository
+}

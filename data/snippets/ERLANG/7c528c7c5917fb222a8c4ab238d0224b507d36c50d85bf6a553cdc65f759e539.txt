@@ -1,0 +1,103 @@
+%%% This module contains functions for handling matrices
+
+-module(matrices).
+
+%%% Import necessary libraries 
+
+-import(lists, [foldl/3, zipwith/3]).
+-import(math, [sqrt/1]).
+
+%%% Record definition for matrix
+
+-record(matrix, {rows = 0, columns = 0, data = []}).
+
+%%% Function to create an empty matrix of given dimensions
+
+-spec empty_matrix(integer(), integer()) -> matrix().
+empty_matrix(Rows, Columns) ->
+    #matrix{rows = Rows, columns = Columns, data = lists:duplicate(Rows, lists:duplicate(Columns, 0))}.
+
+%%% Function to create a matrix filled with given value
+
+-spec filled_matrix(element(), integer(), integer()) -> matrix().
+filled_matrix(Value, Rows, Columns) ->
+    #matrix{rows = Rows, columns = Columns, data = lists:duplicate(Rows, lists:duplicate(Columns, Value))}.
+
+%%% Function to get the element at a given index in the matrix
+
+-spec get(matrix(), integer(), integer()) -> element().
+get(Matrix, Row, Column) ->
+    lists:nth(Row, Matrix#matrix.data) !! lists:nth(Column, Matrix#matrix.data).
+
+%%% Function to set the element at a given index in the matrix
+
+-spec set(matrix(), integer(), integer(), element()) -> matrix().
+set(Matrix, Row, Column, Value) ->
+    #matrix{rows = Matrix#matrix.rows,
+            columns = Matrix#matrix.columns,
+            data = lists:sublist(Matrix#matrix.data, Row-1) ++ [lists:sublist(Matrix#matrix.data, Row) -- [lists:nth(Column, lists:nth(Row, Matrix#matrix.data))] ++ [Value] ++ lists:nthtail(Column, lists:nth(Row, Matrix#matrix.data))] ++ lists:nthtail(Row, Matrix#matrix.data)}.
+
+%%% Function to transpose a given matrix
+
+-spec transpose(matrix()) -> matrix().
+transpose(Matrix) ->
+    #matrix{rows = Matrix#matrix.columns,
+            columns = Matrix#matrix.rows,
+            data = zipwith(fun(Row, Column) -> Row ++ Column end, Matrix#matrix.data)}.
+
+%%% Function to calculate the determinant of a given matrix
+
+-spec determinant(matrix()) -> element().
+determinant(#matrix{rows = 1, columns = 1, data = [[A11]]}) ->
+    A11;
+determinant(#matrix{rows = 2, columns = 2, data = [[A11, A12], [A21, A22]]}) ->
+    (A11*A22) - (A12*A21);
+determinant(Matrix) ->
+    FoldFunc = fun(Col, Acc) -> Col * minor(Matrix, 1, Col) + Acc end,
+    lists:nth(1, Matrix#matrix.data) |> foldl(FoldFunc, 0).
+
+%%% Function to calculate the cofactor of a given element in the matrix
+
+-spec cofactor(matrix(), integer(), integer) -> element().
+cofactor(Matrix, Row, Column) ->
+    (-1)^(Row+Column) * minor(Matrix, Row, Column).
+
+%%% Function to calculate the minor of a given element in the matrix
+
+-spec minor(matrix(), integer(), integer()) -> element().
+minor(Matrix, Row, Column) ->
+    determinant(#matrix{rows = Matrix#matrix.rows-1,
+                        columns = Matrix#matrix.columns-1,
+                        data = delete_row_col(Matrix#matrix.data, Row, Column)}).
+
+%%% Helper function to delete a given row and column in a matrix
+
+-spec delete_row_col(matrix_data(), integer(), integer()) -> matrix_data().
+delete_row_col(Data, Row, Column) ->
+    lists:map(fun(R) -> lists:map(fun(E) -> if E then E not E end, R) end, lists:sublist(Data, Row-1) ++ lists:nthtail(Row, Data)). 
+
+%%% Example usage
+
+1> Matrix = matrices:filled_matrix(2, 3, 3).
+#matrix{rows = 3, columns = 3,
+        data = [[2,2,2],
+                [2,2,2],
+                [2,2,2]]}
+
+2> NewMatrix = matrices:set(Matrix,2,2,5).
+#matrix{rows = 3, columns = 3,
+        data = [[2,2,2],
+                [2,5,2],
+                [2,2,2]]}
+
+3> matrices:get(NewMatrix,2,2).
+5
+
+4> TransposeMatrix = matrices:transpose(NewMatrix).
+#matrix{rows = 3, columns = 3,
+        data = [[2,2,2],
+                [2,5,2],
+                [2,2,2]]}
+
+5> matrices:determinant(TransposeMatrix).
+0

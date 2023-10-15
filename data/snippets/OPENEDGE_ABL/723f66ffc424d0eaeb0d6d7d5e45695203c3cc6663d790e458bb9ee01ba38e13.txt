@@ -1,0 +1,67 @@
+/*This code snippet is for a sample customer invoice form in OPENEDGE_ABL*/
+
+/*Define variables for the form*/
+DEFINE VARIABLE invoiceNum AS CHARACTER NO-UNDO FORMAT "x(10)" LABEL "Invoice Number".
+DEFINE VARIABLE invoiceDate AS DATE NO-UNDO LABEL "Invoice Date".
+DEFINE VARIABLE custName AS CHARACTER NO-UNDO FORMAT "x(50)" LABEL "Customer Name".
+DEFINE VARIABLE totalAmt AS DECIMAL NO-UNDO FORMAT "99,999.99" LABEL "Total Amount".
+DEFINE VARIABLE dueDate AS DATE NO-UNDO LABEL "Due Date".
+DEFINE VARIABLE invoiceDesc AS CHARACTER NO-UNDO FORMAT "x(255)" LABEL "Invoice Description".
+
+/*Add fields to the form*/
+ADD LABEL "Invoice Details:".
+ADD FILL-IN invoiceNum LABEL "Invoice Number:".
+ADD FILL-IN invoiceDate FORMAT "99/99/9999" LABEL "Invoice Date:".
+ADD FILL-IN custName LABEL "Customer Name:".
+ADD FILL-IN totalAmt LABEL "Total Amount:".
+ADD FILL-IN dueDate FORMAT "99/99/9999" LABEL "Due Date:".
+ADD FILL-IN invoiceDesc FORMAT "x(255)" LABEL "Invoice Description:".
+
+/*Add buttons for save and cancel*/
+ADD BUTTON btSave LABEL "Save" WITH FRAME x(1) ROW #
+    COLUMN # LABEL "O".
+ADD BUTTON btCancel ROW # COLUMN # LABEL "X" WITH FRAME x(1).
+/*Save button click event*/
+ON CHOOSE OF btSave DO:
+    CREATE customerInvoice.
+    ASSIGN
+        customerInvoice.invoiceNum = invoiceNum:SCREEN-VALUE
+        customerInvoice.invoiceDate = invoiceDate:SCREEN-VALUE
+        customerInvoice.custName = custName:SCREEN-VALUE
+        customerInvoice.totalAmt = totalAmt:SCREEN-VALUE
+        customerInvoice.dueDate = dueDate:SCREEN-VALUE
+        customerInvoice.invoiceDesc = invoiceDesc:SCREEN-VALUE.
+    customerInvoice:CREATE-NEW().
+    customerInvoice:SAVE().
+    MESSAGE "Invoice saved successfully!" VIEW-AS ALERT-BOX INFO BUTTONS OK.
+    CLEAR FIELDS.
+END.
+/*Cancel button click event*/
+ON CHOOSE OF btCancel DO:
+    CLEAR FIELDS.
+END.
+
+/*Define customer invoice class*/
+CLASS customerInvoice DEFINITION NO-UNDO
+    PUBLIC PUBLIC-CONSTRUCTOR METHOD customerInvoice():
+    CREATE customerInvoice.
+END CLASS.
+
+/*Generate default invoice number*/
+METHOD PUBLIC CHARACTER generateInvoiceNum():
+    DEFINE VARIABLE currentYear AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE currentMonth AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE sequenceNum AS CHARACTER NO-UNDO.
+    ASSIGN
+        currentYear = STRING(YEAR(TODAY), "9999")
+        currentMonth = STRING(MONTH(TODAY), "99").
+    FOR EACH customerInvoice WHERE invoiceNum BEGINS currentYear AND
+        invoiceNum ENDS currentMonth:
+        sequenceNum = SUBSTRING(invoiceNum, 9, 2).
+    END.
+    sequenceNum = sequenceNum + 1.
+    IF sequenceNum > 9 THEN DO:
+        sequenceNum = "01".
+    END.
+    RETURN currentYear + currentMonth + sequenceNum.
+END METHOD.

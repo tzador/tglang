@@ -1,0 +1,28 @@
+procedure EncryptFile(const FileName, Password: string);
+var
+  Source, Dest: TFileStream;
+  Crypto: TDCP_rijndael;
+  Buffer: array[0..1023] of Byte;
+  BytesRead, BytesWritten: Integer;
+begin
+  Crypto := TDCP_rijndael.Create(nil); // Instantiate the Rijndael encryption object
+  Source := TFileStream.Create(FileName, fmOpenRead); // Open the original file for reading
+  Dest := TFileStream.Create(FileName + '.enc', fmCreate); // Create a new file for writing the encrypted data
+  try
+    // Set the encryption key
+    Crypto.InitStr(Password, TDCP_sha512);
+    
+    // Encrypt data in chunks of 1024 bytes
+    BytesRead := Source.Read(Buffer, SizeOf(Buffer));
+    while BytesRead > 0 do
+    begin
+      BytesWritten := Crypto.Encrypt(Buffer, BytesRead, Buffer); // Encrypt the data
+      Dest.Write(Buffer, BytesWritten); // Write the encrypted data to the file
+      BytesRead := Source.Read(Buffer, SizeOf(Buffer)); // Read the next chunk of data
+    end;
+  finally
+    Source.Free; // Close and release the original file
+    Dest.Free; // Close and release the encrypted file
+    Crypto.Free; // Release the encryption object
+  end;
+end;

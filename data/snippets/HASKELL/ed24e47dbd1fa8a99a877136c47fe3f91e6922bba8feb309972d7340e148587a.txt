@@ -1,0 +1,49 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
+
+module ComplexCodeSnippet where
+
+-- A data kind for different programming languages
+data Language = Haskell | Java | Python
+
+-- A GADT (Generalized Algebraic Datatype) for types of different languages
+data Type (lang :: Language) where
+  String :: Type 'Haskell
+  Integer :: Type 'Java
+  Boolean :: Type 'Python
+
+-- A function that returns a type for a given language
+getType :: Language -> Type lang
+getType lang =
+  case lang of
+    Haskell -> String
+    Java -> Integer
+    Python -> Boolean
+
+-- A type for a function that takes two inputs of different types
+data Function (lang1 :: Language) (lang2 :: Language) where
+  Function :: Type lang1 -> Type lang2 -> Function lang1 lang2
+
+-- A function that composes two functions
+compose :: Function lang2 lang3 -> Function lang1 lang2 -> Function lang1 lang3
+compose (Function t2 t3) (Function t1 t2') =
+  case (t2, t2') of
+    (Integer, Integer) -> Function t1 t3
+    _ -> error "Can only compose functions with matching types"
+
+-- An example of using the above functions
+addTwo :: Function 'Java 'Java
+addTwo = Function Integer Integer
+multiplyByTwo :: Function 'Java 'Java
+multiplyByTwo = Function Integer Integer
+addAndMultiply :: Function 'Java 'Java
+addAndMultiply = compose multiplyByTwo addTwo
+
+-- An example of running the code
+main :: IO ()
+main = do
+  putStrLn "The result of (2 + 2) * 2 is:"
+  print (addAndMultiply 2) -- Outputs 8

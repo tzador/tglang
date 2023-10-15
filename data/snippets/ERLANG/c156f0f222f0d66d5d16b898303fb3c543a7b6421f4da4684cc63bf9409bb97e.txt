@@ -1,0 +1,37 @@
+%% This is a comment
+-module(memory). %% This declares a module named "memory"
+-export([allocate/1, deallocate/1]). %% This exports the functions "allocate" and "deallocate"
+
+%%% TYPES
+
+-record(memory_block, { %% Declares a record type
+    id, %% Field for block id
+    size, %% Field for block size
+    address %% Field for block address
+}).
+
+%%% FUNCTIONS
+
+%% Allocate a block of memory
+%% Takes in a size and returns a memory block record
+allocate(Size) ->
+    %% Lists all the available blocks of memory
+    {ok, MemoryBlocks} = erlang:memory(total),
+    %% Finds the block with the largest size that can fit the requested size
+    {Block, _} = lists:max([{Block, Size} || Block <- MemoryBlocks, element(2, Block) >= Size]),
+    %% Gets the address of the block
+    Address = element(3, Block),
+    %% Creates a record with the block id, size, and address
+    BlockRecord = #memory_block{id = erlang:make_ref(), size = Size, address = Address},
+    %% Updates the memory allocation table with the new record
+    erlang:memory(system_allocator, {add, BlockRecord}),
+    %% Returns the allocated block
+    BlockRecord.
+
+%% Deallocate a block of memory
+%% Takes in a memory block record and frees up the allocated block of memory
+deallocate(Block) ->
+    %% Gets the block's address
+    Address = Block#memory_block.address,
+    %% Removes the block record from the memory allocation table
+    erlang:memory(system_allocator, {remove, {Address, Address}}).

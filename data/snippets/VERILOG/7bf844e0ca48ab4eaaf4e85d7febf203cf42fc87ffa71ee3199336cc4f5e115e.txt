@@ -1,0 +1,97 @@
+// Input buffer module
+module input_buf (input clk, input rst, input din, output reg dout);
+  // Declare internal signals
+  reg [7:0] buf_array [0:7];
+  reg [2:0] in_ptr, out_ptr;
+  reg [2:0] count;
+  
+  // Synchronous process for reading input and writing to buffer
+  always @(posedge clk)
+  begin
+    // Check if system is reset
+    if (rst)
+      count <= 0;
+    else
+      count <= count + 1;
+      
+    // Write input data to buffer
+    buf_array[in_ptr] <= din;
+    in_ptr <= in_ptr + 1;
+    
+    // Check for buffer overflow
+    if (in_ptr == 7)
+      in_ptr <= 0;
+      
+    // Increment count if data is written to buffer
+    if (din != 0)
+      count <= count + 1;
+  end
+  
+  // Combinational process for reading data from buffer
+  always @(*)
+  begin
+    // Reset buffer if system is reset
+    if (rst)
+    begin
+      out_ptr <= 0;
+      dout <= 0;
+    end
+    // Read data from buffer and output
+    else if (count > 0)
+    begin
+      dout = buf_array[out_ptr];
+      out_ptr = out_ptr + 1;
+      if (out_ptr == 7)
+        out_ptr = 0;
+    end
+    // If buffer is empty, output 0
+    else
+      dout <= 0;
+  end
+endmodule
+
+// Testbench for input buffer
+module input_buf_tb ();
+  // Declare signals for testbench
+  reg clk, rst, din;
+  wire dout;
+  
+  // Instantiate input buffer module
+  input_buf ib (.clk(clk), .rst(rst), .din(din), .dout(dout));
+  
+  // Clock generator
+  always #(5) clk = !clk;
+  
+  // Initialize inputs
+  initial
+  begin
+    clk = 0;
+    rst = 0;
+    din = 0;
+    
+    // Send input data and check output
+    #10 din = 1; // Input data = 1
+    #10 din = 2; // Input data = 2
+    #10 din = 3; // Input data = 3
+    
+    // Check output after each input
+    #15 $display("Output = %d", dout);
+    #15 $display("Output = %d", dout);
+    #15 $display("Output = %d", dout);
+    
+    // Reset buffer
+    #5 rst = 1;
+    #5 rst = 0;
+    
+    // Send input data and check output after buffer reset
+    #10 din = 4; // Input data = 4
+    #10 din = 5; // Input data = 5
+    
+    // Check output after each input
+    #15 $display("Output = %d", dout);
+    #15 $display("Output = %d", dout);
+    
+    // Stop simulation
+    #5 $finish;
+  end
+endmodule

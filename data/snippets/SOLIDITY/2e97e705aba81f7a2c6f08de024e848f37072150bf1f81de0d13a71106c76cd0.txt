@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.9;
+
+import "./ERC20.sol";
+
+contract MyToken is ERC20 {
+    // Constructor to set the initial supply of tokens and assign all initial tokens to the contract creator
+    constructor(uint256 initialSupply) ERC20("MyToken", "MTK") {
+        _totalSupply = initialSupply;
+        _balances[msg.sender] = initialSupply;
+        emit Transfer(address(0), msg.sender, initialSupply);
+    }
+
+    // Function to transfer tokens from sender to recipient, checks if sender has enough balance
+    function transfer(address recipient, uint256 amount) public virtual onlyPayloadSize(2) returns (bool) {
+        require(_balances[msg.sender] >= amount, "Insufficient balance");
+        _balances[msg.sender] -= amount;
+        _balances[recipient] += amount;
+        emit Transfer(msg.sender, recipient, amount);
+        return true;
+    }
+
+    // Function to approve a delegate to spend tokens on behalf of the sender
+    function approve(address delegate, uint256 amount) public virtual returns (bool) {
+        _allowances[msg.sender][delegate] = amount;
+        emit Approval(msg.sender, delegate, amount);
+        return true;
+    }
+
+    // Function to transfer tokens from one address to another using a delegate, checks if delegate has enough allowance
+    function transferFrom(address owner, address recipient, uint256 amount) public virtual onlyPayloadSize(3) returns (bool) {
+        require(_balances[owner] >= amount, "Insufficient balance");
+        require(_allowances[owner][msg.sender] >= amount, "Insufficient allowance");
+        _balances[owner] -= amount;
+        _balances[recipient] += amount;
+        _allowances[owner][msg.sender] -= amount;
+        emit Transfer(owner, recipient, amount);
+        return true;
+    }
+
+    // Modifier to restrict function to only accept specified number of function inputs (for security purposes)
+    modifier onlyPayloadSize(uint numParams) {
+        require(msg.data.length == numParams + 4, "Incorrect number of parameters provided");
+        _;
+    }
+}

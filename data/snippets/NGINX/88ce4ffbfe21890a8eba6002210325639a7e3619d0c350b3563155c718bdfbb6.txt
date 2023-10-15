@@ -1,0 +1,90 @@
+# This configuration block specifies the version of nginx
+server {
+  # This block defines the server name 
+  server_name website.com;
+  
+  # This block defines the server port and protocol 
+  listen 80 http;
+
+  # This block defines the root directory for the server  
+  root /var/www/website/;
+
+  # This block specifies the index page for the server  
+  index index.html;
+
+  # This block sets the content type for all files  
+  # in the root directory  
+  location / {
+    # This block sets the default content type to text/html  
+    default_type text/html;
+    
+    # This block sets the caching behavior for files  
+    # with specific file extensions
+    # in the root directory 
+    location ~* \.(jpg|jpeg|gif|png|css|js|ico|svg)$ {
+      # This block sets the caching time to 1 month  
+      expires 1M;
+      
+      # This block sets the caching behavior to 'public'  
+      # and allows all caches, including proxies, to store the response
+      add_header Cache-Control 'public';
+    }
+
+    # This block defines the behavior for error pages  
+    error_page 404 = /404.html;
+
+    # This block redirects requests for specific URLs  
+    rewrite ^/blog http://blog.website.com permanent;
+    
+    # This block redirects any requests to the root directory  
+    location / {
+      # This block redirects the request to the index page   
+      try_files $uri $uri/ /index.html;
+    }
+
+    # This block sets rate limiting for requests from  
+    # specific IP addresses
+    limit_req zone=one burst=50 nodelay;
+  }
+  
+  # This block defines the behavior for the 'images' directory  
+  location /images/ {
+    # This block allows file uploads to the 'images' directory  
+    client_body_in_file_only on;
+    
+    # This block ensures that NGINX ignores requests  
+    # for non-existing files in the 'images' directory  
+    try_files /dev/null @fallback;
+  }
+  # This block defines the behavior for the '/api' route  
+  location /api {
+    # This block sets the proxy settings  
+    proxy_pass http://localhost:8000;
+    
+    # This block sets the proxy to only respond to  
+    # requests from specific IP addresses  
+    allow 10.0.0.1;
+    allow 10.0.0.2;
+    deny all;
+    
+    # This block sets the proxy to cache responses  
+    # on the server for 5 minutes  
+    proxy_cache_bypass $http_pragma;
+    proxy_cache_valid 5m;
+    
+    # This block sets the proxy to use the 'X-Forwarded-For'  
+    # header to pass the client's IP address to the backend server
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    # This block sets the proxy to use the original client  
+    # IP address in the 'X-Real-IP' header
+    proxy_set_header X-Real-IP $remote_addr;
+  }
+
+  # This block defines the behavior for the 'admin' directory  
+  # and requires authentication to access it  
+  location /admin/ {
+    # This block specifies the authentication file  
+    auth_basic_user_file /etc/nginx/admins_passwords;
+    auth_basic 'Admins Only';
+  }
+}

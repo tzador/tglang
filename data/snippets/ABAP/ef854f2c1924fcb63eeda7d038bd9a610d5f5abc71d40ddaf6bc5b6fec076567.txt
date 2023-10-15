@@ -1,0 +1,67 @@
+*&---------------------------------------------------------------------*
+*& Report Z_REPORT_NAME
+*&---------------------------------------------------------------------*
+*& This report generates a sales report for a specific period of time
+*& and calculates the total revenue.
+*&---------------------------------------------------------------------*
+
+REPORT Z_REPORT_NAME.
+
+**************************Selection Screen*****************************
+
+SELECTION-SCREEN BEGIN OF BLOCK selection WITH FRAME.
+PARAMETERS: p_from TYPE d DEFAULT '20210101',
+            p_to TYPE d DEFAULT '20211231'.
+SELECTION-SCREEN END OF BLOCK selection.
+
+*************************Declaration Section***************************
+
+DATA: lv_from TYPE d,
+      lv_to TYPE d,
+      lt_sales TYPE TABLE OF sales,
+      lt_results TYPE TABLE OF results.
+
+*************************Start of Selection****************************
+
+START-OF-SELECTION.
+
+*Get user input for date range
+lv_from = p_from.
+lv_to = p_to.
+
+*Retrieve sales data from database
+SELECT *
+FROM sales
+INTO TABLE lt_sales
+WHERE date BETWEEN lv_from AND lv_to.
+
+*Loop through sales data to calculate total revenue
+LOOP AT lt_sales ASSIGNING FIELD-SYMBOL(<fs_sales>).
+  lt_results-sales_rep = <fs_sales>-sales_rep.
+  lt_results-revenue = lt_results-revenue + <fs_sales>-revenue.
+*Add commission percentage for each sales representative
+  SELECT SINGLE commission
+  INTO lt_results-commission
+  FROM commission_table
+  WHERE sales_rep = <fs_sales>-sales_rep
+  AND rate_type = 'Percentage'.
+
+  IF lt_results-commission IS NOT INITIAL.
+    lt_results-commission_amount = lt_results-commission_amount + lt_results-revenue * lt_results-commission / 100.
+  ELSE.
+    lt_results-commission_amount = lt_results-commission_amount + lt_results-revenue * 5 / 100. "Default commission rate
+  ENDIF.
+
+  APPEND lt_results TO lt_results.
+ENDLOOP.
+
+*Sort results by revenue in descending order
+SORT lt_results BY revenue DESCENDING.
+
+********************************Output*********************************
+
+LOOP AT lt_results ASSIGNING FIELD-SYMBOL(<fs_results>).
+
+  WRITE: / <fs_results>-sales_rep, <fs_results>-revenue, <fs_results>-commission, <fs_results>-commission_amount.
+
+ENDLOOP.

@@ -1,0 +1,69 @@
+pragma solidity ^0.8.0;
+
+interface IToken {
+    function approve(address _spender, uint256 _amount) external returns (bool);
+    function transfer(address _to, uint256 _value) external returns (bool);
+    function transferFrom(address _from, address _to, uint256 _value) external returns (bool);
+    
+    event Approval(address indexed _owner, address indexed _spender, uint256 _value);
+    event Transfer(address indexed _from, address indexed _to, uint256 _value);
+}
+
+contract Token is IToken {
+    string public name;
+    string public symbol;
+    uint8 public decimals;
+    
+    mapping (address => uint256) public balances;
+    mapping (address => mapping (address => uint256)) public allowed;
+    
+    constructor(string memory _name, string memory _symbol, uint8 _decimals, uint256 _totalSupply) {
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+        balances[msg.sender] = _totalSupply;
+        emit Transfer(address(0), msg.sender, _totalSupply);
+    }
+    
+    function totalSupply() public view returns (uint256) {
+        return balances[address(0)];
+    }
+    
+    function balanceOf(address _owner) public view returns (uint256) {
+        return balances[_owner];
+    }
+    
+    function transfer(address _to, uint256 _value) public override returns (bool) {
+        require(_to != address(0), "Recipient cannot be the zero address");
+        require(_value <= balances[msg.sender], "Insufficient balance");
+        
+        balances[msg.sender] -= _value;
+        balances[_to] += _value;
+        emit Transfer(msg.sender, _to, _value);
+        
+        return true;
+    }
+    
+    function approve(address _spender, uint256 _amount) public override returns (bool) {
+        require(_spender != address(0), "Spender cannot be the zero address");
+        
+        allowed[msg.sender][_spender] = _amount;
+        emit Approval(msg.sender, _spender, _amount);
+        
+        return true;
+    }
+    
+    function transferFrom(address _from, address _to, uint256 _value) public override returns (bool) {
+        require(_from != address(0), "Sender cannot be the zero address");
+        require(_to != address(0), "Recipient cannot be the zero address");
+        require(_value <= balances[_from], "Insufficient balance");
+        require(_value <= allowed[_from][msg.sender], "Insufficient allowance");
+        
+        allowed[_from][msg.sender] -= _value;
+        balances[_from] -= _value;
+        balances[_to] += _value;
+        emit Transfer(_from, _to, _value);
+        
+        return true;
+    }
+}

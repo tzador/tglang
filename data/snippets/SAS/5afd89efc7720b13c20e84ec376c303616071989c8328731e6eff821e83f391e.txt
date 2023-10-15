@@ -1,0 +1,60 @@
+/* This code snippet demonstrates a random forest classifier using the SAS software */
+/* Load SAS data set */
+%LET datafile = mydata; /* Specify the name of the datafile */
+data &datafile; /* Create a SAS data set using the specified name */
+    set sashelp.iris; /* Load the SAS sample data set 'iris' */
+run;
+
+/* Data Preprocessing */
+/* Impute missing values - replace missing values with mean of the column */
+proc stdize data=&datafile missing=mean out=mydata_missing;
+    /* 'proc stdize' command for standardizing numeric variables */
+    /* 'data=' specifies the input dataset, '&' indicates macro variable */
+    /* 'missing=' defines the method for handling missing values */
+    /* 'out=' specifies the output dataset name */
+    var SepalLength SepalWidth PetalLength PetalWidth; /* Specify variables to be standardized */
+run;
+
+/* Split data into train and test sets - 70% and 30% respectively */
+proc surveyselect data=mydata_missing out=mydata_train(where=(selected=1)) samprate=0.7;
+    /* 'proc surveyselect' command for sampling data */
+    /* 'data=' specifies the input dataset */
+    /* 'out=' specifies the output dataset name and 'where=' condition */
+    /* 'samprate=' defines the sampling rate, here 0.7 for 70% */
+run;
+data mydata_test(where=(selected=0));
+    /* Create test dataset from remaining 30% of data */
+    set mydata_missing;
+run;
+
+/* Random Forest Classifier */
+proc hpsample data=mydata_train; /* 'proc hpsample' command for hyperparameter tuning */
+    input x1-x4; /* Specify input variables for the model */
+    target Species; /* Specify target variable for the model */
+    /* Define hyperparameters to be tuned */
+    select best(maxdepth,ntree) randomseed=1200 optimize=maxdepth /* best=maximize model performance */
+        maxdepth=(5 to 10 by 1) /* test range of values for maxdepth parameter */
+        ntree=(25 to 100 by 25); /* test range of values for ntree parameter */
+    /* Output the best hyperparameter values */
+    output out=bestparms; /* Creates a dataset named 'bestparams' */
+run;
+
+/* Train a random forest classification model using the optimized hyperparameters */
+proc hpsample data=mydata_train hypertune=bestparms out=rfmodel predict=requests;
+    input x1-x4 target=Species; /* Specify input variables and target variable */
+    maxdepth=bestparms.maxdepth; /* Use optimized maxdepth value */
+    ntree=bestparms.ntree; /* Use optimized ntree value */
+    oob oobpart=none; /* Use out-of-bag observations for error estimation */
+run;
+
+/* Make predictions on the test dataset */
+proc hpds2 data=mydata_test predict=rfmodel out=result;
+    input x1-x4; /* Specify input variables for prediction */
+    score RandomForest; /* Specify the model to use for prediction */
+run;
+
+/* Evaluate model performance */
+proc hpplote data=result;
+    plotx x1-x4 / boxplot(average) /* Plot boxplots of predicted values for each input variable */
+        compare=Species; /* Compare predicted values for each target class */
+run;

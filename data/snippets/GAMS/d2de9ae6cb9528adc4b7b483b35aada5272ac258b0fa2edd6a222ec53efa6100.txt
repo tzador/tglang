@@ -1,0 +1,77 @@
+* This is a code snippet in GAMS 
+
+Sets
+    i   commodities   /coal, iron, steel, wood/
+    j   industries    /ironworks, steelworks, timber, powerplant/
+    k   countries     /US, China, India, Brazil/;
+
+Parameters
+    A(i,j)  input-output coefficients
+    c(j)    production costs
+    d(i,k)  demand levels
+    f(k)    fixed import costs
+    g(k)    maximum attainable production levels
+    p       resource price
+    r       resource availability
+    s(k)    supply limits
+    t(k)    production tariffs;
+
+A(i,j) =  0.3 - 0.4*(ord(i)<>ord(j));
+
+c('ironworks') = 100;
+c('steelworks') = 150;
+c('timber') = 50;
+c('powerplant') = 200;
+
+d(i,'US') = 100 - ord(i)*10;
+d(i,'China') = 50 + ord(i)*5;
+d(i,'India') = 75 + ord(i)*7;
+d(i,'Brazil') = 80 - ord(i)*3;
+
+f('US') = 10;
+f('China') = 15;
+f('India') = 5;
+f('Brazil') = 20;
+
+g('US') = 150;
+g('China') = 200;
+g('India') = 100;
+g('Brazil') = 120;
+
+p = 50;
+r = 500;
+
+s(k) = 200;
+t(k) = 0.1*s(k);
+
+Variables
+    x(i,j)  production levels
+    y(j)    import levels
+    v(i,j)  value added levels
+    w(k)    resource use levels
+    z   total production costs;
+
+Positive Variables x,y,w;
+
+Equations
+    demand(i,j)   fulfilment of demand
+    import_cap(j) import limits
+    production(i,j) production balance
+    total_costs     total production costs
+    resource_use(k) resource availability;
+
+demand(i,j)..  sum{k, A(i,j)*x(i,j)} + y(j) =e= d(i,k);
+
+import_cap(j).. y(j) =l= f(j);
+
+production(i,j).. x(i,j) =e= sum{k, A(i,j)*x(i,j)} + v(i,j);
+
+total_costs.. z =e= sum{j, c(j)*y(j)} + sum{i, sum{j, c(j)*v(i,j)}};
+
+resource_use(k).. sum{i,j, A(i,j)*x(i,j)} =l= r + sum{k, t(k)*w(k)};
+
+Model resource_optimization /all/;
+
+option lp = cplex;
+resource_optimization.optfile = 1;
+solve resource_optimization maximizing z use lp;

@@ -1,0 +1,112 @@
+* File production planning.gms
+Set
+    i   'plants'  / seattle, san-diego /
+    j   'products'  / newspaper, book /
+    t   'time periods' / june, july, august /
+    k   'marks'     / first, second /
+    n   'marks possible Mark one, taken Mark two / ;
+
+Scalar
+    pmake      'production capacity in plant'
+    smake      'storage capacity ";
+
+Parameter
+    a(i)       'capacity of plant'
+               / seattle     600,   
+                 san-diego   400 /
+
+    b(j)       'demand for product'
+               / newspaper   500,   
+                 book        800 /
+
+    cost(i,j)  'transport cost in thousands'
+               /           newspaper  book 
+     seattle       1.5       2.5
+     san-diego     1.8       2.0 / ;
+
+Table f(t,k) 'marks values'
+              Mark one    Mark two
+june          10.5        13.4
+july          9.6         12.3
+august        8.3         11.7 ;
+
+Parameter
+    mark1(n,t) 'marks possible'
+               / markone.june      10.5
+                 markone.july      9.6
+                 markone.august    8.3 /
+    mark2(n,t) 'marks taken'
+               / marktwo.june      13.4
+                 marktwo.july      12.3
+                 marktwo.august    11.7 / ;
+
+Variables
+    x(i,j)     'shipment quantities in cases'
+    z          'total transportation costs in thousands';
+
+Positive Variables
+    x;
+
+Equations
+    costdef    define objective function
+    supply(i)  observe supply limit
+    demand(j)  satisfy demand ;
+
+costdef ..        z  =e=  sum((i,j), cost(i,j)*x(i,j)) ;
+
+supply(i) ..    sum(j, x(i,j))  =l=  a(i) ;
+
+demand ..    sum(i, x(i,j))  =g=  b(j) ;
+
+Model transport /all/ ;
+
+Scalar
+    delta 'tolerance level'
+    eps   'optimality level'
+    fuelcost 'fuel cost'
+Parameter
+    limitval( 'lower/upper levels'
+    qmax(j)  'upper limit'       / book 40 /
+
+Equation
+    eobj  objective function
+    con2(j), lbook, lmsg 'dummy constraints';
+
+eobj ..     e  +  (q(j)+qordeterl)/eps*gammaval*logigraph(-(g-(base(i)*b-better(i))),eps);
+
+con2(j) . . -l+limrange*g*(logrigr(R-1(logorth(2,1.5*(0+1),eps)))-g/a) ;
+
+display 'solution vector X-' ;
+Display climit 'constraint values' ;
+
+Option
+    maxsolve = Solverknit ;
+ 
+Variables 
+    x1 ;
+    
+% fix x1 ;
+Variables 
+    x2 ;`
+
+Equation
+    eq 'a generic equation'
+      alias (x1,x2);
+                
+* Define the objective function, constraint equations and variables
+
+eq..sum(i, a(i)*x1(i)) + b*x2 =e= x1 + q ;
+
+x1.up('one') = x2 ; % Upper bound
+x2.fx('limit') = -5 ; % Fixed value
+
+* Solve for maximum profit
+
+model model /all/ ;
+solve model using nlp maximizing eq ;
+
+* Display the results
+
+scalar profit 'maximise profit';
+eq.l(profit)$(profit =l= scale) = yes;
+display x1.l, x2.l, profit profit;

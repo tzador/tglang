@@ -1,0 +1,50 @@
+# Define a multi-stage build for our application image
+FROM node:14-alpine as base
+
+# Set the working directory to /app
+WORKDIR /app
+
+# Copy package.json and package-lock.json files to the working directory
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Set the NODE_ENV environment variable to production
+ENV NODE_ENV=production
+
+# Copy all the files in the current directory to the working directory
+COPY . .
+
+# Build the application
+RUN npm run build
+
+# Define a second stage for the production image
+FROM base as production
+
+# Set the NODE_ENV environment variable to production
+ENV NODE_ENV=production
+
+# Copy the built application from the previous stage to the current directory
+COPY --from=base /app/dist .
+
+# Expose port 3000 for the application
+EXPOSE 3000
+
+# Define the command to run when the container starts
+CMD ["node", "server.js"]
+
+# Define a third stage for the development image
+FROM base as development
+
+# Set the NODE_ENV environment variable to development
+ENV NODE_ENV=development
+
+# Install development dependencies
+RUN npm install --only=dev
+
+# Expose port 3000 for the application
+EXPOSE 3000
+
+# Define the command to run for development
+CMD ["npm", "run", "dev"]

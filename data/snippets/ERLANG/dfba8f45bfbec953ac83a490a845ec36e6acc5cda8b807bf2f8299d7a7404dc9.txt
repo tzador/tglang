@@ -1,0 +1,98 @@
+-module(maze_solver).
+-export([solve/2]).
+% -module: Defines a module.
+% -export: Specifies the module's interface functions.
+
+% Initialises the grid with obstacles.
+init_grid(Size, Obstacles) ->
+  Start = {1,1},
+  End = {Size, Size},
+  Grid = map:init(Obstacles, no_obstacle, gridSize(Size, Start, End)),
+  {Grid, Start, End}.
+% map:init: Initializes a map with default values and specified size.
+
+% Updates the grid to show an obstacle.
+update_grid(Grid, Obstacle) ->
+  maps:put(Obstacle, obstacle, Grid).
+% maps:put: Updates the value of a key in a map.
+
+% Defines a custom data type for representing a cell in the maze.
+-record(cell, {x::integer(), y::integer(), parent::cell(), cost::integer(), heuristic::integer()}).
+
+% Uses the A* algorithm to solve the maze.
+% Takes in the initial grid and the start and end coordinates.
+solve(Grid, Start, End) ->
+    ClosedList = [],
+    OpenList = [Start],
+    Parents = maps:new(),
+    Costs = maps:from_list([{Start, 0}]),
+    Heuristics = maps:from_list([{Start, abs(End#cell.x - Start#cell.x) + abs(End#cell.y - Start#cell.y)}]),
+    % Maps are used to store the lists and values needed for the algorithm.
+    while loop(ClosedList, OpenList, Parents, Costs, Heuristics, End) do ok end,
+    % Runs the algorithm until a final path is found.
+
+% Main loop for the A* algorithm.
+% Uses the closed list, open list, parents, costs, and heuristics to determine the next step.
+loop(ClosedList, OpenList, Parents, Costs, Heuristics, End) ->
+    % Gets the cell with the lowest cost in the open list.
+    Cur = lists:min(OpenList, fun(X, Y) -> get_heuristic(X, Y, Heuristics) end),
+    % Adds this cell to the closed list.
+    Closed = [Cur|ClosedList],
+    % Removes the current cell from the open list.
+    Open = lists:delete(Cur, OpenList),
+    % If the end cell is found, return the path.
+    if Cur == End -> return make_path(Cur, Parents);
+    % Otherwise, expand the cell and add its neighbors to the open list.
+    true -> Neighbors = expand_cell(Cur, Closed, Grid),
+            add_neighbors(Neighbors, Cur, End, Open, Closed, Parents, Costs, Heuristics)
+    end.
+% lists:min: Returns the smallest element in a list.
+% lists:delete: Removes an element from a list.
+% if...then...else: Conditional statement.
+% return: Returns a value.
+% expand_cell: Function that expands a cell and returns its neighbors.
+% add_neighbors: Function that adds neighbors to the open list and updates the necessary maps with their values.
+
+% Function to calculate the heuristic value for a cell.
+get_heuristic(Cell, Target, Heuristics) ->
+    % Calculates the absolute distance between the cell and the target.
+    abs(Target#cell.x - Cell#cell.x) + abs(Target#cell.y - Cell#cell.y) +
+    % And adds the current cost and heuristic values for the cell.
+    maps:get(Cell, cost, Heuristics) + maps:get(Cell, heuristic, Heuristics).
+% maps:get: Gets the value of a key in a map.
+
+% Creates the final path by tracing back the parents of each cell.
+make_path(Cell, Parents) ->
+    % Checks if the current cell has a parent.
+    case maps:get(Cell, parent, Parents) of
+    % If it does, recursively call make_path to get its parent and add it to the front of the path.
+    Parent when is_record(Parent, cell) -> [Cell|make_path(Parent, Parents)];
+    % If it doesn't, we have reached the start cell and can return the final path.
+    _ -> [Cell]
+    end.
+
+% Expands a cell and returns its non-obstacle neighbors.
+expand_cell(Cell, ClosedList, Grid) ->
+    % Gets the possible movements from the current cell.
+    Movements = lists:filtermap(fun(X) -> check_movement(X, Cell, ClosedList, Grid) end, [{0,-1},{-1,0},{1,0},{0,1}]),
+    % Gets the coordinates of the resulting neighbors.
+    lists:map(fun({X, Y}) -> Cell#cell{x= X, y= Y} end, Movements).
+% lists:filtermap: Filters a list and applies a function to its elements.
+% lists:map: Applies a function to each element in a list and returns a new list.
+
+% Checks if a specific movement from the current cell results in a valid neighbor.
+check_movement(Direction, Cell, ClosedList, Grid) ->
+    % Calculates the coordinates of the potential neighbor.
+    X = Cell#cell.x + hd(Direction),
+    Y = Cell#cell.y + hd(lists:nth(2, Direction)),
+    % Checks if the neighbor is within the bounds of the grid and is not an obstacle or already in the closed list.
+    if X > 0 andalso X =< map:size(Grid) andalso Y > 0 andalso Y =< map:size(Grid) andalso
+       maps:get({X, Y}, Grid) /= obstacle andalso not lists:member({X, Y}, ClosedList) ->
+        % If all conditions are met, return the coordinates of the neighbor.
+        {X, Y};
+    % Otherwise, return false.
+    _ -> false end.
+% hd: Returns the head of a list.
+% lists:nth: Returns the element at a specific index in a list.
+% map:size: Returns the size of a map.
+% lists:member: Checks if an element is a member of a list.

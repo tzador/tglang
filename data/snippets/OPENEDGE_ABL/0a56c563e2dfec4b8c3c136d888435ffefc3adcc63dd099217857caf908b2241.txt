@@ -1,0 +1,37 @@
+/* This code snippet demonstrates how to create a multi-row and multi-column dynamic query in OPENEDGE ABL */
+
+/* Define the query object and set the initial row and column indices */
+DEFINE QUERY q1 FOR Customer, Order.
+QUERY-ROW q1 = FIRST-ROW.
+QUERY-COLUMN q1 = FIRST-COLUMN.
+
+/* Add the fields to be selected in the query */
+ADD-FIRST(q1, "Name").
+ADD(q1, "OrderNum").
+ADD(q1, "OrderDate").
+ADD(q1, "TotalAmount").
+
+/* Set up the WHERE clause for the query */
+BIGLOB EMPTY cWhereClause.
+ASSIGN cWhereClause = "Customer.Cust-Num = Order.Cust-Num AND Order.OrderDate > TODAY - 30".
+
+/* Set up the dynamic WHERE clause using a DO BLOCK */
+DO cWhereClause:
+    ASSIGN cWhereClause = cWhereClause + "AND Order.TotalAmount > 1000".
+    QUERY-PREPARE(q1, cWhereClause).
+END.
+
+/* Execute the query and retrieve the results */
+QUERY-OPEN(q1).
+REPEAT:
+
+    /* Move to the next row and retrieve the values for each field in the current row */
+    QUERY-NEXT(q1).
+    DISPLAY "Customer Name: " query q1:FIRST-ROW:FIRST-COLUMN FORMAT "x(50)" SKIP(1).
+    DISPLAY "Order Number: " query q1:FIRST-ROW:NEXT-COLUMN FORMAT "9(10)" SKIP(1).
+    DISPLAY "Order Date: " query q1:FIRST-ROW:NEXT-COLUMN FORMAT "99/99/9999" SKIP(1).
+    DISPLAY "Total Amount: " query q1:FIRST-ROW:NEXT-COLUMN FORMAT "zzzzzzz.99" SKIP(2).
+END.
+
+/* Close the query once all the results have been retrieved */
+QUERY-CLOSE(q1).

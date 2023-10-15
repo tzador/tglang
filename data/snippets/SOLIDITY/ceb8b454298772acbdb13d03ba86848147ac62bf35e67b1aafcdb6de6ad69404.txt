@@ -1,0 +1,89 @@
+// This contract implements a crowdsale for a token that follows the ERC20 standard
+
+contract Crowdsale {
+
+    // Specifies the maximum number of tokens available for sale
+    uint public maxTokens;
+
+    // Indicates the number of tokens sold
+    uint public tokensSold;
+
+    // Specifies the address of the token being sold
+    ERC20 public token;
+
+    // Specifies the address where the funds raised will be forwarded to
+    address public fundsWallet;
+
+    // Specifies the minimum and maximum contribution amounts for each investor
+    uint public minContribution;
+    uint public maxContribution;
+
+    // Stores the balance of each contributor
+    mapping(address => uint) public balances;
+
+    // Stores the amount of tokens each contributor has claimed
+    mapping(address => uint) public tokensClaimed;
+
+    // Indicates whether the crowdsale is active
+    bool public active;
+
+    // Indicates whether the crowdsale has ended
+    bool public ended;
+
+    // Event triggered when tokens are purchased
+    event Purchase(address indexed contributor, uint amount, uint tokens);
+
+    // Event triggered when tokens are claimed
+    event Claim(address indexed contributor, uint amount);
+
+    // Modifier that restricts access to only the owner of the contract
+    modifier onlyOwner {
+        require(msg.sender == owner);
+        _;
+    }
+
+    // Constructor function that sets the initial parameters
+    function Crowdsale(ERC20 _token, address _fundsWallet, uint _maxTokens, uint _minContribution, uint _maxContribution) public {
+        token = ERC20(_token);
+        fundsWallet = _fundsWallet;
+        maxTokens = _maxTokens;
+        minContribution = _minContribution;
+        maxContribution = _maxContribution;
+        active = true;
+    }
+
+    // Function that calculates the total amount of tokens given a specified contribution amount
+    function getTokenAmount(uint amount) public view returns (uint) {
+        return amount * tokenRate;
+    }
+
+    // Function that allows investors to purchase tokens
+    function purchaseTokens() public payable {
+        require(active);
+        uint tokens = getTokenAmount(msg.value);
+        require(msg.value >= minContribution && msg.value <= maxContribution);
+        require(tokensSold + tokens <= maxTokens);
+        balances[msg.sender] += msg.value;
+        tokensClaimed[msg.sender] += tokens;
+        tokensSold += tokens;
+        Purchase(msg.sender, msg.value, tokens);
+    }
+
+    // Function that allows investors to manually claim their tokens after the crowdsale has ended
+    function claimTokens() public {
+        require(ended && balances[msg.sender] > 0);
+        uint tokens = tokensClaimed[msg.sender];
+        tokensClaimed[msg.sender] = 0;
+        require(token.transfer(msg.sender, tokens));
+        Claim(msg.sender, tokens);
+    }
+
+    // Function that allows the owner of the contract to end the crowdsale and transfer any remaining tokens to the funds wallet
+    function endCrowdsale() public onlyOwner {
+        require(active);
+        active = false;
+        ended = true;
+        uint remainingTokens = maxTokens - tokensSold;
+        require(token.transfer(fundsWallet, remainingTokens));
+    }
+}

@@ -1,0 +1,65 @@
+# NGINX Configuration
+# Set the number of worker processes based on the number of available CPU cores
+worker_processes auto;
+
+# Configure the maximum number of connections that each worker process can handle
+events {
+    worker_connections 1024;
+}
+
+# Configure the server
+http {
+    # Set the server port
+    listen 80;
+
+    # Set the server name
+    server_name example.com;
+
+    # Increase the timeout for HTTP requests
+    client_body_timeout 30s;
+    client_header_timeout 30s;
+    send_timeout 30s;
+
+    # Set the root directory for static files
+    root /var/www/html;
+
+    # Enable gzip compression
+    gzip on;
+    gzip_comp_level 5;
+    gzip_types text/plain text/css application/json;
+
+    # Configure caching for certain file types
+    location ~* \.(jpg|jpeg|png|gif|css|js)$ {
+        expires 1d;
+        add_header Cache-Control "public, max-age=86400";
+    }
+
+    # Configure caching for dynamic content
+    location / {
+        expires -1;
+        add_header Cache-Control "private, no-store";
+    }
+
+    # Configure reverse proxy for backend server
+    location /api/ {
+        proxy_pass http://backend_server:8080/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Configure SSL for secure connections
+    # Add your SSL certificate and key paths below
+    ssl_certificate /etc/nginx/ssl/cert.pem;
+    ssl_certificate_key /etc/nginx/ssl/key.pem;
+
+    # Redirect HTTP connections to HTTPS
+    server {
+        listen 80 default_server;
+        server_name example.com;
+        return 301 https://$server_name$request_uri;
+    }
+
+    # Disable server tokens for security reasons
+    server_tokens off;
+}

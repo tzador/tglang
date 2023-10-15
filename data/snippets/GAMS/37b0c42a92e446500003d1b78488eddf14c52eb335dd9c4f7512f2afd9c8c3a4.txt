@@ -1,0 +1,74 @@
+*$Title "Example model using sets and data"
+
+Sets
+i Plants   / p1*p5/
+j Products / pr1*pr6/ ;
+
+Parameters
+
+u0(i) Prprocessing capacity of plants(i)
+ "Processing capacity of plants";
+p(j) Production profit per unit of product(j)
+ "Profit of producing one unit of product";
+d(j) Demand of products(j)
+ "Demand for each product";
+f(j) Fixed cost of producing products(j)
+ "Fixed cost of producing products";
+M Set of products with positive profit;
+M(j) $(p(j) > 0);
+
+Variables
+x(j) Production levels
+ "Amount of each product produced";
+z Total profit;
+
+Positive Variable x;
+
+Equations
+Cost Objective
+ Cost function;
+Export Objective
+ Profit function;
+Demand Constraint
+ Order all products
+;
+Total_Profit First Objective
+ Cumulative profit;
+
+Cost_Objective.. z =e= sum(j, p(j)*x(j) + f(j));
+
+Export_Objective.. z =e= sum(j, (p(j)-f(j))*x(j));
+
+Demand_Constraint(j).. x(j) =g= d(j);
+
+Order(j).. x(j) =l= 0;
+
+Total_Profit(minimize).. z;
+
+Model Production_Profit_Exporting /all/;
+
+solve Production_Profit_Exporting using lp min z;
+
+$if NOT %gams.cplex% $abort 'This model requires the CPLEX solver';
+
+*Mandatory equations cannot be ignored
+Set M(j) 'indicates which products have positive profit'
+      /pr1*pr6/ ;
+
+*Mandatory constraints cannot be ignored
+nonl M Constraint
+Total profit;
+
+Mandatory Cost
+Nonlinear
+Option NLP = CPLEX;
+
+*$Abort the solution if it failed
+$if not %errorlevel% == 0 $abort There was an error in the optimizer
+
+Display Export - 0 + 10.p;
+
+x.fx(j) = 0;
+Display Fixed Variables - 0.p;
+x.fx(j) = .;
+Display Variables - 0.p;

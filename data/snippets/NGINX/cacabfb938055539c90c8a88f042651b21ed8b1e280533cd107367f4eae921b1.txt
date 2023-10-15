@@ -1,0 +1,76 @@
+#NGINX Config File
+
+#Global Configuration
+user www-data;
+worker_processes auto;
+error_log /var/log/nginx/error.log;
+
+#Load Module Configuration
+load_module "modules/ngx_http_geoip_module.so";
+load_module "modules/ngx_http_perl_module.so";
+
+#Events
+events {
+  #Maximum number of connections
+  worker_connections 1024;
+}
+
+#HTTP Server Block
+http {
+
+  #Global Configurations
+  server_names_hash_bucket_size 64;
+  types_hash_max_size 2048;
+
+  #Log Configuration
+  log_format main '$remote_addr - $remote_user [$time_local] '
+                '"$request" $status $body_bytes_sent '
+                '"$http_referer" "$http_user_agent"';
+
+  #NGINX Variables Configuration
+  geoip_country /path/to/GeoIP.dat;
+  geoip_city /path/to/GeoLiteCity.dat;
+  perl_modules "lib/perl";
+  perl_require foo.pl;
+  perl_set $foo 'sub { return "bar" }';
+
+  #Server Block
+  server {
+    #Server Name
+    server_name example.com;
+
+    #HTTPS Configuration
+    listen 443 ssl;
+    ssl_certificate /etc/nginx/cert.pem;
+    ssl_certificate_key /etc/nginx/key.pem;
+
+    #Server Routes Configuration
+    location / {
+      #Proxy Configuration
+      proxy_pass http://127.0.0.1:3000;
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+      #Caching Configuration
+      proxy_cache_path /var/cache/nginx keys_zone=one:10m;
+      proxy_cache_key "$scheme$request_method$host$request_uri";
+
+      #Authentication Configuration
+      auth_basic "Restricted Content";
+      auth_basic_user_file /etc/nginx/.htpasswd;
+    }
+
+    #Error Pages Configuration
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html {
+      root /var/www/errors;
+    }
+
+    #Redirects Configuration
+    if ($uri = /redirect) {
+      rewrite ^/(.*)$ http://www.example.com/$1 permanent;
+    }
+  }
+}

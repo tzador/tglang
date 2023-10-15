@@ -1,0 +1,71 @@
+class Monster extends Actor
+ //This is a class called "Monster" that inherits from "Actor".
+
+    placeable; //This means the class can be placed in the game world.
+
+    config(StoryMode) //This is a configuration for the class to be used in Story Mode.
+
+        //Class variables
+        var int Health; //An integer variable for the monster's health
+        var float Speed; //A float variable for the monster's movement speed
+        var bool CanAttack; //A boolean variable to determine if the monster can attack
+        var Sound MonsterSound; //A sound variable to play when the monster is encountered
+
+    defaultproperties //This section defines the default properties for the class
+
+        Health= 100; //Set the default value for the health variable to 100
+        Speed = 5.0; //Set the default value for the speed variable to 5.0
+        CanAttack= True; //Set the default value for the CanAttack variable to True
+        
+        Begin Object Class=StaticMeshComponent Name=MyMesh //Create a Static Mesh Component called "MyMesh"
+            StaticMesh=StaticMesh'PkgName.MeshName' //Set the static mesh to be used for the actor
+            Scale= 1.0 //Set the scale of the static mesh
+        End Object
+        Components.Add(MyMesh); //Add the Static Mesh Component to the actor
+        
+        Begin Object Class=BoxCollisionComponent Name=Collision //Create a Box Collision Component called "Collision"
+            CollisionRadius=150.0 //Set the radius of the collision
+        End Object
+        CollisionComponent=Collision; //Set the Collision Component for the actor
+        
+    function MoveForward(float InVal)
+    //This function allows the monster to move forward based on a given value
+
+        Velocity = Vect(0, 0, 1) * Speed * InVal; //Calculate the velocity vector based on the given value and speed
+        SetPhysics(PHYS_Falling); //Set the physics for the actor to falling
+        //Note: PHYS_Falling is one of many predefined physics types
+        
+    function OnHit(Actor OtherActor, PrimitiveComponent OtherComp, Vector HitLocation, Vector HitNormal)
+    //This function is called when the monster is hit by another actor
+
+        if (CanAttack) //Check if the monster can attack
+            Damage(OtherActor, 20, Location, HitNormal); //If it can, damage the other actor by 20 at the hit location and direction
+            if (OtherActor.Health <= 0) //Check if the other actor's health is now less than or equal to 0
+                OtherActor.Destroy(); //If so, destroy the other actor
+            
+    event Touch(Actor OtherActor, PrimitiveComponent OtherComp, Vector HitNormal)
+    //This event is triggered when the monster touches another actor
+
+        if (OtherActor.IsA('Player')) //Check if the other actor is of class "Player"
+            MonsterSound.Play(); //If so, play the monster sound
+        
+    state SeePlayer //This is a state for when the monster sees the player
+    //Note: States are used to define different behavior or actions for an actor depending on its current state.
+
+        Begin //This is the beginning of the state
+            //Here, we can define any actions or events that should happen when the state is entered.
+            bNoMovement= False; //Enable movement for the monster
+            bNoWeapon= False; //Enable weapon use for the monster
+
+            //We can also define a "loop" section for actions that should be repeated while in this state.
+            beginloop
+                if (Player!=None) //If the player exists in the game world
+                    SetFocus(Player); //Set the player as the focus for the monster
+                    if (VectDist(Player.Location, Location) < 1000) //Check if the player is within a certain distance
+                        Monster.MoveToward(Player.Location); //If so, move the monster towards the player's location
+                        if (Player IsWithinPickupRange(Location, PickupRadius)) //Check if the player is within a certain pickup radius
+                            Monster.CollectPickups(); //If so, collect any pickups within the radius
+            endloop //End of the "loop" section
+        End //End of the state
+
+    end //End of the class

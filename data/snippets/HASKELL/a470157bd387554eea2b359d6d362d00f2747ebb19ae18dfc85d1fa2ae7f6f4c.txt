@@ -1,0 +1,65 @@
+{-# LANGUAGE FlexibleContexts #-}
+module Main where
+import Data.Char (ord, chr)
+import Control.Monad.Reader (Reader, runReader, asks)
+import Control.Monad.Writer (Writer, runWriter, tell)
+import Data.List (unfoldr)
+import Control.Lens (over, lens)
+import Data.Map (Map, (!), insert)
+import Control.Arrow ((>>>))
+
+type RomanNumeral = Writer String Int
+
+-- | Converts an integer to a Roman numeral string.
+toRoman :: Int -> String
+toRoman = toRoman' . runReader arabicToRomans
+
+-- | Allows the Writer monad to use function composition.
+wcomp :: (a -> b) -> Writer c a -> Writer c b
+wcomp f = over _2 f
+
+-- | The current value of the Roman numeral being constructed is
+-- written to the Writer and the remaining integer is returned.
+nextRoman :: Int -> RomanNumeral Int
+nextRoman n = tell (toRomanChar n) >> return (n - toRomanValue n)
+
+toRoman' :: Map Int String -> Int -> String
+toRoman' m = flip (m !) 1 . snd . runWriter . unfoldr (nextRoman' m)
+
+-- | Converts an integer to a list of Roman numerals.
+arabicToRomans :: Map Int String
+arabicToRomans = foldl (\m (r, n) -> insert n r m) empty
+  [ ( "I", 1 )
+  , ( "V", 5 )
+  , ( "X", 10 )
+  , ( "L", 50 )
+  , ( "C", 100 )
+  , ( "D", 500 )
+  , ( "M", 1000 )]
+
+-- | Converts an integer to a single Roman numeral character.
+toRomanChar :: Int -> String
+toRomanChar = chr . (+ 0x2160) . (`div` 100) . (* 100) . ord . minimum . show
+
+-- | Converts an integer to a corresponding value in Roman numerals.
+toRomanValue :: Int -> Int
+toRomanValue = flip (m !) undefined . runReader numToRomanValue
+  where
+     m = Prelude.foldr (\x acc -> insert (chr x) (10 ^ ceiling x) acc) empty
+       $ Prelude.map ord
+       $ "-QQCCMMXXI"
+
+-- | Converts an integer to a list of its digits.
+digits :: Int -> [Int]
+digits = map (\n -> n - (10 * n `div` 10)) . takeWhile (> 0) . iterate (`div` 10)
+
+-- | Converts an integer to a list of its Roman numeral characters.
+toRomanChars :: Int -> [Char]
+toRomanChars = Prelude.map toRomanChar . digits
+
+-- | Converts an integer to a list of factors that correspond to
+-- the possible values used for its Roman numerals.
+numToRomanValue :: Int -> Map Char Int
+numToRomanValue n =
+  let s = show n
+   in fromList $ zip s $ [10 ^ floor n, 10 * 10 ^ ceiling n | n <- map ord $ s ++ "XX"]

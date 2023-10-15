@@ -1,0 +1,47 @@
+defmodule Bank do
+
+  # Set up a supervisor for the bank
+  use Supervisor 
+  
+  # Define a list of bank accounts
+  @bank_accounts [
+    %{
+      account_number: "123456789",
+      balance: 5000,
+      owner_name: "John Doe"
+    },
+    %{
+      account_number: "987654321",
+      balance: 10000,
+      owner_name: "Jane Doe"
+    }
+  ]
+
+  # Define a worker for handling transactions
+  def start_link do
+    Supervisor.start_link(__MODULE__, @bank_accounts, name: Bank)
+  end
+
+  # Define the transaction handling logic
+  def handle_transaction(account_number, amount) do
+    
+    # Find the account in the bank accounts list
+    account = Enum.find(@bank_accounts, fn acc -> acc.account_number == account_number end)
+    
+    # If the account exists, update the balance
+    if account do
+      updated_account = %{account | balance: account.balance + amount}
+      
+      # Replace the old account with the updated one in the list
+      updated_bank_accounts = Enum.map(@bank_accounts, fn acc -> if acc.account_number == account_number, do: updated_account, else: acc end)
+      
+      # Inform the supervisor about the updated bank accounts
+      Supervisor.update_child(Bank, updated_bank_accounts)
+      :ok
+    else
+      # If the account does not exist, return an error
+      :error
+    end
+  end
+
+end

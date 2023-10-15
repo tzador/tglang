@@ -1,0 +1,98 @@
+//Contract to store and update employee information
+pragma solidity ^0.8.0;
+
+//Interface to interact with other smart contracts
+interface EmployeeDirectory{
+    function addEmployee(string memory name) external;
+    function updateEmployee(string memory name) external returns (bool);
+    function removeEmployee(string memory name) external returns (bool);
+}
+
+//Contract to handle employee management
+contract EmployeeManagement{
+
+    //Struct to store employee information
+    struct Employee{
+        string name;
+        uint age;
+        uint salary;
+        address employeeID;
+        bool isActive;
+    }
+
+    //Mapping to store employee details by employee ID
+    mapping(address => Employee) public employees;
+
+    //Event to track employee addition
+    event EmployeeAdded(address employeeID, string name);
+
+    //Event to track employee removal
+    event EmployeeRemoved(address employeeID, string name);
+
+    //Modifier to check if person calling the function is an HR
+    modifier onlyHR(){
+        require(msg.sender == hrAddress, "Only HR can call this function");
+        _;
+    }
+
+    //Variable to store HR address
+    address hrAddress;
+
+    //Function to add new employee
+    function addEmployee(string memory name, uint age, uint salary, address employeeID) external onlyHR{
+        //Check if employee already exists
+        require(employees[employeeID].employeeID != address(0), "Employee already exists");
+        
+        //Add employee details to mapping
+        employees[employeeID] = Employee({
+            name: name,
+            age: age,
+            salary: salary,
+            employeeID: employeeID,
+            isActive: true
+        });
+
+        //Emit event
+        emit EmployeeAdded(employeeID, name);
+    }
+
+    //Function to update employee details
+    function updateEmployee(string memory name, uint age, uint salary) external onlyHR returns (bool){
+        //Check if employee exists
+        require(employees[msg.sender].employeeID != address(0), "Employee does not exist");
+
+        //Update employee details
+        employees[msg.sender].name = name;
+        employees[msg.sender].age = age;
+        employees[msg.sender].salary = salary;
+
+        return true;
+    }
+
+    //Function to remove employee
+    function removeEmployee(address employeeID) external onlyHR returns (bool){
+        //Check if employee exists
+        require(employees[employeeID].employeeID != address(0), "Employee does not exist");
+
+        //Mark employee as inactive
+        employees[employeeID].isActive = false;
+
+        emit EmployeeRemoved(employeeID, employees[employeeID].name);
+        return true;
+    }
+
+    //Function to transfer employee to another directory
+    function transferEmployee(EmployeeDirectory directory, address employeeID) external onlyHR returns (bool){
+        //Check if employee exists
+        require(employees[employeeID].employeeID != address(0), "Employee does not exist");
+
+        //Call function in another smart contract to transfer employee
+        directory.addEmployee(employees[employeeID].name);
+
+        //Remove employee from this contract
+        employees[employeeID].isActive = false;
+
+        emit EmployeeRemoved(employeeID, employees[employeeID].name);
+        return true;
+    }
+}

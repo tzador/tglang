@@ -1,0 +1,67 @@
+*&---------------------------------------------------------------------*
+*& Report  Z_SAMPLE_REPORT
+*&---------------------------------------------------------------------*
+*
+* The main program for Z_SAMPLE_REPORT
+*
+
+REPORT Z_SAMPLE_REPORT.
+
+*----------------------------------------------------------------------*
+*  Declarations
+*----------------------------------------------------------------------*
+
+TABLES: MARA, MARC.
+
+DATA: lv_matnr TYPE mara-matnr,
+      lv_maktx TYPE mara-maktx,
+      lv_werks TYPE marc-werks,
+      lv_vtweg TYPE marc-vtweg.
+
+*----------------------------------------------------------------------*
+*  Selection screen
+*----------------------------------------------------------------------*
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE text-001.
+
+PARAMETERS:
+  p_matnr TYPE mara-matnr, " Material number
+  p_werks TYPE marc-werks, " Plant
+  p_vtweg TYPE marc-vtweg. " Distribution channel
+
+SELECTION-SCREEN END OF BLOCK b1.
+
+*----------------------------------------------------------------------*
+*  Start of main program
+*----------------------------------------------------------------------*
+START-OF-SELECTION.
+
+* If no material number is specified, select all materials
+IF p_matnr IS INITIAL.
+  SELECT matnr
+    UP TO 10 ROWS
+    FROM mara
+    INTO TABLE @DATA(lt_mara).
+ELSE.
+  SELECT SINGLE matnr
+    FROM mara
+    WHERE matnr = @p_matnr
+    INTO @DATA(lv_matnr).
+  IF sy-subrc <> 0.
+    MESSAGE 'Material number not found' TYPE 'E'.
+  ENDIF.
+ENDIF.
+
+* Loop through selected materials and retrieve corresponding data from MARA and MARC tables
+LOOP AT lt_mara ASSIGNING FIELD-SYMBOL(<mara>).
+  SELECT SINGLE maktx
+    FROM mara
+    WHERE matnr = @<mara>-matnr
+    INTO @DATA(lv_maktx).
+  SELECT SINGLE werks vtweg
+    FROM marc
+    WHERE matnr = @<mara>-matnr
+      AND werks = @p_werks
+      AND vtweg = @p_vtweg
+    INTO @DATA(lv_werks, lv_vtweg).
+  WRITE: / <mara>-matnr, lv_maktx, lv_werks, lv_vtweg.
+ENDLOOP.

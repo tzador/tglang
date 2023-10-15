@@ -1,0 +1,81 @@
+{-|
+Dijkstra's algorithm function for finding shortest paths
+from a given source node to all other nodes in a graph.
+This implementation uses a priority queue to efficiently
+select the next node to visit.
+
+The input graph is represented as an adjacency list,
+where the keys are nodes and the values are lists
+of tuples, representing edges in the form of (destination, weight).
+
+The output is a map from nodes to their shortest distance from
+the source node, as well as a map from nodes to their predecessor
+in the shortest path.
+-}
+
+import Data.Map (Map, (!))
+import qualified Data.Map as Map
+import Data.List (delete, minimumBy)
+import Data.Ord (comparing)
+import Data.Maybe (fromJust)
+import Data.Sequence (Seq, (><))
+import qualified Data.Sequence as Seq
+import Data.Foldable (toList)
+
+type Node = Int
+type Weight = Int
+type Edge = (Node, Weight)
+type Graph = Map Node [Edge]
+type DistanceMap = Map Node Weight
+type PredecessorMap = Map Node (Maybe Node)
+type VisitedNodes = [Node]
+type PriorityNode = (Node, Weight)
+
+-- | Computes the shortest paths using Dijkstra's algorithm
+dijkstra :: Graph -> Node -> (DistanceMap, PredecessorMap)
+dijkstra graph source = computeShortestPaths initState
+  where
+    initState :: (DistanceMap, PredecessorMap, Seq PriorityNode, VisitedNodes)
+    initState = (initDistances, initPredecessors, Seq.singleton (source, 0), [])
+    initDistances = Map.fromList $ (source, 0) : [(node, maxBound) | node <- nodes]
+    initPredecessors = Map.fromList $ (source, Nothing) : [(node, Nothing) | node <- nodes]
+    nodes = Map.keys graph
+
+-- | Computes the shortest paths using Dijkstra's algorithm
+computeShortestPaths :: (DistanceMap, PredecessorMap, Seq PriorityNode, VisitedNodes)
+                     -> (DistanceMap, PredecessorMap)
+computeShortestPaths (distances, predecessors, queue, visited)
+  | Seq.null queue = (distances, predecessors)
+  | otherwise = computeShortestPaths (updatedDistances, updatedPredecessors, updatedQueue, updatedVisited)
+  where
+    (nextNode, distance) = Seq.index queue 0
+    updatedVisited = nextNode : visited
+    updatedQueue = Seq.drop 1 queue >< newNodes
+    newNodes = Seq.fromList [(node, distance + weight) | (node, weight) <- toList adjacentEdges, not (node `elem` visited)]
+    adjacentEdges = fromJust $ Map.lookup nextNode graph
+    updatedPredecessors = foldr updatePredecessor predecessors $ toList adjacentEdges
+    updatedDistances = if distance < distances ! nextNode
+                       then Map.insert nextNode distance distances
+                       else distances
+
+-- | Updates the predecessor map for a given edge
+updatePredecessor :: Edge -> PredecessorMap -> PredecessorMap
+updatePredecessor (node, weight) predMap = if weight < currentDistance
+                                       then Map.insert node (Just prevNode) predMap'
+                                       else predMap'
+  where
+    currentDistance = distances ! node
+    prevNode = fromJust $ Map.lookup node predMap
+    predMap' = Map.insert node (Just prevNode) predMap
+    distances = fromJust $ Map.lookup prevNode distMap
+    distMap = Map.insert node weight initialMap
+    initialMap = Map.insert prevNode 0 initDistMap
+    initDistMap = Map.fromList $ [(node, maxBound) | node <- nodes]
+    nodes = Map.keys predMap
+
+-- Example graph
+testGraph :: Graph
+testGraph = Map.fromList [(1, [(2, 3), (3, 4)]), (2, [(3, 6), (4, 5)]), (3, [(4, 7), (5, 8)]), (4, [(5, 9)])]
+
+-- Example output
+-- (fromList [(1,0),(2,3),(3,4),(4,8),(5,16)],fromList [(1,Nothing),(2,Just 1),(3,Just 2),(4,Just 2),(5,Just 4)])

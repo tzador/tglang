@@ -1,0 +1,64 @@
+// Declaring variables
+PERIOD DateFrom, DateTo;
+STRING ManagerCode, CustomerCode;
+
+// Setting variable values
+ManagerCode = "MNG001";
+CustomerCode = "CST001";
+DateFrom = "01.01.2021";
+DateTo = "31.01.2021";
+
+// Creating query
+Query = New Query;
+Query.Text = "SELECT ID, Name " +
+	"FROM Orders " +
+	"WHERE Manager = &ManagerCode " +
+		"AND Customer = &CustomerCode " +
+		"AND Date >= &DateFrom " +
+		"AND Date <= &DateTo";
+
+// Executing query
+OrdersTable = Query.Execute();
+
+// Creating temporary table
+TempTable = OLAPChartMngr.CreateTable();
+
+// Adding dimensions
+Dimension = TempTable.Dimensions.Add();
+Dimension.Kind = GroupingDimension;
+Dimension.Type = DimensionType.Date;
+Dimension.Name = "Month";
+Dimension.Data = OrdersTable.Data;
+Dimension.Grouping = GroupingYearMonth;
+
+// Adding measures
+Measures = TempTable.Measures.Add();
+Measures.Name = "Total Amount";
+Measures.Type = MeasureType.Money;
+Measures.Data = OrdersTable.Data;
+Measures.Expression = "Sum";
+Measures.Format = "#,##0.00";
+
+// Generating OLAP chart
+Chart = TempTable.GenerateOLAPChart();
+
+// Displaying chart on form
+FormMngr = New FormManager;
+Form = FormMngr.CreateForm();
+ChartCtrl = Form.AddControl(Chart);
+ChartCtrl.Name = "Orders By Month";
+ChartCtrl.Width = 600;
+ChartCtrl.Height = 400;
+ChartCtrl.Position = LeftTop;
+Form.Open();
+
+// Printing chart to PDF
+PDFDocument = New PDFDocument;
+PDFDocument.Name = "Orders By Month";
+PDFDocument.FileName = "OrdersByMonth.pdf";
+PDFDocument.Print(Chart);
+
+// Exporting data to Excel
+ExcelWriter = New ExcelWriter;
+ExcelWriter.FileName = "OrdersByMonth.xlsx";
+ExcelWriter.Export(TempTable);

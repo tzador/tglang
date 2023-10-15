@@ -1,0 +1,68 @@
+plugins {
+    id 'java-library' // specifies that this project is a Java library
+    id 'com.github.johnrengelman.shadow' version '7.0.0' // adds the Shadow plugin for creating a fat jar
+}
+
+group 'com.example' // specifies project group
+
+// defines project dependencies
+dependencies {
+    implementation 'org.apache.commons:commons-lang3:3.8.1' // adds Apache Commons Lang library
+    compileOnly 'org.projectlombok:lombok:1.18.6' // adds Lombok library
+    testImplementation 'junit:junit:4.12' // adds JUnit testing library
+}
+
+// specifies repositories to search for dependencies
+repositories {
+    mavenCentral() // adds Maven Central repository
+    jcenter() // adds JCenter repository
+}
+
+// specifies project configurations
+configurations {
+    compileClasspath // specifies classpath for compile-time dependencies
+    shadow // specifies classpath for Shadow plugin
+}
+
+// defines main source set
+sourceSets {
+    main { // specifies main source set
+        java { // specifies Java source directory
+            srcDirs = ['src/main/java'] // specifies source directory
+        }
+    }
+}
+
+// configures testing tasks
+test {
+    useJUnit() // configures to use JUnit for testing
+    testLogging { // configures test logging
+        events 'passed', 'skipped', 'failed', 'standardOut', 'standardError' // specifies events to be logged
+        outputs.upToDateWhen { false } // prevents tests from being considered up-to-date
+    }
+}
+
+// task for creating a fat jar using the Shadow plugin
+task shadowJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
+    configurations = [project.configurations.shadow] // specifies the shadow configuration
+    baseName = 'my-library' // specifies the name of the jar file
+    classifier = null // clears any existing classifier
+    version = '1.0-SNAPSHOT' // specifies the version of the jar file
+    manifest { // specifies the jar manifest
+        attributes 'Implementation-Title': 'My Library', // specifies implementation title
+                   'Implementation-Version': version, // specifies implementation version
+                   'Main-Class': 'com.example.MyLibraryApplication' // specifies the main class
+    }
+
+    dependencies { // specifies dependencies for the fat jar
+        exclude(group: 'org.projectlombok', module: 'lombok') // excludes Lombok library
+        exclude(group: 'org.junit', module: 'junit') // excludes JUnit library
+    }
+
+    // configure shadowJar task to depend on test task
+    dependsOn test
+    // rename shadowJar task to generateJar
+    doLast {
+        outputJar.archivePath = file("${buildDir}/libs/my-library-${version}.jar") // specifies output path for jar file
+    }
+}

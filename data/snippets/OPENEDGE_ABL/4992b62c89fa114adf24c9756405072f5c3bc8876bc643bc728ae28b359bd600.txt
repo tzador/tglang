@@ -1,0 +1,60 @@
+/* Display a report with sales data for a given date range */
+DEFINE VARIABLE dStartDate AS DATE NO-UNDO.
+DEFINE VARIABLE dEndDate AS DATE NO-UNDO.
+DEFINE VARIABLE cDateRange AS CHARACTER NO-UNDO.
+DEFINE VARIABLE i AS INTEGER NO-UNDO.
+
+/* Get user input for start and end date */
+/* Note: Validation of user input is not shown in this snippet */
+
+DISPLAY "Enter start date (MM/DD/YYYY): " WITH FRAME a.
+UPDATE dStartDate WITH FRAME a COLUMN 30.
+DISPLAY "Enter end date (MM/DD/YYYY): " WITH FRAME b.
+UPDATE dEndDate WITH FRAME b COLUMN 30.
+
+/* Calculate date range */
+cDateRange = STRING(dStartDate, "99/99/9999") + " - " + STRING(dEndDate, "99/99/9999").
+
+/* Create temp-table to hold sales data */
+DEFINE TEMP-TABLE ttSales
+    FIELD sPartNum AS CHARACTER
+    FIELD sPartDesc AS CHARACTER
+    FIELD iQuantity AS INTEGER
+    FIELD dSalesDate AS DATE
+    INDEX idxDate IS PRIMARY dSalesDate.
+
+/* Get sales data from database and fill temp-table */
+FOR EACH ttSales WHERE ttSales.dSalesDate >= dStartDate AND
+    ttSales.dSalesDate <= dEndDate NO-LOCK:
+
+    /* Calculate total quantity for each part */
+    AGGREGATE ttSales BY sPartNum BY sPartDesc BY dSalesDate
+    iQuantity = SUM(ttSales.iQuantity).
+    STORE ttSales.
+
+END.
+
+/* Display report header and column headers */
+DISPLAY "Sales report for " + cDateRange
+    WITH CENTERED 2 DOWN BY 10 NO-UNDO.
+DISPLAY "Part Number" WITH FRAME c COLUMN 1.
+DISPLAY "Part Description" WITH FRAME d COLUMN 20.
+DISPLAY "Quantity" WITH FRAME e COLUMN 40.
+
+/* Loop through temp-table and display sales data */
+FOR EACH ttSales NO-LOCK:
+
+    /* Format date for display */
+    cDate = STRING(ttSales.dSalesDate, "99/99/9999").
+
+    /* Display part number, description, and quantity */
+    DISPLAY ttSales.sPartNum WITH FRAME c COLUMN 1 COLOR ?MEDIUM-BLUE.
+    DISPLAY ttSales.sPartDesc WITH FRAME d COLUMN 20 COLOR ?MEDIUM-BLUE.
+    DISPLAY ttSales.iQuantity WITH FRAME e COLUMN 40 COLOR ?MEDIUM-BLUE.
+
+END.
+
+/* Display report footer with total sales quantity */
+AGGREGATE ttSales BY iQuantity BY sPartNum:
+DISPLAY "Total sales quantity for " + cDateRange + " : " + STRING(iQuantity)
+    WITH FRAME f COLUMN 1 COLOR ?MEDIUM-BLUE.

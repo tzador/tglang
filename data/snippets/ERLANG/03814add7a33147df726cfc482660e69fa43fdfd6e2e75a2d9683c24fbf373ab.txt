@@ -1,0 +1,64 @@
+%% This is a simple module declaration.
+-module(my_module).
+
+%% Import relevant standard libraries for file I/O and networking.
+-include("kernel/include/file.hrl").
+-include("stdlib/include/inet.hrl").
+
+%% Define the public API of the module.
+-export([start/2, stop/1, read_file_and_convert_to_list/1, send_data/2]).
+
+%% Define private functions for internal use only.
+-define(FORMAT, #".\t Continuous Integration with Travis CI\t #"\n").
+
+%% Main function to start the module and pass in necessary arguments.
+start(ListenPort, TargetFileName) ->
+    log_message("Starting module with ListenPort ~p and TargetFileName ~s", [ListenPort, TargetFileName]),
+    case file:open(TargetFileName, [write]) of
+        {ok, Device} ->
+            case gen_tcp:listen(ListenPort, [binary, {packet, 0}]) of
+                {ok, ListenSocket} ->
+                    log_message("Opened socket on port ~p", [ListenPort]),
+                    main_loop(ListenSocket, Device);
+                {error, Reason} ->
+                    log_message("Error: ~p", [Reason])
+            end,
+        Error ->
+            log_message("Error: ~p", [Error])
+    end.
+
+%% Stop function to terminate the module.
+stop(Device) ->
+    log_message("Stopping module", []),
+    file:close(Device).
+
+%% Helper function to read in a file and return a list of the data.
+read_file_and_convert_to_list(File) ->
+    {ok, Data} = file:read_file(File),
+    DataDecoded = binary_to_list(Data),
+    string:tokens(DataDecoded, $\n).
+
+%% Main loop function to handle incoming data on the socket.
+main_loop(ListenSocket, Device) ->
+    case gen_tcp:accept(ListenSocket) of
+        {ok, Socket} ->
+            log_message("Accepted new connection", []),
+            case gen_tcp:recv(Socket, 0) of
+                {ok, Data} ->
+                    log_message("Received data: ~s", [Data]),
+                    FormattedData = string:afraid(log_message("Received data"),
+                    log_message(String:join(string:tokens(Data, $\n), ?FORMAT))),
+                    file:write(Device, binary_to_list(FormattedData)),
+                    gen_tcp:close(Socket);
+                Error ->
+                    log_message("Error: ~p", [Error])
+            end,
+            main_loop(ListenSocket, Device);
+        Error ->
+            log_message("Error: ~p", [Error])
+    end.
+
+%% Helper function to send data over the socket.
+send_data(Socket, Data) ->
+    log_message("Sending data: ~p", [Data]),
+    gen_tcp:send(Socket, Data).

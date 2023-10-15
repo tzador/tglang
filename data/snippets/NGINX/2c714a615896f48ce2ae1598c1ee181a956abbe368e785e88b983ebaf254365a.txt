@@ -1,0 +1,178 @@
+server {
+  # listen on port 80 
+  listen 80;
+  
+  # server name 
+  server_name www.example.com;
+  
+  # location block for root 
+  location / {
+    # proxy everything to port 8080 
+    proxy_pass http://localhost:8080;
+    
+    # proxy HTTP headers
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header Host $http_host;
+    
+    # enable gzip compression 
+    gzip on;
+    
+    # set cache control headers 
+    proxy_cache_bypass $http_pragma;
+    proxy_cache_valid 200 302 2h;
+    proxy_cache_valid 404 1h;
+    
+    # cache settings 
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=cache_one:20m inactive=60m;
+    proxy_cache_key "$scheme$request_method$host$request_uri";
+    
+    # handling errors 
+    proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+    
+    # enable HTTP/2
+    listen 443 ssl http2;
+    
+    # SSL certificate 
+    ssl_certificate /etc/nginx/ssl/www.example.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/www.example.com.key;
+    
+    # set SSL protocols 
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    
+    # enable SSL session cache 
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    
+    # enable OCSP stapling 
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    resolver 8.8.8.8 8.8.4.4 valid=300s;
+    resolver_timeout 5s;
+    
+    # enable HTTP/2 server push 
+    http2_push_preload on;
+    
+    # enable Cloudflare CDN 
+    set_real_ip_from 103.21.244.0/22;
+    set_real_ip_from 103.22.200.0/22;
+    set_real_ip_from 103.31.4.0/22;
+    set_real_ip_from 104.16.0.0/12;
+    set_real_ip_from 108.162.192.0/18;
+    set_real_ip_from 131.0.72.0/22;
+    set_real_ip_from 141.101.64.0/18;
+    set_real_ip_from 162.158.0.0/15;
+    set_real_ip_from 172.64.0.0/13;
+    set_real_ip_from 173.245.48.0/20;
+    set_real_ip_from 188.114.96.0/20;
+    set_real_ip_from 190.93.240.0/20;
+    set_real_ip_from 197.234.240.0/22;
+    set_real_ip_from 198.41.128.0/17;
+    set_real_ip_from 199.27.128.0/21;
+    set_real_ip_from 2400:cb00::/32;
+    set_real_ip_from 2606:4700::/32;
+    set_real_ip_from 2803:f800::/32;
+    set_real_ip_from 2405:b500::/32;
+    set_real_ip_from 2405:8100::/32;
+    
+    # redirect all HTTP requests to HTTPS 
+    if ($scheme = http) {
+        return 301 https://$host$request_uri;
+    }
+    
+    # force www subdomain 
+    if ($http_host != "www.example.com") {
+      rewrite ^(.*)$ https://www.example.com$request_uri permanent;
+    }
+    
+    # disable access to dot files 
+    location ~ /\. {
+      deny all;
+      access_log off;
+      log_not_found off;
+    }
+  }
+  
+  # location block for /api endpoint 
+  location /api {
+    # proxy everything to port 3000 
+    proxy_pass http://localhost:3000;
+    
+    # disable caching 
+    proxy_cache off;
+    
+    # set cache control headers 
+    expires off;
+    proxy_no_cache 1;
+    charset off;
+    
+    # disable gzip compression 
+    gzip off;
+    
+    # set custom headers 
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Server $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    
+    # proxy timeout 
+    proxy_read_timeout 300;
+  }
+  
+  # location block for /admin endpoint 
+  location /admin {
+    # serve static files from /usr/share/nginx/html 
+    alias /usr/share/nginx/html;
+    
+    # disable gzip compression 
+    gzip off;
+    
+    # set custom headers 
+    add_header Allow "GET, POST, OPTIONS" always;
+    add_header Access-Control-Allow-Origin $http_origin always;
+    add_header Access-Control-Allow-Credentials true;
+    
+    # prevent cross-site scripting attacks 
+    set $sanitized_uri $request_uri;
+    if ($request_uri ~ ^/admin/(.*)$) {
+      set $sanitized_uri /admin/$1;
+      proxy_pass http://localhost:3000;
+    }
+    
+    # disable access to dot files 
+    location ~ /\. {
+      deny all;
+      access_log off;
+      log_not_found off;
+    }
+  }
+  
+  # location block for /uploads endpoint 
+  location /uploads {
+    # allow only GET requests 
+    if ($request_method != GET) {
+      return 405;
+    }
+    
+    # serve files from /var/uploads 
+    alias /var/uploads;
+    
+    # set cache control headers 
+    expires 2d;
+    add_header Cache-Control "public";
+    add_header Last-Modified "";
+  }
+  
+  # redirect server error pages 
+  error_page 404 /404.html;
+  error_page 500 502 503 504 /50x.html;
+  
+  location = /404.html {
+    root /usr/share/nginx/html;
+  }
+  
+  location = /50x.html {
+    root /usr/share/nginx/html;
+  }
+}

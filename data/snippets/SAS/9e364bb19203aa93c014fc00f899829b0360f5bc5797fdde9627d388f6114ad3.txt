@@ -1,0 +1,91 @@
+/* This code snippet performs data cleaning and analysis on a dataset of customer purchase data */
+
+/* Import the data from a CSV file using PROC IMPORT */
+
+proc import datafile = "customer_purchases.csv"
+  out = customer_purchases
+  dbms = csv replace;
+  /* Specify the location of the CSV file, the name of the output dataset, and the file type */
+
+  getnames = yes;
+  /* Use the first row of the CSV file as variable names */
+
+  datarow = 2;
+  /* Specify the starting row of the actual data in the CSV file */
+  
+run;
+
+/* Clean the data by removing any duplicates and missing values */
+
+proc sort data = customer_purchases
+  out = customer_purchases_clean nodupkey;
+  /* Sort the data and remove any duplicate records */
+
+  by customer_id;
+  /* Sort by customer ID column to ensure duplicates are removed for each customer */
+
+data customer_purchases_clean;
+  set customer_purchases_clean;
+  /* Create a new dataset and copy the cleaned data from the previous step */
+
+  if missing(customer_id) then delete;
+  /* Delete any records where the customer ID is missing */
+run;
+
+/* Create new variables for total purchase amount and total number of purchases */
+
+data customer_purchases_analysis;
+  set customer_purchases_clean;
+  /* Create a new dataset and copy the cleaned data from the previous step */
+
+  total_amount = quantity * price;
+  /* Calculate the total purchase amount by multiplying the quantity and price variables */
+
+  total_purchases = 1;
+  /* Set the total number of purchases to 1 for each record */
+run;
+
+/* Summarize the data to get average purchase amount and total number of customers */
+
+proc means data = customer_purchases_analysis
+  mean
+  nway
+  /* Calculate the mean for numeric variables and display results for all combinations of class variables */
+
+  noprint;
+  /* Do not print the frequency table */
+
+  var total_amount total_purchases;
+  /* Specify the variables to be used in the analysis */
+
+  output out = customer_purchases_summary
+    mean_amount = avg_purchase_amount
+    total_customers = total_customers;
+    /* Create new variables for average purchase amount and total number of customers in the output dataset */
+
+run;
+
+/* Create a visualization to show the average purchase amount by customer segment */
+
+proc sgplot data = customer_purchases_summary;
+  vbar customer_segment / response = avg_purchase_amount;
+  /* Create a vertical bar chart with the customer segment on the x-axis and average purchase amount on the y-axis */
+
+  xaxis label = "Customer Segment";
+  yaxis label = "Average Purchase Amount";
+  /* Label the axes for better readability */
+
+  title "Average Purchase Amount by Customer Segment";
+run;
+
+/* Export the final results to a CSV file */
+
+proc export data = customer_purchases_summary
+  outfile = "customer_purchases_summary.csv"
+  dbms = csv replace;
+  /* Set the location and name of the output CSV file and specify the file type */
+
+  label;
+  /* Include variable labels in the output file */
+
+run;

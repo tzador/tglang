@@ -1,0 +1,63 @@
+#!/bin/bash
+
+# This script is used to backup a given directory
+# to a specified destination directory
+
+# Get user input for source and destination directories
+read -p "Enter the source directory: " source_dir
+read -p "Enter the destination directory: " dest_dir
+
+# Check if source directory exists
+if [ ! -d "$source_dir" ]
+then
+  echo "Source directory does not exist"
+  exit 1
+fi
+
+# Check if destination directory exists
+# If not, create it
+if [ ! -d "$dest_dir" ]
+then
+  mkdir -p "$dest_dir"
+fi
+
+# Copy source directory to destination directory
+cp -r "$source_dir" "$dest_dir"
+
+# Get absolute path of source directory
+abs_source_dir=$(realpath "$source_dir")
+
+# Get absolute path of destination directory
+abs_dest_dir=$(realpath "$dest_dir")
+
+# Check if source and destination directories are the same
+# Do not continue if they are the same
+if [ "$abs_source_dir" = "$abs_dest_dir" ]
+then
+  echo "Source and destination directories cannot be the same"
+  exit 1
+fi
+
+# Check if destination directory is a subdirectory of source directory
+# Do not continue if it is
+if [ "${abs_dest_dir#$abs_source_dir}" != "$abs_dest_dir" ]
+then
+  echo "Destination directory cannot be a subdirectory of source directory"
+  exit 1
+fi
+
+# Create a backup folder in destination directory
+backup_folder="$abs_dest_dir/backup_$(date +%Y%m%d_%H%M%S)"
+mkdir "$backup_folder"
+
+# Compress source directory and move it to backup folder
+tar -czf "$backup_folder/source.tar.gz" "$source_dir"
+
+# Move original source directory to backup folder
+mv "$source_dir" "$backup_folder/source"
+
+# Create symlink to original source directory in destination directory
+ln -sf "$backup_folder/source" "$abs_dest_dir/source_backup"
+
+# Print success message
+echo "Backup of $source_dir created in $dest_dir successfully"

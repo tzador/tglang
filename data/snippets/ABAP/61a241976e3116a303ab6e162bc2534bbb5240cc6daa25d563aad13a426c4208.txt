@@ -1,0 +1,41 @@
+DATA: ls_customer TYPE zcustomer,
+      lt_orders TYPE STANDARD TABLE OF zorders,
+      lt_items TYPE STANDARD TABLE OF zitems,
+      ls_order_items TYPE zordered_items,
+      lv_total_amount TYPE p DECIMALS 2,
+      lv_discount TYPE p DECIMALS 2,
+      lv_subtotal TYPE p DECIMALS 2.
+
+SELECT SINGLE * FROM zcustomer INTO ls_customer WHERE customer_id = '1234'.
+
+DATA(lv_customer_name) = ls_customer-customer_name.
+DATA(lv_customer_address) = ls_customer-address.
+
+SELECT * FROM zorders INTO TABLE lt_orders WHERE customer_id = ls_customer-customer_id.
+
+LOOP AT lt_orders INTO ls_orders.
+  lv_subtotal = 0.
+  lv_discount = 0.
+  CLEAR: lt_items.
+
+  SELECT * FROM zordered_items INTO TABLE lt_items WHERE order_id = ls_orders-order_id.
+
+  LOOP AT lt_items INTO ls_order_items.
+    lv_subtotal = lv_subtotal + ls_order_items-item_price.
+  ENDLOOP.
+
+  CASE ls_orders-discount.
+    WHEN '10' or '15' or '20' or '25'.
+      lv_discount = ((lv_subtotal * ls_orders-discount)/100).
+  ENDCASE.
+
+  IF ls_orders-is_vip = abap_true.
+    lv_total_amount = lv_subtotal - lv_discount.
+    WRITE: / 'VIP customer:', lv_customer_name.
+    WRITE: / 'Total amount after discount:', lv_total_amount.
+  ELSE.
+    lv_total_amount = lv_subtotal.
+    WRITE: / 'Regular customer:', lv_customer_name.
+    WRITE: / 'Total amount:', lv_total_amount.
+  ENDIF.
+ENDLOOP.

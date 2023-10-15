@@ -1,0 +1,123 @@
+/*
+A simple class in UnrealScript that represents a weapon
+with properties and functions for shooting and reloading.
+*/
+
+class Weapon extends Actor
+    /* Defines a new object class that extends from the
+    base class Actor in UnrealScript. */
+    placeable;
+
+    /*
+    Properties of the weapon such as damage, fire rate, and ammo count.
+    */
+    var name WeaponName;
+    var int Damage;
+    var float FireRate;
+    var int AmmoCount;
+    var int MaxAmmo;
+    var float ReloadTime;
+
+    /*
+    Boolean variables to keep track of player input and weapon status.
+    */
+    var bool bIsShooting;
+    var bool bIsReloading;
+    var bool bIsOutOfAmmo;
+    var bool bIsFiringDisabled;
+
+    /*
+    Function to handle player input for shooting.
+    */
+    function Shoot()
+    {
+        /* If the player is not reloading and has enough ammo, fire the weapon. */
+        if(!bIsReloading && !bIsOutOfAmmo)
+        {
+            FireWeapon();
+            PlayGunshotSound();
+            /* Decrement the ammo count by 1 for each shot fired. */
+            DecrementAmmo();
+            /* Set a delay based on the fire rate before allowing firing again. */
+            SetTimer(FireRate, false, name(Shoot));
+        }
+        /* If the player is out of ammo or firing is disabled, do nothing. */
+        else if(bIsOutOfAmmo || bIsFiringDisabled)
+        {
+            return;
+        }
+        /* If the player is reloading, wait for the reload to finish before allowing firing again. */
+        else if(bIsReloading)
+        {
+            SetTimer(ReloadTime, false, name(Shoot));
+        }
+    }
+
+    /*
+    Function to handle player input for reloading.
+    */
+    function Reload()
+    {
+        if(AmmoCount < MaxAmmo)
+        {
+            /* If the player has enough ammo, start the reloading process. */
+            StartReloading();
+        }
+        else
+        {
+            /* If the player is already at max ammo, do nothing. */
+            return;
+        }
+    }
+
+    /*
+    Function to handle the actual firing of the weapon.
+    */
+    function FireWeapon()
+    {
+        /* Spawn a projectile with the designated damage and direction. */
+        WeaponProjectile World.ProjectileSpawn(Damage, vect(0, 0, 0), Rotation);
+    }
+
+    /*
+    Function to decrement the ammo count by 1.
+    */
+    function DecrementAmmo()
+    {
+        AmmoCount--;
+        /* If the player is now out of ammo, set the status to reflect this. */
+        if(AmmoCount == 0)
+        {
+            bIsOutOfAmmo = true;
+        }
+    }
+
+    /*
+    Function to play a sound when the weapon is fired.
+    */
+    function PlayGunshotSound()
+    {
+        /* Play the associated gunshot sound effect. */
+        Sound(Misc.GunshotSound);
+    }
+
+    /*
+    Functions to handle the starting and ending of reloading.
+    */
+    function StartReloading()
+    {
+        bIsReloading = true;
+        SetTimer(ReloadTime, false, name(CompleteReload));
+    }
+
+    function CompleteReload()
+    {
+        /* Fill the ammo count to max and reset the reloading status. */
+        AmmoCount = MaxAmmo;
+        bIsReloading = false;
+        /* If the weapon was previously out of ammo, set the status to reflect that. */
+        if(bIsOutOfAmmo)
+        {
+            bIsOutOfAmmo = false;
+        }
+    }

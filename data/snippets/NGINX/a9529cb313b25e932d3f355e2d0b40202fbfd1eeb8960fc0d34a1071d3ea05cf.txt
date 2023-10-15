@@ -1,0 +1,85 @@
+# Define upstream server group
+upstream backend {
+    server 127.0.0.1:8000;
+    server 127.0.0.1:8001;
+    server 127.0.0.1:8002;
+}
+
+# Define virtual server for reverse proxy
+server {
+    listen 80;
+    server_name example.com;
+
+    # Always redirect to HTTPS
+    return 301 https://$host$request_uri;
+}
+
+# Define HTTPS server
+server {
+    listen 443 ssl;
+    server_name example.com;
+
+    # Configure SSL certificate
+    ssl_certificate /etc/ssl/certs/example.com.crt;
+    ssl_certificate_key /etc/ssl/private/example.com.key;
+
+    # Enable SSL session caching
+    ssl_session_cache shared:SSL:20m;
+    ssl_session_timeout 10m;
+
+    # Enable SSL session tickets
+    ssl_session_tickets on;
+
+    # Configure TLS protocols and ciphers
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers 'ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES256-GCM-SHA384';
+
+    # Enable OCSP stapling
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
+
+    # Enable HTTP/2
+    http2_push_preload on;
+
+    # Enable compression for better performance
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
+    gzip_proxied no-cache no-store private expired auth;
+    gzip_min_length 1000;
+
+    # Define location for static files
+    location /static {
+        alias /var/www/example.com/static;
+    }
+
+    # Define location for media files
+    location /media {
+        alias /var/www/example.com/media;
+    }
+
+    # Define location for Django application
+    location / {
+        proxy_pass http://backend;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host $host;
+    }
+
+    # Prevent access to hidden files
+    location ~ /\. {
+        deny all;
+    }
+
+    # Enable browser caching for static files
+    location ~* \.(css|js|png|jpg|jpeg|gif|ico)$ {
+        expires 1y;
+        log_not_found off;
+    }
+
+    # Include security headers
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-Content-Type-Options "nosniff";
+    add_header X-XSS-Protection "1; mode=block";
+    add_header Content-Security-Policy "default-src 'self'; img-src 'self' data: https://ssl.google-analytics.com https://www.google.com; font-src 'self' data: https://fonts.gstatic.com; object-src 'none'; script-src 'self' 'unsafe-inline' https://ajax.googleapis.com https://maps.googleapis.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; report-uri /csp-report";
+}

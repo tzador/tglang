@@ -1,0 +1,71 @@
+// This is a smart contract that implements a crowdfunding campaign
+
+pragma solidity ^0.8.0;
+
+contract Crowdfunding {
+    
+    struct Campaign {
+        uint256 goal; // The minimum amount of funds needed for the campaign to be successful
+        uint256 deadline; // The deadline for reaching the goal 
+        uint256 totalFunds; // The total amount of funds raised so far
+        mapping(address => uint256) contributions; // Mapping of addresses to the amount that they have contributed
+    }
+    
+    mapping(uint256 => Campaign) public campaigns; // Mapping of campaign IDs to their corresponding Campaign struct
+    uint256 public totalCampaigns; // The total number of campaigns created so far
+    
+    function createCampaign(uint256 _goal, uint256 _duration) public {
+        require(_goal > 0, "Goal amount must be greater than 0"); // Checks that the goal amount is valid
+        require(_duration > 0, "Duration must be greater than 0"); // Checks that the duration is valid
+        
+        uint256 newCampaignID = totalCampaigns++; // Generates a new campaign ID
+        
+        campaigns[newCampaignID] = Campaign({
+            goal: _goal,
+            deadline: block.timestamp + (_duration * 1 days),
+            totalFunds: 0
+        }); // Initializes the new campaign with the given goal, deadline, and starting total funds amount
+    }
+    
+    function contribute(uint256 _campaignID) public payable {
+        require(_campaignID < totalCampaigns, "Invalid campaign ID"); // Checks that the campaign ID is valid
+        require(block.timestamp < campaigns[_campaignID].deadline, "Campaign deadline has passed"); // Checks that the deadline has not passed
+        
+        campaigns[_campaignID].contributions[msg.sender] += msg.value; // Adds the contribution amount to the sender's total contributions for the campaign
+        campaigns[_campaignID].totalFunds += msg.value; // Adds the contribution amount to the campaign's total funds
+        
+        // If the campaign's total funds exceed its goal, the excess amount is refunded to the sender
+        if (campaigns[_campaignID].totalFunds > campaigns[_campaignID].goal) {
+            uint256 refundAmount = campaigns[_campaignID].totalFunds - campaigns[_campaignID].goal;
+            payable(msg.sender).transfer(refundAmount);
+            campaigns[_campaignID].totalFunds -= refundAmount;
+        }
+    }
+    
+    function getContributorFunds(uint256 _campaignID) public view returns (uint256) {
+        require(_campaignID < totalCampaigns, "Invalid campaign ID"); // Checks that the campaign ID is valid
+        return campaigns[_campaignID].contributions[msg.sender]; // Returns the amount that the sender has contributed to the given campaign
+    }
+    
+    function getFundsReceivable(uint256 _campaignID) public view returns (uint256) {
+        require(_campaignID < totalCampaigns, "Invalid campaign ID"); // Checks that the campaign ID is valid
+        require(block.timestamp >= campaigns[_campaignID].deadline, "Campaign deadline has not passed"); // Checks that the deadline has passed
+        
+        // If the campaign successfully reached its goal, the total funds raised are returned
+        if (campaigns[_campaignID].totalFunds >= campaigns[_campaignID].goal) {
+            return campaigns[_campaignID].totalFunds;
+        }
+        
+        // If the campaign did not reach its goal, the total funds raised minus the refunded amount is returned
+        return campaigns[_campaignID].totalFunds - (campaigns[_campaignID].goal - campaigns[_campaignID].totalFunds);
+    }
+    
+    function withdrawFunds(uint256 _campaignID) public {
+        require(_campaignID < totalCampaigns, "Invalid campaign ID"); // Checks that the campaign ID is valid
+        require(block.timestamp >= campaigns[_campaignID].deadline, "Campaign deadline has not passed"); // Checks that the deadline has passed
+        require(campaigns[_campaignID].totalFunds >= campaigns[_campaignID].goal, "Campaign did not reach its goal"); // Checks that the campaign successfully reached its goal
+        
+        payable(msg.sender).transfer(campaigns[_campaignID].totalFunds); // Transfers the total funds raised to the sender
+        campaigns[_campaignID].totalFunds = 0; // Resets the campaign's total funds to 0
+    }
+}

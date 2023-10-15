@@ -1,0 +1,36 @@
+Function CheckUser {
+    [cmdletbinding()]
+    Param (
+        [Parameter(Mandatory=$True, Position=0)]
+        [String]$Username,
+        [Parameter(Mandatory=$True, Position=1)]
+        [String]$Password
+    )
+    $hashPwd = ConvertTo-SecureString $Password -AsPlainText -Force
+    $cred = New-Object System.Management.Automation.PSCredential($Username, $hashPwd)
+    try {
+        $User = Get-ADUser -Credential $cred -Filter "SamAccountName -eq $Username" -ErrorAction Stop
+        # check if account is disabled
+        if ($User.Enabled -eq $false) {
+            Write-Host "User account is currently disabled. Please contact an administrator for assistance." -ForegroundColor Red
+        } else {
+            # create log file path
+            $logFile = "C:\Logs\UserCheck\$Username-$((Get-Date).ToString('MMddyyyy')).log"
+            Write-Host "User account verified. Logging results to $logFile" -ForegroundColor Green
+            # get user info
+            $userProfile = Get-ADUser -Credential $cred -Identity $Username -Properties DisplayName, EmailAddress, LastLogonDate
+            # log results
+            Write-Output "User: $($userProfile.DisplayName) (SamAccountName: $($userProfile.SamAccountName))"
+            Write-Output "Email Address: $($userProfile.EmailAddress)"
+            Write-Output "Last Logon Date: $($userProfile.LastLogonDate)"
+            Write-Output "" # add empty line for formatting
+            # if user has admin rights, log it
+            if ((Get-ADPrincipalGroupMembership -Credential $cred -Identity $Username | Where-Object {$_.Name -like '*administrator*'})) {
+                Write-Output "User $($userProfile.DisplayName) has administrator rights." | Out-File -FilePath $logFile -Append
+            }
+        }
+    }
+    catch {
+        Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
+    }
+}

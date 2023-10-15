@@ -1,0 +1,185 @@
+// This class handles the creation and management of a road system in a game
+
+class RoadSystem extends Actor
+    // The name of the road system
+    var const Name roadName;
+    
+    // The list of road segments in the system
+    var() enum<RoadType> roadSegments;
+    
+    // Event that is called when a vehicle enters the road system
+    Event VehicleEntered();
+    
+    // Event that is called when a vehicle exits the road system
+    Event VehicleExited();
+    
+    // Function that creates a new road segment and adds it to the road system
+    function AddRoadSegment(RoadType newRoadSegment)
+    {
+        roadSegments.AddItem(newRoadSegment);
+    }
+    
+    // Function that removes a road segment from the road system
+    function RemoveRoadSegment(RoadType roadSegment)
+    {
+        roadSegments.RemoveItem(roadSegment);
+    }
+    
+    // Function that returns the total length of all road segments in the road system
+    function GetRoadSystemLength()
+    {
+        local float totalLength;
+
+        // Loop through each road segment and add its length to the total
+        foreach (roadSegments)
+        {
+            totalLength += roadSegment.length;
+        }
+
+        return totalLength;
+    }
+    
+    // Function that checks if a vehicle is currently on the road system
+    function IsVehicleOnRoadSystem(Vehicle vehicle) 
+    {
+        // Get the actor location of the vehicle
+        local Vector vehicleLocation = vehicle.location;
+        
+        // Loop through each road segment and check if the vehicle is within its bounds
+        foreach (roadSegments)
+        {
+            if (roadSegment.bounds.IsInside(vehicleLocation))
+            {
+                return true;
+            }
+        }
+        
+        // If the vehicle is not within any road segment, return false
+        return false;
+    }
+    
+    // Event that is called when a vehicle enters a new road segment
+    function TriggerVehicleEntered(Vehicle vehicle)
+    {
+        // Check if the vehicle is currently on the road system
+        if (IsVehicleOnRoadSystem(vehicle))
+        {
+            // Call the VehicleEntered event
+            VehicleEntered();
+        }
+    }
+    
+    // Event that is called when a vehicle exits a road segment
+    function TriggerVehicleExited(Vehicle vehicle)
+    {
+        // Check if the vehicle is currently on the road system
+        if (IsVehicleOnRoadSystem(vehicle))
+        {
+            // Call the VehicleExited event
+            VehicleExited();
+        }
+    }
+    
+    // Function that updates the position of a vehicle on the road system
+    function UpdateVehiclePosition(Vehicle vehicle)
+    {
+        // Get the current road segment the vehicle is on
+        local RoadType currentSegment = GetCurrentRoadSegment(vehicle);
+        
+        // Get the current position of the vehicle on the current road segment
+        local float currentPosition = currentSegment.GetPositionOnRoad(vehicle);
+        
+        // Move the vehicle to the next road segment based on the current position
+        currentSegment.MoveToNextRoadSegment(vehicle, currentPosition);
+    }
+    
+    // Function that gets the current road segment a vehicle is on
+    function GetCurrentRoadSegment(Vehicle vehicle)
+    {
+        // Loop through each road segment and check if the vehicle is within its bounds
+        foreach (roadSegments)
+        {
+            if (roadSegment.bounds.IsInside(vehicle.location))
+            {
+                return roadSegment;
+            }
+        }
+    }
+    
+    // Function that gets the next road segment in the road system
+    function GetNextRoadSegment(RoadType currentSegment)
+    {
+        // Get the index of the current road segment in the road system
+        local int currentSegmentIndex = roadSegments.FindItem(currentSegment);
+        
+        // Check if the current segment is the last one in the list
+        if (currentSegmentIndex == roadSegments.Num() - 1)
+        {
+            // If so, return the first road segment as the next segment
+            return roadSegments[0];
+        }
+        else
+        {
+            // Otherwise, return the next road segment in the list
+            return roadSegments[currentSegmentIndex + 1];
+        }
+    }
+    
+    // Function that gets the previous road segment in the road system
+    function GetPreviousRoadSegment(RoadType currentSegment)
+    {
+        // Get the index of the current road segment in the road system
+        local int currentSegmentIndex = roadSegments.FindItem(currentSegment);
+        
+        // Check if the current segment is the first one in the list
+        if (currentSegmentIndex == 0)
+        {
+            // If so, return the last road segment as the previous segment
+            return roadSegments[roadSegments.Num() - 1];
+        }
+        else
+        {
+            // Otherwise, return the previous road segment in the list
+            return roadSegments[currentSegmentIndex - 1];
+        }
+    }
+    
+    // Function that calculates the distance between two road segments
+    function CalculateDistanceBetweenSegments(RoadType firstSegment, RoadType secondSegment)
+    {
+        // Get the start and end points of the first segment
+        local Vector startPosition = firstSegment.GetStartPoint();
+        local Vector endPosition = firstSegment.GetEndPoint();
+        
+        // Get the start and end points of the second segment
+        local Vector nextStartPosition = secondSegment.GetStartPoint();
+        local Vector nextEndPosition = secondSegment.GetEndPoint();
+        
+        // Calculate the distance between the end point of the first segment and the start point of the second segment
+        local float distance = (endPosition - nextStartPosition).Size();
+        
+        // Calculate the distance between the start point of the first segment and the end point of the second segment
+        local float reverseDistance = (startPosition - nextEndPosition).Size();
+        
+        // Return the shorter distance between the two
+        if (distance < reverseDistance)
+        {
+            return distance;
+        }
+        else
+        {
+            return reverseDistance;
+        }
+    }
+    
+defaultproperties
+{
+    // Add a default road segment type to the road system
+    roadSegments(0) = RoadType.HIGHWAY;
+    
+    // Set the default name for the road system
+    roadName = "HighwaySystem";
+    
+    // Set the actor type as a road system
+    actorType = "RoadSystem";
+}

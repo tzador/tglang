@@ -1,0 +1,120 @@
+/* This is a complex code snippet in OPENEDGE_ABL */
+
+/* Define variables */
+DEFINE VARIABLE customer_name AS CHARACTER NO-UNDO INIT "John Smith".
+DEFINE VARIABLE customer_order AS CHARACTER NO-UNDO.
+DEFINE VARIABLE product_name AS CHARACTER NO-UNDO.
+DEFINE VARIABLE product_price AS DECIMAL NO-UNDO.
+DEFINE VARIABLE total_price AS DECIMAL NO-UNDO.
+
+/* Loop through customer orders */
+DO WHILE customer_order <> "end":
+  
+  /* Get product name and price from user */
+  PROMPT-FOR (customer_order, product_name) WITH
+    MSG "Enter the product name for order number" customer_name SKIP 
+    "Type 'end' to finish the order." SKIP 
+    "Product name:".
+  PROMPT-FOR (customer_order, product_price) WITH
+    LABEL "Price:".
+  
+  /* Calculate total price */
+  IF product_name = "widget" THEN
+    total_price = product_price * 1.1.
+  ELSE IF product_name = "gadget" THEN
+    total_price = product_price * 1.2.
+  ELSE IF product_name = "thingamabob" THEN
+    total_price = product_price * 1.3.
+  ELSE
+    total_price = product_price.
+    
+  /* Display order details */
+  DISPLAY "Customer Name:" customer_name.
+  DISPLAY "Product Name:" product_name.
+  DISPLAY "Product Price:" product_price FORMAT ">>9.99999".
+  DISPLAY "Total Price:" total_price FORMAT ">>9.99999".
+  DISPLAY "------".
+  
+  /* Check for special instructions */
+  PROMPT-FOR (customer_order, special_instructions) WITH
+    LABEL "Special Instructions:".
+  
+  /* Process order with special instructions */
+  IF special_instructions = "expedited" THEN
+    DO:
+      RUN process_order (customer_name, product_name, product_price, total_price, special_instructions).
+      DISPLAY "Order has been expedited. Thank you for your business!" SKIP.
+    END.
+  ELSE
+    RUN process_order (customer_name, product_name, product_price, total_price, "standard").
+  
+END.
+
+/* Subroutine to process order */
+PROCEDURE process_order:
+  DEFINE INPUT PARAMETER ip_customer_name AS CHARACTER NO-UNDO.
+  DEFINE INPUT PARAMETER ip_product_name AS CHARACTER NO-UNDO.
+  DEFINE INPUT PARAMETER ip_product_price AS DECIMAL NO-UNDO.
+  DEFINE INPUT PARAMETER ip_total_price AS DECIMAL NO-UNDO.
+  DEFINE INPUT PARAMETER ip_special_instructions AS CHARACTER NO-UNDO.
+  
+  /* Perform processing based on special instructions */
+  IF ip_special_instructions = "expedited" THEN
+    RUN send_confirmation (ip_customer_name, ip_product_name, ip_product_price, ip_total_price, "Order has been expedited").
+  ELSE
+    RUN send_confirmation (ip_customer_name, ip_product_name, ip_product_price, ip_total_price, "Thank you for your order!").
+  
+  /* Additional processing steps such as updating database */
+  RUN update_database (ip_customer_name, ip_product_name, ip_product_price, ip_total_price, ip_special_instructions).
+  
+END.
+
+/* Subroutine to send confirmation email */
+PROCEDURE send_confirmation:
+  DEFINE INPUT PARAMETER ip_customer_name AS CHARACTER NO-UNDO.
+  DEFINE INPUT PARAMETER ip_product_name AS CHARACTER NO-UNDO.
+  DEFINE INPUT PARAMETER ip_product_price AS DECIMAL NO-UNDO.
+  DEFINE INPUT PARAMETER ip_total_price AS DECIMAL NO-UNDO.
+  DEFINE INPUT PARAMETER ip_message AS CHARACTER NO-UNDO.
+  
+  /* Create message with customer and order details */
+  DEFINE VARIABLE confirmation_message AS CHARACTER NO-UNDO.
+  confirmation_message = "Hello " + ip_customer_name + ", thank you for your order of " + ip_product_name + " at a price of " + STRING(ip_product_price, "->>>>>9.99999") + ". Your total order amount is " + STRING(ip_total_price, "->>>>>9.99999") + "." + SKIP 
+                         + ip_message + ".".
+  
+  /* Send email to customer */
+  RUN send_email (ip_customer_name, confirmation_message).
+  
+END.
+
+/* Subroutine to update database */
+PROCEDURE update_database:
+  DEFINE INPUT PARAMETER ip_customer_name AS CHARACTER NO-UNDO.
+  DEFINE INPUT PARAMETER ip_product_name AS CHARACTER NO-UNDO.
+  DEFINE INPUT PARAMETER ip_product_price AS DECIMAL NO-UNDO.
+  DEFINE INPUT PARAMETER ip_total_price AS DECIMAL NO-UNDO.
+  DEFINE INPUT PARAMETER ip_special_instructions AS CHARACTER NO-UNDO.
+  
+  /* Update database with order details */
+  DEFINE VARIABLE db_connection AS HANDLE NO-UNDO.
+  db_connection = CONNECT "database-name" USER "username" PASSWORD "password".
+  
+  IF ip_special_instructions = "expedited" THEN
+    RUN save_to_database (db_connection, "Order has been expedited for customer " + ip_customer_name + ". Product " + ip_product_name + " was ordered at a price of " + STRING(ip_product_price, "->>>>>9.99999") + ". Total order amount is " + STRING(ip_total_price, "->>>>>9.99999") + ".").
+  ELSE
+    RUN save_to_database (db_connection, "Order processed for customer " + ip_customer_name + ". Product " + ip_product_name + " was ordered at a price of " + STRING(ip_product_price, "->>>>>9.99999") + ". Total order amount is " + STRING(ip_total_price, "->>>>>9.99999") + ".").
+  
+  /* Close database connection */
+  DISCONNECT db_connection.
+  
+END.
+
+/* Subroutine to save data to database */
+PROCEDURE save_to_database:
+  DEFINE INPUT PARAMETER ip_db_connection AS HANDLE NO-UNDO.
+  DEFINE INPUT PARAMETER ip_data AS CHARACTER NO-UNDO.
+  
+  /* Save data to database */
+  RUN STORE IN ip_db_connection "table-name" (ip_data).
+  
+END.

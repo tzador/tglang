@@ -1,0 +1,74 @@
+pragma solidity 0.8.0;
+
+// This is a contract that implements a basic bank
+contract Bank {
+    // State variables
+    address public owner; // address of the owner of the bank
+    bool public paused; // used to pause the contract in case of emergency
+
+    // Events
+    event Deposit(address depositor, uint amount); // emitted when a deposit is made
+    event Withdrawal(address recipient, uint amount); // emitted when a withdrawal is made
+    event Transfer(address sender, address recipient, uint amount); // emitted when a transfer is made
+
+    // Modifiers
+    modifier onlyOwner() { // modifier to restrict access to owner only
+        require(msg.sender == owner, "Only the owner can call this function");
+        _;
+    }
+
+    modifier whenNotPaused() { // modifier to check if the contract is paused
+        require(!paused, "Contract is currently paused");
+        _;
+    }
+
+    modifier whenPaused() { // modifier to check if the contract is paused
+        require(paused, "Contract is currently not paused");
+        _;
+    }
+
+    // Constructor
+    constructor() {
+        owner = msg.sender; // set the deployer of the contract as the owner
+        paused = false; // set paused to false by default
+    }
+
+    // Functions
+    function deposit() public payable whenNotPaused { // allows users to deposit funds
+        require(msg.value > 0, "Deposit amount must be greater than 0");
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    function withdraw(uint amount) public whenNotPaused { // allows users to withdraw funds
+        require(amount > 0, "Withdrawal amount must be greater than 0");
+        require(amount <= address(this).balance, "Insufficient funds in the bank");
+        payable(msg.sender).transfer(amount);
+        emit Withdrawal(msg.sender, amount);
+    }
+
+    function transfer(address recipient, uint amount) public whenNotPaused { // allows owner to transfer funds to another account
+        require(msg.sender == owner, "Only the owner can make transfers");
+        require(recipient != address(0), "Recipient address cannot be zero");
+        require(amount > 0, "Transfer amount must be greater than 0");
+        require(amount <= address(this).balance, "Insufficient funds in the bank");
+        payable(recipient).transfer(amount);
+        emit Transfer(msg.sender, recipient, amount);
+    }
+
+    function pause() public onlyOwner whenNotPaused { // allows owner to pause the contract
+        paused = true;
+    }
+
+    function resume() public onlyOwner whenPaused { // allows owner to unpause the contract
+        paused = false;
+    }
+
+    function getBalance() public view returns (uint) { // allows users to check their account balance
+        return address(this).balance;
+    }
+
+    // Fallback function
+    fallback() external payable {
+        revert("Invalid function call");
+    }
+}

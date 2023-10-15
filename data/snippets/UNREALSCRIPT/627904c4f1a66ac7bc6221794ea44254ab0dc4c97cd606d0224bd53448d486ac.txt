@@ -1,0 +1,120 @@
+class ComplexObject
+  extends Object
+  placeable ;
+
+var int Id;
+var bool bIsAlive;
+var float Health;
+var rotator Rotation;
+var vector Location;
+var float Scale;
+var array<ComplexObject> Children;
+
+/* 
+This is a complex class that represents an object in our game.
+It has several variables to keep track of the object's state and properties.
+*/
+
+/*
+Function: SetLocation
+Parameters: 
+  - NewLocation (type: vector)
+Description:
+  Sets the object's Location variable to the given vector and updates the object's Children's location as well.
+Note:
+  This function should only be called after the object and its Children have been spawned.
+*/ 
+
+function SetLocation(vector NewLocation)
+{
+  Location = NewLocation;
+  foreach(Children, SpawnedChild)
+  {
+    // Updates the Children's locations based on the object's current location and scale.
+    SpawnedChild.SetLocation((SpawnedChild.Location * Scale) + Location);
+  }
+}
+
+/*
+Function: OnDestroy
+Description:
+  Called when the object is destroyed.
+Note:
+  This function should clean up any references to this object in other objects' Children array.
+*/
+
+event Destroyed()
+{
+  // Removes this object from its parent's Children array.
+  if (Parent != none)
+    Parent.Children.RemoveItem(GetCleanPathName());
+  
+  // Iterates through all Children and removes any references to this object.
+  foreach(Children, Child)
+  {
+    Child.OnDestroy();
+  }
+  
+  // Performs any other necessary cleanup for this object.
+  PerformCleanup(); 
+}
+
+/*
+Function: Tick
+Parameters:
+  - DeltaTime (type: float)
+Description:
+  Called every frame to update the object's state.
+Note:
+  This function should only be called on the server.
+*/
+
+event Tick(float DeltaTime)
+{
+  // Checks if the object is alive before performing any updates.
+  if (bIsAlive)
+  {
+    // Performs any necessary updates to the object's state.
+    PerformUpdate();
+  }
+}
+
+/*
+Function: SpawnChildren
+Parameters:
+  - NumberOfChildren (type: int)
+  - ChildStartIndex (type: int) (default: 0)
+Description:
+  Spawns the given number of Children for this object, starting at the given index.
+Note:
+  This function should only be called after the object has been spawned.
+*/
+function SpawnChildren(int NumberOfChildren, optional int ChildStartIndex = 0)
+{
+  for (local int i = ChildStartIndex; i < (ChildStartIndex + NumberOfChildren); ++i)
+  {
+    // Creates a new Child object and sets its parent to this object.
+    local ChildObject = Spawn(ChildClass, self, '', Location, Rotation);
+    
+    // Adds the Child to the object's Children array.
+    Children.AddItem(ChildObject);
+    
+    // Sets the Child's Id to the current index.
+    ChildObject.Id = i;
+    
+    // Updates the Child's location based on the object's current location and scale.
+    ChildObject.SetLocation((ChildObject.Location * Scale) + Location);
+  }
+}
+
+defaultproperties
+{
+  // Sets the default value for the Health variable.
+  Health = 100.0;
+  
+  // Sets the default value for the Scale variable.
+  Scale = 1.0;
+  
+  // Sets the default value for the Rotation variable.
+  Rotation = rotator(0, 0, 0);
+}

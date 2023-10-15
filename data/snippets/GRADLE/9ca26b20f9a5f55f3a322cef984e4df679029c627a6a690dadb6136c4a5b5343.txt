@@ -1,0 +1,62 @@
+plugins {
+    id 'java'
+    id 'war'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile 'org.springframework:spring-core:5.2.0.RELEASE'
+
+    testCompile 'junit:junit:4.12'
+}
+
+sourceSets {
+    main {
+        output.resourcesDir = "src/generated/resources"
+        java {
+            srcDir 'src/generated/java'
+        }
+    }
+    generated {
+        java {
+            srcDir 'src/generated/java'
+        }
+        resources {
+            srcDir 'src/generated/resources'
+        }
+        compileClasspath += main.output + test.output
+    }
+}
+
+task customTask(type: War) {
+    from "src/main/webapp"
+    dependsOn generatedClasses
+
+    def customFileName = "${project.name}-${version}"
+    archiveFileName = "${customFileName}.war"
+
+    into("META-INF") {
+        from("${buildDir}/version.txt") {
+            into('app')
+        }
+        from("${buildDir}/description.txt") {
+            into('app')
+        }
+    }
+
+    eachFile { file ->
+        if(file.path.endsWith('.html')) {
+            file.filter { line ->
+                line.replaceAll("##APP_NAME##", "${project.name}")
+            }
+        }
+    }
+}
+
+task generatedClasses(type: Copy) {
+    from "src/generated"
+    into "src/gen"
+}

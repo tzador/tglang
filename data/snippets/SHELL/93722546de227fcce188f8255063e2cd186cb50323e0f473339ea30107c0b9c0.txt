@@ -1,0 +1,26 @@
+#!/bin/bash
+#Reserve ports for specific devices
+#Set variables for port numbers and associated devices
+#Note: this is an example code and the variables and port numbers should be changed to match the user's setup
+DEV1=${1:-"Device1"} #default value is "Device1"
+DEV2=${2:-"Device2"} #default value is "Device2"
+PORT1=${3:-"8080"} #default port is 8080
+PORT2=${4:-"8081"} #default port is 8081
+
+#Reserve ports for device 1
+iptables -A INPUT -i eth0 -p tcp --dport $PORT1 -j ACCEPT #allow traffic to port 8080 on eth0 interface
+iptables -A PREROUTING -t nat -i eth0 -p tcp --dport $PORT1 -j DNAT --to-destination $DEV1:$PORT1 #destination NAT for port 8080 to Device1
+
+#Reserve ports for device 2
+iptables -A INPUT -i eth1 -p tcp --dport $PORT2 -j ACCEPT #allow traffic to port 8081 on eth1 interface
+iptables -A PREROUTING -t nat -i eth1 -p tcp --dport $PORT2 -j DNAT --to-destination $DEV2:$PORT2 #destination NAT for port 8081 to Device2
+
+#Set up forwarding rules
+iptables -A FORWARD -i eth0 -o eth1 -p tcp --dport $PORT1 -j ACCEPT #allow traffic from Device1 to Device2 on port 8080
+iptables -A FORWARD -i eth1 -o eth0 -p tcp --dport $PORT2 -j ACCEPT #allow traffic from Device2 to Device1 on port 8081
+
+#Enable IP forwarding
+echo 1 > /proc/sys/net/ipv4/ip_forward
+
+#Save iptables rules
+service iptables save

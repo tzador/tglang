@@ -1,0 +1,51 @@
+* This is a SAS code snippet for analyzing customer purchase data;
+* First, create a new data set called 'purchase_data';
+data purchase_data;
+  set customer_info; /* 'customer_info' is an existing data set with customer information */
+  
+  * Calculate total purchase amount for each customer;
+  total_purchase = sum(of purchase1-purchase5); /* 'purchase1' to 'purchase5' are variables for different purchases made by each customer */
+  
+  * Convert purchase amounts from foreign currency to USD;
+  format total_purchase usd12.2; /* format the variable 'total_purchase' to ensure correct currency conversion */
+  usd_total_purchase = total_purchase * exchange_rate; /* 'exchange_rate' is a global variable with the latest currency exchange rate */
+  
+  * Calculate average purchase amount for each customer;
+  avg_purchase = mean(of purchase1-purchase5); /* 'mean' function calculates the average of the specified variables */
+  
+  * Use 'proc univariate' to generate summary statistics for purchase amounts;
+  proc univariate data=purchase_data;
+    var purchase1-purchase5; /* specify the variables to be analyzed */
+    output out=stats (drop= _type_ _freq_) mean=avg_purchase min=min_purchase max=max_purchase; /* use 'output' statement to store the results in a separate data set */
+  run;
+  
+  * Merge summary statistics with customer information;
+  data purchase_stats;
+    merge stats customer_info;
+    by customer_id; /* 'customer_id' is a unique identifier for each customer */
+    rename avg_purchase=average_purchase min_purchase=minimum_purchase max_purchase=maximum_purchase;
+  run;
+  
+  * Create a list of top 10 customers based on total purchase amount;
+  proc sort data=purchase_stats;
+    by descending usd_total_purchase; /* sort the data set in descending order of total purchase amount */
+  run;
+  
+  * Export the top 10 customers to a separate data set;
+  data top_customers;
+    set purchase_stats (obs=10); /* create a new data set with only the first 10 observations */
+  run;
+  
+  * Use 'proc print' to display the top 10 customers and their purchase statistics;
+  proc print data=top_customers;
+    var customer_id usd_total_purchase average_purchase minimum_purchase maximum_purchase;
+    title 'Top 10 Customers by Total Purchase Amount';
+    title2 'in USD';
+  run;
+  
+  * Calculate the total number of customers with purchase amounts above the average;
+  proc sql;
+    select count(*) as num_customers from purchase_stats
+    where usd_total_purchase > avg_purchase; /* use 'where' clause to filter the data by specific criteria */
+  quit;
+run;

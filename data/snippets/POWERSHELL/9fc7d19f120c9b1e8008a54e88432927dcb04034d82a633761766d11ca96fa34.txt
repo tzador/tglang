@@ -1,0 +1,30 @@
+# This script uses the PowerCLI PowerShell module to migrate a virtual machine from one ESXi host to another 
+# and displays the status and progress of the task
+
+# Connecting to vCenter Server
+Connect-VIServer -Server vcenter.domain.com -User administrator -Password "password"
+
+# Specifying the source and destination ESXi hosts
+$sourceHost = Get-VMHost -Name "esxi01.domain.com"
+$destinationHost = Get-VMHost -Name "esxi02.domain.com"
+
+# Retrieving the virtual machine
+$vm = Get-VM -Name "Windows Server"
+
+# Displaying the current host and destination host of the virtual machine
+$vm | Select Name, @{N="CurrentHost";E={$_.VMHost.Name}}, @{N="DestinationHost";E={$destinationHost.Name}}
+
+# Migrating the virtual machine
+# -RunAsync parameter runs the cmdlet asynchronously, allowing other cmdlets to run while the task is in progress
+# -Priority parameter sets the priority of the task, with 'High' being the highest
+# -Verbose parameter displays detailed task progress information
+Move-VM -VM $vm -Destination $destinationHost -RunAsync -Priority High -Verbose
+
+# Retrieving the status of the task and displaying it in real time
+(Get-Task -Name "Migrate-VM").Progress | ForEach-Object {
+    "Current status: $($_.SubTasks.PercentComplete)% completed"
+    Start-Sleep -Seconds 5
+}
+
+# Disconnecting from vCenter Server
+Disconnect-VIServer -Force

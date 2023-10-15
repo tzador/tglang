@@ -1,0 +1,67 @@
+pragma solidity ^0.8.0;
+
+// Creates a contract to manage a crowdfunding campaign
+contract CrowdFunding {
+    
+    // Variables to track the campaign details
+    address payable public owner;
+    uint public goalAmount;
+    uint public deadline;
+    mapping(address => uint) public contributions;
+    uint public totalContributors = 0;
+    uint public amountRaised = 0;
+    bool public goalReached = false;
+    bool public deadlineReached = false;
+    
+    // Event to track when a new contribution is made
+    event NewContribution(address indexed contributor, uint amount);
+    
+    // Event to track when the goal amount is reached
+    event GoalReached(uint totalAmountRaised);
+    
+    // Event to track when the deadline is reached
+    event DeadlineReached(bool goalReached);
+    
+    // Modifier to only allow the contract owner to perform certain actions
+    modifier onlyOwner {
+        require(msg.sender == owner, "Only the contract owner can perform this action");
+        _;
+    }
+    
+    // Constructor function that sets the campaign details
+    constructor(address payable campaignOwner, uint goal, uint duration) {
+        owner = campaignOwner;
+        goalAmount = goal;
+        deadline = block.timestamp + duration;
+    }
+    
+    // Function to allow contributions to the campaign
+    function contribute() public payable {
+        require(msg.value > 0, "Contributions must be greater than zero");
+        require(block.timestamp < deadline, "The deadline to contribute has passed");
+        
+        contributions[msg.sender] += msg.value;
+        totalContributors++;
+        amountRaised += msg.value;
+        
+        emit NewContribution(msg.sender, msg.value);
+    }
+    
+    // Function to check if the goal amount has been reached
+    function checkGoalReached() public {
+        if(amountRaised >= goalAmount) {
+            goalReached = true;
+            emit GoalReached(amountRaised);
+        }
+    }
+    
+    // Function to withdraw the funds after the campaign has ended
+    function withdrawFunds() public onlyOwner {
+        require(block.timestamp >= deadline, "The deadline to withdraw funds has not been reached");
+        require(goalReached == true, "The goal amount has not been reached");
+        
+        owner.transfer(amountRaised);
+        
+        emit DeadlineReached(goalReached);
+    }
+}

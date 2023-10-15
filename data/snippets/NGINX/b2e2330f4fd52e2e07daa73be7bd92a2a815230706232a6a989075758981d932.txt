@@ -1,0 +1,79 @@
+(http {
+    server {
+        listen 80; # listens for requests on port 80
+        server_name example.com www.example.com; # identifies the domain name
+        root /var/www/example.com; # specifies the root directory
+        index index.html index.htm; # specifies the default file to load
+
+        location / { # handles requests for the root URL
+            try_files $uri $uri/ /index.html;
+        }
+
+        location /blog { # handles requests for the blog directory
+            try_files $uri $uri/ /blog/index.html;
+        }
+
+        location ~* \.(css|js)$ { # handles requests for CSS and JavaScript files
+            expires 1d; # sets a cache expiration of 1 day
+        }
+
+        location ~* \.(jpg|jpeg|png|gif|ico)$ { # handles requests for image files
+            expires 7d; # sets a cache expiration of 7 days
+        }
+
+        location ~* \.(html|htm)$ { # handles requests for HTML files
+            expires -1; # disables caching
+        }
+
+        location ~* \.(mp4|avi|mov)$ { # handles requests for video files
+            secure_link $arg_md5,$arg_expires;
+            if ($secure_link = "") { # checks if the secure link is valid
+                return 403; # returns a forbidden error
+            }
+        }
+
+        location /private { # handles requests for the private directory
+            internal; # only accessible within the server
+        }
+
+        error_page 404 /404.html; # specifies the custom 404 error page
+
+        location = /error.html {
+            internal; # only accessible within the server
+        }
+
+        location ~* \.(txt|log)$ { # handles requests for text and log files
+            allow 192.168.1.1; # allows access from a specific IP address
+            deny all; # denies access from all other IP addresses
+        }
+
+        location ~* /(images|scripts)/ { # handles requests for images and scripts directories
+            access_log off; # disables access logging
+            expires 1d; # sets a cache expiration of 1 day
+        }
+
+        location = /nginx_status { # handles requests for the server status
+            stub_status; # activates the server status module
+            allow 127.0.0.1; # allows access from localhost
+            deny all; # denies access from all other IP addresses
+        }
+
+        location ^~ /downloads { # handles requests for the downloads directory
+            auth_basic "Restricted"; # activates basic HTTP authentication
+            auth_basic_user_file /etc/nginx/auth/users; # specifies the authentication file
+        }
+
+        location /uploads { # handles requests for the uploads directory
+            limit_rate 50k; # limits the download speed to 50 Kilobytes per second
+        }
+
+        location /login { # handles requests for the login page
+            uwsgi_pass unix:/run/uwsgi.sock; # passes the request to a UWSGI server
+            include uwsgi_params; # includes UWSGI configuration
+        }
+
+        location ~ /\.(ht|svn|git) { # handles requests for hidden files
+            deny all; # denies access to all hidden files
+        }
+    }
+})

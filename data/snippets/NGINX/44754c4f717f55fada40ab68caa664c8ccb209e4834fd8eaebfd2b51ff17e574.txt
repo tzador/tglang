@@ -1,0 +1,59 @@
+server {
+    listen 80 default_server; # Listen for incoming HTTP connections on port 80
+    server_name _; # Default website for any domain or IP address
+    
+    location / {
+        proxy_pass http://127.0.0.1:8000; # Forward requests to specified address and port
+    }
+
+    location ~* \.(jpg|jpeg|gif|png)$ {
+        proxy_pass http://static.example.com; # Serve static files from a separate domain
+        expires 365d; # Set caching time for static files
+    }
+
+    location ~* \.css$ {
+        add_header Content-Type text/css; # Set content type header for CSS files
+        rewrite ^/css/(.*) /$1 break; # Rewrite CSS file path for cleaner URL
+        proxy_pass http://cdn.example.com; # Serve CSS files from a CDN
+        expires 7d; # Set caching time for CSS files
+    }
+
+    location ~* \.php$ {
+        fastcgi_pass unix:/var/run/php/php7.2-fpm.sock; # Set PHP version and location for CGI handling
+        fastcgi_index index.php; # Set default index file for fastcgi handling
+        include fastcgi_params; # Include standard fastcgi parameters
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; # Set script file name for executing php
+        fastcgi_param HTTPS $https; # Set HTTPS flag for secure connections
+    }
+
+    location ~ /\.ht {
+        deny all; # Block access to Unix hidden files from web
+    }
+
+    error_page 404 /404.html; # Set the custom error page for 404 errors
+    location = /404.html {
+        internal; # Handle error page internally to prevent additional requests
+    }
+
+    gzip on; # Enable Gzip compression for faster delivery
+    gzip_types text/plain text/css text/javascript; # Set file types to be compressed
+    gzip_min_length 1000; # Set minimum file size for compression
+    gzip_proxied any; # Enable gzip handling for all proxy requests
+    gzip_comp_level 5; # Set compression level for gzip
+    gzip_vary on; # Add Vary header to indicate compressed content
+    gzip_disable "msie6"; # Disable gzip for IE6 compatibility
+
+    # SSL configuration 
+    listen 443 ssl; # Listen for incoming HTTPS connections on port 443
+    ssl_certificate /etc/nginx/ssl/example.crt; # Set SSL certificate file
+    ssl_certificate_key /etc/nginx/ssl/example.key; # Set SSL certificate key file
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2; # Set supported SSL protocols
+    ssl_prefer_server_ciphers on; # Prefer server-side ciphers for security
+    ssl_dhparam /etc/nginx/ssl/example.dhparam.pem; # Set Diffie-Hellman parameters for key exchange
+    ssl_session_cache shared:SSL:10m; # Enable session caching for SSL connections
+    ssl_session_timeout 10m; # Set session timeout for SSL connections
+    ssl_stapling on; # Enable OCSP stapling for improved performance
+    ssl_stapling_verify on; # Enable OCSP stapling verification
+    resolver 8.8.8.8 8.8.4.4; # Set DNS server for OCSP stapling
+    ssl_buffer_size 8k; # Set buffer size for SSL session data
+}

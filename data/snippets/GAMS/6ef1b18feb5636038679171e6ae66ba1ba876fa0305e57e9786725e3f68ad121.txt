@@ -1,0 +1,59 @@
+Sets
+       i   customer              Customers
+       j   plant                 Plants   /p1*p5/
+       k   product               Products
+       l   market                Markets  /m1*m2/
+
+Parameters
+       a(i) set coverage
+       pc(i) percent coverage
+       prod(k) production
+       smax(i,j) maximum storage at customer i, plant j
+       tcost(i,j) transportation cost in thousands of dollars per case per thousand miles;
+
+Table ddist(t(i,j),l,k) "Delivery distance in thousands of miles"
+                  m1    m2
+          p1     10     12
+          p2      8      8
+          p3      7      9
+          p4     10      8
+          p5      9     11 ;
+          
+Scalar
+       b "production cost per case in thousands of dollars" /50/;
+       
+Variables
+       x(i,j,l,k) transport matrix
+       y(i,j,k)  plant utilization
+       z       total cost;
+
+Positive Variable x,y;
+
+Equations
+       obj "total cost calculation"
+       bprod(k) "production balance"
+       pbal(i,j) "production balance"
+       cmin(i,j) "minimum quantity constraint"
+       cmax(i,j) "maximum quantity constraint"
+       con(i,j,l) "storage constraints"
+       trans(i) "total transportation cost";
+
+obj.. z =e= sum((i,j,l), tcost(i,j)*(sum(k,x(i,j,l,k)) + y(i,j,k))/1000);
+
+bprod(k).. sum((i,j), y(i,j,k)) =e= prod(k);
+
+pbal(i,j).. sum((k), y(i,j,k)) =l= a(i)*smax(i,j);
+
+cmin(i,j).. sum((k), y(i,j,k)) =g= pc(i)*smax(i,j);
+
+cmax(i,j).. sum((k), y(i,j,k)) =l= 0.9*smax(i,j);
+
+con(i,j,l).. x(i,j,l,k) + y(i,j,k) =l= ddist(i,j,l,k);
+
+trans(i).. sum((j,l,k), tcost(i,j)*ddist(i,j,l,k)*x(i,j,l,k))/1000 =e= 0;
+
+Model transportation /all/;
+
+Display transportation.lim, obj.lim;
+
+Solve transportation using lp minimizing z;

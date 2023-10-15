@@ -1,0 +1,88 @@
+// Example code snippet in UNREALSCRIPT
+
+class ASniperRifle extends AWeapon; // Creates a class extending from the AWeapon class
+
+var(Vector) AimTraceStart; // Publicly declared Vector variable
+
+// Function to determine the location to start the aim trace
+function SetAimTraceStart()
+{
+	local pawn PlayerPawn; // Creates a local variable
+
+	if(PlayerOwner != None && WidgetInitialized())
+	{
+		// Gets the player controller from the player owner variable
+		local PlayerController PC;
+		PC = PlayerOwner.PlayerController;
+
+		// Checks if the player controller is valid
+		if(PC != None)
+		{
+			// Gets the player pawn from the player controller
+			PlayerPawn = PC.Pawn;
+
+			// Checks if the player pawn is valid
+			if(PlayerPawn != None)
+			{
+				// Gets the camera component from the player pawn
+				local CameraComponent CamComp;
+				CamComp = PlayerPawn.FindComponentByClass(class'CameraComponent');
+
+				// Checks if the camera component is valid
+				if(CamComp != None)
+				{
+					// Calculates the start location for the aim trace based on the camera location and rotation
+					local Vector CameraLoc;
+					local Rotator CameraRot;
+					CameraLoc = CamComp.Location;
+					CameraRot = CamComp.Rotation;
+					AimTraceStart = CameraLoc + CameraRot.Vector * 1000;
+				}
+			}
+		}
+	}
+}
+
+// Function to calculate the end location for the aim trace based on the current rotation
+function Vector CalculateAimTraceEnd(Rotator AimRotation)
+{
+	// Creates a variable to store the calculated end location
+	local Vector AimTraceEnd;
+
+	// Calculates the end location using trigonometry
+	AimTraceEnd.X = AimTraceStart.X + Cos(AimRotation.Yaw) * Sin(AimRotation.Pitch) * 1000;
+	AimTraceEnd.Y = AimTraceStart.Y + Sin(AimRotation.Yaw) * Sin(AimRotation.Pitch) * 1000;
+	AimTraceEnd.Z = AimTraceStart.Z + Cos(AimRotation.Pitch) * 1000;
+
+	// Returns the calculated end location
+	return AimTraceEnd;
+}
+
+// Function called when the player attacks with the weapon
+event BeginFire()
+{
+	Super.BeginFire(); // Calls the parent class's BeginFire function
+
+	// Checks if the world is valid
+	if(WorldInfo != None)
+	{
+		local ASniperBullet Bullet; // Creates a local variable to store the bullet
+
+		// Spawns a new instance of the ASniperBullet class at the aim trace start location
+		Bullet = WorldInfo.Spawn(class'ASniperBullet', None, 'Default.___FireOrigin', AimTraceStart, Rotation);
+
+		// Checks if the bullet is valid
+		if(Bullet != None)
+		{
+			// Calculates the end location for the aim trace using the current rotation
+			local Vector AimTraceEnd;
+			AimTraceEnd = CalculateAimTraceEnd(Rotation);
+
+			// Calls the Fire function on the bullet with the aim trace start and end locations
+			Bullet.Fire(AimTraceStart, AimTraceEnd);
+
+			// Plays a sound at the aim trace end location
+			PlaySound(SoundCue'FireSoundCue', 0.25f, 1.0f, 0.0f, location(AimTraceEnd));
+		}
+	}
+}

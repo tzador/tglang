@@ -1,0 +1,80 @@
+//This contract represents a decentralized savings account
+//using the principle of compound interest
+
+//Defining the contract
+contract SavingsAccount {
+    
+    //Defining variables
+    address private owner;
+    uint256 private balance;
+    mapping (address => uint256) private accountBalance;
+    mapping (address => uint256) private accountInterestRate;
+    
+    //Initializing the contract
+    constructor() public {
+        owner = msg.sender;
+    }
+    
+    //Function to deposit funds
+    function deposit() public payable {
+        require(msg.value > 0, "Deposit amount must be greater than 0");
+        accountBalance[msg.sender] += msg.value;
+    }
+    
+    //Function to withdraw funds
+    function withdraw(uint256 _amount) public {
+        require(_amount > 0, "Withdrawal amount must be greater than 0");
+        require(accountBalance[msg.sender] > _amount, "Insufficient balance");
+        accountBalance[msg.sender] -= _amount;
+        msg.sender.transfer(_amount);
+    }
+    
+    //Function to calculate compound interest
+    function calculateInterest(address _account) private view returns (uint256) {
+        
+        //Defining variables
+        uint256 principal = accountBalance[_account];
+        uint256 time = now - (now % 1 days); //Current timestamp in days
+        
+        //Calculating interest rate based on deposit amount
+        if (principal < 1 ether) { //Less than 1 ETH
+            accountInterestRate[_account] = 100;
+        } else if (principal < 2 ether) { //Between 1-2 ETH
+            accountInterestRate[_account] = 150;
+        } else if (principal < 3 ether) { //Between 2-3 ETH
+            accountInterestRate[_account] = 200;
+        } else { //More than 3 ETH
+            accountInterestRate[_account] = 250;
+        }
+        
+        //Calculating interest using compound interest formula
+        uint256 amountWithInterest = principal * (1 + accountInterestRate[_account] / 100) ^ (time / 1 days);
+        return amountWithInterest - principal; //Interest earned
+    }
+    
+    //Function to view account balance and interest earned
+    function viewBalance() public view returns (uint256, uint256) {
+        uint256 balance = accountBalance[msg.sender];
+        uint256 interest = calculateInterest(msg.sender);
+        return (balance, interest);
+    }
+    
+    //Function to withdraw accumulated interest
+    function withdrawInterest() public {
+        uint256 interest = calculateInterest(msg.sender);
+        require(interest > 0, "No interest earned");
+        msg.sender.transfer(interest);
+    }
+    
+    //Function to close savings account and transfer remaining balance to owner
+    function closeAccount() public {
+        require(msg.sender == owner, "Only owner can close account");
+        uint256 remainingBalance = address(this).balance - calculateInterest(msg.sender);
+        msg.sender.transfer(remainingBalance);
+    }
+    
+    //Fallback function to reject any incoming funds
+    function () external payable {
+        revert("This contract does not accept outside funds");
+    }
+}

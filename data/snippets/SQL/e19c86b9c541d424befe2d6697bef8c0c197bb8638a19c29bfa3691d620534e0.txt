@@ -1,0 +1,77 @@
+-- create a temporary table to store data
+CREATE TEMPORARY TABLE IF NOT EXISTS temp_inventory (
+  id INT,
+  product_name VARCHAR(255),
+  product_price DECIMAL(10,2),
+  quantity INT
+);
+
+-- insert data into the temporary table
+INSERT INTO temp_inventory (id, product_name, product_price, quantity)
+VALUES (1, 'Apple', 2.50, 50),
+       (2, 'Orange', 1.75, 75),
+       (3, 'Banana', 0.75, 100),
+       (4, 'Pear', 3.00, 25);
+
+-- create a table to store the final inventory report
+CREATE TABLE IF NOT EXISTS inventory_report (
+  id INT,
+  product_name VARCHAR(255),
+  starting_quantity INT,
+  ending_quantity INT,
+  total_sales DECIMAL(10,2)
+);
+
+-- calculate starting and ending quantities for each product
+INSERT INTO inventory_report (id, product_name, starting_quantity, ending_quantity)
+SELECT id,
+       product_name,
+       (SELECT quantity FROM temp_inventory WHERE id = inventory_report.id) AS starting_quantity,
+       (SELECT quantity - COUNT(id) AS ending_quantity FROM temp_inventory WHERE id = inventory_report.id) AS ending_quantity
+FROM temp_inventory
+GROUP BY id;
+
+-- calculate total sales for each product and store in the inventory report table
+UPDATE inventory_report
+SET total_sales = (ending_quantity * product_price);
+
+-----------------------------------------
+/* Expected Output:
+-----------------------------------------
+
+    -- create a temporary table to store data
+    CREATE TEMPORARY TABLE IF NOT EXISTS temp_inventory (
+      id INT,
+      product_name VARCHAR(255),
+      product_price DECIMAL(10,2),
+      quantity INT
+    );
+
+    -- insert data into the temporary table
+    INSERT INTO temp_inventory (id, product_name, product_price, quantity)
+    VALUES (1, 'Apple', 2.50, 50),
+           (2, 'Orange', 1.75, 75),
+           (3, 'Banana', 0.75, 100),
+           (4, 'Pear', 3.00, 25);
+
+    -- create a table to store the final inventory report
+    CREATE TABLE IF NOT EXISTS inventory_report (
+      id INT,
+      product_name VARCHAR(255),
+      starting_quantity INT,
+      ending_quantity INT,
+      total_sales DECIMAL(10,2)
+    );
+
+    -- calculate starting and ending quantities for each product
+    INSERT INTO inventory_report (id, product_name, starting_quantity, ending_quantity)
+    SELECT id,
+           product_name,
+           (SELECT quantity FROM temp_inventory WHERE id = inventory_report.id) AS starting_quantity,
+           (SELECT quantity - COUNT(id) AS ending_quantity FROM temp_inventory WHERE id = inventory_report.id) AS ending_quantity
+    FROM temp_inventory
+    GROUP BY id;
+
+    -- calculate total sales for each product and store in the inventory report table
+    UPDATE inventory_report
+    SET total_sales = (ending_quantity * product_price);

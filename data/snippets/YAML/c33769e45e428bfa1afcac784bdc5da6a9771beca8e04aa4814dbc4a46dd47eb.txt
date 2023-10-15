@@ -1,0 +1,33 @@
+---
+- name: Create a new virtual environment
+  hosts: localhost
+  gather_facts: false
+  vars:
+    python_version: 3.7.4
+  tasks:
+    - name: Create a virtual environment
+      shell: |
+        python3 -m venv /opt/myenv-{{python_version}}
+      register: venv
+    - name: Activate virtual environment
+      shell: |
+        source /opt/myenv-{{python_version}}/bin/activate
+      when: venv.rc == 0
+    - name: Install dependencies
+      pip:
+        name:
+          - numpy
+          - pandas
+          - matplotlib
+        virtualenv: /opt/myenv-{{python_version}}
+    - stat: 
+        path: /opt/myenv-{{python_version}}/.venv/bin/activate
+      register: venv_active
+    - name: Deactivate virtual environment
+      shell: |
+        deactivate
+      when: venv_active.stat.exists == True
+    - command: pip freeze
+      register: dependencies
+    - debug:
+        msg: "Installed Dependencies: {{ dependencies.stdout_lines }}"

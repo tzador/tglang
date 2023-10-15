@@ -1,0 +1,26 @@
+pro gfit, x, y, nsig=3, slope=0, $    ; Function to perform Gaussian fit
+   mean=total(x*y)                   $   ; Calculate mean value
+   y2=(y - mean) / nsig                    ; Subtract mean and divide by nsig
+   resp=fltarr(n_elements(x))             ; Create response array
+   resp[0]=1                              ; Set first element to 1
+   temp=fltarr(n_elements(x))              ; Create temporary array
+   temp[0]=1                             ; Set first element to 1
+   loop, i = 1, nsig-1 do begin       ; Iterate through the indices
+      temp[1:n_elements(x)-i] = y2[0:n_elements(x)-i] * temp[i:n_elements(x)-1]  ; Multiply elements
+      resp[i] = total(temp)                     ; Add elements and place in response array
+   endfor
+
+   ramp=n_elements(x) - 1          ; Number of terms is number of elements minus one
+   x=congrid(laguerre_root(ramp), n_elements(x)) * x     ; Compute roots and multiply by x
+   rho=resp / dproduct(x)        ; Calculate coefficients
+
+   fit=fltarr(n_elements(x))   ; Create fit array
+   for i = 0, n_elements(x) - 1 do begin     ; Loop through indices
+      for j = 0, nsig - 1 do begin       ; Loop through number of components
+         if i lt nsig then dtemp = 1 else dtemp = exp(-rho[j] * x[i])    ; Calculate fit function
+         fit[i] = fit[i]+dtemp*slope[j]      ; Add slope contribution
+       endfor
+   endfor
+
+   gfit=fit+mean       ; Add mean value to final fit function
+end

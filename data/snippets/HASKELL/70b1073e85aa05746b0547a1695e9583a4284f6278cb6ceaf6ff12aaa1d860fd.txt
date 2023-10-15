@@ -1,0 +1,61 @@
+-- Function to calculate the Jaro-Winkler distance between two strings
+jaroWinklerDistance :: String -> String -> Float
+-- Takes two strings as parameters and returns a float value
+jaroWinklerDistance s1 s2
+    | s1 == "" && s2 == "" = 0.0 
+    -- If both strings are empty, distance is 0
+    | s1 == s2 = 1.0
+    -- If strings are identical, distance is 1
+    | otherwise = let 
+        len1 = length s1
+        len2 = length s2
+        -- Length of each string
+        maxDist = div (max len1 len2) 2 - 1
+        -- Maximum distance for matching characters
+        matchLen = (len1 + len2) - commonChars s1 s2 maxDist
+        -- Calculates the length of matched characters
+        transpositions = div (commonTranspositions s1 s2 maxDist) 2
+        -- Calculates the number of transpositions between the two strings
+        jaro = (fromIntegral matchLen) / (fromIntegral (len1 + len2))
+        -- Calculates the Jaro distance using match length
+        jaroPrefix = if (head s1) == (head s2)
+            then min 4 (length (commonPrefix s1 s2))
+            else 0
+        -- Calculates the Jaro prefix 
+        jaroWinkler = jaro + 0.1 * (fromIntegral (jaroPrefix * (1 - jaro)))
+        -- Calculates the Jaro-Winkler distance by accounting for common prefix and Jaro distance
+        in jaroWinkler
+        -- Returns the Jaro-Winkler distance as the result
+        where
+            commonChars :: String -> String -> Int -> Int
+            -- Helper function to count the number of matched characters
+            commonChars _ _ (-1) = 0
+            -- If maximum distance is reached, no matches found
+            commonChars s1 s2 maxDist
+                | s1 == "" || s2 == "" = 0
+                | head s1 == head s2 = 1 + commonChars (tail s1) (tail s2) (maxDist - 1)
+                -- Counts a matched character and recursively calls the function with remaining strings and decreased maxDist
+                | otherwise = commonChars (tail s1) (tail s2) (maxDist - 1)
+                -- If characters don't match, recursively calls the function with remaining strings and decreased maxDist
+                
+            commonTranspositions :: String -> String -> Int -> Int
+            -- Helper function to count the number of transpositions
+            commonTranspositions _ _ (-1) = 0
+            -- If maximum distance is reached, no transpositions found
+            commonTranspositions s1 s2 maxDist
+                | s1 == "" || s2 == "" = 0
+                | head s1 == head s2 = commonTranspositions (tail s1) (tail s2) (maxDist - 1)
+                -- If characters match, recursively calls the function with remaining strings and decreased maxDist
+                | otherwise = 1 + commonTranspositions (tail s1) (tail s2) (maxDist - 1)
+                -- If characters don't match, counts a transposition and recursively calls the function with remaining strings and decreased maxDist
+                
+            commonPrefix :: String -> String -> String
+            -- Helper function to find the common prefix of two strings
+            commonPrefix _ "" = ""
+            -- If one string is empty, no common prefix can be found
+            commonPrefix "" _ = ""
+            commonPrefix s1 s2
+                | head s1 == head s2 = [head s1] ++ commonPrefix (tail s1) (tail s2)
+                -- If characters match, adds it to the common prefix
+                | otherwise = ""
+                -- If characters don't match, common prefix is complete, returns it

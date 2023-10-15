@@ -1,0 +1,82 @@
+%% Genetic Algorithm for Finding Optimal Weights in Neural Networks
+
+%% Initialization
+population_size = 100; % number of individuals in population
+num_variables = 5; % number of variables (weights) in neural network
+mutation_rate = 0.01; % probability of mutation
+
+%% Create Initial Population
+population = rand(population_size, num_variables); % generate random weights for initial population
+
+%% Evaluation
+fitness = zeros(population_size, 1); % initialize fitness array
+for i = 1:population_size
+    % calculate fitness based on weights and neural network architecture
+    fitness(i) = calculate_fitness(population(i,:));
+end
+
+%% Selection
+num_parents = population_size/2; % number of parents for next generation
+parents = zeros(num_parents, num_variables); % initialize parent array
+
+% select parents based on tournament selection
+for i = 1:num_parents
+    % randomly select two individuals from the population
+    random_selection = randperm(population_size, 2);
+    
+    % compare fitness of the two individuals and select the one with higher fitness
+    if fitness(random_selection(1)) > fitness(random_selection(2))
+        parents(i,:) = population(random_selection(1),:);
+    else
+        parents(i,:) = population(random_selection(2),:);
+    end
+end
+
+%% Crossover
+offspring = zeros(population_size, num_variables); % initialize offspring array
+
+% perform single point crossover for each pair of parents
+for i = 1:2:num_parents
+    % randomly select a crossover point between 1 and num_variables-1
+    crossover_point = randi([1,num_variables-1]);
+    
+    % create offspring by exchanging genetic material at crossover point
+    offspring(i,:) = [parents(i,1:crossover_point), parents(i+1,crossover_point+1:end)];
+    offspring(i+1,:) = [parents(i+1,1:crossover_point), parents(i,crossover_point+1:end)];
+    
+    % perform mutation on offspring with given probability
+    if rand < mutation_rate
+        % randomly select a weight to mutate
+        mutate_index = randi([1,num_variables]);
+        
+        % mutate the selected weight by adding a small random value
+        offspring(i,mutate_index) = offspring(i,mutate_index) + randn/10;
+    end
+end
+
+%% Replacement
+% replace the worst half of the population with the offspring
+[~,worst_indices] = sort(fitness, 'descend');
+population(worst_indices(1:num_parents),:) = offspring(1:num_parents,:);
+
+%% Repeat until convergence or maximum generations reached
+
+function fitness = calculate_fitness(weights)
+    % create neural network architecture
+    layers = [
+        fullyConnectedLayer(10)
+        reluLayer
+        fullyConnectedLayer(5)
+        softmaxLayer
+        classificationLayer];
+
+    % create neural network using given weights
+    net = trainNetwork(XTrain, YTrain, layers, 'MiniBatchSize', 32, 'LearnRateSchedule', 'piecewise', 'MaxEpochs', 5, 'InitialLearnRate', 0.01, 'LearnRateDropPeriod', 2, 'LearnRateDropFactor', 0.1, 'GradientThreshold', 1, 'L2Regularization', 0.0001, 'ExecutionEnvironment', 'cpu', 'Shuffle', 'every-epoch', 'ValidationFrequency', 50, 'ValidationData', {XVal, YVal}, 'Verbose', false, 'Plots', 'none', 'CacheTrainingImages', true);
+    
+    % calculate loss function on validation data
+    YValPred = classify(net, XVal);
+    val_accuracy = sum(YValPred == YVal)/numel(YVal);
+    
+    % calculate fitness as inverse of validation accuracy
+    fitness = 1/val_accuracy;
+end

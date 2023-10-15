@@ -1,0 +1,59 @@
+const { ApolloServer, gql } = require('apollo-server');
+const { buildFederatedSchema } = require('@apollo/federation');
+const { stitchSchemas } = require('@graphql-tools/stitch');
+
+// Define types
+const typeDefs = gql`
+  type Query {
+    me: User
+  }
+
+  type User @key(fields: "id") {
+    id: ID!
+    name: String
+    email: String
+    posts: [Post]
+  }
+
+  type Post {
+    id: ID!
+    title: String
+    content: String
+    author: User
+  }
+`;
+
+// Set up resolvers
+const resolvers = {
+  Query: {
+    me() {
+      return { id: '1', name: 'John Doe', email: 'john.doe@email.com' };
+    },
+  },
+  User: {
+    __resolveReference(object) {
+      return { ...object, posts: [{ id: '1', title: 'First Post', content: 'Lorem ipsum dolor sit amet.', author: { id: object.id } }, { id: '2', title: 'Second Post', content: 'Nulla eget velit pellentesque.', author: { id: object.id } }] };
+    },
+    posts(user) {
+      return user.posts;
+    },
+  },
+  Post: {
+    author(post) {
+      return { id: post.author.id, name: 'John Doe', email: 'john.doe@email.com' };
+    },
+  },
+};
+
+// Create gateway schema by stitching federated schemas
+const gatewaySchema = stitchSchemas({
+  subschemas: [
+    { schema: buildFederatedSchema([{ typeDefs, resolvers }]) }
+  ],
+});
+
+// Start Apollo server with gateway schema
+const server = new ApolloServer({ schema: gatewaySchema, port: 4000 });
+server.listen().then(({ url }) => {
+  console.log(`🚀 Server ready at ${url}`);
+});

@@ -1,0 +1,50 @@
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, FunctionalDependencies, IncoherentInstances #-}
+
+module Main where
+
+import qualified Data.Map as Map
+
+-- A custom type for representing a binary tree
+data Tree a = Empty | Node a (Tree a) (Tree a) deriving (Show)
+
+-- A class for creating a mapping between two types
+class Mapping key val m | m -> key val where
+  -- The function for getting a value based on a key
+  getByKey :: key -> m -> Maybe val
+  -- The function for adding a key-value pair to the mapping
+  addPair :: key -> val -> m -> m
+  -- The function for removing a value based on a key
+  removeByKey :: key -> m -> m
+
+-- An instance for the Tree type, where the key is an Integer and the value is a String
+instance Mapping Integer String (Tree (Integer, String)) where
+  getByKey key Empty = Nothing
+  getByKey key (Node pair left right) =
+    if key == fst pair
+      then Just (snd pair)
+      else getByKey key left `mplus` getByKey key right
+  addPair key val Empty = Node (key, val) Empty Empty
+  addPair key val (Node pair left right) =
+    if key == fst pair
+      then Node (key, val) left right
+      else Node pair (addPair key val left) (addPair key val right)
+  removeByKey key Empty = Empty
+  removeByKey key (Node pair left right) =
+    if key == fst pair
+      then Empty
+      else Node pair (removeByKey key left) (removeByKey key right)
+
+-- An instance for the Map type from Data.Map
+instance Ord key => Mapping key val (Map.Map key val) where
+  getByKey = Map.lookup
+  addPair = Map.insert
+  removeByKey = Map.delete
+
+main :: IO ()
+main = do
+  let tree = Node (1, "a") (Node (2, "b") (Node (4, "d") Empty Empty) (Node (5, "e") Empty Empty)) (Node (3, "c") (Node (6, "f") Empty Empty) (Node (7, "g") Empty Empty))
+  putStrLn $ show (getByKey 5 tree) -- prints "Just "e""
+  putStrLn $ show (getByKey 8 tree) -- prints "Nothing"
+  let map = Map.fromList [(1, "a"), (2, "b"), (3, "c")]
+  putStrLn $ show (getByKey 2 map) -- prints "Just "b""
+  putStrLn $ show (getByKey 4 map) -- prints "Nothing"

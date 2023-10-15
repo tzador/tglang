@@ -1,0 +1,57 @@
+# Use GNU Makefile format for build instructions
+
+# Define variables
+CC = gcc
+CFLAGS = -Wall -Werror -std=c99
+SRC_DIR = src
+OBJ_DIR = obj
+BIN_DIR = bin
+# Define object files to be compiled from sources in SRC_DIR
+# and placed in OBJ_DIR
+OBJ_FILES := $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(wildcard $(SRC_DIR)/*.c))
+# Define binary file to be created from object files in OBJ_FILES
+# and placed in BIN_DIR
+TARGET = $(BIN_DIR)/program
+
+# Targets and dependencies
+# 'all' target is used to compile all source files and generate executable
+# 'clean' target removes all object files and binary file
+all: $(TARGET)
+
+clean:
+	rm -rf $(OBJ_DIR) $(BIN_DIR)
+
+# '$@' is the name of the target
+# '$^' is the list of dependencies
+$(TARGET): $(OBJ_FILES)
+	$(CC) $(CFLAGS) -o $@ $^
+
+# '$<' is the first dependency
+# '$@' is the name of the target
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+# 'function' target takes arguments and uses them to generate new source files
+# and then compiles them into object files
+# Make function syntax is $(function arguments, commands)
+# In this case, 'function' generates a new source file with the given name
+# and then compiles that source file
+function:
+	$(eval NEW_SRC = $(word 1, $(MAKECMDGOALS)))
+	$(file > $(SRC_DIR)/$(NEW_SRC).c)
+	@echo "int main(void) {" >> $(SRC_DIR)/$(NEW_SRC).c
+	@echo "    printf(\"Hello, $(NEW_SRC)!\");" >> $(SRC_DIR)/$(NEW_SRC).c
+	@echo "    return 0;" >> $(SRC_DIR)/$(NEW_SRC).c
+	@echo "}" >> $(SRC_DIR)/$(NEW_SRC).c
+	$(CC) $(CFLAGS) -c $(SRC_DIR)/$(NEW_SRC).c -o $(OBJ_DIR)/$(NEW_SRC).o
+
+# 'print' target takes arguments and uses them to print a message
+print:
+	@echo "Your message is: $(word 2, $(MAKECMDGOALS))"
+
+# 'example' target prints a message, compiles a new source file using the 'function' target,
+# and then adds the new object file to the list of dependencies and recompiles the program
+example: print function hello
+	$(eval NEW_OBJ = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(wildcard $(SRC_DIR)/hello.c)))
+	$(eval OBJ_FILES += $(NEW_OBJ))
+	make $(TARGET)

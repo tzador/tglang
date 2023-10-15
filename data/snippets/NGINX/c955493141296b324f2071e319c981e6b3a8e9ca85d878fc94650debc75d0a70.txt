@@ -1,0 +1,50 @@
+server {
+  listen 80; # Specifies which port to listen for incoming requests
+  server_name website.com; # Specifies the domain name for this server
+
+  location /images {
+    alias /var/www/website/images;
+    access_log /var/log/nginx/images.log main; # Specifies the log format for this location
+    autoindex on; # Enables directory listing for this location
+  }
+
+  location /admin {
+    root /var/www/website; # Specifies the document root for this location
+    try_files $uri $uri/ /admin/index.php?$args; # Tries to serve the requested file, and if it doesn't exist, passes it to the index.php script
+    index index.php; # Specifies the default file to serve when a directory is requested
+    include fastcgi_params; # Includes the FastCGI configuration for this location
+    fastcgi_pass unix:/var/run/php-fpm.sock; # Specifies the location of the FastCGI server
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; # Specifies the PHP script to be executed
+  }
+
+  location / {
+    root /var/www/website;
+    try_files $uri $uri/ /index.php?$args;
+    index index.php;
+    include fastcgi_params;
+    fastcgi_pass unix:/var/run/php-fpm.sock;
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+  }
+
+  error_page 404 /404.html; # Specifies the error page to show when a 404 error occurs
+  location = /404.html {
+    internal; # Specifies that this file is only accessible from within this server
+  }
+
+  # SSL configuration
+  listen 443 ssl; # Specifies which port to listen for incoming requests using SSL
+  server_name website.com; # Specifies the domain name for this server
+  ssl_certificate /etc/nginx/website.crt; # Specifies the location of the SSL certificate file
+  ssl_certificate_key /etc/nginx/website.key; # Specifies the location of the SSL private key file
+  ssl_session_timeout 5m; # Specifies the amount of time for an SSL session to remain active
+  ssl_protocols TLSv1.2 TLSv1.3; # Specifies which versions of the SSL protocol to use
+  ssl_prefer_server_ciphers on; # Specifies that server ciphers are preferred over client ciphers
+  ssl_dhparam /etc/nginx/dhparams.pem; # Specifies the location of the Diffie-Hellman parameter file
+  ssl_ciphers 'ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256'; # Specifies which cipher suites are allowed for the SSL connection
+  ssl_session_tickets off; # Specifies that session tickets should not be used
+  ssl_stapling on; # Enables OCSP stapling
+  ssl_stapling_verify on; # Enables verification of OCSP responses
+  resolver 1.1.1.1 1.0.0.1 valid=300s; # Specifies the DNS servers used for OCSP verification
+  resolver_timeout 5s; # Specifies the amount of time to wait for a response from the DNS servers
+  add_header Strict-Transport-Security 'max-age=63072000; includeSubDomains; preload'; # Enables HTTP Strict Transport Security (HSTS)
+}

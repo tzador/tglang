@@ -1,0 +1,69 @@
+%% Gaussian Mixture Model Clustering
+clear all; close all; clc;
+
+%% Data Generation
+mu1 = [0.5, 0.5];
+sigma1 = eye(2);
+
+mu2 = [-0.5, -0.5];
+sigma2 = 2.*eye(2);
+
+X1 = mvnrnd(mu1, sigma1, 500);
+X2 = mvnrnd(mu2, sigma2, 500);
+X = [X1;X2];
+
+%% Initializations
+K = 2;
+[N, D] = size(X);
+phi = ones(K, 1)/K;
+mu = rand(K, D);
+sigma = reshape(repmat(diag(rand(D, 1)), 1, K), [D, D, K]);
+log_likelihood_old = -inf;
+tol = 1e-3;
+max_iters = 100;
+iter = 0;
+
+%% Estimation
+while iter < max_iters
+    %% Expectation Step
+    r = zeros(N, K);
+    for k = 1:K
+        r(:, k) = phi(k).*mvnpdf(X, mu(k, :), sigma(:, :, k));
+    end
+    gamma = r./sum(r, 2);
+    
+    %% Maximization Step
+    N_k = sum(gamma, 1);
+    phi = N_k/N;
+    mu = (gamma'*X)./N_k;
+    for k = 1:K
+        X_centered = X - mu(k, :);
+        sigma(:, :, k) = (X_centered.*gamma(:, k))'*X_centered./N_k(k);
+    end
+        
+    %% Calculate Log-Likelihood
+    log_likelihood_new = 0;
+    for n = 1:N
+        for k = 1:K
+            log_likelihood_new = log_likelihood_new + gamma(n, k)*(log(phi(k))...
+                + log(mvnpdf(X(n, :), mu(k, :), sigma(:, :, k))));
+        end
+    end
+    
+    %% Check Convergence
+    if abs(log_likelihood_new - log_likelihood_old) < tol
+        break;
+    else
+        log_likelihood_old = log_likelihood_new;
+    end
+    
+    iter = iter + 1;
+end
+
+%% Plotting Results
+[~, labels] = max(gamma, [], 2);
+figure;
+scatter(X(:, 1), X(:, 2), [], labels);
+hold on;
+scatter(mu(:, 1), mu(:, 2), 100, [1 0 0], 'filled');
+legend('Cluster 1', 'Cluster 2', 'Centroids');

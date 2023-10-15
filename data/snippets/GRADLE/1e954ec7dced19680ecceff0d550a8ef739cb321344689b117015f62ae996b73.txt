@@ -1,0 +1,82 @@
+// Define a custom task named "buildWithDeps"
+task buildWithDeps() {
+    // Define a dependency on "compile" and "testCompile" tasks
+    dependsOn(tasks.compile, tasks.testCompile)
+
+    // Specify the task dependencies for the "jar" task
+    jar.dependsOn(tasks.buildWithDeps)
+
+    // Specify the sources for the "compile" task
+    compile.source = fileTree(dir: "src/main/java")
+
+    // Specify the sources for the "testCompile" task
+    testCompile.source = fileTree(dir: "src/test/java")
+
+    // Specify the classpath for the "test" task
+    test.classpath += files(jar.archiveFile)
+
+    // Specify the classpath for the "testCompile" task
+    testCompile.classpath = files("lib/junit-4.12.jar")
+}
+
+// Define a custom task named "generateDocs"
+task generateDocs() {
+    // Define a dependency on "compile" and "testCompile" tasks
+    dependsOn(tasks.compile, tasks.testCompile)
+
+    // Specify the sources for the "javadoc" task
+    javadoc.source = compile.source
+
+    // Specify the classpath for the "javadoc" task
+    // It also includes the "testCompile" task output
+    javadoc.classpath = files(jar.archivePath, testCompile.destinationDir)
+
+    // Specify the output directory for the "javadoc" task
+    javadoc.destinationDir = file("docs")
+}
+
+// Define a custom task named "cleanAndBuild"
+task cleanAndBuild() {
+    // Define a dependency on "clean" task
+    dependsOn(tasks.clean)
+
+    // Specify the tasks to run when executing the "build" task
+    build.dependsOn(tasks.compile, tasks.jar, tasks.generateDocs)
+
+    // Specify the tasks to run when executing the "clean" task
+    clean.dependsOn(tasks.delete, tasks.clearJar, tasks.clearDocs)
+}
+
+// Define a custom task named "uploadFiles" with a type of "Upload"
+// The task uploads files to a specified remote server
+task uploadFiles(type: Upload) {
+    // Specify the remote server URL
+    destination = "http://www.example.com/upload"
+
+    // Specify the files to be uploaded
+    inputs.files(fileTree("dist"))
+
+    // Specify the authentication credentials for the remote server
+    // In this case, it uses a custom "Credentials" object
+    credentials {
+        username = myCredentials.username
+        password = myCredentials.password
+    }
+
+    // Specify the behavior if a file already exists on the remote server
+    // In this case, it overwrites the existing file
+    overwrite = true
+
+    // Specify the number of retries if an error occurs during upload
+    // In this case, it retries 3 times before failing
+    retries = 3
+
+    // Specify the timeout for each upload request
+    // In this case, it sets the timeout to 30 seconds
+    requestTimeout = Duration.ofSeconds(30)
+
+    // Specify the task dependencies for the "uploadFiles" task
+    // In this case, it depends on the "cleanAndBuild" task and its outputs
+    dependsOn(cleanAndBuild)
+    from(cleanAndBuild.outputs)
+}

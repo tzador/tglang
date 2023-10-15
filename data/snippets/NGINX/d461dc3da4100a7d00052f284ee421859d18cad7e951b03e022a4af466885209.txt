@@ -1,0 +1,66 @@
+# This is a complex configuration for a load balancing server using NGINX
+# The following block defines the upstream servers to be used
+upstream backend {
+    server 10.0.0.1 weight=3;
+    server 10.0.0.2;
+    server 10.0.0.3;
+}
+
+# The following block sets up the basic server configuration
+server {
+    listen 80;
+    server_name example.com;
+    root /var/www/;
+    
+    # Define server block-level variables
+    set $backend "backend";
+    
+    # Configure proxy settings
+    location / {
+        proxy_pass http://$backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    
+        # Configure proxy timeouts
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 10s;
+        proxy_send_timeout 10s;
+        
+        # Enable websockets
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+    
+    # Configure caching for specific URL paths
+    location /images/ {
+        proxy_cache my_cache;
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+        proxy_cache_valid 200 1d;
+        proxy_cache_bypass $http_pragma;
+        proxy_no_cache $http_pragma;
+        
+        # Configure cache enablement based on response headers
+        proxy_cache_bypass $http_pragma;
+        proxy_cache_bypass $http_authorization;
+        proxy_cache_bypass $cookie_session;
+        proxy_cache_bypass $cookie_display;
+        
+        # Configure cache size and timeout
+        proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=my_cache:10m inactive=60m;
+    }
+    
+    # Configure resource limits for the server block
+    limit_req zone=one burst=5;
+    limit_rate 100k;
+    
+    # Enable gzip compression for responses
+    gzip on;
+    gzip_types text/plain text/css application/json text/javascript;
+    
+    # Enable SSL certifications
+    listen 443 ssl;
+    ssl_certificate /etc/ssl/nginx.crt;
+    ssl_certificate_key /etc/ssl/nginx.key;
+}

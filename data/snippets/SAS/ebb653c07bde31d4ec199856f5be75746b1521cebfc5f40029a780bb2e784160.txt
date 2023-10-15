@@ -1,0 +1,39 @@
+/*****************************************************************
+**   This code snippet generates a summary report from a dataset **
+**   and includes calculations for profit and sales statistics.  **
+*****************************************************************/
+/* Define macro variables for dataset and output file name */
+%let data_set = 'Sales_Data';
+%let output_file = 'Summary_Report';
+
+/* Set up data step to filter dataset */
+data &data_set;
+    /* Filter out any non-revenue records */
+    set &data_set (where=(Revenue > 0));
+    /* Calculate profit as the difference between revenue and expenses */
+    Profit = Revenue - Expenses;
+    /* Calculate profit margin as a percentage of revenue */
+    Profit_Margin = (Profit/Revenue)*100;
+run;
+
+/* Set up proc means to generate sales statistics */
+proc means data = &data_set noprint;
+    /* Calculate total sales */
+    output out = Sales_Stats (keep = Total_Sales) sum(Sales) = Total_Sales;
+run;
+
+/* Merge sales statistics with summary report dataset */
+data &output_file;
+    /* Use a left join to keep all records from summary report dataset */
+    merge &data_set Sales_Stats(in=Sales);
+    /* Rename total sales variable */
+    rename Total_Sales = Total_Sales_Stats;
+    /* Calculate percentage of total sales for each record */
+    Total_Sales_Percentage = (Sales/Total_Sales_Stats)*100;
+    /* Format percentage variable with percent format */
+    format Total_Sales_Percentage percent8.2;
+run;
+
+/* Print summary report */
+proc print data = &output_file label noobs;
+run;

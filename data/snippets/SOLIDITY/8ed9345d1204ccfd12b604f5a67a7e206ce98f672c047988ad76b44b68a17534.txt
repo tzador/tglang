@@ -1,0 +1,144 @@
+/**
+ * @title InsuranceContract
+ * @dev This contract represents an insurance policy between a policyholder and an insurer.
+ **/
+contract InsuranceContract {
+    // State variables
+    
+    address public policyholder; // address of the policyholder
+    address public insurer; // address of the insurer
+    uint256 public premium; // amount of premium paid by policyholder
+    uint256 public coverageAmount; // amount of coverage provided by insurer
+    uint256 public expirationDate; // expiration date of the insurance policy
+    bool public isPolicyholderActive; // indicates if policyholder is still active
+    bool public isInsurerActive; // indicates if insurer is still active
+    mapping (address => uint256) public claimAmount; // tracks total claim amount for each address
+    mapping (address => bool) public hasClaimed; // tracks if address has already made a claim
+    
+    // Events
+    
+    event PolicyholderActivated(address indexed policyholder, uint256 premium);
+    event InsurerActivated(address indexed insurer, uint256 coverageAmount);
+    event PolicyExpired(address indexed policyholder, address indexed insurer);
+    event PolicyVoided(address indexed policyholder, address indexed insurer);
+    event ClaimMade(address indexed policyholder, address indexed insurer, uint256 amount);
+    event ClaimPaid(address indexed policyholder, address indexed insurer, address recipient, uint256 amount);
+    
+    // Constructor
+    
+    /**
+     * @dev Sets the initial state variables for the insurance contract
+     * @param _policyholder The address of the policyholder
+     * @param _premium The amount of premium to be paid by the policyholder
+     * @param _coverageAmount The amount of coverage provided by the insurer
+     * @param _expirationDate The expiration date of the insurance policy
+     **/
+    constructor(address _policyholder, uint256 _premium, uint256 _coverageAmount, uint256 _expirationDate) public {
+        require(_expirationDate > block.timestamp, "Expiration date must be in the future");
+        policyholder = _policyholder;
+        insurer = msg.sender;
+        premium = _premium;
+        coverageAmount = _coverageAmount;
+        expirationDate = _expirationDate;
+        isPolicyholderActive = true;
+        isInsurerActive = true;
+    }
+    
+    // Modifiers
+    
+    modifier onlyPolicyholder() {
+        require(msg.sender == policyholder, "Only the policyholder can call this function");
+        _;
+    }
+    
+    modifier onlyInsurer() {
+        require(msg.sender == insurer, "Only the insurer can call this function");
+        _;
+    }
+    
+    modifier policyActive() {
+        require(isPolicyholderActive && isInsurerActive, "Policy is no longer active");
+        _;
+    }
+    
+    // Functions
+    
+    /**
+     * @dev Activates the policyholder, allowing them to make claims
+     **/
+    function activatePolicyholder() public onlyPolicyholder {
+        require(!isPolicyholderActive, "Policyholder is already active");
+        isPolicyholderActive = true;
+        emit PolicyholderActivated(policyholder, premium);
+    }
+    
+    /**
+     * @dev Activates the insurer, allowing them to pay out claims
+     **/
+    function activateInsurer() public onlyInsurer {
+        require(!isInsurerActive, "Insurer is already active");
+        isInsurerActive = true;
+        emit InsurerActivated(insurer, coverageAmount);
+    }
+    
+    /**
+     * @dev Expires the insurance policy, preventing any further claims or payouts
+     **/
+    function expirePolicy() public onlyInsurer policyActive {
+        require(block.timestamp >= expirationDate, "Policy has not yet expired");
+        isPolicyholderActive = false;
+        isInsurerActive = false;
+        emit PolicyExpired(policyholder, insurer);
+    }
+    
+    /**
+     * @dev Voids the insurance policy, preventing any further claims or payouts
+     **/
+    function voidPolicy() public onlyInsurer policyActive {
+        isPolicyholderActive = false;
+        isInsurerActive = false;
+        emit PolicyVoided(policyholder, insurer);
+    }
+    
+    /**
+     * @dev Allows the policyholder to make a claim for a specific amount
+     * @param _amount The amount to be claimed
+     **/
+    function makeClaim(uint256 _amount) public onlyPolicyholder policyActive {
+        require(_amount <= coverageAmount, "Cannot claim more than coverage amount");
+        require(!hasClaimed[policyholder], "Policyholder has already made a claim");
+        claimAmount[policyholder] = _amount;
+        hasClaimed[policyholder] = true;
+        emit ClaimMade(policyholder, insurer, _amount);
+    }
+    
+    /**
+     * @dev Pays out a claim to a designated recipient
+     * @param _recipient The address of the recipient
+     * @param _amount The amount to be paid out
+     **/
+    function payoutClaim(address _recipient, uint256 _amount) public onlyInsurer policyActive {
+        require(hasClaimed[_recipient], "Recipient has not made a claim");
+        require(_amount <= claimAmount[_recipient], "Cannot pay out more than claimed amount");
+        _recipient.transfer(_amount);
+        emit ClaimPaid(policyholder, insurer, _recipient, _amount);
+    }
+    
+    /**
+     * @dev Allow the insurer to increase the coverage amount for the policy
+     * @param _newCoverageAmount The new coverage amount
+     **/
+    function increaseCoverage(uint256 _newCoverageAmount) public onlyInsurer policyActive {
+        require(_newCoverageAmount > coverageAmount, "New coverage amount must be greater than current coverage");
+        coverageAmount = _newCoverageAmount;
+    }
+    
+    /**
+     * @dev Allow the insurer to change the expiration date of the policy
+     * @param _newExpirationDate The new expiration date
+     **/
+    function changeExpirationDate(uint256 _newExpirationDate) public onlyInsurer policyActive {
+        require(_newExpirationDate > block.timestamp, "New expiration date must be in the future");
+        expirationDate = _newExpirationDate;
+    }
+}

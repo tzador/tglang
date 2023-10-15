@@ -1,0 +1,181 @@
+\ -------------- DEFINITIONS --------------
+
+\ I. Stack Manipulation Words
+: dup         ( x -- x x )          \ duplicates the top item on the stack
+    2>r swap r> ;
+
+: over        ( x y -- x y x )      \ duplicates the second item on the stack
+    dup >r swap r> ;
+
+: rot         ( x y z -- y z x )    \ moves the third item on the stack to the top
+    over swap ;
+
+: drop        ( x -- )               \ drops the top item on the stack
+    >r drop r> ;
+
+: swap        ( x y -- y x )         \ swaps the top two items on the stack
+    over rot ;
+
+: nip         ( x y -- y )           \ removes the second item on the stack
+    over swap drop ;
+
+: tuck        ( x y -- y x y )       \ copies the top item and inserts it below the second item
+    over swap over ;
+
+: pick        ( x ..xn n -- x ..xn x )   \ moves the nth item on the stack to the top
+    1 x - pick ;
+
+: depth       ( -- n )                    \ returns the current stack depth
+    depth 0 ;
+
+: pickdup     ( ..x n -- ..x x )          \ duplicates the nth item on the stack
+    dup pick swap ;
+
+: >r          ( x -- )                    \ pushes x onto the return stack
+    r> push ;
+
+: r>          ( -- x )                    \ pops the top item from the return stack
+    pop ;
+
+: r@          ( -- x )                    \ returns the top item from the return stack
+    peek ;
+
+
+\ II. Arithmetic and Logic Words
+
+: +           ( n1 n2 -- n3 )      \ adds the top two items on the stack
+    swap 1+ swap ;
+
+: -           ( n1 n2 -- n3 )      \ subtracts the top item from the second item on the stack
+    swap 1- swap ;
+
+: *           ( n1 n2 -- n3 )      \ multiplies the top two items on the stack
+    * ;
+
+: /           ( n1 n2 -- n3 )      \ divides the second item on the stack by the top item
+    #/ throw ;
+
+: mod         ( n1 n2 -- n3 )      \ returns the remainder of n1 divided by n2
+    swap /mod nip ;
+
+: =           ( n1 n2 -- flag )    \ checks if the top two items on the stack are equal
+    >r =
+    if
+        r> drop 0
+    else
+        r> drop -1
+    then ;
+
+: >           ( n1 n2 -- flag )    \ checks if the second item is greater than the top item
+    swap r> > r> drop ;
+
+
+\ III. Control Flow Words
+
+: if          ( flag -- )          \ executes the following code if flag is true
+    >r if
+        r> drop ;
+    else
+        0= throw ;
+    then ;
+
+: else        ( -- )               \ executes the following code if the previous if statement was false
+    >r if
+        r> drop ;
+    else
+        drop drop ;
+    then ;
+
+: then        ( -- )               \ ends an if statement or loop
+    drop ;
+
+: do          ( end start -- )     \ starts a loop from start to end
+    r> >r begin ;
+
+: loop        ( -- )               \ increments the loop index and loops back to do
+    -rot 1+ rot r> = if
+        r> drop ;
+    else
+        r>  drop rot + loop ;
+    then ; 
+
+: +loop       ( offset -- )        \ increments the loop index by the given offset and loops back to do
+    -rot rot + swap r> = if
+        r> drop ;
+    else
+        r> drop rot + +loop ;
+    then ;
+
+: i           ( -- i )             \ returns the current loop index
+    r> ;
+
+
+\ IV. Memory Words
+
+\ variables and constants
+0 variable x
+2 constant y
+
+: !           ( x addr -- )         \ stores x at the specified address
+    >r c! r> ;
+
+: @           ( addr -- x )         \ retrieves the value at the specified address
+    c@ ;
+
+: c+!         ( n addr -- )         \ adds n to the value at the specified address
+    @ swap + ! ;
+
+: c@+         ( addr -- x )         \ returns the value at the specified address and then increments the address
+    dup @ 1+ swap ! ;
+
+: c!+         ( x addr -- )         \ stores x at the specified address and then increments the address
+    @ swap ! 1+ swap ! ;
+
+: align       ( -- )                \ aligns the return stack to an even address
+    2 >r
+    r@ 2 mod if
+        1+
+    then
+    -rot r> + drop ;
+
+: allocate    ( n -- addr )         \ allocates n bytes on the heap and returns the starting address
+    create here swap , allot ;
+
+: >here       ( -- addr )           \ returns the current heap allocation pointer
+    here ;
+
+: cells       ( n -- m )            \ converts n to the number of cells it takes up (m)
+    /cell throw 1- ;
+
+: cell        ( -- n )              \ returns the number of bytes in a cell
+    cell throw ;
+
+
+\ -------------- EXAMPLE USAGE --------------
+
+: factorial   ( n -- n! )           \ calculates the factorial of n using recursion
+    dup 1 = if
+        drop 1
+    else
+        dup 1- factorial * 
+    then ;
+
+: print-factorial                     \ prints the first 10 factorials using a loop
+    0 1 10 do                           \ start a loop from 0 to 10
+        i factorial . cr               \ print the factorial, followed by a line break
+    loop ;                             \ end the loop
+
+print-factorial                      \ call the function and print the results
+
+Output:
+
+1
+1
+2
+6
+24
+120
+720
+5040
+40320
+362880

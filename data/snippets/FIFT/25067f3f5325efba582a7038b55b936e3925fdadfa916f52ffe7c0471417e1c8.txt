@@ -1,0 +1,118 @@
+\----------Chain of Trust------------
+
+; This part defines a data structure for storing trust information
+struct trust_info {
+  trust_source: key, //key of the trust source
+  trust_level: uint, //level of trust (0-100)
+  time_stamp: uint, //timestamp when trust was given
+  expiration_time: uint, //expiration time for the trust (in hours)
+}
+
+; This part creates a hash table for storing trust levels
+; Key - the public key of the entity being trusted
+; Value - a list of trust_info objects
+trust_table: hash(key, lista(trust_info))
+
+; This function adds a new trust level to the trust table
+func add_trust(key: key, trust_source: key, trust_level: uint, expiration_time: uint) {
+  ; Check if trust_table already contains an entry for the given key
+  if trust_table.contains(key) {
+    ; Get the existing trust_info list for the key
+    current_trust: lista(trust_info) = trust_table.get(key)
+  } else {
+    ; Create a new list for trust_info objects
+    current_trust: lista(trust_info) = []
+  }
+  
+  ; Add the new trust_info object to the list
+  current_trust.add(trust_info(trust_source, trust_level, now, expiration_time))
+  
+  ; Add or update the trust_info list for the key in the trust_table
+  trust_table.add(key, current_trust)
+}
+
+; This function checks if an entity is trusted by a given trust source
+func is_trusted(key: key, trust_source: key) -> bool {
+  ; Get the existing trust_info list for the key
+  current_trust: lista(trust_info) = trust_table.get(key)
+  
+  ; Loop through the trust_info objects in the list
+  for trust_info in current_trust {
+    ; Check if the trust_source matches the given key
+    if trust_info.trust_source == trust_source {
+      ; Check if the trust has not expired
+      if trust_info.time_stamp + trust_info.expiration_time > now {
+        return true
+      }
+    }
+  }
+  
+  return false
+}
+
+; This function calculates the overall trust level for an entity
+func calculate_trust_level(key: key) -> uint {
+  ; Check if the trust_table contains an entry for the key
+  if trust_table.contains(key) {
+    ; Get the existing trust_info list for the key
+    current_trust: lista(trust_info) = trust_table.get(key)
+    
+    ; Calculate the average trust level from all trust_info objects
+    total_trust: uint = 0
+    for trust_info in current_trust {
+      total_trust += trust_info.trust_level
+    }
+    avg_trust: uint = total_trust / current_trust.size
+    
+    return avg_trust
+  }
+  ; If no trust level is found, return a default value of 0
+  return 0
+}
+
+; This function removes expired trust levels from the trust table
+func clean_trust_table() {
+  ; Get the current timestamp
+  current_time: uint = now
+  
+  ; Loop through all trust_info lists in the trust table
+  for key in trust_table.keys() {
+    ; Get the existing trust_info list for the key
+    current_trust: lista(trust_info) = trust_table.get(key)
+    
+    ; Loop through the trust_info objects in the list
+    for trust_info in current_trust {
+      ; Check if the trust has expired
+      if trust_info.time_stamp + trust_info.expiration_time < current_time {
+        ; Remove the trust_info object from the list
+        current_trust.remove(trust_info)
+      }
+    }
+  }
+}
+
+; This function verifies if a given chain of trust is valid
+; Parameters:
+; origin_key: key - the initial/origin key in the chain
+; target_key: key - the final/target key in the chain
+; trust_sources: list(key) - the list of trust sources in the chain (excluding the origin key)
+func verify_chain_of_trust(origin_key: key, target_key: key, trust_sources: lista(key)) -> bool {
+  ; Check if the origin key is trusted by the first trust source in the chain
+  if is_trusted(origin_key, trust_sources[0]) {
+    ; Loop through the trust sources in the chain (excluding the first one)
+    for trust_source in trust_sources.sublist(1, trust_sources.size) {
+      ; Check if the trust source is trusted by the previous trust source
+      if is_trusted(trust_source, trust_sources[trust_sources.index(trust_source) - 1]) {
+        continue //trust is valid, move on to the next trust source
+      } else {
+        ; Trust chain is broken, return false
+        return false
+      }
+    }
+    ; Check if the final/target key is trusted by the last trust source in the chain
+    return is_trusted(target_key, trust_sources[trust_sources.size - 1])
+  } else {
+    ; Origin key is not trusted by the first trust source, return false
+    return false
+  } 
+}

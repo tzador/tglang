@@ -1,0 +1,57 @@
+# Define a function for finding libraries and setting variables
+function(find_custom_library
+  CONFIG
+  NAME
+  LIBRARY_VARIABLE
+  INCLUDE_VARIABLE
+  )
+  # Set variables for the library path and include path
+  set(${LIBRARY_VARIABLE} "" CACHE PATH "Path to ${NAME} library")
+  set(${INCLUDE_VARIABLE} "" CACHE PATH "Path to ${NAME} include directory")
+
+  # Find the library using the provided config
+  find_package(${NAME} CONFIG REQUIRED)
+
+  # Check if the library was found
+  if(${NAME}_FOUND)
+    # Set the library and include paths using the found configuration
+    set(${LIBRARY_VARIABLE} ${${NAME}_LIBRARIES} CACHE PATH "Path to ${NAME} library")
+    set(${INCLUDE_VARIABLE} ${${NAME}_INCLUDE_DIRS} CACHE PATH "Path to ${NAME} include directory")
+  else()
+    # If the library was not found, print an error and exit
+    message(FATAL_ERROR "${NAME} library not found. Please specify its location by setting the CACHE variable ${LIBRARY_VARIABLE} and ${INCLUDE_VARIABLE}.")
+  endif()
+
+  # Set the include directories for the project
+  include_directories(${${INCLUDE_VARIABLE}})
+
+  # Print a message to the user to indicate the library was found
+  message(STATUS "Found ${NAME} library at ${${LIBRARY_VARIABLE}} and includes at ${${INCLUDE_VARIABLE}}.")
+endfunction()
+
+# Use the custom function to find the Boost library and set the variables
+find_custom_library(Boost boost BOOST_LIBRARY BOOST_INCLUDES)
+
+# Use the custom function to find the OpenCV library and set the variables
+find_custom_library(OpenCV opencv OPENCV_LIBRARY OPENCV_INCLUDES)
+
+# Declare the source files and include directories for the project
+set(SOURCES main.cpp helper.cpp)
+set(INCLUDES include/)
+
+# Add the Boost library and its include directory as dependencies for the project
+add_library(boost_lib INTERFACE)
+target_link_libraries(boost_lib INTERFACE ${BOOST_LIBRARY})
+target_include_directories(boost_lib INTERFACE ${BOOST_INCLUDES})
+
+# Add the OpenCV library and its include directory as dependencies for the project
+add_library(opencv_lib INTERFACE)
+target_link_libraries(opencv_lib INTERFACE ${OPENCV_LIBRARY})
+target_include_directories(opencv_lib INTERFACE ${OPENCV_INCLUDES})
+
+# Define the target executable and link it with the libraries
+add_executable(my_project ${SOURCES})
+target_link_libraries(my_project boost_lib opencv_lib)
+
+# Add the include directories to the target
+target_include_directories(my_project PUBLIC ${INCLUDES})

@@ -1,0 +1,375 @@
+pragma solidity ^0.8.4;
+
+/**
+ * @title SafeMath
+ * @dev Math operations with safety checks that throw on error
+ */
+library SafeMath {
+    /**
+    * @dev Multiplies two numbers, throws on overflow.
+    */
+    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+        if (a == 0) {
+            return 0;
+        }
+
+        uint256 c = a * b;
+        require(c / a == b, "Multiplication overflow");
+
+        return c;
+    }
+
+    /**
+    * @dev Integer division of two numbers, truncating the quotient.
+    */
+    function div(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b > 0, "Division by zero");
+        uint256 c = a / b;
+
+        return c;
+    }
+
+    /**
+    * @dev Subtracts two numbers, throws on overflow (i.e. if subtrahend is greater than minuend).
+    */
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b <= a, "Subtraction overflow");
+        uint256 c = a - b;
+
+        return c;
+    }
+
+    /**
+    * @dev Adds two numbers, throws on overflow.
+    */
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        uint256 c = a + b;
+        require(c >= a, "Addition overflow");
+
+        return c;
+    }
+}
+
+/**
+ * @title ERC20Basic
+ * @dev Simpler version of ERC20 interface for non-mintable tokens.
+ */
+abstract contract ERC20Basic {
+    function totalSupply() public virtual view returns (uint256);
+    function balanceOf(address who) public virtual view returns (uint256);
+    function transfer(address to, uint256 value) public virtual returns (bool);
+    event Transfer(address indexed from, address indexed to, uint256 value);
+}
+
+/**
+ * @title Basic token
+ * @dev Basic version of StandardToken, with no allowances.
+ */
+contract BasicToken is ERC20Basic {
+    using SafeMath for uint256;
+
+    mapping(address => uint256) balances;
+
+    uint256 totalSupply_;
+
+    /**
+    * @dev total number of tokens in existence
+    */
+    function totalSupply() public override view returns (uint256) {
+        return totalSupply_;
+    }
+
+    /**
+    * @dev transfer token for a specified address
+    * @param to The address to transfer to.
+    * @param value The amount to be transferred.
+    */
+    function transfer(address to, uint256 value) public override returns (bool) {
+        require(to != address(0), "Transfer to zero address");
+        require(value <= balances[msg.sender], "Insufficient balance");
+
+        // SafeMath.sub will throw if there is not enough balance.
+        balances[msg.sender] = balances[msg.sender].sub(value);
+        balances[to] = balances[to].add(value);
+        emit Transfer(msg.sender, to, value);
+
+        return true;
+    }
+
+    /**
+    * @dev Gets the balance of the specified address.
+    * @param who The address to query the balance of.
+    * @return An uint256 representing the amount owned by the passed address.
+    */
+    function balanceOf(address who) public override view returns (uint256) {
+        return balances[who];
+    }
+}
+
+/**
+ * @title ERC20 interface
+ * @dev see https://github.com/ethereum/EIPs/issues/20
+ */
+abstract contract ERC20 is ERC20Basic {
+    function allowance(address owner, address spender) public virtual view returns (uint256);
+    function transferFrom(address from, address to, uint256 value) public virtual returns (bool);
+    function approve(address spender, uint256 value) public virtual returns (bool);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+}
+
+/**
+ * @title Standard ERC20 token
+ *
+ * @dev Implementation of the basic standard token.
+ * @dev https://github.com/ethereum/EIPs/blob/master/EIPS/eip-20.md
+ */
+contract StandardToken is ERC20, BasicToken {
+
+    mapping (address => mapping (address => uint256)) allowed;
+
+    /**
+    * @dev Transfer tokens from one address to another
+    * @param from address The address which you want to send tokens from
+    * @param to address The address which you want to transfer to
+    * @param value uint256 the amount of tokens to be transferred
+    */
+    function transferFrom(address from, address to, uint256 value) public override returns (bool) {
+        require(to != address(0), "Transfer to zero address");
+        require(value <= balances[from], "Insufficient balance");
+        require(value <= allowed[from][msg.sender], "Insufficient allowed amount");
+
+        // SafeMath.sub will throw if there is not enough balance.
+        balances[from] = balances[from].sub(value);
+        balances[to] = balances[to].add(value);
+        allowed[from][msg.sender] = allowed[from][msg.sender].sub(value);
+        emit Transfer(from, to, value);
+
+        return true;
+    }
+
+    /**
+    * @dev Approve the passed address to spend the specified amount of tokens on behalf of msg.sender.
+    *
+    * Beware that changing an allowance with this method brings the risk that someone may use both the old
+    * and the new allowance by unfortunate transaction ordering. One possible solution to mitigate this
+    * race condition is to first reduce the spender's allowance to 0 and set the desired value afterwards:
+    * @param spender The address which will spend the funds.
+    * @param value The amount of tokens to be spent.
+    */
+    function approve(address spender, uint256 value) public override returns (bool) {
+        require(spender != address(0), "Approval to zero address");
+
+        // To change the approve amount you first have to reduce the addresses'
+        //  allowance to zero by calling `approve(spender, 0)` if it is not
+        //  already 0 to mitigate the race condition described here:
+        //  https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
+        require(value == 0 || allowed[msg.sender][spender] == 0);
+
+        allowed[msg.sender][spender] = value;
+        emit Approval(msg.sender, spender, value);
+
+        return true;
+    }
+
+    /**
+    * @dev Function to check the amount of tokens that an owner allowed to a spender.
+    * @param owner address The address which owns the funds.
+    * @param spender address The address which will spend the funds.
+    * @return A uint256 specifying the amount of tokens still available for the spender.
+    */
+    function allowance(address owner, address spender) public override view returns (uint256) {
+        return allowed[owner][spender];
+    }
+
+    /**
+    * @dev Increase the amount of tokens that an owner allowed to a spender.
+    *
+    * approve should be called when allowed[msg.sender][spender] == 0. To increment
+    * allowed value is better to use this function to avoid 2 calls (and wait until
+    * the first transaction is mined)
+    * From MonolithDAO Token.sol
+    *
+    * @param spender The address which will spend the funds.
+    * @param addedValue The amount of tokens to increase the allowance by.
+    */
+    function increaseAllowance(address spender, uint256 addedValue) public returns (bool) {
+        require(spender != address(0), "Approval to zero address");
+
+        require(allowed[msg.sender][spender] == 0 || allowed[msg.sender][spender].add(addedValue) >= allowed[msg.sender][spender],
+            "Insufficient allowed value");
+
+        allowed[msg.sender][spender] = allowed[msg.sender][spender].add(addedValue);
+        emit Approval(msg.sender, spender, allowed[msg.sender][spender]);
+
+        return true;
+    }
+
+    /**
+    * @dev Decrease the amount of tokens that an owner allowed to a spender.
+    *
+    * approve should be called when allowed[msg.sender][spender] == 0. To decrement
+    * allowed value is better to use this function to avoid 2 calls (and wait until
+    * the first transaction is mined)
+    * From MonolithDAO Token.sol
+    *
+    * @param spender The address which will spend the funds.
+    * @param subtractedValue The amount of tokens to decrease the allowance by.
+    */
+    function decreaseAllowance(address spender, uint256 subtractedValue) public returns (bool) {
+        require(spender != address(0), "Approval to zero address");
+
+        require(subtractedValue <= allowed[msg.sender][spender], "Insufficient subtracted value");
+        require(allowed[msg.sender][spender] == 0 || allowed[msg.sender][spender].sub(subtractedValue) >= allowed[msg.sender][spender],
+            "Insufficient allowed value");
+
+        allowed[msg.sender][spender] = allowed[msg.sender][spender].sub(subtractedValue);
+        emit Approval(msg.sender, spender, allowed[msg.sender][spender]);
+
+        return true;
+    }
+}
+
+
+/**
+ * @title Burnable Token
+ * @dev Token that can be irreversibly burned (destroyed).
+ */
+contract BurnableToken is StandardToken {
+    event Burn(address indexed burner, uint256 value);
+
+    /**
+    * @dev Burns a specific amount of tokens.
+    * @param value The amount of token to be burned.
+    */
+    function burn(uint256 value) public {
+        require(value <= balances[msg.sender], "Insufficient balance");
+
+        // SafeMath.sub will throw if there is not enough balance.
+        balances[msg.sender] = balances[msg.sender].sub(value);
+        totalSupply_ = totalSupply_.sub(value);
+        emit Burn(msg.sender, value);
+    }
+}
+
+/**
+ * @title Capped token
+ * @dev Mintable token with a token cap.
+ */
+contract CappedToken is BurnableToken {
+    uint256 public cap;
+
+    /**
+    * @dev Constructor for CappedToken
+    * @param _cap Maximum number of tokens allowed.
+    */
+    constructor (uint256 _cap) {
+        require(_cap > 0, "Cap is zero");
+        cap = _cap;
+    }
+
+    /**
+    * @dev Function to mint tokens
+    * @param to The address that will receive the minted tokens.
+    * @param value The amount of tokens to mint.
+    * @return A boolean that indicates if the operation was successful.
+    */
+    function mint(address to, uint256 value) public returns (bool) {
+        require(to != address(0), "Mint to zero address");
+
+        // Check if total supply after minting will exceed cap.
+        require(totalSupply_.add(value) <= cap, "Exceeds cap");
+
+        totalSupply_ = totalSupply_.add(value);
+        balances[to] = balances[to].add(value);
+
+        emit Transfer(address(0), to, value);
+
+        return true;
+    }
+}
+
+/**
+ * @title Pausable token
+ * @dev StandardToken modified with pausable transfers.
+ **/
+contract PausableToken is StandardToken {
+    event Pause();
+    event Unpause();
+
+    bool public paused = false;
+
+
+    /**
+    * @dev Modifier to make a function callable only when the contract is not paused.
+    */
+    modifier whenNotPaused() {
+        require(!paused, "Pausable token paused");
+        _;
+    }
+
+    /**
+    * @dev Modifier to make a function callable only when the contract is paused.
+    */
+    modifier whenPaused() {
+        require(paused, "Pausable token not paused");
+        _;
+    }
+
+    /**
+    * @dev called by the owner to pause, triggers stopped state
+    */
+    function pause() public onlyOwner whenNotPaused {
+        paused = true;
+        emit Pause();
+    }
+
+    /**
+    * @dev called by the owner to unpause, returns to normal state
+    */
+    function unpause() public onlyOwner whenPaused {
+        paused = false;
+        emit Unpause();
+    }
+
+    function transfer(address to, uint256 value) public override whenNotPaused returns (bool) {
+        require(to != address(0), "Transfer to zero address");
+        require(value <= balances[msg.sender], "Insufficient balance");
+        
+        return super.transfer(to, value);
+    }
+
+    function transferFrom(address from, address to, uint256 value) public override whenNotPaused returns (bool) {
+        require(to != address(0), "Transfer to zero address");
+        require(value <= balances[from], "Insufficient balance");
+        require(value <= allowed[from][msg.sender], "Insufficient allowed amount");
+
+        return super.transferFrom(from, to, value);
+    }
+}
+
+
+/**
+ * @title LTLT Token
+ * @dev LTLT Token based on ERC20.
+ */
+contract LTLTToken is CappedToken, PausableToken {
+    string public name;
+    string public symbol;
+    uint8 public decimals;
+
+    /**
+    * @dev Constructor of LTLTToken with specified wealth
+    * wealth should be 10^decimals
+    *
+    * @param _name Name for the token.
+    * @param _symbol Symbols for the token.
+    * @param _decimals Number of decimals unless the token
+    * @param _cap max number of tokens
+    */
+    constructor (string memory _name, string memory _symbol, uint8 _decimals, uint256 _cap) CappedToken(_cap) {
+        require(_cap > 0 && _cap == _cap.mul(100.pow(_decimals)), "Cap must be divisible by 100^decimals");
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+    }
+}

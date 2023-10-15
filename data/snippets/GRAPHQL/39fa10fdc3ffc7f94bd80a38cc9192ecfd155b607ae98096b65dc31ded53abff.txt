@@ -1,0 +1,50 @@
+const { ApolloServer, gql } = require('apollo-server');
+const axios = require('axios');
+// Define the GraphQL schema
+const typeDefs = gql`
+  # Comments can be included in GraphQL schemas
+  # This "Book" type can be used in other type declarations
+  type Book {
+    title: String
+    author: Author
+  }
+
+  # The "Author" type can also be used in other type declarations
+  type Author {
+    name: String
+    books: [Book]
+  }
+
+  # The "Query" type is the root of all GraphQL queries
+  type Query {
+    books: [Book]
+    author(name: String): Author
+  }
+`;
+
+// Define resolvers for the queries
+const resolvers = {
+  Query: {
+    // Resolve the books field by making an HTTP GET request to a mock API
+    books: () =>
+      axios
+        .get('https://jsonplaceholder.typicode.com/albums')
+        .then(res => res.data)
+        .catch(err => console.log(err)),
+    // Resolve the author field by filtering the list of mocked authors
+    // based on the name provided as an argument
+    author: (parent, args) => {
+      const authorName = args.name;
+      return axios
+        .get('https://jsonplaceholder.typicode.com/users')
+        .then(res => res.data.filter(user => user.name === authorName)[0])
+        .catch(err => console.log(err));
+    }
+  }
+};
+
+// Create and start the Apollo Server
+const server = new ApolloServer({ typeDefs, resolvers });
+server.listen().then(({ url }) => {
+  console.log(`🚀  Server ready at ${url}`);
+});

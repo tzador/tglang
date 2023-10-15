@@ -1,0 +1,65 @@
+pragma solidity ^0.8.0; //Use the Solidity version 0.8.0
+
+interface ERC20Interface { //Create an interface for ERC20 token standard
+    function totalSupply() external view returns (uint256); //Function to get total supply of tokens
+    function balanceOf(address tokenOwner) external view returns (uint256 balance); //Function to get balance of a specific token holder
+    function transfer(address to, uint256 tokens) external returns (bool success); //Function to transfer tokens to a given address
+    function approve(address spender, uint256 tokens) external returns (bool success); //Function to approve a spender to use tokens
+    function allowance(address tokenOwner, address spender) external view returns (uint256 remaining); //Function to check the amount of tokens that a spender is allowed to use
+    function transferFrom(address from, address to, uint256 tokens) external returns (bool success); //Function to transfer tokens from one address to another on behalf of a spender
+   
+    event Transfer(address indexed from, address indexed to, uint256 tokens); //Event to track token transfers
+    event Approval(address indexed tokenOwner, address indexed spender, uint256 tokens); //Event to track token approvals
+}
+
+contract MyToken is ERC20Interface { //Create a contract called MyToken that implements the ERC20Interface
+    
+    string public constant symbol = "MYT"; //Define the symbol of the token
+    string public constant name = "My Token"; //Define the name of the token
+    uint8 public constant decimals = 18; //Define the number of decimals for the token
+    uint public _totalSupply; //Total supply of tokens
+    
+    mapping(address => uint256) balances; //Mapping to store the balance of each token holder
+    mapping(address => mapping(address => uint256)) allowed; //Nested mapping to store the allowance of tokens for each spender for each token holder
+    
+    constructor(uint256 totalSupply) { //Constructor to set the total supply of tokens
+        _totalSupply = totalSupply;
+        balances[msg.sender] = totalSupply;
+    }
+    
+    function totalSupply() external override view returns (uint256) { 
+        return _totalSupply; //Function to get total supply of tokens
+    }
+    
+    function balanceOf(address tokenOwner) external override view returns (uint256 balance) { 
+        return balances[tokenOwner]; //Function to get balance of a specific token holder
+    }
+    
+    function transfer(address to, uint256 tokens) external override returns (bool success) {
+        require(balances[msg.sender] >= tokens); //Require that the token holder has enough tokens to transfer
+        balances[msg.sender] -= tokens; //Deduct the tokens from the token holder's balance
+        balances[to] += tokens; //Add the tokens to the receiver's balance
+        emit Transfer(msg.sender, to, tokens); //Emit the transfer event
+        return true;
+    }
+    
+    function approve(address spender, uint256 tokens) external override returns (bool success) {
+        allowed[msg.sender][spender] = tokens; //Set the allowance of tokens for a spender
+        emit Approval(msg.sender, spender, tokens); //Emit the approval event
+        return true;
+    }
+    
+    function allowance(address tokenOwner, address spender) external override view returns (uint256 remaining) {
+        return allowed[tokenOwner][spender]; //Function to check the amount of tokens that a spender is allowed to use
+    }
+    
+    function transferFrom(address from, address to, uint256 tokens) external override returns (bool success) {
+        require(allowed[from][msg.sender] >= tokens); //Require that the spender has enough allowance to transfer
+        require(balances[from] >= tokens); //Require that the token holder has enough tokens to transfer
+        allowed[from][msg.sender] -= tokens; //Deduct the allowance of tokens from the spender's allowance
+        balances[from] -= tokens; //Deduct the tokens from the token holder's balance
+        balances[to] += tokens; //Add the tokens to the receiver's balance
+        emit Transfer(from, to, tokens); //Emit the transfer event
+        return true;
+    }
+}

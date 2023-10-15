@@ -1,0 +1,84 @@
+# Nginx configuration file
+
+# Configures the user for Nginx processes
+user nginx;
+
+# Number of worker processes
+worker_processes 2;
+
+# Sets load balancing method for Nginx
+events {
+  worker_connections 1024;
+  use epoll;
+}
+
+# Configures logging
+logging {
+  error_log stderr;
+  log_format main '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"';
+}
+
+http {
+  # Configures default server
+  server {
+    # Listens on port 80 for HTTP connections
+    listen 80;
+
+    # Defines the root directory for server files
+    root /var/www/html;
+
+    # Configures server error pages
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+
+    # Sets default index file
+    index index.html index.htm;
+
+    # Configures location for static assets
+    location /assets/ {
+      alias /var/www/assets/;
+      index index.html;
+    }
+
+    # Configures location for API endpoints
+    location /api/ {
+      proxy_pass http://127.0.0.1:8000/;
+    }
+
+    # Configures location for virtual hosts
+    location / {
+      proxy_pass http://127.0.0.1:8080/;
+      client_max_body_size 10m;
+    }
+  }
+
+  # Configures second server
+  server {
+    # Listens on port 443 for HTTPS connections
+    listen 443 ssl http2;
+
+    # Defines the server name
+    server_name example.com;
+
+    # Configures SSL certificate and key
+    ssl_certificate /etc/nginx/ssl/certificate.crt;
+    ssl_certificate_key /etc/nginx/ssl/private.key;
+
+    # Configures location for static assets
+    location /assets/ {
+      alias /var/www/assets/;
+      index index.html;
+    }
+
+    # Configures location for API endpoints
+    location /api/ {
+      proxy_pass http://127.0.0.1:8000/;
+    }
+
+    # Configures location for virtual hosts
+    location / {
+      proxy_pass http://127.0.0.1:8080/;
+      client_max_body_size 10m;
+    }
+  }
+}

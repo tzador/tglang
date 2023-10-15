@@ -1,0 +1,49 @@
+# Basic server block configuration
+server {
+    listen 80;
+    server_name example.com;
+    root /var/www/example.com;
+
+    # Enable gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json;
+
+    # Enable caching
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico)$ {
+        expires 1d;
+        add_header Cache-Control "public";
+        add_header Backend "Nginx";
+
+        # Set cache key based on query string
+        set $cache_key $scheme$request_method$host$request_uri;
+
+        # Cache bypass for URLs containing a query string
+        if ($query_string) {
+            set $cache_key "";
+            add_header Cache-Control "no-cache, no-store, must-revalidate";
+        }
+    }
+
+    # Enable server-side caching
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=example_cache:10m inactive=60m;
+    proxy_cache_key "$scheme$request_method$host$request_uri";
+
+    # Cache bypass for URLs containing a query string
+    proxy_cache_bypass $http_pragma;
+    proxy_cache_revalidate on;
+    proxy_cache_min_uses 1;
+    proxy_cache_use_stale error timeout invalid_header updating http_500 http_502 http_503 http_504;
+
+    # Server-side caching configuration
+    location / {
+        proxy_pass http://example_server;
+        proxy_cache example_cache;
+        proxy_cache_bypass $http_cache_control;
+
+        # Set cache key and cache control headers
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+        proxy_cache_valid 200 304 30m;
+        proxy_cache_valid 301 302 10m;
+        proxy_cache_valid any 5m;
+    }
+}

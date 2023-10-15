@@ -1,0 +1,76 @@
+/* This code snippet generates a bar graph of monthly sales using data from Salesforce */
+public class BarGraphController {
+    // Query for monthly sales data
+    List<AggregateResult> monthlySales = [SELECT SUM(Amount) totalAmount, CALENDAR_MONTH(sales_date__c) month FROM Sale__c GROUP BY CALENDAR_MONTH(sales_date__c)];
+
+    // Create empty map to store sales data by month
+    Map<Integer, Decimal> salesByMonth = new Map<Integer, Decimal>();
+
+    // Populate map with sales data
+    for (AggregateResult result : monthlySales) {
+        salesByMonth.put((Integer)result.get('month'), (Decimal)result.get('totalAmount'));
+    }
+
+    // Sort map by month
+    List<Integer> sortedMonths = salesByMonth.keySet();
+    sortedMonths.sort();
+
+    // Create empty list to store sorted sales data
+    List<Decimal> sortedSales = new List<Decimal>();
+
+    // Populate sorted list with sales data
+    for (Integer month : sortedMonths) {
+        if (salesByMonth.containsKey(month)) {
+            sortedSales.add(salesByMonth.get(month));
+        } else {
+            sortedSales.add(0);
+        }
+    }
+
+    // Calculate maximum sales amount for y-axis scaling
+    Decimal maxSales = 0;
+    for (Decimal sales : sortedSales) {
+        if (sales > maxSales) {
+            maxSales = sales;
+        }
+    }
+
+    // Create chart and set properties
+    Chart salesChart = new Chart(ChartType.Bar);
+
+    // Set chart title
+    salesChart.setTitle('Monthly Sales Data');
+
+    // Set chart legend
+    salesChart.setLegendPosition('bottom');
+
+    // Set chart data
+    salesChart.setData(sortedSales);
+
+    // Set chart labels
+    salesChart.setAxisLabels('Month', 'Sales');
+
+    // Set chart scale
+    salesChart.setScale(0, maxSales + maxSales * 0.1);
+
+    // Create and add series to chart
+    ChartSeries salesSeries = new ChartSeries();
+    salesSeries.setName('Sales');
+    salesSeries.setValues(sortedSales);
+    salesChart.add(salesSeries);
+
+    // Create and add axis to chart
+    NumericAxis monthAxis = new NumericAxis();
+    monthAxis.setLabel('Month');
+    NumericAxis salesAxis = new NumericAxis();
+    salesAxis.setLabel('Sales');
+    salesChart.setAxis(new ChartAxis[]{monthAxis, salesAxis});
+
+    // Generate chart image
+    ChartImage chartImage = salesChart.renderAsImage();
+
+    // Create visualforce page and controller
+    <apex:page controller="BarGraphController">
+        <img src="{!chartImage}" />
+    </apex:page>
+}

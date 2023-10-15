@@ -1,0 +1,65 @@
+% This code snippet uses the finite element method to solve the heat equation in two dimensions
+
+% Define the geometry of the system
+L = 1; % length of the system in x direction
+W = 1; % length of the system in y direction
+
+% Set up the grid
+N = 10; % number of grid points in each direction
+dx = L/N; % distance between grid points in x direction
+dy = W/N; % distance between grid points in y direction
+
+% Create the node coordinates
+x = linspace(0,L,N+1); % x coordinates of nodes
+y = linspace(0,W,N+1); % y coordinates of nodes
+
+% Create the element connectivity matrix
+nodes = zeros(N^2,4); % initialize connectivity matrix
+for i = 1:N
+    for j = 1:N
+        nodes((i-1)*N+j,:) = [(i-1)*(N+1)+j (i-1)*(N+1)+j+1 i*(N+1)+j+1 i*(N+1)+j];
+    end
+end
+
+% Define the initial and boundary conditions
+T = zeros((N+1)^2,1); % initialize temperature vector
+T(1:N+1) = 100; % set temperature at boundary nodes to 100 degrees Celsius
+T(2:end-1:N+1) = 0; % set temperature at bottom boundary to 0 degrees Celsius
+T(end-(N+1)+2:end) = 0; % set temperature at top boundary to 0 degrees Celsius
+T(2:N+1:end-(N+1)+2) = 0; % set temperature at left boundary to 0 degrees Celsius
+T(N+1:N+1:end) = 0; % set temperature at right boundary to 0 degrees Celsius
+
+% Set up the elemental matrices
+ke = zeros(4,4,N^2); % initialize elemental stiffness matrix
+fe = zeros(4,1,N^2); % initialize elemental force vector
+K = zeros((N+1)^2); % initialize global stiffness matrix
+F = zeros((N+1)^2,1); % initialize global force vector
+
+for e = 1:N^2 % loop over all elements
+    % calculate the elemental stiffness matrix
+    J = dx*dy/4*[-1 1 1 -1; -1 -1 1 1; 1 -1 -1 1; 1 1 -1 -1]; % jacobian matrix
+    B = (1/(dx*dy))*[dy 0 -dy 0; 0 dx 0 -dx; -dy 0 dy 0; 0 -dx 0 dx]; % strain-displacement matrix
+    ke(:,:,e) = B'*J*B; % elemental stiffness matrix
+    
+    % calculate the elemental force vector
+    N = [1/4*(1-xi)*(1-eta) 1/4*(1+xi)*(1-eta) 1/4*(1+xi)*(1+eta) 1/4*(1-xi)*(1+eta)]; % shape functions
+    fe(:,:,e) = (dx*dy)/4*N'*100; % elemental force vector
+    
+    % assemble the elemental matrices into global matrices
+    dof = [nodes(e,1)*2-1 nodes(e,1)*2 nodes(e,2)*2-1 nodes(e,2)*2 nodes(e,3)*2-1 nodes(e,3)*2 nodes(e,4)*2-1 nodes(e,4)*2]; % degrees of freedom associated with the element
+    K(dof,dof) = K(dof,dof) + ke(:,:,e); % add elemental stiffness matrix to global stiffness matrix
+    F(dof) = F(dof) + fe(:,:,e); % add elemental force vector to global force vector
+end
+
+% Solve for the nodal temperatures
+T_nodal = K\F; % solve for nodal temperatures using global stiffness matrix and force vector
+
+% Plot the temperature distribution
+[X,Y] = meshgrid(x,y); % create 2D meshgrid for plotting
+T_plot = reshape(T_nodal,N+1,N+1); % reshape nodal temperatures into 2D array for plotting
+surf(X,Y,T_plot); % plot temperature distribution on 2D surface
+xlabel('x'); % set x axis label
+ylabel('y'); % set y axis label
+zlabel('Temperature (°C)'); % set z axis label
+title('Temperature Distribution in 2D Plate'); % set figure title
+colorbar; % add colorbar to show temperature scale

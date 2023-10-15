@@ -1,0 +1,169 @@
+#Example configuration for an NGINX server
+
+#Sets the user of the nginx process to 'nginx'
+user nginx;
+
+#Defines a group for NGINX processes to run under
+worker_processes auto;
+
+#Enables NGINX to use multiple worker processes
+#Equal to number of CPU cores
+events {
+  worker_connections 1024;
+}
+
+#Start of NGINX server configuration
+http {
+  #Sets the MIME type table path
+  include /etc/nginx/mime.types;
+
+  #Sets the default type if none is set in the request
+  default_type application/octet-stream;
+
+  #Sets the log format for the server
+  log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                  '$status $body_bytes_sent "$http_referer" '
+                  '"$http_user_agent" "$http_x_forwarded_for"';
+
+  #Specifies the path to the access log
+  #and the log format to use
+  access_log /var/log/nginx/access.log main;
+
+  #Specifies the path to the error log
+  error_log /var/log/nginx/error.log;
+
+  #Sets the maximum file size for uploaded files
+  client_max_body_size 10m;
+
+  #Allows the server to close keepalive connections
+  #after the specified amount of inactive time
+  keepalive_timeout 65;
+
+  #Enables the gzip compression for responses
+  gzip on;
+
+  #Defines the types of responses to be compressed
+  #based on their MIME type
+  gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+  #Include additional configuration files from the /etc/nginx/conf.d directory
+  include /etc/nginx/conf.d/*.conf;
+  
+  #Defines a virtual server at port 80
+  server {
+    #Listens for requests on all IP addresses
+    listen 80;
+    
+    #Server name that will be matched against the Host header of incoming requests
+    server_name example.com www.example.com;
+    
+    #Location of the server's document root
+    root /var/www/html;
+    
+    #Sets the index file to be served for requests ending in a '/'
+    index index.html index.htm;
+    
+    #Specifies the allowed methods for the /api/ endpoint
+    location /api/ {
+      allow GET;
+      deny POST;
+    }
+    
+    #Specifies the error page to be shown for the 404 error
+    error_page 404 /404.html;
+    
+    #Redirects requests for the root path to the /index.html file
+    location = / {
+      rewrite ^ http://example.com/index.html;
+    }
+    
+    #Defines a location to serve static files
+    location /static/ {
+      alias /var/www/static/;
+    }
+    
+    #Proxy requests to the specified server
+    location /proxy/ {
+      proxy_pass http://backend.example.com;
+    }
+    
+    #Specifies the error page to be shown for the 500 error
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html {
+      root /var/www/error/;
+    }
+    
+    #Defines caching for the /app/ endpoint
+    location /app/ {
+      #Enables caching
+      proxy_cache_bypass $http_cache_control;
+      
+      #Sets the cache time to 1 hour
+      proxy_cache_valid 200 60m;
+      
+      #Sets the cache path
+      proxy_cache_path /var/nginx/cache levels=1:2 keys_zone=app_cache:10m inactive=60m;
+      
+      #Specifies the proxy server
+      proxy_pass http://proxy.example.com;
+      
+      #Sets the cache key
+      proxy_cache_key "$scheme$request_method$host$request_uri";
+    }
+    
+    #Sets up server-side caching
+    proxy_cache app_cache;
+    proxy_cache_lock on;
+    proxy_cache_revalidate on;
+    proxy_cache_background_update on;
+    proxy_cache_use_stale error timeout invalid_header updating http_500 http_502 http_503 http_504;
+    proxy_cache_bypass $http_pragma;
+    proxy_cache_bypass $http_authorization;
+  }
+  
+  #Defines a virtual server at port 443
+  server {
+    #Listens for requests on all IP addresses
+    listen 443 ssl;
+    
+    #Server name that will be matched against the Host header of incoming requests
+    server_name api.example.com;
+    
+    #Location of the server's document root
+    root /var/www/api;
+    
+    #Specifies the SSL certificate and key file paths
+    ssl_certificate /etc/ssl/certs/example.crt;
+    ssl_certificate_key /etc/ssl/private/example.key;
+    
+    #Specifies the allowed methods for the /api/ endpoint
+    location /api/ {
+      allow GET;
+      deny POST;
+      
+      #Sets up rate limiting for the endpoint
+      limit_req zone=api_rate_limit burst=5;
+      limit_req_status 429;
+      limit_req_log_level error;
+    }
+    
+    #Specifies the error page to be shown for the 404 error
+    error_page 404 /404.html;
+    
+    #Redirects requests for the root path to the /index.html file
+    location = / {
+      rewrite ^ http://api.example.com/index.html;
+    }
+    
+    #Defines a location to serve static files
+    location /static/ {
+      alias /var/www/api/static/;
+    }
+    
+    #Specifies the error page to be shown for the 500 error
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html {
+      root /var/www/error/;
+    }
+  }
+}

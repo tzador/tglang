@@ -1,0 +1,48 @@
+/* This SAS code snippet performs a logistic regression analysis on a dataset called 'employee_data'.*/
+
+/* Set options for the logistic regression procedure */
+options ls=80 ps=200;
+  
+/* Import the employee_data file */
+data employee_data;
+  infile 'C:\data\employee_data.csv' dsd;
+  input ID $ age salary status $ gender $;
+run;
+
+/* Create dummy variables for the categorical variable 'gender' */
+proc logistic data=employee_data;
+  class gender(ref='Male') / param=ref;
+  model status = age salary gender;
+  output out=prediction predicted=p;
+run;
+
+/* Create a macro for calculating the predicted probabilities and odds ratios */
+%macro odds(name);
+  data &name;
+    set prediction;
+    Probability = p;
+    Odds_ratio = exp(Probability) / (1 - exp(Probability));
+  run;
+%mend;
+
+/* Call the macro for the prediction dataset */
+%odds(prediction);
+
+/* Create a table of the regression coefficients and significance levels */
+proc reg data=prediction outest=reg_coeffs;
+  model Probability = age salary gender;
+run;
+
+/* Create a dataset with only the significant variables from the regression */
+data significant_vars;
+  set reg_coeffs(where=(Prob>0.05));
+run;
+
+/* Create a plot of the predicted probabilities by the significant variables */
+proc sgplot data=prediction;
+  scatter x=age y=p / markerattrs=(symbol=circlefilled);
+  scatter x=salary y=p / markerattrs=(symbol=circlefilled);
+  scatter x=gender y=p / markerattrs=(symbol=circlefilled);
+  refline 0.5 / axis=x lineattrs=(color=red pattern=dash);
+  yaxis label='Predicted Probabilities' values=(0 to 1 by 0.1);
+run;

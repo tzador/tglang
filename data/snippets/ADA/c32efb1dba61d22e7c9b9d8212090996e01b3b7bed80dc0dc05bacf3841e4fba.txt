@@ -1,0 +1,194 @@
+--------------------------------------------------
+-- This is a complex code snippet in ADA language --
+--------------------------------------------------
+
+-- Declare an enumeration type to represent days of the week
+Type Week_Day is (Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday);
+
+-- Declare an array of integers with size 7 to store maximum temperatures for each day of the week
+Type Temp_Array is array (Week_Day) of Integer range 0 .. 100;
+
+-- Declare a record type to represent weather information for a given day
+Type Weather_Record is record
+    Day        : Week_Day;
+    Temperature: Integer;
+    Humidity   : Integer;
+    Is_Raining : Boolean;
+    Is_Sunny   : Boolean;
+end record;
+
+-- Declare a task type that will generate random weather information for each day
+task type Weather_Task is
+    entry Set_New_Info (Data : in out Weather_Record);
+private
+    Use Ada.Numerics.Discrete_Random;
+    Number_Generator : Ada.Numerics.Discrete_Random.Generator;
+end Weather_Task;
+
+-- Implementation of the Weather_Task
+task body Weather_Task is
+    Next_Temp     : Integer;
+    Next_Humidity : Integer;
+    Next_Rain     : Boolean;
+    Next_Sun      : Boolean;
+begin
+    loop
+        -- Generate a random temperature between 0 and 100
+        Ada.Numerics.Discrete_Random.Reset(Number_Generator);
+        Next_Temp := Ada.Numerics.Discrete_Random.Random(Number_Generator, 0, 100);
+
+        -- Generate a random humidity between 0 and 100
+        Ada.Numerics.Discrete_Random.Reset(Number_Generator);
+        Next_Humidity := Ada.Numerics.Discrete_Random.Random(Number_Generator, 0, 100);
+
+        -- Generate a random boolean for rain and sun
+        Ada.Numerics.Discrete_Random.Reset(Number_Generator);
+        Next_Rain := Ada.Numerics.Discrete_Random.Random(Number_Generator) > 0.5;
+        Ada.Numerics.Discrete_Random.Reset(Number_Generator);
+        Next_Sun := Ada.Numerics.Discrete_Random.Random(Number_Generator) > 0.5;
+
+        -- Set the values in the Weather_Record
+        Set_New_Info (Weather_Record'(Day => Day, Temperature => Next_Temp, Humidity => Next_Humidity, Is_Raining => Next_Rain, Is_Sunny => Next_Sun));
+
+        -- Delay for one second before generating new information
+        delay 1.0;
+    end loop;
+end Weather_Task;
+
+-- Declare a task type to process weather information for a given day
+task type Weather_Processing_Task is
+    entry New_Data (Data : in Weather_Record);
+private
+    Days_Data    : Temp_Array;
+    Hottest_Day  : Week_Day;
+    Coolest_Day : Week_Day;
+    Total_Rain   : Integer;
+    Total_Sun    : Integer;
+    Total_Humidity : Integer;
+end Weather_Processing_Task;
+
+-- Implementation of the Weather_Processing_Task
+task body Weather_Processing_Task is
+begin
+    while True loop
+        select
+            -- Check if there is new data available
+            accept New_Data (Data : in Weather_Record) do
+                Days_Data (Data.Day) := Data.Temperature; -- Add the new temperature value to the array
+                if Data.Temperature > Days_Data (Hottest_Day) then -- Check if it's the hottest temperature so far
+                    Hottest_Day := Data.Day;
+                end if;
+                if Data.Temperature < Days_Data (Coolest_Day) then -- Check if it's the coolest temperature so far
+                    Coolest_Day := Data.Day;
+                end if;
+                -- Update the totals for rain, sun, and humidity
+                Total_Rain := Total_Rain + Data.Is_Raining'Pos;
+                Total_Sun := Total_Sun + Data.Is_Sunny'Pos;
+                Total_Humidity := Total_Humidity + Data.Humidity;
+            end New_Data;
+        or
+            -- Check for a command to reset the data
+            terminate Boolean'access (Reset);
+            accept Reset do
+                loop
+                    accept New_Data ( -- Fill the array with zeros and reset the totals
+                        Data : in Weather_Record => (Day => Day, Temperature => 0, Humidity => 0, Is_Raining => FALSE, Is_Sunny => FALSE)
+                    );
+                end loop;
+            end Reset;
+        end select;
+    end loop;
+end Weather_Processing_Task;
+
+-- Instantiate the Weather_Processing_Task and Weather_Task
+Processing_Task : Weather_Processing_Task;
+Weather_Generator : Weather_Task;
+
+-- Create a procedure to display the weather information for each day
+procedure Display_Weather_Info (Data : in Weather_Record) is
+begin
+    -- Print the day of the week
+    Put_Line (Week_Day'Image(Data.Day));
+    -- Print the temperature
+    Put_Line ("Temperature: " & Integer'Image(Data.Temperature) & " F");
+    -- Print the humidity
+    Put_Line ("Humidity: " & Integer'Image(Data.Humidity) & " %");
+    -- Print if it's raining
+    if Data.Is_Raining then
+        Put_Line ("It's raining");
+    else
+        Put_Line ("It's not raining");
+    end if;
+    -- Print if it's sunny
+    if Data.Is_Sunny then
+        Put_Line ("It's sunny");
+    else
+        Put_Line ("It's not sunny");
+    end if;
+    -- Print a line separator
+    Put_Line("-----------------------------");
+end Display_Weather_Info;
+
+-- Start the tasks
+Weather_Generator.Set_New_Info (Processing_Task.New_Data'access);
+Processing_Task.New_Data (Weather_Generator.Weather_Record); -- Add the first generated data to the Weather_Processing_Task
+
+-- Read user input and display the weather information for each day when prompted
+begin
+    -- Declare a variable to store the user's input
+    User_Input : Character;
+    loop
+        -- Display the Menu
+        Put_Line("---------------MENU---------------");
+        Put_Line("1 - Display Weather Info for Today");
+        Put_Line("2 - Display Hottest and Coldest Days");
+        Put_Line("3 - Display Total Rain, Sun, and Humidity");
+        Put_Line("4 - Reset Weather Data");
+        Put_Line("-----------------------------------");
+        Put_Line("Select an option (1/2/3/4): ");
+
+        -- Read user input
+        Get(User_Input);
+
+        -- Process the user's input
+        case User_Input is
+            -- Option 1 - Display Weather Info for Today
+            when '1' =>
+                -- Call the procedure to display the weather information for today
+                Display_Weather_Info (Weather_Generator.Weather_Record);
+            -- Option 2 - Display Hottest and Coldest Days
+            when '2' =>
+                -- Print the Hottest Day and its temperature
+                Put_Line("Hottest Day: "
+                         & Week_Day'Image(Processing_Task.Hottest_Day)
+                         & " with a temperature of "
+                         & Integer'Image(Processing_Task.Days_Data(Processing_Task.Hottest_Day))
+                         & " F");
+                -- Print the Coldest Day and its temperature
+                Put_Line("Coldest Day: "
+                         & Week_Day'Image(Processing_Task.Coolest_Day)
+                         & " with a temperature of "
+                         & Integer'Image(Processing_Task.Days_Data(Processing_Task.Coolest_Day))
+                         & " F");
+            -- Option 3 - Display Total Rain, Sun, and Humidity
+            when '3' =>
+                -- Print the total rain, sun, and humidity
+                Put_Line("Total Rain: " & Integer'Image(Processing_Task.Total_Rain));
+                Put_Line("Total Sun: " & Integer'Image(Processing_Task.Total_Sun));
+                Put_Line("Total Humidity: " & Integer'Image(Processing_Task.Total_Humidity));
+            -- Option 4 - Reset Weather Data
+            when '4' =>
+                -- Reset the Weather_Processing_Task
+                Processing_Task.Reset;
+                -- Call the procedure to display the weather information for today
+                Display_Weather_Info (Weather_Generator.Weather_Record);
+            -- Default Case
+            when others =>
+                Put_Line("Invalid Input. Please select a valid option.");
+        end case;
+
+        -- Delay for one second before displaying the menu again
+        delay 1.0;
+    end loop;
+end;
+------------------------------------------------------------------

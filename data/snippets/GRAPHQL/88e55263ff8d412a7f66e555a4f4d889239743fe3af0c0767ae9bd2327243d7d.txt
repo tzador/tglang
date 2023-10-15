@@ -1,0 +1,171 @@
+// Define a GraphQL schema
+const graphql = require('graphql');
+const axios = require('axios');
+
+// Define types for User, Post, and Comment
+const UserType = new graphql.GraphQLObjectType({
+  name: 'User',
+  description: 'Represents a user in the database',
+  fields: () => ({
+    id: { type: graphql.GraphQLString },
+    name: { type: graphql.GraphQLString },
+    age: { type: graphql.GraphQLInt },
+    posts: {
+      type: new graphql.GraphQLList(PostType),
+      resolve(parent, args) {
+        return axios.get(`URL to fetch posts for user ${parent.id}`)
+          .then(res => res.data);
+      }
+    },
+    comments: {
+      type: new graphql.GraphQLList(CommentType),
+      resolve(parent, args) {
+        return axios.get(`URL to fetch comments for user ${parent.id}`)
+          .then(res => res.data);
+      }
+    }
+  })
+});
+
+const PostType = new graphql.GraphQLObjectType({
+  name: 'Post',
+  description: 'Represents a post in the database',
+  fields: () => ({
+    id: { type: graphql.GraphQLString },
+    title: { type: graphql.GraphQLString },
+    body: { type: graphql.GraphQLString },
+    author: {
+      type: UserType,
+      resolve(parent, args) {
+        return axios.get(`URL to fetch author for post ${parent.id}`)
+          .then(res => res.data);
+      }
+    },
+    comments: {
+      type: new graphql.GraphQLList(CommentType),
+      resolve(parent, args) {
+        return axios.get(`URL to fetch comments for post ${parent.id}`)
+          .then(res => res.data);
+      }
+    }
+  })
+});
+
+const CommentType = new graphql.GraphQLObjectType({
+  name: 'Comment',
+  description: 'Represents a comment in the database',
+  fields: () => ({
+    id: { type: graphql.GraphQLString },
+    text: { type: graphql.GraphQLString },
+    author: {
+      type: UserType,
+      resolve(parent, args) {
+        return axios.get(`URL to fetch author for comment ${parent.id}`)
+          .then(res => res.data);
+      }
+    },
+    post: {
+      type: PostType,
+      resolve(parent, args) {
+        return axios.get(`URL to fetch post for comment ${parent.id}`)
+          .then(res => res.data);
+      }
+    }
+  })
+});
+
+// Define root query for GraphQL
+const RootQuery = new graphql.GraphQLObjectType({
+  name: 'RootQueryType',
+  description: 'Queries for data from the database',
+  fields: {
+    user: {
+      type: UserType,
+      args: { id: { type: graphql.GraphQLString } },
+      resolve(parent, args) {
+        return axios.get(`URL to fetch user with id ${args.id}`)
+          .then(res => res.data);
+      }
+    },
+    post: {
+      type: PostType,
+      args: { id: { type: graphql.GraphQLString } },
+      resolve(parent, args) {
+        return axios.get(`URL to fetch post with id ${args.id}`)
+          .then(res => res.data);
+      }
+    },
+    comment: {
+      type: CommentType,
+      args: { id: { type: graphql.GraphQLString } },
+      resolve(parent, args) {
+        return axios.get(`URL to fetch comment with id ${args.id}`)
+          .then(res => res.data);
+      }
+    }
+  }
+});
+
+// Define mutations for adding and updating data
+const Mutation = new graphql.GraphQLObjectType({
+  name: 'Mutation',
+  description: 'Mutations for adding and updating data in the database',
+  fields: {
+    // Mutation for adding a new user
+    addUser: {
+      type: UserType,
+      args: {
+        name: { type: new graphql.GraphQLNonNull(graphql.GraphQLString) },
+        age: { type: new graphql.GraphQLNonNull(graphql.GraphQLInt) },
+      },
+      resolve(parent, args) {
+        return axios.post('URL to add user', args)
+          .then(res => res.data);
+      }
+    },
+    // Mutation for updating a user's age
+    updateUserAge: {
+      type: UserType,
+      args: {
+        id: { type: new graphql.GraphQLNonNull(graphql.GraphQLString) },
+        age: { type: new graphql.GraphQLNonNull(graphql.GraphQLInt) },
+      },
+      resolve(parent, args) {
+        return axios.patch(`URL to update user ${args.id}'s age`, args)
+          .then(res => res.data);
+      }
+    },
+    // Mutation for adding a new post
+    addPost: {
+      type: PostType,
+      args: {
+        title: { type: new graphql.GraphQLNonNull(graphql.GraphQLString) },
+        body: { type: new graphql.GraphQLNonNull(graphql.GraphQLString) },
+        authorId: { type: new graphql.GraphQLNonNull(graphql.GraphQLString) },
+      },
+      resolve(parent, args) {
+        return axios.post('URL to add post', args)
+          .then(res => res.data);
+      }
+    },
+    // Mutation for adding a new comment
+    addComment: {
+      type: CommentType,
+      args: {
+        text: { type: new graphql.GraphQLNonNull(graphql.GraphQLString) },
+        authorId: { type: new graphql.GraphQLNonNull(graphql.GraphQLString) },
+        postId: { type: new graphql.GraphQLNonNull(graphql.GraphQLString) },
+      },
+      resolve(parent, args) {
+        return axios.post('URL to add comment', args)
+          .then(res => res.data);
+      }
+    }
+  }
+});
+
+// Export the schema for use in GraphQL
+module.exports = new graphql.GraphQLSchema({
+  query: RootQuery,
+  mutation: Mutation
+});

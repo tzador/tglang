@@ -1,0 +1,85 @@
+//create variable to store list of products
+List<Product__c> productList = new List<Product__c>();
+
+//query for products with specific criteria
+productList = [SELECT Id, Name, Price__c FROM Product__c WHERE Category__c = 'Electronics' AND Price__c > 500];
+
+//create map to store product names and prices
+Map<String, Decimal> productMap = new Map<String, Decimal>();
+
+//loop through products and add to map
+for(Product__c p : productList){
+    productMap.put(p.Name, p.Price__c);
+}
+
+/* this method checks if a product is in stock and returns
+the number of units currently available */
+public Integer checkStock(Product__c product){
+    //initialize stock count
+    Integer stockCount = 0;
+    //query for product inventory records
+    List<Product_Inventory__c> inventoryList = [SELECT Units_In_Stock__c FROM Product_Inventory__c 
+                                                WHERE Product__c =: product.Id];
+    //sum up total units in stock
+    for(Product_Inventory__c pi : inventoryList){
+        stockCount += pi.Units_In_Stock__c;
+    }
+    return stockCount;
+
+}
+
+//create new contact record
+Contact newContact = new Contact();
+//assign values to contact fields
+newContact.FirstName = 'John';
+newContact.LastName = 'Smith';
+newContact.Email = 'johnsmith@test.com';
+//insert contact into database
+insert newContact;
+
+//create order line item list
+List<Order_Line_Item__c> orderLineItems = new List<Order_Line_Item__c>();
+
+//create new order line item for each product
+for(Product__c p : productList){
+    //check if product is in stock
+    Integer stock = checkStock(p);
+    if(stock > 0){
+        //create new order line item
+        Order_Line_Item__c newOrderLineItem = new Order_Line_Item__c();
+        //assign product and quantity to order line item
+        newOrderLineItem.Product__c = p.Id;
+        newOrderLineItem.Quantity__c = 5;
+        //add order line item to order line item list
+        orderLineItems.add(newOrderLineItem);
+    }   
+}
+
+//create new order record
+Order__c newOrder = new Order__c();
+//assign values to order fields
+newOrder.Name = 'New Order';
+newOrder.Customer__c = newContact.Id;
+newOrder.Status__c = 'Draft';
+//insert order into database
+insert newOrder;
+
+//loop through order line items and assign order id to each
+for(Order_Line_Item__c oli : orderLineItems){
+    oli.Order__c = newOrder.Id;
+}
+
+//bulk insert order line items into database
+insert orderLineItems;
+
+//update product inventory records to reflect new order
+for(Product__c p : productList){
+    //retrieve product inventory record
+    Product_Inventory__c productInv = [SELECT Id, Units_In_Stock__c FROM Product_Inventory__c 
+                                       WHERE Product__c =: p.Id];
+    //calculate new units in stock
+    Integer newStock = productInv.Units_In_Stock__c - 5;
+    //update product inventory record
+    productInv.Units_In_Stock__c = newStock;
+    update productInv;
+}

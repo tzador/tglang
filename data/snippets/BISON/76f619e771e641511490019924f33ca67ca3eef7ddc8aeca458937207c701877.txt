@@ -1,0 +1,103 @@
+/* This is a complex code snippet in BISON */
+
+/* Define variables */
+%token num
+%token str
+
+/* Define grammar rules */
+Expr: num 
+    | str
+    | Expr '+' Expr 
+    | Expr '-' Expr 
+    | Expr '*' Expr 
+    | Expr '/' Expr
+    | '(' Expr ')'
+    ;
+
+/* Define precedence and associativity */
+%left '+' '-'
+%left '*' '/'
+%precedence NEG
+
+/* Define start symbol */
+%start Expr
+
+%%
+
+/* Define actions */
+Expr: num {$$ = $1;}
+    | str {$$ = $1;}
+    | Expr '+' Expr {$$ = $1 + $3;}
+    | Expr '-' Expr {$$ = $1 - $3;}
+    | Expr '*' Expr {$$ = $1 * $3;}
+    | Expr '/' Expr {$$ = $1 / $3;}
+    | '(' Expr ')' {$$ = $2;}
+    ;
+
+/* Define error handling */
+ECHO: "." 
+    | '\n'
+    | error 
+    ;
+
+/* Define semantics */
+%union {
+    int ival;
+    char* sval;
+}
+%type ival num
+%type sval str
+%type <ival> EXPR
+
+%%
+
+/* Define grammar rules */
+EXPR: num {$$ = $1;}
+    | str {$$ = $1;}
+    | EXPR '+' EXPR {$$ = $1 + $3;}
+    | EXPR '-' EXPR {$$ = $1 - $3;}
+    | EXPR '*' EXPR {$$ = $1 * $3;}
+    | EXPR '/' EXPR {$$ = $1 / $3;}
+    | '(' EXPR ')' {$$ = $2;}
+    ;
+
+/* Define error handling */
+ERR: "." 
+    | '\n'
+    | error 
+    ;
+
+/* Define semantics */
+%{
+    /* Code execution before parsing */
+    #include <stdio.h>
+%}
+
+%destructor { free($$); } NUM STR /* Free allocated memory if rule fails */
+
+%token NUM "{"[0-9]+ "}"
+%token STR "{"[a-zA-Z_0-9]+ "}"
+
+%%
+
+/* Define grammar rules */
+Expr: NUM {$$ = malloc(sizeof(int)); /* Allocate memory for integer value */ \
+           *$$ = atoi($1); /* Convert string to integer and store in $$ */}
+    | STR {$$ = malloc(strlen($1)+1); /* Allocate memory for string value */ \
+           strcpy(*$$, $1); /* Copy string and store in $$ */}
+    | Expr '+' Expr {$$ = malloc(sizeof(int)); /* Allocate memory for result */ \
+                     *$$ = *$1 + *$3;} /* Add values and store in $$ */
+    | Expr '-' Expr {$$ = malloc(sizeof(int)); \
+                     *$$ = *$1 - *$3;} /* Subtract values and store in $$ */
+    | Expr '*' Expr {$$ = malloc(sizeof(int)); \
+                     *$$ = *$1 * *$3;} /* Multiply values and store in $$ */
+    | Expr '/' Expr {$$ = malloc(sizeof(int)); \
+                     *$$ = *$1 / *$3;} /* Divide values and store in $$ */
+    | '(' Expr ')' {$$ = $2;} /* Keep nested expressions in parentheses */
+    ;
+
+/* Define error handling */
+ECHO: '.' /* Ignore periods */
+    | '\n' /* Ignore newlines */
+    | error /* Handle syntax errors */
+    ;

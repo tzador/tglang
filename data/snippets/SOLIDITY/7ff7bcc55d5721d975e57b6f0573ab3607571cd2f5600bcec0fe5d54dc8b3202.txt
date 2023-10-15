@@ -1,0 +1,88 @@
+/**
+ * @title ERC20 Token
+ * @dev Contract for a standard ERC20 token
+ */
+contract ERC20Token {
+    // Variables
+    string public constant name = "My Token"; // token name
+    string public constant symbol = "MTK"; // token symbol
+    uint8 public constant decimals = 18; // number of decimals
+    uint256 public total_supply; // total supply of tokens
+    // Mappings
+    mapping(address => uint256) public balances; // token balances for each address
+    mapping(address => mapping(address => uint256)) public allowed; // tokens allowed to be spent by each address
+    // Events
+    event Transfer(address indexed from, address indexed to, uint256 value); // transfer event
+    event Approval(address indexed owner, address indexed spender, uint256 value); // approval event
+    // Constructor function
+    constructor(uint256 _initial_balance) public {
+        total_supply = _initial_balance;
+        balances[msg.sender] = _initial_balance;
+    }
+    // Functions
+    /**
+     * @dev Gets the balance of the specified address.
+     * @param _owner The address to query the balance of.
+     * @return An uint256 representing the amount owned by the passed address.
+     */
+    function balanceOf(address _owner) public view returns (uint256 balance) {
+        return balances[_owner];
+    }
+    /**
+     * @dev Transfer tokens from one address to another.
+     * @param _to The address to transfer to.
+     * @param _value The amount to be transferred.
+     * @return True if the transfer was successful (reverts on error).
+     */
+    function transfer(address _to, uint256 _value) public returns (bool success) {
+        require(_to != address(0)); // check if the address is 0x00...00 (burning tokens)
+        require(_value <= balances[msg.sender]); // check if the sender has enough tokens
+        require(balances[_to] + _value >= balances[_to]); // check for integer overflow
+        balances[msg.sender] -= _value; // deduct tokens from the sender
+        balances[_to] += _value; // add tokens to the recipient
+        emit Transfer(msg.sender, _to, _value); // emit Transfer event
+        return true;
+    }
+    /**
+     * @dev Approve the passed address to spend the specified amount of tokens on behalf of msg.sender.
+     * Beware that changing an allowance with this method brings the risk that someone may use both the old
+     * and the new allowance by unfortunate transaction ordering. One possible solution to mitigate this
+     * race condition is to first reduce the spender's allowance to 0 and set the desired value afterwards:
+     * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
+     * @param _spender The address which will spend the funds.
+     * @param _value The amount of tokens to be spent.
+     */
+    function approve(address _spender, uint256 _value) public returns (bool success) {
+        require(_spender != address(0)); // check if the address is 0x00...00 (burning tokens)
+        allowed[msg.sender][_spender] = _value; // set allowance for spender
+        emit Approval(msg.sender, _spender, _value); // emit Approval event
+        return true;
+    }
+    /**
+     * @dev Transfer tokens from one address to another on behalf of a specified address.
+     * @param _from The address from which tokens will be transferred.
+     * @param _to The address to which tokens will be transferred.
+     * @param _value The amount of tokens to be transferred.
+     * @return True if the transfer was successful (reverts on error).
+     */
+    function transferFrom(address _from, address _to, uint256 _value) public returns (bool success) {
+        require(_to != address(0)); // check if the address is 0x00...00 (burning tokens)
+        require(_value <= balances[_from]); // check if the sender has enough tokens
+        require(_value <= allowed[_from][msg.sender]); // check if the sender is allowed to spend the requested amount
+        require(balances[_to] + _value >= balances[_to]); // check for integer overflow
+        balances[_from] -= _value; // deduct tokens from the sender
+        balances[_to] += _value; // add tokens to the recipient
+        allowed[_from][msg.sender] -= _value; // update the user allowance
+        emit Transfer(_from, _to, _value); // emit Transfer event
+        return true;
+    }
+    /**
+     * @dev Returns the current allowance of tokens given to another address.
+     * @param _owner The address which owns the command of funds.
+     * @param _spender The address which will spend the funds.
+     * @return An uint256 representing the amount owned by the passed address.
+     */
+    function allowance(address _owner, address _spender) public view returns (uint256 remaining) {
+        return allowed[_owner][_spender];
+    }
+}

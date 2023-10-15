@@ -1,0 +1,96 @@
+*Load the dataset;
+DATA dataset;
+    SET 'path/to/dataset';
+RUN;
+
+*Create a new variable named 'total' that sums 'sales' and 'expenses' variables;
+DATA dataset;
+    SET dataset;
+    total = sales + expenses;
+RUN;
+
+*Sort the dataset in descending order by the 'total' variable;
+PROC SORT DATA = dataset;
+    BY descending total;
+RUN;
+
+*Filter the dataset by selecting only the observations where 'total' is greater than 1000;
+DATA filtered_dataset;
+    SET dataset;
+    WHERE total > 1000;
+RUN;
+
+*Create a new dataset containing only the 'total' and 'profit' variables;
+DATA new_dataset;
+    SET dataset (KEEP= total profit);
+RUN;
+
+*Create a macro variable named 'total_obs' that stores the total number of observations in the dataset;
+PROC SQL;
+    SELECT COUNT(*) INTO :total_obs
+    FROM dataset;
+QUIT;
+
+*Create a scatter plot of 'total' and 'profit' variables;
+PROC SGPLOT DATA = dataset;
+    SCATTER x=total y=profit;
+RUN;
+
+*Create a bar chart showing the mean 'total' for each 'product' category;
+PROC MEANS DATA = dataset;
+    CLASS product;
+    VAR total;
+    OUTPUT OUT = mean_dataset MEAN(total)=total_mean;
+RUN;
+
+*Create a temporary array to store the top 5 'total' values;
+DATA top5_dataset;
+    SET dataset;
+    ARRAY top5[5] $10 _temporary_;
+    top5[index] = total;
+    IF index > 5 THEN DO;
+        CALL SORTC(of top5[*]);
+        IF index > 5 THEN index = 5;
+    END;
+RUN;
+
+*Use a do-loop to create a new variable named 'total_rank' that ranks the 'total' values in ascending order;
+DATA ranked_dataset;
+    SET dataset;
+    ARRAY total_array(*) total1-total&total_obs;
+    DO i = 1 TO &total_obs;
+        total_array(i) = total;
+    END;
+    CALL SORTN(of total_array[*]);
+    DO i = 1 TO &total_obs;
+        total_rank = i;
+    END;
+RUN;
+
+*Calculate the average 'total' and 'profit' for each 'product' within a specific time frame;
+PROC TABULATE DATA = dataset;
+    CLASS product;
+    VAR total profit;
+    TABLE product, total*mean profit*mean;
+    WHERE date between '01JAN2020'd and '31DEC2020'd;
+RUN;
+
+*Merge two datasets, keeping all observations from the first dataset and only matching observations from the second dataset;
+DATA merged_dataset;
+    MERGE dataset1 (IN = a) dataset2 (IN = b);
+    BY key_variable;
+    IF a AND b;
+RUN;
+
+*Create a temporary hash object and populate it with key-value pairs from a dataset;
+DATA _null_;
+    IF 0 THEN SET dataset;
+    DECLARE hash dataset_obj(dataset:'dataset');
+    dataset_obj.definekey('key_variable');
+    dataset_obj.definedata('value_variable1', 'value_variable2');
+    dataset_obj.definedone();
+RUN;
+
+*Generate a random sample of 1000 observations from the dataset;
+PROC SURVEYSELECT DATA = dataset OUT = sample_dataset METHOD = SRS SAMPSIZE = 1000;
+RUN;

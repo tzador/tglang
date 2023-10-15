@@ -1,0 +1,119 @@
+class MyProjectile extends Projectile;
+// This class extends the Projectile class in UE4, allowing us to define custom projectile behavior.
+
+var() int DamageAmount;
+// A variable to store the amount of damage this projectile will deal upon impact.
+
+function BeginPlay()
+{
+    `This function is called when the projectile begins its journey.`
+
+    DamageAmount = 100; // Set the damage amount to 100. This can be changed in the editor.
+}
+
+event HitActor(Actor Other, Vector HitLocation, Vector HitNormal)
+{
+    `This event is called when the projectile hits an actor.`
+
+    if (Other != None)
+    {
+        // Check if the other actor is valid.
+
+        `Apply the damage to the other actor using the TakeDamage function.`
+
+        `The damage value is multiplied by the HitNormal vector's size, to account for the angle of impact.`
+
+        Other.TakeDamage(DamageAmount * HitNormal.Size, Instigator, Location, HitNormal.Rotation);
+    }
+}
+
+state NamedExplode
+{
+    `This state defines a named explosion behavior for the projectile.`
+
+    `The state is triggered by the Explode function.`
+
+    event Explode()
+    {
+        `This event is called when the projectile explodes.`
+
+        `Spawn a particle effect at the projectile's location.`
+
+        Spawn(class'ParticleSystem', self,, Location, Rotator(0, 0, 0), true);
+
+        `Damage all actors within the explosion radius.`
+
+        `Get all actors within the radius using the Dynamic Sphere Overlap Actors function.`
+
+        `Loop through the array of actors and apply damage.`
+
+        local array<Actor> ActorsInRadius;
+        Actor Other;
+
+        `The radius can be changed in the editor.`
+
+        ActorsInRadius = DynamicSphereOverlapActors(Radius, class'Actor');
+
+        foreach ActorsInRadius(Other)
+        {
+            Other.TakeDamage(DamageAmount, Instigator, Location, vect(0, 0, 0));
+        }
+    }
+}
+
+event Touch(Vector OtherLocation, Vector OtherNormal, Actor Other)
+{
+    `This event is called when the projectile touches something.`
+
+    `Change the projectile's state to the NamedExplode state.`
+
+    SetState('NamedExplode');
+    Explode();
+}
+
+function Explode()
+{
+    `This function explodes the projectile.`
+
+    `This can be called from other functions, or be triggered by an event or state change.`
+    `First, we check if the projectile is moving.`
+
+    if (Velocity.Size > 0)
+    {
+        `If the projectile is moving, we make it stop and become stationary.`
+
+        Velocity = vect(0, 0, 0);
+        SetCollision(false, false);
+    }
+
+    `Then, we call the Explode event to trigger the explosion behavior.`
+
+    Explode();
+}
+
+defaultproperties
+{
+    `Default properties allow us to specify values for our variables when the actor is placed in the world.`
+
+    Begin Object Class=DynamicLightEnvironmentComponent Name=MyLightEnvironment
+        `We create a dynamic light environment component for the projectile.`
+    End Object
+
+    Begin Object Class=ParticleSystemComponent Name=MyParticleSystem
+        `We create a particle system component to visualize the projectile.`
+    End Object
+
+    `We define the properties of the light environment component.`
+    MyLightEnvironment.LightEnvironmentScale = 0.3;
+    MyLightEnvironment.LightEnvironmentColor = (200, 0, 0);
+
+    `We define the properties of the particle system component.`
+    MyParticleSystem.Template = class'ParticleSystem'Texture'Explosion.C_Explosion_02';
+    MyParticleSystem.DrawScale = vect(2, 2, 2);
+
+    `We define the actor's collision properties.`
+    bCollideActors = true;
+    bBlockActors = true;
+    bBlockPlayers = true;
+    bCollideWhenPlacing = true;
+}

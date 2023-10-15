@@ -1,0 +1,85 @@
+/// @title A vending machine contract with multiple products
+contract VendingMachine {
+    
+    // The buyer and seller addresses
+    address payable public buyer;
+    address payable public seller;
+    // The price per product
+    uint public price;
+    // Mapping of product IDs to product names
+    mapping(uint => string) public productNames;
+    // Mapping of product IDs to product quantities
+    mapping(uint => uint) public productQuantities;
+    
+    // Event to be emitted when a product is purchased
+    event ProductPurchased(uint productID, string productName, uint quantity, uint totalPrice);
+    
+    /// @notice Constructor function
+    /// @param _products List of product names
+    /// @param _quantities List of product quantities
+    /// @param _price Price per product
+    constructor(string[] memory _products, uint[] memory _quantities, uint _price) public {
+        buyer = msg.sender;
+        seller = msg.sender;
+        price = _price;
+        
+        // Populate the productNames and productQuantities mappings
+        for (uint i = 0; i < _products.length; i++) {
+            productNames[i] = _products[i];
+            productQuantities[i] = _quantities[i];
+        }
+    }
+    
+    /// @notice Function to purchase a product
+    /// @param _productID ID of the product to be purchased
+    /// @param _quantity Quantity of the product to be purchased
+    function purchaseProduct(uint _productID, uint _quantity) public payable {
+        // Check if the quantity requested is available
+        require(_quantity <= productQuantities[_productID], "Not enough quantity available");
+        
+        // Calculate the total price
+        uint totalPrice = _quantity * price;
+        
+        // Transfer the funds from the buyer to the seller
+        seller.transfer(totalPrice);
+        
+        // Update the product quantity
+        productQuantities[_productID] -= _quantity;
+        
+        // Emit the ProductPurchased event
+        emit ProductPurchased(_productID, productNames[_productID], _quantity, totalPrice);
+    }
+    
+    /// @notice Function to add a new product
+    /// @param _productName Name of the new product
+    /// @param _quantity Quantity of the new product
+    function addProduct(string memory _productName, uint _quantity) public {
+        // Check if the caller is the seller
+        require(msg.sender == seller, "Only the seller can add products");
+        
+        // Update the productNames and productQuantities mappings
+        uint productID = uint(keccak256(abi.encodePacked(_productName, _quantity)));
+        productNames[productID] = _productName;
+        productQuantities[productID] = _quantity;
+    }
+    
+    /// @notice Function to change the price of a product
+    /// @param _productID ID of the product to change price
+    /// @param _price New price for the product
+    function changePrice(uint _productID, uint _price) public {
+        // Check if the caller is the seller
+        require(msg.sender == seller, "Only the seller can change prices");
+        
+        // Update the price
+        price = _price;
+    }
+    
+    /// @notice Function to withdraw funds from the contract
+    function withdrawFunds() public {
+        // Check if the caller is the seller
+        require(msg.sender == seller, "Only the seller can withdraw funds");
+        
+        // Transfer all funds from the contract to the seller
+        seller.transfer(address(this).balance);
+    }
+}

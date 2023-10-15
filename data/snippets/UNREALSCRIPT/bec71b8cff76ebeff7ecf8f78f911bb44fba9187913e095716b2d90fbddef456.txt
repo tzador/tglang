@@ -1,0 +1,78 @@
+class AEnemy extends APawn; // Defining a class named AEnemy that extends the APawn class
+// This class represents an enemy in the game.
+
+var bool bCanAttack; // Declaring a boolean variable to determine if the enemy can attack
+var float Health; // Declaring a float variable for the enemy's health
+var SkeletalMeshComponent EnemyMesh; // Declaring a variable for the enemy's skeletal mesh component
+
+defaultproperties
+{
+    Begin Object Class=SkeletalMeshComponent Name=EnemyMesh // Defining a default property for the enemy's skeletal mesh
+        SkeletalMesh = SkeletalMesh'BP_Enemy' // Assigning a specific skeletal mesh asset to the enemy
+        AnimTreeTemplate = AnimTree'ANK_Enemy' // Assigning an animation tree asset to the enemy
+    End Object
+
+    bCanAttack = true // Setting the initial value of bCanAttack to true
+    Health = 100.0 // Setting the initial value of Health to 100.0
+}
+// End defaultproperties
+
+state Attacking
+{
+    Begin:
+        // Code to execute when the enemy is in the "Attacking" state
+        MoveForward(1.0); // Move the enemy forward with a speed of 1.0
+        OnEnemyAttack(); // Call a function to perform an attack action
+    End;
+
+    event BeginState()
+    {
+        `Log("Enemy is attacking.");` // Logging a message to console
+        EnemyMesh.PlayAnimation('Attack', 1.0, 0.1, true); // Playing an attack animation on the enemy's skeletal mesh
+    }
+
+    event EndState()
+    {
+        `Log("Enemy has stopped attacking.");` // Logging a message to console
+        EnemyMesh.StopAnimation(); // Stopping any animation playing on the enemy's skeletal mesh
+    }
+}
+// End state Attacking
+
+event OnEnemyAttack()
+{
+    if (bCanAttack) // Checking if the enemy is able to attack
+    {
+        if (Health > 0) // Checking if the enemy's health is above 0
+        {
+            // Code to execute when the enemy attacks
+            `Log("Enemy attacks with full force!");` // Logging a message to console
+            // Performing damage calculation and applying it to the target
+            HitEnemy.TakeDamage(20.0, HitLocation, Momentum, Class'UDamageType_Bullet', self);
+        }
+        else
+        {
+            // Code to execute if the enemy's health is 0
+            switch(Level.DistanceToPlayer(self)) // Checking the distance between the enemy and the player
+            {
+                case 0:
+                    `Log("Enemy is dead, player can loot.");` // Logging a message to console
+                    Level.AddLoot(self); // Adding loot items to the player's inventory
+                    // Destroying the enemy and removing it from the game
+                    Destroyed(); 
+                    Cleanup();
+                default:
+                    `Log("Enemy is dead, player must return to loot.");` // Logging a message to console
+                    bCanAttack = false; // Setting bCanAttack to false to prevent future attacks
+            }
+        }
+    }
+}
+
+DefaultProperties
+{
+    AttackRange = 500.0 // Defining the range at which the enemy can attack
+    CollisionRadius = 50.0 // Defining the collision radius for the enemy
+    CollisionHeight = 100.0 // Defining the height for the enemy's collision
+}
+// End defaultproperties

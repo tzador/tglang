@@ -1,0 +1,59 @@
+http {
+    # Some basic configurations
+    server {
+        listen 80 default_server; # Listen on port 80 for all requests
+        server_name _; # Any hostname will be accepted
+        root /var/www/html; # Serve files from this directory
+
+        # Enable gzip compression
+        gzip on;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml+rss text/javascript;
+
+        # Redirect all requests to HTTPS
+        return 301 https://$server_name$request_uri;
+    }
+
+    server {
+        listen 443 ssl http2; # Listen on port 443 for HTTPS requests
+        server_name _; # Any hostname will be accepted
+        root /var/www/html; # Serve files from this directory
+
+        # Specify SSL/TLS certificate and key
+        ssl_certificate /path/to/ssl/certificate.pem; # Replace with actual path
+        ssl_certificate_key /path/to/ssl/private.key; # Replace with actual path
+        ssl_protocols TLSv1.2; # Allow only TLSv1.2 connections
+        ssl_ciphers EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH; # Use recommended ciphers
+        ssl_prefer_server_ciphers on; # Let the server decide which cipher to use
+
+        # Enable HTTP/2 for improved performance
+        http2_push_preload on; # Preload resources for faster page loading
+        http2_max_concurrent_streams 32; # Limit concurrent streams per connection
+
+        # Set up caching for static files
+        location ~* \.(css|js|jpeg|jpg|png|gif|ico|woff|woff2)$ { # Match file extensions
+            expires 1d; # Cache files for 1 day
+            add_header Cache-Control "public"; # Specify cache control header
+        }
+
+        # Serve index.html as the default page
+        index index.html;
+
+        # Set up reverse proxy for API requests
+        location /api/ {
+            proxy_pass http://127.0.0.1:8000/; # Forward requests to local API server
+            proxy_set_header X-Real-IP $remote_addr; # Pass client IP address
+            proxy_set_header Host $host; # Pass request hostname
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # Pass client IP addresses through multiple proxies
+        }
+
+        # Enable server-side caching for API responses (optional)
+        proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=cache:10m inactive=60m;
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+        proxy_cache_valid 200 60m;
+
+        # Allow only GET and POST requests
+        if ($request_method !~ ^(GET|POST)$ ) {
+            return 403;
+        }
+    }
+}

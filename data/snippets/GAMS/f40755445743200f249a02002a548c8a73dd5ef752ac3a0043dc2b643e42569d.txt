@@ -1,0 +1,60 @@
+Set
+i 'Product index' / p1*p5 /
+j 'Market index' / m1*m3 /;
+
+Table d(i,j) 'Demand matrix'
+          m1    m2    m3
+p1       80    80    50
+p2       40    60    90
+p3       70    50    70
+p4        80    60    40
+p5        50    30    50;
+
+Variable x(i,j) 'Quantity to be produced and shipped';
+Positive Variable d(i,j) 'Demand matrix';
+
+equation demand(i,j) 'Demand constraint'
+       supply(i,j) 'Supply constraint';
+
+demand(i,j)..  x(i,j) =g= d(i,j);
+supply(i,j)..  x(i,j) =l= 100;
+
+Model transportation /all/;
+
+set i 'Product index' /p1*p5/;
+set j 'Market index' /m1*m3/;
+
+Parameter pipeline(i,j) 'Pipeline capacity in units'
+                       /p1.m1   80, p1.m2   80, p1.m3   50
+                        p2.m1   40, p2.m2   60, p2.m3   90
+                        p3.m1   70, p3.m2   50, p3.m3   70
+                        p4.m1   80, p4.m2   60, p4.m3   40
+                        p5.m1   50, p5.m2   30, p5.m3   50/
+                                    ;
+Positive variable T(i,j) 'Amount of product transported by pipeline';
+
+Equation budget(i,j) 'Budget constraint';
+budget(i,j)$(d(i,j)>0)..pipeline(i,j) - T(i,j) =g= 0;
+
+Model Pipeline /all/;
+
+Parameter transportcost(i,j) 'Transportation cost per unit in dollars'
+                       /p1.m1   10, p1.m2   8, p1.m3   7
+                        p2.m1   12, p2.m2   9, p2.m3   5
+                        p3.m1   11, p3.m2   7, p3.m3   8
+                        p4.m1   15, p4.m2   13, p4.m3   9
+                        p5.m1   14, p5.m2   10, p5.m3   6/
+                                ;
+
+Equation transportationcost 'Total cost of transportation';
+transportationcost.. sum((i,j), transportcost(i,j)*T(i,j)) =e= 5000;
+
+Model costmin /all/;
+
+option LP= CPLEX;
+
+solve transportation using LP minimizing transportationcost;
+solve costmin using LP minimizing obj;
+
+parameter totalcost 'Total cost of transportation and production';
+totalcost = transportationcost.l + obj.l;

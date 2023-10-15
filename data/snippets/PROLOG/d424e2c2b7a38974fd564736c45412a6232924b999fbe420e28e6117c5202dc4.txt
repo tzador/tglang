@@ -1,0 +1,139 @@
+%% This code implements a mini version of the classic board game Battleship using Prolog. 
+
+%% Declare dynamic facts to keep track of the gameplay.
+:- dynamic(ship/4).
+:- dynamic(sunk/1).
+:- dynamic(hit/1).
+:- dynamic(miss/1).
+
+%% Define predicate to initialize the game by placing ships on the board.
+init_game :- 
+    format('Welcome to Mini Battleship!~n'),
+    format('Placing ships on the board...~n'),
+    place_ship(carrier, 5),  % Place carrier with length 5
+    place_ship(battleship, 4),  % Place battleship with length 4
+    place_ship(cruiser, 3),  % Place cruiser with length 3
+    place_ship(submarine, 3),  % Place submarine with length 3
+    place_ship(destroyer, 2),  % Place destroyer with length 2
+    format('All ships placed!~n'),
+    format('Let the game begin!~n').
+
+%% Define predicate to place a ship on the board.
+place_ship(Name, Length) :- 
+    get_random_row(Row),  % Get a random row
+    get_random_col(Col),  % Get a random column
+    get_random_dir(Dir),  % Get a random direction (horizontal or vertical)
+    assert(ship(Name, Row, Col, Length, Dir)),  % Assert the fact that the ship is placed
+    format('~w placed at row ~w, column ~w, direction ~w~n',
+        [Name, Row, Col, Dir]).
+
+%% Define predicate to check if a ship is hit by a coordinate.
+check_hit(Row, Col) :- 
+    ship(Name, Row, Col, Length, Dir),  % Check if there is a ship at the given coordinate
+    assert(hit(Row-Col)),  % Assert the fact that the coordinate is hit
+    format('Hit!~n'),
+    check_sunk(Name, Length).  % Check if the ship is sunk after being hit
+
+%% Define predicate to check if a ship is sunk after being hit.
+check_sunk(Name, Length) :- 
+    sunk(Name, _),  % Check if the ship is already sunk
+    !.  % If sunk fact already exists, do not assert another one
+check_sunk(Name, Length) :- 
+    findall(Row-Col, hit(Row-Col), Hits),  % Get all the hit coordinates
+    length(Hits, NumHits),  % Get the number of hits
+    (NumHits =:= Length ->  % If the number of hits is equal to the ship length, the ship is sunk
+        assert(sunk(Name, Length)),  % Assert the fact that the ship is sunk
+        format('Ship ~w has been sunk!~n', [Name])
+    ;  % Else, the ship is not sunk yet
+        format('Ship ~w has not been sunk yet.~n', [Name])).
+
+%% Define predicate to check if a coordinate is a miss.
+check_miss(Row, Col) :- 
+    (\+(ship(_, Row, Col, _, _)) -> % If there is no ship at the given coordinate
+        assert(miss(Row-Col)),  % Assert the fact that the coordinate is a miss
+        format('Miss!~n')
+    ;  % Else, the coordinate is already hit or part of a sunk ship
+        format('You have already hit or sunk a ship at this coordinate.~n')).
+
+%% Define predicate to generate a random row.
+get_random_row(Row) :- 
+    random_between(1, 10, Row).
+
+%% Define predicate to generate a random column.
+get_random_col(Col) :- 
+    random_between(1, 10, Col).
+
+%% Define predicate to generate a random direction.
+get_random_dir(Dir) :- 
+    random_between(0, 1, Dir).  % 0 represents horizontal, 1 represents vertical
+
+%% Define predicate to display the board with hits and misses.
+display_board :- 
+    format('Board:~n'),
+    format('-----------------------------------~n'),
+    format('|   | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |~n'),
+    format('-----------------------------------~n'),
+    display_board(1).  % Call helper predicate with row number 1
+
+%% Define helper predicate to display the board row by row.
+display_board(Row) :- 
+    format('| ~w |', [Row]),  % Print the row number
+    display_board_row(Row, 1),  % Call helper predicate with row number and column number 1
+    format('~n'),
+    NextRow is Row+1,
+    (Row =:= 10 ->  % If last row has been displayed, stop
+        format('-----------------------------------~n')
+    ;  % Else, continue with next row
+        display_board(NextRow)).
+
+%% Define helper predicate to display a particular row with hits and misses.
+display_board_row(Row, 10) :- 
+    format('~n'),  % Start new line at the end of the row
+    display_hit_miss(Row, 10).  % Helper predicate to print hits and misses in the row
+display_board_row(Row, Col) :- 
+    display_hit_miss(Row, Col),  % Helper predicate to print hits and misses in the row
+    ColPlus1 is Col+1,
+    display_board_row(Row, ColPlus1).  % Call self with next column
+
+%% Define predicate to print hits and misses in a row.
+display_hit_miss(Row, Col) :- 
+    % If coordinate is a hit, print 'H'
+    (hit(Row-Col) -> 
+        format('| H ')
+    ; 
+        % If coordinate is a miss, print 'M'
+        (miss(Row-Col) -> 
+            format('| M ')
+        ; 
+            % If coordinate has not been hit or missed, print '-'
+            format('| - '))).
+
+%% Define predicate to start the game.
+start_game :- 
+    init_game,  % Initialize the game
+    display_board,  % Display the initial board
+    start_game_loop.  % Start the game loop
+
+%% Define predicate for game loop.
+start_game_loop :- 
+    repeat,  % Repeat until the game is over
+    format('Enter coordinates (row, column) to hit:~n'),
+    read(Row-Col),  % Read user input coordinates
+    check_hit(Row, Col),  % Check if coordinate is a hit
+    check_miss(Row, Col),  % Check if coordinate is a miss
+    display_board,  % Display the updated board
+    check_game_over,  % Check if the game is over
+    false.  % Fail to continue the loop
+
+%% Define predicate to check if the game is over.
+check_game_over :- 
+    % If all the ships are sunk, the game is over
+    findall(Name, sunk(Name, _), SunkList), 
+    length(SunkList, NumSunk), 
+    (NumSunk =:= 5 -> 
+        format('Game over! You have sunk all the ships. Congratulations!~n')
+    ; 
+        format('Keep going! There are still ships left to sink!~n')).  % Else, the game is not over yet.
+
+%% Define predicate to start the game.
+:- start_game.

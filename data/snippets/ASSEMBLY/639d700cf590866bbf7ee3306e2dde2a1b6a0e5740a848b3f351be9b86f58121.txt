@@ -1,0 +1,115 @@
+;---------------------------------------------
+; Function: convert_to_hex
+;
+; Description: Takes in an integer and converts
+;              it to hexadecimal representation
+; Inputs: eax - integer value to be converted
+; Outputs: Nothing (modified registers, 
+;          eax holds hexadecimal value)
+;---------------------------------------------
+
+convert_to_hex:
+    push ebp
+    mov ebp, esp
+
+    ; initialize index and remainder variables
+    mov dword [ebp-4], 0              ; index = 0
+    xor dword [ebp-8], [ebp-8]        ; remainder = 0
+
+    ; check if input is zero
+    cmp eax, 0
+    je end_convert_to_hex
+
+    ; keep dividing input by 16 until it is zero
+    cmp eax, 0
+    jg loop_convert_to_hex
+
+    ; store hexadecimal digits in memory
+loop_convert_to_hex:
+    mov ebx, eax
+    mov edx, [ebp-8]
+    div dword [ebp-8]
+    mov byte [hex_array+ebp-4], dl
+    inc dword [ebp-4]
+
+    ; check if quotient is zero
+    cmp ebx, 0
+    jz end_convert_to_hex 
+
+    ; continue looping
+    mov eax, ebx
+    jmp loop_convert_to_hex
+
+    ; end of conversion
+end_convert_to_hex:
+    xor edx, edx
+    mov dl, '0'
+    mov byte [hex_array+ebp-4], dl
+    inc dword [ebp-4]
+
+    ; reverse the order of the hexadecimal digits
+    mov ecx, 0                      ; initialize counter
+    dec dword [ebp-4]               ; index = index - 1
+    mov ebx, ebp                    ; ebx holds start of hex_array
+    add ebx, 4                      ; skip first 4 bytes (index variable)
+    mov dl, [hex_array+ecx]         ; dl holds first digit
+    jmp loop_reverse_hex
+
+    ; loop to reverse the hexadecimal digits
+loop_reverse_hex:
+    mov al, [hex_array+ecx]     ; al holds current digit
+    mov [hex_array+ecx], dl      ; current digit = first digit
+    mov dl, al                  ; first digit = current digit
+    inc ecx                     ; counter++
+    cmp ecx, [ebp-4]            ; compare counter to index
+    jl loop_reverse_hex         ; continue looping if less
+
+    ; store the hexadecimal string in eax
+    xor eax, eax
+    mov [hex_string], eax       ; initialize string to empty
+    add eax, [ebp-4]            ; eax holds length of hexadecimal string
+    shl eax, 1                  ; multiply length by 2 to account for each digit being 2 bytes
+    mov esi, hex_array          ; esi holds start of hex_array
+    add esi, 4                  ; skip first 4 bytes (index variable)
+    mov edi, hex_string         ; edi holds start of hex_string
+    mov ecx, eax                ; ecx holds length of hexadecimal string
+    cld                         ; clear direction flag (forward direction)
+    rep movsb                   ; copy hexadecimal digits from hex_array to hex_string
+
+    ; set return value in eax
+    xor eax, eax
+    mov eax, hex_string
+
+    mov esp, ebp
+    pop ebp
+    ret
+
+;---------------------------------------------
+; Data Section
+;---------------------------------------------
+section .data
+    hex_array   db 10 dup (?)
+    hex_string  db 21 dup (?)
+
+;---------------------------------------------
+; Code Section
+;---------------------------------------------
+section .text
+    global _start
+_start:
+
+    ; call convert_to_hex function
+    mov eax, 255
+    call convert_to_hex
+
+    ; print hexadecimal value
+    mov ecx, [eax]
+    mov edx, [hex_string]
+    mov eax, 4      ; sys_write
+    mov ebx, 1      ; stdout
+    int 0x80
+
+    ; exit program
+    mov eax, 1      ; sys_exit
+    xor ebx, ebx
+    int 0x80

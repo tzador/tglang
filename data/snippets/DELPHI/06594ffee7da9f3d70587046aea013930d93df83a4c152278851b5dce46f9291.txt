@@ -1,0 +1,166 @@
+{ This code snippet is a unit that implements a binary search tree data structure. }
+
+unit BinarySearchTree;
+
+interface
+
+type
+  { A generic binary tree node with only one key value }
+  TBinaryTreeNode<TKey> = class
+  private
+    FKey: TKey;
+    FLeftNode: TBinaryTreeNode<TKey>;
+    FRightNode: TBinaryTreeNode<TKey>;
+  public
+    constructor Create(const AKey: TKey);
+    { Key property getter and setter }
+    property Key: TKey read FKey write FKey;
+    { LeftNode property getter and setter }
+    property LeftNode: TBinaryTreeNode<TKey> read FLeftNode write FLeftNode;
+    { RightNode property getter and setter }
+    property RightNode: TBinaryTreeNode<TKey> read FRightNode write FRightNode;
+  end;
+
+  { A binary search tree structure }
+  TBinarySearchTree<TKey> = class
+  private
+    FRoot: TBinaryTreeNode<TKey>;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    { Inserts a new key into the tree }
+    procedure Insert(const AKey: TKey);
+    { Searches for a key in the tree and returns its node }
+    function Search(const AKey: TKey): TBinaryTreeNode<TKey>;
+    { Deletes a key from the tree }
+    procedure Delete(const AKey: TKey);
+  end;
+
+implementation
+
+{ TBinaryTreeNode }
+
+constructor TBinaryTreeNode<TKey>.Create(const AKey: TKey);
+begin
+  FKey := AKey;
+  FLeftNode := nil;
+  FRightNode := nil;
+end;
+
+{ TBinarySearchTree }
+
+constructor TBinarySearchTree<TKey>.Create;
+begin
+  FRoot := nil;
+end;
+
+destructor TBinarySearchTree<TKey>.Destroy;
+begin
+  { Call the delete method for every node in the tree }
+  Delete(FRoot);
+  inherited;
+end;
+
+procedure TBinarySearchTree<TKey>.Insert(const AKey: TKey);
+var
+  CurrentNode, ParentNode: TBinaryTreeNode<TKey>;
+begin
+  CurrentNode := FRoot;
+  ParentNode := nil;
+  { Traverse the tree until a suitable spot for the new node is found }
+  while CurrentNode <> nil do
+  begin
+    ParentNode := CurrentNode;
+    if AKey > CurrentNode.Key then
+      CurrentNode := CurrentNode.RightNode
+    else
+      CurrentNode := CurrentNode.LeftNode;
+  end;
+  { Create a new node }
+  CurrentNode := TBinaryTreeNode<TKey>.Create(AKey);
+  { If the tree is empty, set the root node }
+  if ParentNode = nil then
+    FRoot := CurrentNode
+  { Otherwise, add the new node as a right or left child of the parent node }
+  else if AKey > ParentNode.Key then
+    ParentNode.RightNode := CurrentNode
+  else
+    ParentNode.LeftNode := CurrentNode;
+end;
+
+function TBinarySearchTree<TKey>.Search(const AKey: TKey): TBinaryTreeNode<TKey>;
+var
+  CurrentNode: TBinaryTreeNode<TKey>;
+begin
+  CurrentNode := FRoot;
+  { Traverse the tree until the node with the given key is found }
+  while (CurrentNode <> nil) and (CurrentNode.Key <> AKey) do
+  begin
+    { If the key is greater, go to the right child }
+    if AKey > CurrentNode.Key then
+      CurrentNode := CurrentNode.RightNode
+    { Otherwise, go to the left child }
+    else
+      CurrentNode := CurrentNode.LeftNode;
+  end;
+  { Return the node if found, otherwise return nil }
+  Result := CurrentNode;
+end;
+
+procedure TBinarySearchTree<TKey>.Delete(const AKey: TKey);
+var
+  CurrentNode, ParentNode, TempNode: TBinaryTreeNode<TKey>;
+begin
+  CurrentNode := FRoot;
+  ParentNode := nil;
+  { Traverse the tree until the node with the given key is found }
+  while (CurrentNode <> nil) and (CurrentNode.Key <> AKey) do
+  begin
+    ParentNode := CurrentNode;
+    { If the key is greater, go to the right child }
+    if AKey > CurrentNode.Key then
+      CurrentNode := CurrentNode.RightNode
+    { Otherwise, go to the left child }
+    else
+      CurrentNode := CurrentNode.LeftNode;
+  end;
+  { If the node was found }
+  if CurrentNode <> nil then
+  begin
+    { If the node has two children }
+    if (CurrentNode.LeftNode <> nil) and (CurrentNode.RightNode <> nil) then
+    begin
+      { Find the minimum value in the right subtree }
+      TempNode := CurrentNode.RightNode;
+      while TempNode.LeftNode <> nil do
+        TempNode := TempNode.LeftNode;
+      { Replace the node's key with the minimum value }
+      CurrentNode.Key := TempNode.Key;
+      { Delete the node with the minimum value from its original position }
+      Delete(TempNode.Key);
+    end
+    { If the node has one or zero children }
+    else
+    begin
+      { If the node is the root node, set its child node as the new root node }
+      if ParentNode = nil then
+      begin
+        if CurrentNode.LeftNode <> nil then
+          FRoot := CurrentNode.LeftNode
+        else if CurrentNode.RightNode <> nil then
+          FRoot := CurrentNode.RightNode
+        else
+          FRoot := nil;
+      end
+      { Otherwise, set the child node of the parent as the child node of the deleted node }
+      else if CurrentNode.LeftNode <> nil then
+        ParentNode.LeftNode := CurrentNode.LeftNode
+      else
+        ParentNode.RightNode := CurrentNode.RightNode;
+      { Free the memory of the deleted node }
+      CurrentNode.Free;
+    end;
+  end;
+end;
+
+end.

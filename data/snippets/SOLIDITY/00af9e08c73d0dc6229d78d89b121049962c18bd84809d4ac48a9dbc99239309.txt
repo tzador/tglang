@@ -1,0 +1,92 @@
+// Interface for a token contract
+interface Token {
+    function transfer(address receiver, uint amount) external;
+    function balanceOf(address owner) external view returns (uint);
+}
+
+// Contract for a crowdsale
+contract Crowdsale {
+    address public beneficiary;
+    uint public fundingGoal;
+    uint public amountRaised;
+    uint public deadline;
+    uint public price;
+    Token public tokenFund;
+    mapping(address => uint256) public balanceOf;
+    bool public fundingGoalReached = false;
+    bool public crowdsaleClosed = false;
+
+    // Event that is triggered when funding goal is reached
+    event GoalReached(address recipient, uint totalAmountRaised);
+
+    // Event that is triggered when crowdsale is closed
+    event FundTransfer(address backer, uint amount, bool isContribution);
+
+    /**
+    * Constructor function
+    *
+    * Initializes contract with the specified beneficiary, funding goal, and deadline
+    * Sets the price of each token to be sold
+    */
+    constructor(
+        address _beneficiary,
+        uint _fundingGoal,
+        uint _deadline,
+        uint _price,
+        Token _tokenFund
+    ) public {
+        beneficiary = _beneficiary;
+        fundingGoal = _fundingGoal;
+        deadline = _deadline;
+        price = _price;
+        tokenFund = Token(_tokenFund);
+    }
+
+    /**
+    * Fallback function
+    *
+    * Called when someone sends ether to the contract
+    * Records the contribution and updates amountRaised
+    */
+    function () payable public {
+        require(!crowdsaleClosed);
+        uint amount = msg.value;
+        balanceOf[msg.sender] += amount;
+        amountRaised += amount;
+        tokenFund.transfer(msg.sender, amount / price);
+        emit FundTransfer(msg.sender, amount, true);
+    }
+
+    /**
+    * Check if the funding goal has been reached
+    *
+    * If the funding goal is reached, trigger the GoalReached event
+    */
+    function checkGoalReached() public {
+        if (amountRaised >= fundingGoal) {
+            fundingGoalReached = true;
+            emit GoalReached(beneficiary, amountRaised);
+        }
+    }
+
+    /**
+    * Close the crowdsale
+    *
+    * Only the beneficiary can call this function
+    * If the funding goal has been reached, transfer the funds to the beneficiary
+    * Otherwise, refunds all the funds to the contributors
+    */
+    function closeCrowdsale() public {
+        require(msg.sender == beneficiary);
+        if (fundingGoalReached) {
+            uint amount = amountRaised;
+            amountRaised = 0;
+            beneficiary.transfer(amount);
+            emit FundTransfer(beneficiary, amount, false);
+        } else {
+            crowdsaleClosed = true;
+            uint remainingBalance = address(this).balance;
+            beneficiary.transfer(remainingBalance);
+        }
+    }
+}

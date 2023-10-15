@@ -1,0 +1,121 @@
+//======================================================================
+// This code snippet demonstrates an example of a complex class in UnrealScript
+
+class MyComplexClass extends Actor
+	// The MyComplexClass class inherits from the built-in Actor class
+	
+	// The following variables are declared as public, allowing them to be accessed from other classes
+	// These properties are also annotated to provide a description and default value
+
+	/// An integer property representing the number of hits before an enemy dies
+	/// Default value: 5
+	var int Health;
+
+	/// A float property representing the movement speed of the enemy
+	/// Default value: 500.0
+	var float MovementSpeed;
+	
+	/// An array of string properties representing the different types of weapons the enemy can use
+	/// Default value: {"pistol", "shotgun", "rocket launcher"}
+	var array<string> WeaponTypes;
+
+	/// A bool property representing whether the enemy is alive
+	/// Default value: True
+	var bool IsAlive;
+
+	/// An object reference property representing the player character
+	/// Default value: None
+	var PlayerCharacter Player;
+
+	//======================================================================
+	// The following functions are declared as public, allowing them to be accessed from other classes
+
+	/// Function that is called when the player hits the enemy with a weapon
+	/// Takes the type of weapon as a parameter
+	function TakeDamage(string WeaponType)
+	{
+		// Check if the enemy is alive
+		if(IsAlive)
+		{
+			// If the weapon type is one of the types the enemy can use, decrease health by 1
+			if(WeaponTypes.Contains(WeaponType))
+			{
+				Health--;
+			}
+
+			// If health reaches 0, enemy dies
+			if(Health <= 0)
+			{
+				IsAlive = False;
+				Destroy();
+			}
+		}
+	}
+
+	/// Function that moves the enemy towards the player
+	/// Takes the player's location as a parameter
+	function MoveToPlayer(vector PlayerLocation)
+	{
+		// Calculate the direction vector from the enemy's location to the player's location
+		local vector DirectionToPlayer;
+		DirectionToPlayer = PlayerLocation - Location;
+
+		// Normalize the direction vector and scale it by the movement speed
+		DirectionToPlayer = Normal(DirectionToPlayer) * MovementSpeed;
+
+		// Move the enemy towards the player
+		Move(DirectionToPlayer * DeltaTime);
+	}
+	
+	/// Function that checks if the player is within a certain distance from the enemy
+	/// Takes the player's location as a parameter
+	/// Returns a bool representing whether the player is within the distance
+	function IsPlayerInRange(vector PlayerLocation) returns(bool)
+	{
+		// Calculate the distance between the enemy and the player
+		local float Distance;
+		Distance = VSize(PlayerLocation - Location);
+
+		// If the distance is less than or equal to 500 units, return true
+		if(Distance <= 500)
+		{
+			return True;
+		}
+		// Otherwise, return false
+		else
+		{
+			return False;
+		}
+	}
+	
+	//======================================================================
+	// The following functions are declared as private, meaning they can only be accessed within this class
+
+	/// Function that is called when the enemy spawns into the level
+	function PostBeginPlay()
+	{
+		// Set the initial values for the properties
+		Health = 5;
+		MovementSpeed = 500.0;
+		WeaponTypes = {"pistol", "shotgun", "rocket launcher"};
+		IsAlive = True;
+
+		// Find and store a reference to the player character
+		Player = GetPlayerPawn(0);
+
+		// Start a timer that calls the MoveToPlayer function every 1 second
+		SetTimer(1.0, True, 'MoveToPlayer', Player.Location);
+	}
+
+	/// Function that is called when the enemy is destroyed
+	function Destroyed()
+	{
+		// Clear the timer for MoveToPlayer
+		ClearTimer('MoveToPlayer');
+
+		// Drop a random weapon when the enemy is destroyed
+		local string WeaponType;
+		WeaponType = WeaponTypes[Rand(WeaponTypes.Length)];
+		Spawn(class'WeaponPickup', Location, rot(0, 0, 0), WeaponType);
+	}
+endscript

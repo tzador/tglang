@@ -1,0 +1,104 @@
+%{
+ # Defines a flexible array data structure
+ typedef struct {
+     void **array; // Pointer to array stored in memory
+     size_t size; // Count of elements in the array
+     size_t capacity; // Capacity of the array
+     int (*cmp) (const void*, const void*); // Pointer to comparison function
+ } flexarray;
+
+ # Compares two elements in the array using comparison function
+ # Params:
+ #  - a: first element to compare
+ #  - b: second element to compare
+ # Returns:
+ #  - integer less than zero if a < b
+ #  - zero if a = b
+ #  - integer greater than zero if a > b
+ int compare(void *a, void *b) {
+     int a_val = *((int*) a); // Cast pointer to int and dereference
+     int b_val = *((int*) b);
+     return (a_val - b_val); // Perform subtraction to compare
+ }
+%}
+
+%union {
+    int num;
+    char *str;
+}
+
+%token <str> STRING
+%token <num> INTEGER
+%type <str> stmt_string
+%type <num> expr_num
+
+%%
+
+array : '{' elements '}' {
+    # Calculate new capacity if needed
+    if ($2.size > $2.capacity) {
+        $2.capacity = $2.size * 2;
+        $2.array = (int*) realloc($2.array, $2.capacity * sizeof(int));
+    }
+};
+
+elements : elements expr_num {
+    # Insert element into array
+    $1.array[$1.size++] = $2;
+}
+| expr_num {
+    # Allocate memory for array
+    $$.array = (int*) malloc(sizeof(int));
+    $$.capacity = 1;
+    $$.size = 1;
+    $$.array[0] = $1;
+};
+
+expr_num : INTEGER {
+    # Set union to integer value
+    $$ = $1;
+}
+| stmt_string {
+    # Set union to string value converted to integer
+    $$ = atoi($1);
+};
+
+stmt_string : STRING {
+    # Set union to string value
+    $$ = $1;
+};
+
+%%
+
+int main(int argc, char *argv[]) {
+    # Create new flex array with comparison function
+    flexarray array;
+    array.size = 0;
+    array.capacity = 0;
+    array.cmp = &compare;
+    array.array = NULL;
+
+    # Loop through input arguments and insert into array
+    int i;
+    for (i = 1; i < argc; i++) {
+        char *arg = argv[i];
+        array.array[i-1] = atoi(arg);
+        array.size++;
+    }
+
+    # Sort array using qsort function
+    qsort(array.array, array.size, array.cmp);
+
+    # Print sorted array
+    printf("[");
+    for (i = 0; i < array.size; i++) {
+        printf("%d", array.array[i]);
+        # Add comma and space if not last element
+        if (i < array.size - 1) {
+            printf(", ");
+        }
+    }
+    printf("]");
+
+    return 0;
+}

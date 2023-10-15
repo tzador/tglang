@@ -1,0 +1,55 @@
+/* Create a new customer order */
+DEFINE VARIABLE custOrder AS CHARACTER NO-UNDO.
+
+/* Get customer information */
+INPUT FROM ttCustomerInfo.
+
+/* Create a new customer record */
+CREATE ttCustomer.
+ASSIGN ttCustomer.custName = "John Smith"
+       ttCustomer.custAddress = "123 Main Street"
+       ttCustomer.custCity = "Chicago"
+       ttCustomer.custState = "IL"
+       ttCustomer.custZip = "60610".
+
+/* Validate the customer information */
+IF VALIDATE-BROWSE(ttCustomer, ttCustomerInfo) = TRUE THEN
+    MESSAGE "Customer information is valid" VIEW-AS ALERT-BOX.
+
+/* Get product information for order */
+INPUT FROM ttProductInfo.
+
+/* Create a new order record */
+CREATE ttOrder.
+ASSIGN ttOrder.orderDate = TODAY
+       ttOrder.customer = ttCustomer.custName
+       ttOrder.shippingAddress = ttCustomer.custAddress
+       ttOrder.shippingCity = ttCustomer.custCity
+       ttOrder.shippingState = ttCustomer.custState
+       ttOrder.shippingZip = ttCustomer.custZip.
+
+/* Loop through products and add to order */
+REPEAT:
+    /* Get product information */
+    INPUT FROM ttProductInfo.
+
+    /* Create new order line record */
+    CREATE ttOrderLine.
+    ASSIGN ttOrderLine.itemNumber = ttProductInfo.prodNumber
+           ttOrderLine.itemDescription = ttProductInfo.prodDescription
+           ttOrderLine.quantity = ttProductInfo.prodQty
+           ttOrderLine.unitPrice = ttProductInfo.prodPrice.
+
+    /* Add order line to order */
+    ttOrder.orderLines:Add(ttOrderLine).
+
+    /* Ask user if they want to add another product */
+    PROMPT-FOR-RETRY ANS "Add another product?".
+    IF ANS = "NO" THEN LEAVE.
+END.
+
+/* Save customer order */
+ASSIGN custOrder = ttOrder:Save().
+
+/* Output order confirmation */
+MESSAGE "Customer Order #" + custOrder + " has been created" VIEW-AS ALERT-BOX.

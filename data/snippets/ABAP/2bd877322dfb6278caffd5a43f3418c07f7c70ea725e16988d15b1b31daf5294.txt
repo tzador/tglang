@@ -1,0 +1,93 @@
+CLASS zcl_sales_doc_report DEFINITION.
+  PUBLIC SECTION.
+    METHODS:
+      constructor,
+      get_sales_data,
+      get_customer_sales_data,
+      get_product_sales_data.
+
+  PRIVATE SECTION.
+    DATA:
+      gv_cust_sales TYPE c LENGTH 10,
+      gv_prod_sales TYPE c LENGTH 10,
+      gt_sales_data TYPE TABLE OF zcl_sales_doc_report.
+
+    METHODS:
+      calculate_sales_data,
+      get_customers,
+      get_products.
+ENDCLASS.
+
+CLASS zcl_sales_doc_report IMPLEMENTATION.
+  METHOD constructor.
+    " Initialize internal table
+    CREATE DATA gt_sales_data TYPE TABLE OF zcl_sales_doc_report.
+  ENDMETHOD.
+
+  METHOD get_sales_data.
+    " Retrieve sales data from database
+    SELECT cust_sales, prod_sales
+      FROM zsales_doc
+      INTO TABLE @gt_sales_data.
+
+    " Calculate total sales for each customer and product
+    CALL METHOD calculate_sales_data.
+  ENDMETHOD.
+
+  METHOD get_customer_sales_data.
+    " Retrieve sales data for a specific customer
+    SELECT cust_sales
+      FROM zsales_doc
+      INTO @gv_cust_sales
+      WHERE customer = @customer.
+
+    " Return results
+    RETURN gv_cust_sales.
+  ENDMETHOD.
+
+  METHOD get_product_sales_data.
+    " Retrieve sales data for a specific product
+    SELECT prod_sales
+      FROM zsales_doc
+      INTO @gv_prod_sales
+      WHERE product = @product.
+
+    " Return results
+    RETURN gv_prod_sales.
+  ENDMETHOD.
+
+  METHOD calculate_sales_data.
+    " Loop through internal table and calculate total sales for each customer and product
+    LOOP AT gt_sales_data ASSIGNING FIELD-SYMBOL(<fs_sales_data>).
+      SELECT SUM( cust_sales )
+        FROM zsales_doc
+        INTO @<fs_sales_data>-cust_sales
+        WHERE customer = @<fs_sales_data>-customer.
+
+      SELECT SUM( prod_sales )
+        FROM zsales_doc
+        INTO @<fs_sales_data>-prod_sales
+        WHERE product = @<fs_sales_data>-product.
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD get_customers.
+    " Retrieve list of unique customers from database
+    SELECT DISTINCT customer
+      FROM zsales_doc
+      INTO @DATA(gt_customers).
+
+    " Return list of customers
+    RETURN gt_customers.
+  ENDMETHOD.
+
+  METHOD get_products.
+    " Retrieve list of unique products from database
+    SELECT DISTINCT product
+      FROM zsales_doc
+      INTO @DATA(gt_products).
+
+    " Return list of products
+    RETURN gt_products.
+  ENDMETHOD.
+ENDCLASS.

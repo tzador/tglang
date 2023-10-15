@@ -1,0 +1,84 @@
+pragma solidity ^0.8.0;
+
+// Importing OpenZeppelin's SafeMath library
+import "@openzeppelin/contracts/math/SafeMath.sol";
+
+contract Token {
+    using SafeMath for uint256;
+
+    // Variables
+    address admin;  // The address of the contract administrator
+    string name;    // The name of the token
+    string symbol;  // The token's abbreviation
+    uint256 totalSupply;  // The total supply of the token
+    uint8 decimal;  // The number of decimal places to display
+
+    // Mapping to keep track of balances
+    mapping(address => uint256) public balanceOf;
+
+    // Events
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
+    // Constructor function to initialize the variables
+    constructor(string memory _name, string memory _symbol, uint8 _decimal, uint256 _totalSupply) {
+        // Assign variables
+        admin = msg.sender;
+        name = _name;
+        symbol = _symbol;
+        decimal = _decimal;
+        totalSupply = _totalSupply;
+        // Assign total supply to admin's balance
+        balanceOf[admin] = totalSupply;
+    }
+
+    // Function to transfer tokens from one address to another
+    function transfer(address _to, uint256 _value) public returns (bool success) {
+        // Check if sender has sufficient balance
+        require(balanceOf[msg.sender] >= _value, "Not enough balance");
+
+        // Transfer tokens and update balances
+        balanceOf[msg.sender] = balanceOf[msg.sender].sub(_value);
+        balanceOf[_to] = balanceOf[_to].add(_value);
+
+        // Emit transfer event
+        emit Transfer(msg.sender, _to, _value);
+        return true;
+    }
+
+    // Function to transfer tokens on behalf of another address
+    function transferFrom(address _from, address _to, uint256 _value) public returns (bool success) {
+        // Check if sender has sufficient allowance
+        require(balanceOf[_from] >= _value, "Not enough allowance");
+
+        // Check if sender has given enough allowance to the contract
+        require(allowance[_from][msg.sender] >= _value, "Not enough allowance approved");
+
+        // Transfer tokens and update balances
+        balanceOf[_from] = balanceOf[_from].sub(_value);
+        balanceOf[_to] = balanceOf[_to].add(_value);
+
+        // Reduce allowance
+        allowance[_from][msg.sender] = allowance[_from][msg.sender].sub(_value);
+
+        // Emit transfer event
+        emit Transfer(_from, _to, _value);
+        return true;
+    }
+
+    // Mapping to keep track of allowance given by owners to other addresses
+    mapping(address => mapping(address => uint256)) public allowance;
+
+    // Function to approve allowance for another address
+    function approve(address _spender, uint256 _value) public returns (bool success) {
+        // Update allowance
+        allowance[msg.sender][_spender] = _value;
+
+        // Emit approval event
+        emit Approval(msg.sender, _spender, _value);
+        return true;
+    }
+
+    // Event to track approvals
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+
+}

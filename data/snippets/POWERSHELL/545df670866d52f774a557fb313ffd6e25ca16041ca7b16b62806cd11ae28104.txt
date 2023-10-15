@@ -1,0 +1,46 @@
+# Imports the Active Directory module
+Import-Module ActiveDirectory
+
+# Sets the location of the current directory as the base for future operations
+Set-Location $PSScriptRoot
+
+# Creates a new group in Active Directory
+# The -Path parameter specifies the OU (organizational unit) where the new group will be created
+# The -Name parameter specifies the name of the new group
+New-ADGroup -Path "OU=Departments,DC=contoso,DC=com" -Name "Marketing"
+
+# Sets the description of the newly created group
+Set-ADGroup -Identity "Marketing" -Description "This group contains all members of the Marketing department"
+
+# Gets all members of the group and stores them in a variable
+$members = Get-ADGroupMember -Identity "Marketing"
+
+# Iterates through each member in the group
+foreach ($member in $members) {
+    # Gets the group membership of the current member
+    $groupMembership = Get-ADPrincipalGroupMembership -Identity $member
+    
+    # Checks if the current member is already part of the Marketing group
+    if ($groupMembership -contains "Marketing") {
+        # If yes, prints a message stating that the member is already part of the group
+        Write-Host "$member is already a member of Marketing"
+    } else {
+        # If no, adds the member to the group
+        Add-ADGroupMember -Identity "Marketing" -Members $member
+        
+        # Prints a message stating that the member has been added to the group
+        Write-Host "Added $member to Marketing"
+    }
+}
+
+# Removes the first member from the group
+Remove-ADGroupMember -Identity "Marketing" -Members $members[0]
+
+# Checks if the first member is still part of the group
+if ($members[0] -in (Get-ADGroupMember -Identity "Marketing")) {
+    # If yes, prints a message stating that the removal failed
+    Write-Host "Failed to remove $members[0] from Marketing"
+} else {
+    # If no, prints a message stating that the removal was successful
+    Write-Host "Successfully removed $members[0] from Marketing"
+}

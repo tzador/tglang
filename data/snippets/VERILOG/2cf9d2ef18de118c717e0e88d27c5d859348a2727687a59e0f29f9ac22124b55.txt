@@ -1,0 +1,67 @@
+// This is a verilog code snippet showing the design of a 4-bit arithmetic logic unit
+
+module ALU(input [3:0] A, input [3:0] B, input [2:0] S, output logic [3:0] O, output logic Z, output logic N, output logic C);
+
+    // Declare internal wires and registers
+    logic [3:0] sum;
+    logic carry, overflow;
+
+    // Implement adder using full adder modules
+    // NOTE: bit 0 of output S selects between addition (0) and subtraction (1)
+    FullAdder FA1 (A[0], B[0], S[0], sum[0], carry1);
+    FullAdder FA2 (A[1], B[1], S[0], sum[1], carry2);
+    FullAdder FA3 (A[2], B[2], S[0], sum[2], carry3);
+    FullAdder FA4 (A[3], B[3], S[0], sum[3], carry4);
+
+    // Implement logical operations based on output S[2:1]
+    // bit 0 selects between AND (0) and OR (1)
+    // bit 1 selects between NOT (0) and NOR (1)
+    always_comb begin
+        case(S[2:1])
+            2'b00: O = A & B; // AND
+            2'b01: O = A | B; // OR
+            2'b10: O = ~A;    // NOT
+            2'b11: O = ~(A | B); // NOR
+        endcase
+    end
+
+    // Implement comparator for equality using XOR
+    always_comb begin
+        if (A == B) begin
+            Z = 1; // If A and B are equal, set Z to 1
+        end else begin
+            Z = 0; // If A and B are not equal, set Z to 0
+        end
+    end
+
+    // Implement overflow detection for signed numbers
+    always_comb begin
+        // MSB is the sign bit
+        // check if the sum has a different sign than the inputs
+        if (A[3] == B[3] && A[3] != sum[3]) begin
+            overflow = 1; // If different, set overflow to 1
+        end else begin
+            overflow = 0; // If not, set overflow to 0
+        end
+    end
+
+    // Implement carry bit detection for addition and subtraction
+    always_comb begin
+        // For addition, if the carry out of the MSB is 1, then there is a carry bit
+        // For subtraction, if the borrow bit is 0, then there is a carry bit
+        if (S[0] == 0 && carry4 == 1) begin
+            C = 1; // If addition and carry out of MSB is 1, set C to 1
+        end else if (S[0] == 1 && carry4 == 0) begin
+            C = 1; // If subtraction and borrow bit is 0, set C to 1
+        end else begin
+            C = 0; // Otherwise, set C to 0
+        end
+    end
+
+    // Implement sign bit detection for signed inputs
+    always_comb begin
+        // The sign bit for the output is the sign of the sum
+        N = sum[3];
+    end
+
+endmodule

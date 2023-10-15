@@ -1,0 +1,103 @@
+pragma solidity ^0.8.10;
+
+contract Voting {
+    
+    // Data structures for storing voter information
+    struct Voter {
+        uint weight;
+        bool voted;
+        uint8 vote;
+        uint256 voteTimestamp;
+    }
+        
+    // Data structures for storing candidate information
+    struct Candidate {
+        string name;
+        uint256 voteCount;
+    }
+    
+    // Mapping of addresses to voters
+    mapping(address => Voter) public voters;
+    
+    // Array of candidates
+    Candidate[] public candidates;
+    
+    // Address of chairperson
+    address public chairperson;
+    
+    // Constructor to set chairperson
+    constructor() {
+        chairperson = msg.sender;
+    }
+    
+    // Function to add a new candidate
+    function addCandidate(string memory _name) public {
+        require(msg.sender == chairperson, "Only chairperson can add candidates.");
+        require(candidates.length < 10, "Maximum number of candidates reached.");
+        
+        // Check for duplicate candidate names
+        for (uint i = 0; i < candidates.length; i++) {
+            require(keccak256(abi.encodePacked(candidates[i].name)) != keccak256(abi.encodePacked(_name)), "Candidate with that name already exists.");
+        }
+        
+        // Push candidate to array
+        candidates.push(Candidate({
+            name: _name,
+            voteCount: 0
+        }));
+    }
+    
+    // Function to give voting rights to a voter
+    function giveRightToVote(address _voter) public {
+        // Only chairperson can give voting rights
+        require(msg.sender == chairperson, "Only chairperson can give voting rights.");
+        
+        // Voter must not have already voted
+        require(!voters[_voter].voted, "The voter has already voted.");
+        
+        // Voter must not already have voting rights
+        require(voters[_voter].weight == 0, "The voter already has voting rights.");
+        
+        // Give voting rights to voter
+        voters[_voter].weight = 1;
+    }
+    
+    // Function for a voter to cast their vote
+    function vote(uint8 _vote) public {
+        // Voter must have voting rights
+        require(voters[msg.sender].weight > 0, "You do not have voting rights.");
+        
+        // Voter must not have already voted
+        require(!voters[msg.sender].voted, "You have already voted.");
+        
+        // Vote must be for a valid candidate
+        require(_vote < candidates.length, "Invalid candidate.");
+        
+        // Record voter's vote
+        voters[msg.sender].vote = _vote;
+        voters[msg.sender].voted = true;
+        voters[msg.sender].voteTimestamp = block.timestamp;
+        
+        // Increment candidate's vote count
+        candidates[_vote].voteCount += voters[msg.sender].weight;
+    }
+    
+    // Function to get the winning candidate
+    function getWinner() public view returns (string memory) {
+        // Only callable after all votes have been cast
+        require(block.timestamp > voters[chairperson].voteTimestamp, "Voting still in progress.");
+        
+        // Determine winning candidate
+        uint256 winningVoteCount = 0;
+        string memory winner;
+        for (uint i = 0; i < candidates.length; i++) {
+            if (candidates[i].voteCount > winningVoteCount) {
+                winningVoteCount = candidates[i].voteCount;
+                winner = candidates[i].name;
+            }
+        }
+        
+        // Return winning candidate's name
+        return winner;
+    }
+}

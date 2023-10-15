@@ -1,0 +1,122 @@
+/*!
+This is a complex QML component that displays a custom graph. */
+
+Rectangle {
+    id: graph
+    width: 600
+    height: 400
+    color: "gray"
+    property alias dataModel: lineSeries.model
+    property alias minY: minimumY.value
+    property alias maxY: maximumY.value
+
+    //! Custom properties for the graph's axes and labels
+    property string xAxisTitle: "Month"
+    property string yAxisTitle: "Sales"
+    property int xAxisPadding: 20
+    property int yAxisPadding: 30
+    property color xAxisColor: "black"
+    property color yAxisColor: "black"
+    property color axisLabelColor: "white"
+    property int numberOfLabels: 6
+    property var labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
+
+    //! Graph axes
+    Line {
+        x1: graph.xAxisPadding
+        y1: graph.height - graph.yAxisPadding
+        x2: graph.width - graph.xAxisPadding
+        y2: graph.height - graph.yAxisPadding
+        color: graph.xAxisColor
+        width: 2
+    }
+
+    Line {
+        x1: graph.xAxisPadding
+        y1: graph.height - graph.yAxisPadding
+        x2: graph.xAxisPadding
+        y2: graph.yAxisPadding
+        color: graph.yAxisColor
+        width: 2
+    }
+
+    //! Graph axis labels
+    Repeater {
+        model: graph.numberOfLabels
+        delegate: Text {
+            text: graph.labels[index]
+            font.pixelSize: 12
+            color: axisLabelColor
+            x: graph.xAxisPadding + ( ( graph.width - ( 2 * graph.xAxisPadding ) ) / ( graph.numberOfLabels - 1 ) ) * index
+            y: graph.height - graph.yAxisPadding + 10
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignTop
+        }
+    }
+    
+    //! Property to store the data points for the graph
+    ListModel {
+        id: lineSeries
+        ListElement { x: 0; y: 0 }
+        ListElement { x: 1; y: 15 }
+        ListElement { x: 2; y: 30 }
+        ListElement { x: 3; y: 22 }
+        ListElement { x: 4; y: 35 }
+        ListElement { x: 5; y: 40 }
+    }
+
+    //! Functions for calculating necessary values for the graph
+    function calculateMax() {
+        var max = 0;
+        for (var i = 0; i < lineSeries.count; i++) {
+            if (lineSeries.get(i).y > max)
+                max = lineSeries.get(i).y;
+        }
+        return max;
+    }
+
+    function calculateMin() {
+        var min = 1000;
+        for (var i = 0; i < lineSeries.count; i++) {
+            if (lineSeries.get(i).y < min)
+                min = lineSeries.get(i).y;
+        }
+        return min;
+    }
+
+    //! Calculate the min and max values for the y-axis
+    Component.onCompleted: {
+        minimumY.value = calculateMin();
+        maximumY.value = calculateMax();
+    }
+
+    //! Maximum and minimum y-values for the graph
+    readonly property double maximumY: calculateMax()
+    readonly property double minimumY: calculateMin()
+
+    //! Graph line representing the data points
+    Path {
+        x: graph.xAxisPadding
+        y: graph.height - graph.yAxisPadding
+        data: {
+            var path = "";
+            for (var i = 0; i < lineSeries.count; i++) {
+                if (i == 0)
+                    path += "M" + ( ( graph.width - ( 2 * graph.xAxisPadding ) ) / ( lineSeries.count - 1 ) ) * i + "," + ( ( lineSeries.get(i).y / ( graph.maximumY - graph.minimumY ) ) * ( graph.height - graph.yAxisPadding - graph.xAxisPadding ) * -1 ) + " ";
+                else
+                    path += "L" + ( ( graph.width - ( 2 * graph.xAxisPadding ) ) / ( lineSeries.count - 1 ) ) * i + "," + ( ( lineSeries.get(i).y / ( graph.maximumY - graph.minimumY ) ) * ( graph.height - graph.yAxisPadding - graph.xAxisPadding ) * -1 ) + " ";
+            }
+            return path;
+        }
+
+        //! Styling for the graph line
+        fillColor: { graph.color }
+        strokeColor: { graph.color }
+        lineWidth: 2
+
+        //! Animating the graph line
+        Behavior on data {
+            NumberAnimation { duration: 1500; easing.type: Easing.OutBack }
+        }
+    }
+}

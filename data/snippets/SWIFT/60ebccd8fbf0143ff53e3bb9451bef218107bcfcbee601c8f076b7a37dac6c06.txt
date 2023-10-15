@@ -1,0 +1,54 @@
+enum HTTPMethod { //Defining an enumeration for HTTP methods
+    case get //Case for GET requests
+    case post //Case for POST requests
+    case put //Case for PUT requests
+    case delete //Case for DELETE requests
+}
+
+struct Request { //Defining a structure for HTTP Requests
+    var url: String //URL of the request
+    var method: HTTPMethod //HTTP method for the request
+    var headers: [String: String] //Headers for the request
+    var body: Data? //Optional data for the request body
+}
+
+func makeRequest(request: inout Request) { //Function to make an HTTP request
+    guard let url = URL(string: request.url) else { //Checking if the provided URL is valid
+        print("Invalid URL!")
+        return
+    }
+    
+    var urlRequest = URLRequest(url: url) //Creating a URLRequest object with the URL
+    urlRequest.httpMethod = request.method //Setting the HTTP method for the request
+    
+    request.headers.forEach { //Iterating through the headers dictionary
+        urlRequest.setValue($0.value, forHTTPHeaderField: $0.key) //Setting the header field and value for each key-value pair
+    }
+    
+    if let body = request.body { //Checking if there is data for the request body
+        urlRequest.httpBody = body //Setting the body for the request
+    }
+    
+    let task = URLSession.shared.dataTask(with: urlRequest) { (data, response, error) in //Creating an asynchronous data task with the URLRequest object
+        if let error = error { //Checking for any errors
+            print("Error: \(error.localizedDescription)")
+        }
+        
+        if let response = response as? HTTPURLResponse { //Checking for the response object
+            print("Response status code: \(response.statusCode)")
+            print("Response headers: \(response.allHeaderFields)")
+        }
+        
+        if let data = data { //Checking for the data received
+            print("Response data: \(String(data: data, encoding: .utf8)!)")
+        }
+    }
+    
+    task.resume() //Starting the data task
+}
+
+//Example usage:
+
+var request = Request(url: "https://example.com/api", method: .post, headers: ["Content-Type": "application/json"], body: "{\"name\": \"John\", \"age\": 30}".data(using: .utf8))
+
+makeRequest(request: &request) //Making the HTTP request

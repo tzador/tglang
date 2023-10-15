@@ -1,0 +1,44 @@
+# This is a complex and long NGINX code snippet with annotations
+
+# Defines the upstream server, also known as a proxy server
+upstream backend {
+    server 127.0.0.1:8080; # This server will communicate with NGINX
+}
+
+# Sets the server protocol to HTTP and defines the port number to listen on
+server {
+    listen 80; # Port 80 will be used to listen for incoming HTTP requests
+    server_name example.com www.example.com; # Defines the server name, can use wildcards (*)
+    
+    # Sets the root directory of the server, where all the files will be served from
+    root /var/www/example/;
+    
+    # Enables caching for static files that have been requested more than once
+    location ~* ^.+\.(css|js|jpg|jpeg|png|gif|ico|html|woff|woff2|ttf|svg|eot)$ {
+        expires 30d; # How long to cache the files for (in this case, 30 days)
+        add_header Pragma public; # Sets the Pragma header to 'public' for properly caching 
+    }
+    
+    # Defines the URL path for requests that will be forwarded to the backend server
+    location / {
+        # The following headers will be added to requests before forwarding to backend server
+        proxy_set_header Host $host; # Sends the original Host header value
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # Adds client IP to header
+        proxy_set_header X-Real-IP $remote_addr; # Sends client IP in the X-Real-IP header 
+        
+        proxy_pass http://backend; # Forwards the request to the backend server defined above
+    }
+}
+
+# Another server block that listens on a different port and redirects all requests to HTTPS
+server {
+    listen 443 ssl; # Port 443 will be used for HTTPS requests
+    server_name example.com www.example.com; # Defines the server name
+    
+    # Sets the SSL certificate and private key file paths
+    ssl_certificate /etc/nginx/ssl/example.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/example.com.key;
+    
+    # Redirects all requests to HTTPS
+    return 301 https://$host$request_uri; 
+}

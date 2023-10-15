@@ -1,0 +1,140 @@
+%{
+
+  // This is an example of a BISON code snippet
+  // It includes a complex grammar that defines a simple calculator
+
+  // Defines a structure for AST nodes
+  typedef struct {
+    int type;       // Stores the type of node
+    double value;   // Stores the value of node
+    char *name;     // Stores the name of node, if any
+    struct ast *left;   // Stores the left subtree
+    struct ast *right;  // Stores the right subtree
+  } ast;
+
+  // Define the different types of nodes
+  #define NUM 5       // Numeric node
+  #define VAR 6       // Variable node
+  #define ADD 7       // Addition operator node
+  #define SUB 8       // Subtraction operator node
+  #define MUL 9       // Multiplication operator node
+  #define DIV 10      // Division operator node
+
+  // Declare the variables and functions used in the code
+  int yylex();
+  void yyerror(char *msg);
+
+  // Define the precedence and associativity of operators
+  %left '+' '-'
+  %left '*' '/'
+
+  // Define the start symbol of the grammar
+  %start program
+
+  // Define the grammar rules
+  program: expression
+          | program expression ;
+
+  // Define the different expressions in the calculator
+  expression: NUM {$$ = new_node(NUM, $1, NULL, NULL, NULL);}
+      | VAR {$$ = new_node(VAR, 0, $1, NULL, NULL);}
+      | expression '+' expression    {$$ = new_node(ADD, 0, NULL, $1, $3);}
+      | expression '-' expression    {$$ = new_node(SUB, 0, NULL, $1, $3);}
+      | expression '/' expression    {$$ = new_node(MUL, 0, NULL, $1, $3);}
+      | expression '*' expression    {$$ = new_node(DIV, 0, NULL, $1, $3);};
+
+  // Define the function for creating a new AST node
+  ast* new_node(int type, double value, char *name, ast* left, ast* right) {
+    ast* node = malloc(sizeof(ast));
+    if (!node) {
+      yyerror("Memory allocation error");
+      exit(1);
+    }
+    node->type = type;
+    node->value = value;
+    node->name = name;
+    node->left = left;
+    node->right = right;
+    return node;
+  }
+
+  // Define the function for error handling
+  void yyerror(char *msg) {
+    fprintf(stderr, "Error at line %d: %s\n", yylineno, msg);
+  }
+
+%}
+
+// The code below defines the lexer and parser functions
+// They are used to read the input and generate the AST accordingly
+
+%token <strval> VAR           // Variable token
+%token <intval> NUM           // Numeric token
+%left '+' '-'                 // Symbol tokens for operators
+%left '/' '*'                 // Symbol tokens for operators
+
+%%
+
+// Define the lexer function
+int yylex() {
+  char c;
+
+  // Ignore whitespaces and new lines
+  while ((c = getchar()) == ' ' || c == '\n');
+
+  // Check if it is an alphabet
+  if (c >= 'a' && c <= 'z') {
+    char s[20] = {c};
+    int i = 1;
+    while ((c = getchar()) >= 'a' && c <= 'z') {
+      s[i] = c;
+      i++;
+    }
+    s[i] = '\0';
+    strcpy(yylval.strval, s);
+    return VAR;
+  }
+
+  // Check if it is a number
+  if (c >= '0' && c <= '9') {
+    int num = 0;
+    do {
+      num = num * 10 + (c - '0');
+      c = getchar();
+    } while (c >= '0' && c <= '9');
+    yylval.intval = num;
+    return NUM;
+  }
+
+  // Check if it is an operator
+  if (c == '+') return '+';
+  else if (c == '-') return '-';
+  else if (c == '*') return '*';
+  else if (c == '/') return '/';
+
+  // Return 0 to signal end of file
+  return 0;
+}
+
+// Define the parser function
+void yyerror(char *msg) {
+  fprintf(stderr, "Error at line %d: %s\n", yylineno, msg);
+}
+
+// Define the main function
+int main() {
+
+  // Declare variables
+  ast* root;
+
+  // Print user instruction
+  printf("Enter your expression: ");
+
+  // Generate the ast from the input
+  yyparse(root);
+
+  // Print the result
+  printf("Result: %f \n", evaluate(root));
+
+  return 0;
+}

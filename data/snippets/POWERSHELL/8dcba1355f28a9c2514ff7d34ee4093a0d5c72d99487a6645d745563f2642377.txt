@@ -1,0 +1,34 @@
+#region Get-ADGroupMemberUsage
+# This function retrieves all the members of a given Active Directory group and outputs their usage information
+Param(
+    [Parameter(Position = 0, Mandatory = $true)]
+    [ValidateNotNullorEmpty()]
+    [string]$GroupName
+)
+
+# Get the group object
+$group = Get-ADGroup -Identity $GroupName -Properties Member -ErrorAction Stop
+
+# Loop through each member and retrieve their usage information
+foreach ($member in $group.Member) {
+    # Check if the member is a user or a group
+    if ($member -match "^CN=") {
+        # Get user object using CN (Common Name)
+        $user = Get-ADUser -LDAPFilter "(cn=$member)" -Properties DisplayName, LastLogonDate, Enabled -ErrorAction SilentlyContinue
+        # Check if the user exists and is enabled
+        if ($user -and $user.Enabled) {
+            # Output user information
+            Write-Host "User $($user.DisplayName) last logged on: $($user.LastLogonDate)"
+        }
+    }
+    else {
+        # Get group object using DN (Distinguished Name)
+        $subgroup = Get-ADGroup -LDAPFilter "(distinguishedname=$member)" -Properties Name, Description, MemberCount, Enabled -ErrorAction SilentlyContinue
+        # Check if the subgroup exists and is enabled
+        if ($subgroup -and $subgroup.Enabled) {
+            # Output subgroup information
+            Write-Host "Subgroup $($subgroup.Name) contains $($subgroup.MemberCount) members."
+        }
+    }
+}
+#endregion

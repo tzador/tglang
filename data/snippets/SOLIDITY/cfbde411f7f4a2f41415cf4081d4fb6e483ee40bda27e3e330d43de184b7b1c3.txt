@@ -1,0 +1,99 @@
+pragma solidity ^0.8.0;
+
+// This is a contract that implements a digital marketplace for trading goods and services.
+contract Marketplace {
+    // The owner of the contract, who has the ability to manage listings and withdraw funds.
+    address payable owner;
+
+    // The number of listings on the marketplace.
+    uint256 public numListings;
+
+    // A mapping of listing IDs to their corresponding Listing.
+    mapping (uint256 => Listing) public listings;
+
+    // An event that is emitted when a new listing is created.
+    event ListingCreated(uint256 listingId, address seller, uint256 price, uint256 quantity);
+
+    // An event that is emitted when a listing is sold.
+    event ListingSold(uint256 listingId, address buyer, uint256 price, uint256 quantity);
+
+    // An event that is emitted when a listing is canceled.
+    event ListingCanceled(uint256 listingId);
+
+    // The data structure for a listing.
+    struct Listing {
+        address seller; // The seller's address.
+        uint256 price; // The price of the listing.
+        uint256 quantity; // The quantity of the listing.
+        bool active; // Whether the listing is currently active or not.
+    }
+
+    // The constructor function, called when the contract is deployed.
+    constructor() {
+        // Sets the owner of the contract to be the address that deployed the contract.
+        owner = payable(msg.sender);
+
+        // Sets the initial number of listings to 0.
+        numListings = 0;
+    }
+
+    // A function for creating a new listing.
+    function createListing(uint256 price, uint256 quantity) public {
+        // Ensures that the price and quantity are greater than 0.
+        require(price > 0 && quantity > 0, "Price and quantity must be greater than 0.");
+
+        // Adds the new listing to the mapping.
+        listings[numListings] = Listing(msg.sender, price, quantity, true);
+
+        // Emits a ListingCreated event.
+        emit ListingCreated(numListings, msg.sender, price, quantity);
+
+        // Increases the number of listings by 1.
+        numListings += 1;
+    }
+
+    // A function for buying a listing.
+    function buyListing(uint256 listingId) public payable {
+        // Ensures that the listing exists and is active.
+        require(listings[listingId].seller != address(0) && listings[listingId].active, "Listing does not exist or is not active.");
+
+        // Ensures that the buyer sent enough ether to cover the price.
+        require(msg.value >= listings[listingId].price, "Not enough ether sent.");
+
+        // Transfers the ether from the buyer to the seller.
+        payable(listings[listingId].seller).transfer(listings[listingId].price);
+
+        // Emits a ListingSold event.
+        emit ListingSold(listingId, msg.sender, listings[listingId].price, listings[listingId].quantity);
+
+        // Updates the listing to be inactive.
+        listings[listingId].active = false;
+    }
+
+    // A function for canceling a listing.
+    function cancelListing(uint256 listingId) public {
+        // Ensures that the listing exists and is active.
+        require(listings[listingId].seller != address(0) && listings[listingId].active, "Listing does not exist or is not active.");
+
+        // Ensures that the person calling the function is the seller.
+        require(msg.sender == listings[listingId].seller, "Only the seller can cancel the listing.");
+
+        // Updates the listing to be inactive.
+        listings[listingId].active = false;
+
+        // Emits a ListingCanceled event.
+        emit ListingCanceled(listingId);
+    }
+
+    // A function for withdrawing funds from the contract.
+    function withdrawFunds(uint256 amount) public {
+        // Ensures that the person calling the function is the owner.
+        require(msg.sender == owner, "Only the owner can withdraw funds.");
+
+        // Ensures that the amount to be withdrawn is less than the contract's balance.
+        require(amount <= address(this).balance, "Not enough funds in the contract.");
+
+        // Transfers the funds to the owner.
+        owner.transfer(amount);
+    }
+}

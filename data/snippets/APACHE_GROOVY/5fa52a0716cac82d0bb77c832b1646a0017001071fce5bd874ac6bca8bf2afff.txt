@@ -1,0 +1,127 @@
+// This is a sample Apache Groovy code snippet that uses the ParsedMail class to parse an email
+
+// Import necessary classes from Apache javax mail library
+import javax.mail.Address
+import javax.mail.BodyPart
+import javax.mail.Message
+import javax.mail.Multipart
+import javax.mail.Part
+import javax.mail.Session
+import javax.mail.internet.InternetAddress
+import javax.mail.internet.MimeMultipart
+import javax.mail.internet.MimeUtility
+import javax.mail.internet.MimeMessage
+
+// Define a new class called EmailParser
+class EmailParser {
+
+    // Define a variable to store the email message
+    private Message email
+
+    // Define a constructor for the class to initialize the email message
+    EmailParser(Message email) {
+        this.email = email;
+    }
+
+    // Define a method to parse the email and return the sender's address
+    def getSenderAddress() {
+        // Get the sender's address from the email message
+        Address[] senderAddresses = email.getFrom()
+
+        // Loop through the list of sender addresses to find the first address
+        senderAddresses.each { address ->
+            // Convert the sender address from type Address to type InternetAddress
+            InternetAddress senderAddress = address as InternetAddress
+
+            // Return the address if it is not null
+            if (senderAddress != null) {
+                return senderAddress.getAddress()
+            }
+        }
+
+        // If there is no sender address, return null
+        return null
+    }
+
+    // Define a method to parse the email and return the subject
+    def getSubject() {
+        // Get the subject from the email message
+        String subject = email.getSubject()
+
+        // Decode the subject if it is encoded in base64
+        if (MimeUtility.isBase64(subject)) {
+            subject = MimeUtility.decodeText(subject)
+        }
+
+        // Return the subject
+        return subject
+    }
+
+    // Define a method to parse the email and return the body
+    def getBody() {
+        // Get the content from the email message
+        Object content = email.getContent()
+
+        // If the content is of type String, return it directly
+        if (content instanceof String) {
+            return content
+        }
+        // If the content is of type Multipart, loop through the parts to find the body
+        else if (content instanceof Multipart) {
+            Multipart multipart = (Multipart) content
+            int numParts = multipart.getCount()
+
+            // Loop through the parts to find the body
+            for (int i = 0; i < numParts; i++) {
+                BodyPart part = multipart.getBodyPart(i)
+
+                // Check if the part is the main body
+                if (part.getDisposition() == null) {
+                    // If the part is of type text, return the body directly
+                    if (part.isMimeType("text/*")) {
+                        return part.getContent()
+                    }
+                    // If the part is of type Multipart, loop through the parts to find the body
+                    else if (part.isMimeType("multipart/*")) {
+                        // Cast the part to type MimeMultipart
+                        MimeMultipart multipart2 = MimeMultipart.class.cast(part.getContent())
+                        int numParts2 = multipart2.getCount()
+
+                        // Loop through the parts to find the body
+                        for (int j = 0; j < numParts2; j++) {
+                            BodyPart part2 = multipart2.getBodyPart(j)
+
+                            // If the part is of type text, return the body directly
+                            if (part2.isMimeType("text/*")) {
+                                return part2.getContent()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // If there is no body, return null
+        return null
+    }
+}
+
+// Sample usage of the EmailParser class
+// Create a new session and connect to the email server
+Session session = Session.getDefaultInstance(new Properties()) // Replace with proper session configuration
+
+// Get the email message from the server
+MimeMessage message = new MimeMessage(session) // Replace with actual email message
+
+// Create an instance of EmailParser and pass in the email message
+EmailParser parser = new EmailParser(message)
+
+// Get the sender's address, subject, and body of the email
+String senderAddress = parser.getSenderAddress()
+String subject = parser.getSubject()
+String body = parser.getBody()
+
+// Print out the results
+println "Sender Address: $senderAddress"
+println "Subject: $subject"
+println "Body: $body"

@@ -1,0 +1,123 @@
+server {
+    # listen on port 80
+    listen 80;
+
+    # define default server for this block
+    # in case no server_name is specified in the request
+    default_server;
+
+    # specify server_name for this block
+    server_name example.com;
+
+    # redirect all requests to HTTPS
+    # using 301 (permanent) status code
+    return 301 https://$server_name$request_uri;
+}
+
+# server block for handling HTTPS requests
+server {
+    # listen on port 443
+    listen 443 ssl;
+
+    # define default server for this block
+    # in case no server_name is specified in the request
+    default_server;
+
+    # specify server_name for this block
+    server_name example.com;
+
+    # define path to SSL certificate and key files
+    ssl_certificate /path/to/ssl_certificate;
+    ssl_certificate_key /path/to/ssl_certificate_key;
+
+    # specify SSL protocols and ciphers to use
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    # define location to serve static files from
+    location /static {
+        # define root directory for static files
+        root /var/www/example.com;
+
+        # set caching options
+        # enable cache for 1 hour
+        expires 1h;
+
+        # enable caching for various file types
+        location ~* \.(css|js|gif|jpg|jpeg|png)$ {
+            # set cache control header
+            add_header Cache-Control "public, max-age=3600";
+        }
+    }
+
+    # handle incoming requests for a specific location
+    # and pass them to the specified backend server
+    location /api {
+        # define backend server to handle requests
+        # using proxy_pass directive
+        proxy_pass http://backend_server;
+
+        # set options for proxying requests
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # enable buffering of responses from the backend
+        # to improve performance
+        proxy_buffering on;
+        proxy_buffer_size 4k;
+        proxy_buffers 4 32k;
+        proxy_busy_buffers_size 64k;
+        proxy_read_timeout 600s;
+    }
+
+    # handle incoming requests for a specific location
+    # and pass them to a FastCGI server
+    location /app {
+        # define FastCGI server to handle requests
+        # using fastcgi_pass directive
+        fastcgi_pass unix:/var/run/fastcgi.sock;
+
+        # specify parameters for FastCGI server
+        fastcgi_param SCRIPT_FILENAME /var/www/example.com/fastcgi_script.php;
+        fastcgi_param QUERY_STRING $query_string;
+        fastcgi_param REQUEST_METHOD $request_method;
+        fastcgi_param CONTENT_TYPE $content_type;
+        fastcgi_param CONTENT_LENGTH $content_length;
+
+        # set options for passing request headers to the FastCGI server
+        fastcgi_param REQUEST_URI $request_uri;
+        fastcgi_param DOCUMENT_URI $document_uri;
+        fastcgi_param DOCUMENT_ROOT $document_root;
+        fastcgi_param SERVER_PROTOCOL $server_protocol;
+        fastcgi_param GATEWAY_INTERFACE CGI/1.1;
+        fastcgi_param SERVER_SOFTWARE nginx/$nginx_version;
+        fastcgi_param REMOTE_ADDR $remote_addr;
+        fastcgi_param REMOTE_PORT $remote_port;
+        fastcgi_param SERVER_ADDR $server_addr;
+        fastcgi_param SERVER_PORT $server_port;
+        fastcgi_param SERVER_NAME $server_name;
+    }
+
+    # handle incoming requests for a specific location
+    # and serve a custom error page
+    error_page 500 502 503 504 /error.html;
+
+    # define location for the custom error page
+    location = /error.html {
+        # define root directory for the error page
+        root /var/www/example.com;
+    }
+
+    # handle incoming requests for a specific location
+    # and define custom response headers
+    location /downloads {
+        # set response headers
+        add_header Content-Type "application/octet-stream";
+        add_header Content-Disposition "attachment; filename=\"file.txt\"";
+        add_header X-My-Header "Custom Header";
+
+        # define root directory for files to be downloaded
+        root /var/www/example.com/downloads;
+    }
+}

@@ -1,0 +1,93 @@
+public class MyAccountController {
+
+    // global variables
+    public String accountName {get;set;}
+    public Account acc {get;set;}
+    public List<Contact> contacts {get;set;}
+
+    // constructor
+    public MyAccountController(){
+        // initialize global variables
+        accountName = '';
+        acc = new Account();
+        contacts = new List<Contact>();
+    }
+
+    // method to query account and related contacts
+    public void getAccountWithContacts(){
+        String query = 'SELECT Id, Name, BillingCity, BillingState, BillingPostalCode, (SELECT Id, Name, Email, Phone FROM Contacts) FROM Account WHERE Name = :accountName';
+        
+        try{
+            // query account
+            acc = Database.query(query);
+            
+            // retrieve related contacts
+            List<Contact> relatedContacts = acc.Contacts;
+            
+            // loop through contacts
+            for(Contact c : relatedContacts){
+                // add contact to list
+                contacts.add(c);
+            }
+        }
+        catch (Exception e) {
+            // handle any exceptions
+            System.debug(e);
+        }
+    }
+
+    // method to insert new account and contacts
+    public void createNewAccountWithContacts(){
+        // create new account
+        Account newAcc = new Account();
+        newAcc.Name = accountName;
+        
+        // create new contact
+        Contact newContact = new Contact();
+        newContact.FirstName = 'John';
+        newContact.LastName = 'Doe';
+        newContact.Email = 'johndoe@test.com';
+        
+        // add new contact to new account
+        newAcc.Contacts.add(newContact);
+
+        // insert new account and contacts
+        try{
+            // use database methods for DML operations
+            Database.SaveResult[] results = Database.insert(new List<Account>{newAcc}, false);
+            
+            // check if insert was successful
+            if(results[0].isSuccess()){
+                // get Id of new account
+                Id newAccId = results[0].getId();
+
+                // assign Id to new contact
+                newContact.AccountId = newAccId;
+
+                // insert new contact
+                Database.SaveResult result = Database.insert(new List<Contact>{newContact}, false)[0];
+                
+                // check if insert was successful
+                if(result.isSuccess()){
+                    System.debug('New account and contact created successfully.');
+                }
+                else{
+                    // handle any insert errors
+                    for(Database.Error error : result.getErrors()){
+                        System.debug('Insert error: ' + error.getStatusCode() + ' - ' + error.getMessage());
+                    }
+                }  
+            }
+            else{
+                // handle any insert errors
+                for(Database.Error error : results[0].getErrors()){
+                    System.debug('Insert error: ' + error.getStatusCode() + ' - ' + error.getMessage());
+                }
+            }
+        }
+        catch (Exception e) {
+            // handle any exceptions
+            System.debug(e);
+        }
+    }
+}

@@ -1,0 +1,74 @@
+pragma solidity ^0.8.0;
+
+// This is a contract that implements a simple bank system
+contract Bank {
+    // Variables
+    address public owner; // Owner of the contract
+    mapping(address => uint) balances; // Mapping of user addresses to balances
+    address[] public customers; // Array of customers
+
+    // Events
+    event Deposit(address indexed account, uint amount); // Event triggered when a deposit is made
+    event Withdrawal(address indexed account, uint amount); // Event triggered when a withdrawal is made
+    event Transfer(address indexed from, address indexed to, uint amount); // Event triggered when a transfer is made
+
+    // Constructor function to set the owner of the contract
+    constructor() {
+        owner = msg.sender;
+    }
+
+    // Modifier to restrict certain functions to only the owner of the contract
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the owner can call this function.");
+        _;
+    }
+
+    // Function to deposit funds into the bank
+    function deposit() public payable {
+        require(msg.value > 0, "Deposit amount must be greater than 0.");
+        balances[msg.sender] += msg.value; // Update the balance of the sender
+        customers.push(msg.sender); // Add the sender to the list of customers
+        emit Deposit(msg.sender, msg.value); // Trigger the Deposit event
+    }
+
+    // Function to withdraw funds from the bank
+    function withdraw(uint amount) public {
+        require(amount > 0, "Withdrawal amount must be greater than 0.");
+        require(balances[msg.sender] >= amount, "Insufficient balance.");
+        balances[msg.sender] -= amount; // Update the balance of the sender
+        payable(msg.sender).transfer(amount); // Transfer the funds to the sender's address
+        emit Withdrawal(msg.sender, amount); // Trigger the Withdrawal event
+    }
+
+    // Function to transfer funds from one account to another
+    function transfer(address to, uint amount) public {
+        require(to != address(0), "Invalid recipient address.");
+        require(amount > 0, "Transfer amount must be greater than 0.");
+        require(balances[msg.sender] >= amount, "Insufficient balance.");
+        balances[msg.sender] -= amount; // Update the balance of the sender
+        balances[to] += amount; // Update the balance of the recipient
+        emit Transfer(msg.sender, to, amount); // Trigger the Transfer event
+    }
+
+    // Function to get the balance of a specific account
+    function getBalance(address account) public view returns (uint) {
+        return balances[account];
+    }
+
+    // Function to get the total number of customers
+    function getNumberOfCustomers() public view returns (uint) {
+        return customers.length;
+    }
+
+    // Function to get the owner of the contract
+    function getOwner() public view returns (address) {
+        return owner;
+    }
+
+    // Function to close the bank and transfer all funds to the owner
+    function closeBank() public onlyOwner {
+        require(getNumberOfCustomers() == 0, "Cannot close the bank while there are still customers.");
+        // Transfer all funds to the owner
+        payable(owner).transfer(address(this).balance); 
+    }
+}

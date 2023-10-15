@@ -1,0 +1,63 @@
+/* This contract represents a decentralized voting system
+that follows the principles of the SOLID design pattern */
+contract VotingSystem {
+    /* Voter struct to store voter information */
+    struct Voter {
+        uint voterID;
+        uint8 age;
+        bool hasVoted;
+    }
+    /* Candidate struct to store candidate information */
+    struct Candidate {
+        uint candidateID;
+        string name;
+        uint voteCount;
+    }
+    /* List of candidates */
+    Candidate[] public candidates;
+    /* Mapping to keep track of voters */
+    mapping(address => Voter) public voters;
+    /* Event to notify when voting has taken place */
+    event VoteCompleted(address _voter, uint _candidateID);
+    /* Modifier to ensure only registered voters can vote */
+    modifier onlyVoters() {
+        require(voters[msg.sender].voterID != 0, "You are not a registered voter.");
+        _;
+    }
+    /* Function to register a new candidate */
+    function addCandidate(string memory _name) public {
+        // Only the contract owner can add a new candidate
+        require(msg.sender == owner, "Only the contract owner can add a new candidate.");
+        // Increment candidate ID
+        uint candidateID = candidates.length + 1;
+        // Create new candidate and add to list
+        Candidate memory newCandidate = Candidate(candidateID, _name, 0);
+        candidates.push(newCandidate);
+    }
+    /* Function for voters to cast their vote */
+    function vote(uint _candidateID) public onlyVoters {
+        // Ensure voter has not already voted
+        require(!voters[msg.sender].hasVoted, "You have already voted.");
+        // Ensure candidate exists
+        require(_candidateID > 0 && _candidateID <= candidates.length, "Invalid candidate ID.");
+        // Update candidate's vote count
+        candidates[_candidateID - 1].voteCount++;
+        // Update hasVoted status for voter
+        voters[msg.sender].hasVoted = true;
+        // Trigger event
+        emit VoteCompleted(msg.sender, _candidateID);
+    }
+    /* Function to get winner of election */
+    function getWinner() public view returns (string memory) {
+        uint highestVotes = 0;
+        string memory winner;
+        // Find candidate with highest vote count
+        for (uint i = 0; i < candidates.length; i++) {
+            if (candidates[i].voteCount > highestVotes) {
+                highestVotes = candidates[i].voteCount;
+                winner = candidates[i].name;
+            }
+        }
+        return winner;
+    }
+}

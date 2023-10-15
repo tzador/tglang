@@ -1,0 +1,107 @@
+// This code snippet creates a custom player controller that allows the player to move and interact with objects in the game world.
+
+// Define the custom player controller class
+class CustomPlayerController extends PlayerController;
+
+// Declare variables for player movement
+var float moveSpeed;
+var vector moveDirection;
+
+// Event called when player presses move forward key
+event MoveForward(float Value)
+{
+    // Set move direction based on input value
+    moveDirection = vect(1, 0, 0);
+    
+    // Calculate actual movement speed by multiplying move speed by input value
+    moveSpeed = Value * moveSpeed;
+}
+
+// Event called when player presses move right key
+event MoveRight(float Value)
+{
+    // Set move direction based on input value
+    moveDirection = vect(0, 1, 0);
+    
+    // Calculate actual movement speed by multiplying move speed by input value
+    moveSpeed = Value * moveSpeed;
+}
+
+// Event called when player releases move forward or move right key
+event MoveNone()
+{
+    // Reset move direction and speed
+    moveDirection = vect(0, 0, 0);
+    moveSpeed = 0;
+}
+
+// Event called when player presses interact key
+event Interact()
+{
+    // Create a trace from the player's location in the direction they are facing
+    local vector TraceStart = CapsuleComponent.Location;
+    local vector TraceEnd = TraceStart + (ViewRotation.Vector() * 1000);
+    local primitivecomponent HitWall; 
+    
+    // Perform a line trace to check for any objects in the player's path
+    local Actor HitActor = Trace(HitWall, TraceStart, TraceEnd, TraceStart, TraceEnd);
+    
+    // If an actor is hit, check if it has an interactable component
+    if (HitActor != none && HitActor.HasComponentClass(InteractableComponent))
+    {
+        // Call the interact function on the interactable component
+        HitActor.InteractableComponent.Interact();
+    }
+}
+
+// Override the Tick function to handle player movement and input
+function Tick(float DeltaTime)
+{
+    // Get the player's input values for move forward and move right
+    local float moveForwardValue = GetInputAxis("MoveForward");
+    local float moveRightValue = GetInputAxis("MoveRight");
+    
+    // Call the respective movement event based on input values
+    if (moveForwardValue != 0)
+    {
+        MoveForward(moveForwardValue);
+    }
+    else if (moveRightValue != 0)
+    {
+        MoveRight(moveRightValue);
+    }
+    else
+    {
+        MoveNone();
+    }
+    
+    // Move the player using the calculated move direction and speed
+    const vector NewLocation = Pawn.Location + (moveDirection * moveSpeed * DeltaTime);
+    Pawn.SetLocation(NewLocation);
+    
+    // Call the interact function when the interact key is pressed
+    if (GetInputKey("Interact"))
+    {
+        Interact();
+    }
+}
+
+// Override the InputKey function to handle player input for interact key
+function InputKey(int ControllerId, Name Key, EInputEvent EventType, float AmountDepressed, optional bool bGamepad)
+{
+    // Call base InputKey function to handle input for movement and other keys
+    local bool Result = Super(ControllerId, Key, EventType, AmountDepressed, bGamepad);
+    
+    // Handle input for interact key
+    if (Key == "Interact")
+    {
+        // Call interact function when the input event is pressed down
+        if (EventType == IE_Pressed)
+        {
+            Interact();
+        }
+    }
+    
+    // Return the result of the input event handling
+    return Result;
+}

@@ -1,0 +1,38 @@
+{-# LANGUAGE GADTs, TypeOperators, DataKinds, TypeFamilies, KindSignatures #-}
+import Data.Kind (Type)
+
+-- A GADT (Generalized Algebraic Data Type) representing natural numbers using Peano axioms
+data Nat :: Type where
+    Z :: Nat                       -- zero
+    S :: Nat -> Nat                -- successor
+
+-- A type-level function that adds two natural numbers
+type family Add (m :: Nat) (n :: Nat) :: Nat where
+    Add 'Z n     = n               -- base case, 0 + n = n
+    Add ('S m) n = 'S (Add m n)    -- recursive case, (m+1) + n = (m + n) + 1
+
+-- A type-level function that multiplies two natural numbers
+type family Mult (m :: Nat) (n :: Nat) :: Nat where
+    Mult 'Z n     = 'Z             -- base case, 0 * n = 0
+    Mult ('S m) n = Add n (Mult m n) -- recursive case, (m+1) * n = n + (m * n)
+
+-- A GADT representing vectors (lists) of specified length and element type
+data Vec :: Nat -> Type -> Type where
+    Nil :: Vec 'Z a                   -- empty vector
+    Cons :: a -> Vec n a -> Vec ('S n) a    -- non-empty vector
+
+-- A type-level function that concatenates two vectors
+type family Concat (m :: Nat) (n :: Nat) (a :: Type) (v1 :: Vec m a) (v2 :: Vec n a) :: Vec (Add m n) a where
+    Concat 'Z n a 'Nil v = v                           -- base case, concatenate with empty vector
+    Concat ('S m) n a ('Cons x xs) v = 'Cons x (Concat m n a xs v)  -- recursive case, concatenate head with result of concatenating tails
+
+-- example usage
+v1 :: Vec ('S ('S 'Z)) Int
+v1 = 'Cons 1 ('Cons 2 'Nil)
+
+v2 :: Vec ('S 'Z) Int
+v2 = 'Cons 3 'Nil
+
+-- concatenating two vectors of different lengths
+v3 :: Vec ('S ('S ('S 'Z))) Int
+v3 = Concat ('S 'Z) ('S ('S 'Z)) Int v2 v1

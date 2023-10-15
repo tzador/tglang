@@ -1,0 +1,43 @@
+CREATE OR REPLACE PROCEDURE calculate_shipping_cost(
+    p_product_id IN customer_orders.product_id%TYPE,
+    p_quantity IN customer_orders.quantity%TYPE,
+    p_address_id IN customer_orders.address_id%TYPE)
+IS
+    v_shipping_cost NUMBER;
+BEGIN
+    SELECT shipping_cost INTO v_shipping_cost
+    FROM products
+    WHERE id = p_product_id;
+
+    IF v_shipping_cost IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Product does not have a shipping cost set');
+    END IF;
+
+    IF p_quantity < 1 OR p_quantity IS NULL THEN
+        RAISE_APPLICATION_ERROR(-20002, 'Quantity must be a positive number');
+    END IF;
+
+    DECLARE
+        v_total_cost NUMBER;
+    BEGIN
+        v_total_cost := v_shipping_cost * p_quantity;
+        v_address_state STATE_ABBREVIATIONS.ABBREVIATION%TYPE;
+
+        SELECT state
+        INTO v_address_state
+        FROM addresses
+        WHERE id = p_address_id;
+
+        IF v_address_state IN ('CA', 'NY', 'FL') THEN
+            v_total_cost := v_total_cost + (v_total_cost * 0.05);
+        ELSE
+            v_total_cost := v_total_cost + (v_total_cost * 0.02);
+        END IF;
+        
+        IF v_total_cost < 0 THEN
+            RAISE_APPLICATION_ERROR(-20003, 'An error occurred while calculating shipping cost');
+        END IF;
+        
+        DBMS_OUTPUT.PUT_LINE('Shipping cost for product ' || p_product_id || ' to address ' || p_address_id || ': $' || v_total_cost);
+END calculate_shipping_cost;
+/

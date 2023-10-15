@@ -1,0 +1,65 @@
+/* This code snippet generates a report of sales by product and region */
+
+/* Create a temp-table to store sales data */
+DEFINE TEMP-TABLE tt_sales
+    FIELD product AS CHARACTER
+    FIELD region AS CHARACTER
+    FIELD sales_amt AS DECIMAL
+    INDEX tt_sales_idx BY product region.
+
+/* Define a query to retrieve sales data from database */
+DEFINE QUERY q_sales FOR tt_sales
+    SCROLLING.
+
+/* Create a buffer for storing query results */
+DEFINE BUFFER b_sales FOR QUERY q_sales
+    BEFORE-ROW(
+        /* Assign values to temp-table fields */
+        tt_sales.product = buffer.b_sales.product
+        tt_sales.region = buffer.b_sales.region
+        tt_sales.sales_amt = buffer.b_sales.sales_amt
+    ).
+
+/* Initialize and open the query */
+QUERY q_sales:QUERY-PREPARE(INPUT sales_date AS DATE).
+QUERY q_sales:QUERY-OPEN(INPUT '01/01/2021').
+
+/* Loop through query results */
+REPEAT:
+
+    /* Format header for current product and region */
+    DISPLAY "------------------------------------" WITH TITLE tt_sales.product tt_sales.region.
+
+    /* Set top variable for displaying top 10 products */
+    DEFINE VARIABLE i AS INTEGER INITIAL 1 NO-UNDO.
+
+    /* Loop through top 10 products within current product and region */
+    FOR EACH tt_sales
+        WHERE tt_sales.product EQ buffer.b_sales.product
+        AND tt_sales.region EQ buffer.b_sales.region
+        BY tt_sales.sales_amt DESCENDING :
+
+        /* Display product and sales amount */
+        DISPLAY tt_sales.product tt_sales.sales_amt SKIP.
+
+        /* Increment loop variable */
+        i = i + 1.
+
+        /* Break loop if reached 10 products */
+        IF i EQ 10 THEN
+            LEAVE.
+
+    END.
+
+    /* Display blank line */
+    DISPLAY SKIP.
+
+/* End loop */
+END.
+
+/* Close query */
+QUERY q_sales:QUERY-CLOSE().
+
+/* Destroy temp-table and query */
+DELETE OBJECT tt_sales.
+DELETE OBJECT q_sales.

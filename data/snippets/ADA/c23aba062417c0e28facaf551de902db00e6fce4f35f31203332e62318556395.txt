@@ -1,0 +1,92 @@
+-- This is a complex code snippet in ADA language
+
+-- Package declaration
+package Random is
+   
+   -- Importing standard math library
+   use Ada.Numerics;
+   
+   -- Generic type to specify data type for random numbers
+   type DataType is range Long_Long_Integer range 0 .. Long_Long_Integer'Last;
+   
+   -- Generic subprogram to generate random number within specified range
+   generic
+       with Type => DataType,
+   
+       -- Minimum and Maximum values for random number generation
+       Min, Max : DataType;
+   procedure Generate_Random(Number : out DataType);
+   
+   -- Random type declaration
+   type Random_Type is array(Natural range <>) of DataType;
+                           
+   -- Subprogram to initialize random number generator
+   procedure Init_Random(Number_Generator : in out Random_Type);
+   
+   -- Subprogram to generate a random permutation of given array
+   procedure Random_Permutation(Numbers : in out Random_Type);
+   
+ end Random;
+
+
+   -- Package body
+   
+   package body Random is
+   
+   -- Seed value for random number generator
+   seed : DataType;
+   
+   -- Function to generate a random number using seed value
+   function Num_Gen(Number_Gen : in out Random_Type) return DataType is
+       variable A : constant Long_Long_Integer := 48271;
+       variable M : constant Long_Long_Integer := 2147483647;
+       variable Q, R : Long_Long_Integer;
+   begin 
+       Q := M/A;
+       R := M mod A;
+       for I in Number_Gen'Length..1 loop
+           Number_Gen(I) := Q*seed - R*seed;
+           seed := Number_Gen(I);
+           Number_Gen(I) := Number_Gen(I) rem M;
+       end loop;
+   
+       return Number_Gen(Number_Gen'Last) rem Max + Min;
+   end Num_Gen;
+   
+   -- Subprogram to generate random number within specified range
+   -- Uses Num_Gen function to generate random number with given seed
+   procedure Generate_Random(Number : out DataType) is
+       Num_Generator : Random_Type(1..1);
+   begin
+       Init_Random(Num_Generator);
+       Number := Num_Gen(Num_Generator);
+   end Generate_Random;
+   
+   -- Procedure to initialize random number generator
+   -- Takes seed value from Ada.Numerics.Math_Random
+   procedure Init_Random(Number_Generator : in out Random_Type) is
+       use Ada.Numerics.Math_Random;
+       subtype Range_From_1 is Math_Random.State range 1 .. Math_Random.State'Last;
+       RNG : Math_Random.Generator;
+   
+   begin
+       RNG := Create_Random(State => Range_From_1(seed));
+       for I in Number_Generator'Range loop
+           Number_Generator(I) := Generator'(RNG);
+       end loop;
+   end Init_Random;
+   
+   -- Procedure to generate random permutation of given array
+   -- Takes seed value from Ada.Numerics.Math_Random
+   procedure Random_Permutation(Numbers : in out Random_Type) is
+       use Ada.Numerics.Math_Random;
+       subtype Range_From_1 is Math_Random.State range 1 .. Math_Random.State'Last;
+       RNG : Math_Random.Generator;
+   begin
+       RNG := Create_Random(State => Range_From_1(seed));
+       for I in Numbers'Range loop
+           swap(Numbers(I), Numbers(Generator'(RNG) mod Numbers'Length + 1));
+       end loop;
+   end Random_Permutation;
+
+end Random;

@@ -1,0 +1,92 @@
+server {
+    # listen on port 80 for HTTP requests
+    listen 80;
+
+    # set server name
+    server_name example.com;
+
+    # set root directory of server
+    root /var/www/example;
+
+    # default server configuration
+    index index.html;
+
+    # configure error pages
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+
+    # redirect to HTTPS
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    # listen on port 443 for HTTPS requests
+    listen 443 ssl;
+
+    # set server name
+    server_name example.com;
+
+    # set root directory of server
+    root /var/www/example;
+
+    # enable SSL/TLS
+    ssl_certificate /etc/nginx/certs/example.crt;
+    ssl_certificate_key /etc/nginx/certs/example.key;
+
+    # enable server-side caching
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=cache_one:10m inactive=60m;
+    proxy_cache_path /var/cache/nginx levels=2:2 keys_zone=cache_two:50m inactive=120m;
+
+    # enable gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    # configure server routes
+    location / {
+        # enable proxy passing
+        proxy_pass http://localhost:3000;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # configure static file serving
+    location /static {
+        # set root directory of static files
+        alias /var/www/static;
+    }
+
+    # enable browser caching for static files
+    location ~* \.(gif|jpg|jpeg|png|svg|svgz|css|js|ico|woff|ttf)$ {
+        expires max;
+        add_header Cache-Control "public, no-transform";
+    }
+
+    # configure error pages
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+
+    # configure server access logs
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+
+    # disable server info headers
+    server_tokens off;
+
+    # configure SSL security settings
+    ssl_protocols TLSv1.2;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers 'EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH';
+    ssl_ecdh_curve secp384r1;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    ssl_session_tickets off;
+    ssl_stapling on;
+    ssl_stapling_verify on;
+
+    # enable OCSP stapling
+    resolver 8.8.8.8 8.8.4.4 valid=300s;
+    resolver_timeout 5s;
+    ssl_trusted_certificate /etc/nginx/certs/trusted.crt;
+    ssl_certificate_revocation_list /etc/nginx/certs/revoked.crl;
+}

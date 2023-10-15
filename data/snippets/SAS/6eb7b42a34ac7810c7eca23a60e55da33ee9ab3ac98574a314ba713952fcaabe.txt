@@ -1,0 +1,55 @@
+/* Creates a macro variable to store the current date and time. */
+%let now = %sysfunc(datetime(), datetime19.2);
+
+/* Creates a dataset with 100,000 rows and 5 variables. */
+data large_dataset (keep = id weight height income age gender);
+array temp_vars(5);
+do id = 1 to 100000;
+  /* Generates random values for the variables. */
+  do over temp_vars;
+    temp_vars = ranuni(0);
+  end;
+  /* Assigns values to the variables using a conditional statement. */
+  weight = ifn(temp_vars(1) < 0.5, temp_vars(1)*50, temp_vars(1)*100);
+  height = ifn(temp_vars(2) < 0.5, temp_vars(2)*60, temp_vars(2)*70);
+  income = ifn(temp_vars(3) < 0.5, temp_vars(3)*5000, temp_vars(3)*10000);
+  age = ifn(temp_vars(4) < 0.5, int(temp_vars(4)*40), int(temp_vars(4)*70));
+  gender = ifn(temp_vars(5) < 0.5, "Male", "Female");
+  output;
+end;
+/* Displays the number of observations in the dataset. */
+%put Number of observations: %sysfunc(obs(large_dataset));
+
+/* Sorts the dataset by income in descending order. */
+proc sort data = large_dataset;
+  by descending income;
+run;
+
+/* Creates a new dataset with only the top 10% highest income earners. */
+data top_earners;
+  /* Sets a threshold for the top 10% based on the total number of observations. */
+  set large_dataset (firstobs = %sysfunc(round(%sysfunc(ceil(%sysfunc(obs(large_dataset))*0.9))), 0));
+  /* Filters the dataset based on the income threshold. */
+  if income > %sysfunc(mean(large_dataset.income));
+run;
+
+/* Calculates the average income for each gender in the top earners dataset. */
+proc means data = top_earners mean noprint;
+  by gender;
+  /* Stores the mean incomes for each gender in separate macro variables. */
+  output out = gender_means mean = m_income;
+  /* Displays the mean incomes for each gender. */
+  %put Male average income: &m_income1;
+  %put Female average income: &m_income2;
+run;
+
+/* Outputs the results as a table in Markdown format. */
+data _null_;
+  /* Outputs the table header. */
+  file print;
+  put "| Gender | Average Income |";
+  put "| ------ | -------------- |";
+  /* Outputs the gender-specific rows with their respective average incomes. */
+  put "| Male | &m_income1 |";
+  put "| Female | &m_income2 |";
+run;

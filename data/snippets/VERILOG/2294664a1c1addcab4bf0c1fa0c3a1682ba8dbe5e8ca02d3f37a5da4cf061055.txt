@@ -1,0 +1,46 @@
+// Verilog code for a universal shift register module
+
+module universal_shift_register(
+  input clk,          // clock input
+  input rst,          // reset input
+  input [3:0] data_in,// data input for shifting (4 bit input)
+  input mode_select,  // input to select shift/rotate mode
+  input shift_left,   // shift left instruction input
+  input [1:0] rot_dir,// rotation direction input (2 bit input)
+  output [3:0] data_out// data output for shifting (4 bit output)
+);
+
+  reg [3:0] data_reg;  // register to store data for shifting
+  reg [1:0] shift_count;// register to store number of shifts/rotates remaining
+
+  always @(posedge clk) begin // on positive edge of clock
+    if (rst == 1) begin       // if reset is asserted
+      data_reg <= 4'b0000;    // reset data register to all zeroes
+      shift_count <= 2'b00;   // reset shift count register to 0
+    end
+    else begin                // if reset is not asserted
+      if (mode_select == 0) begin              // if shift mode is selected
+        if (shift_left == 1) begin             // if shift left instruction is received
+          data_reg <= {data_reg[2:0], data_in}; // shift data left and add new input on the right
+        end
+        else begin                             // if shift right instruction is received
+          data_reg <= {data_in, data_reg[3:1]}; // shift data right and add new input on the left
+        end
+      end
+      else begin                                // if rotate mode is selected
+        if (rot_dir == 2'b00) begin             // if rotate left instruction is received
+          data_reg <= {data_reg[2:0], data_reg[3]}; // rotate data left by 1 bit
+        end
+        else if (rot_dir == 2'b01) begin        // if rotate right instruction is received
+          data_reg <= {data_reg[0], data_reg[3:1]}; // rotate data right by 1 bit
+        end
+        else begin                             // if no rotation instruction is received
+          data_reg <= data_reg;                  // keep data the same
+        end
+        shift_count <= shift_count - 1;           // decrement shift count
+      end
+    end
+  end
+  
+  assign data_out = data_reg; // assign data register to data output
+endmodule

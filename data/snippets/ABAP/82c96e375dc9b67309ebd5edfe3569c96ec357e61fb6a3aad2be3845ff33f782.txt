@@ -1,0 +1,63 @@
+*&---------------------------------------------------------------------*
+*& Report  YSALES_REPORT
+*&---------------------------------------------------------------------*
+*& Purpose: This report displays the total sales for each customer in a given time period 
+*&---------------------------------------------------------------------*
+REPORT YSALES_REPORT
+
+* Data declarations
+DATA: l_sales TYPE f,
+      l_total_sales TYPE f,
+      l_customer_id TYPE c LENGTH 10,
+      l_customer_name TYPE c LENGTH 50,
+      l_date TYPE d,
+      l_start_date TYPE d,
+      l_end_date TYPE d,
+      l_table TYPE TABLE OF sflight,
+      l_line TYPE sflight,
+      l_output TYPE string,
+      gt_sales TYPE STANDARD TABLE OF ysales.
+
+* User input
+PARAMETERS: p_start_date TYPE d,
+            p_end_date TYPE d.
+
+* Field symbols
+FIELD-SYMBOLS: <fs_line> LIKE LINE OF l_table.
+
+* Get data from database table
+SELECT * FROM sflight
+  INTO TABLE l_table
+  WHERE fldate BETWEEN p_start_date AND p_end_date.
+
+* Loop through data
+LOOP AT l_table INTO l_line.
+
+  * Check if customer id exists in table
+  READ TABLE gt_sales ASSIGNING <fs_line>
+    WITH KEY customer_id = l_line-fldate.
+
+  * If not, add new entry to internal table
+  IF sy-subrc <> 0.
+    l_total_sales = l_line-smereq.
+    APPEND VALUE #(
+      customer_id = l_customer_id
+      customer_name = l_customer_name
+      total_sales = l_total_sales ) INTO gt_sales.
+  * If exists, add sales to existing entry
+  ELSE.
+    <fs_line>-total_sales = <fs_line>-total_sales + l_line-smereq.
+  ENDIF.
+
+* End loop
+ENDLOOP.
+
+* Sort internal table by customer name
+SORT gt_sales BY customer_name ASCENDING.
+
+* Output data to screen
+LOOP AT gt_sales INTO l_line.
+  l_output = |Customer: { l_line-customer_name } | && ... &&
+             |Total Sales: { l_line-l_total_sales }|.
+  WRITE: l_output.
+ENDLOOP.

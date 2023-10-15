@@ -1,0 +1,37 @@
+function Create-User
+{
+    # This function creates a new user account
+    param (
+        [Parameter(Mandatory=$true)] [string]$Username,
+        [Parameter(Mandatory=$true)] [string]$Password,
+        [Parameter(Mandatory=$false)] [string]$Email
+    )
+    # Check if username already exists
+    if (!(Get-ADUser -Filter {SamAccountName -eq "$Username"}))
+    {
+        # Generate unique username if already exists
+        $i = 2
+        while (Get-ADUser -Filter {SamAccountName -eq "$Username$i"})
+        {
+            $i++
+        }
+        $Username = $Username + $i
+    }
+    # Create new user with provided credentials
+    $NewUserParams = @{
+        Name = $Username
+        DisplayName = $Username
+        SamAccountName = $Username
+        UserPrincipalName = "$Username@example.com"
+        AccountPassword = (ConvertTo-SecureString $Password -AsPlainText -Force)
+        Enabled = $true
+        ChangePasswordAtLogon = $true
+    }
+    New-ADUser @NewUserParams
+    # Set email if provided
+    if ($Email)
+    {
+        Set-ADUser -Identity $Username -EmailAddress $Email
+    }
+    Write-Output "User $Username created successfully."
+}

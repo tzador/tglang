@@ -1,0 +1,91 @@
+#nginx.conf
+
+# This is the main configuration file for Nginx
+
+# Setting worker processes to utilize all available CPU cores
+worker_processes auto;
+
+# Maximizing connections per worker process
+events {
+    worker_connections 1024;
+}
+
+# Configuring Nginx server
+http {
+    # Setting the server root directory
+    root /var/www/html;
+
+    # Setting Nginx to listen to port 80
+    listen 80;
+
+    # Configuring server name to accept both www and non-www requests
+    server_name www.example.com example.com;
+
+    # Defining locations for server
+    location / {
+        # Enabling caching headers
+        expires 1d;
+
+        # Rewriting the URL to remove any trailing slashes
+        rewrite ^(/.*)/$ $1 permanent;
+
+        # Forcing all requests to use HTTPS
+        return 301 https://$server_name$request_uri;
+    }
+
+    # Configuring HTTPS server
+    server {
+        # Setting server name to accept both www and non-www requests
+        server_name www.example.com example.com;
+
+        # Setting Nginx to listen to port 443
+        listen 443 ssl;
+
+        # Configuring SSL certificate and key paths
+        ssl_certificate /etc/ssl/certs/nginx.crt
+        ssl_certificate_key /etc/ssl/private/nginx.key;
+
+        # Configuring HTTPS protocol and cipher suites
+        ssl_protocols TLSv1.2;
+        ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:AES256-GCM-SHA512;
+        ssl_session_cache shared:SSL:10m;
+
+        # Defining locations for server
+        location / {
+            # Enabling caching headers
+            expires 1d;
+
+            # Setting Nginx to serve only certain file types
+            include /etc/nginx/conf.d/mime.types;
+            default_type application/octet-stream;
+
+            # Configuring Nginx to pass requests to PHP-FPM
+            location ~ \.php$ {
+                fastcgi_pass unix:/run/php/php7.2-fpm.sock;
+                fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+                include fastcgi_params;
+            }
+
+            # Handling errors and 404 pages
+            error_page 404 /404.html;
+            location = /404.html {
+                internal;
+            }
+
+            # Denying access to hidden files
+            location ~ /\. {
+                deny all;
+            }
+        }
+    }
+
+    # Enabling gzip compression for improved performance
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss font/woff font/woff2 image/svg+xml;
+
+    # Redirecting all www requests to non-www version for SEO purposes
+    server {
+        server_name www.example.com;
+        return 301 $scheme://example.com$request_uri;
+    }
+}

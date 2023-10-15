@@ -1,0 +1,40 @@
+{-# LANGUAGE OverloadedStrings #-}
+
+module Main (main) where
+
+import Control.Monad (forever, when)
+import Control.Concurrent (forkIO)
+import Data.Text (Text)
+import qualified Data.Text.IO as TIO
+import System.Exit (exitFailure)
+import System.IO (hSetBuffering, BufferMode(..), stdout, stderr)
+
+-- | Main program.
+main :: IO ()
+main = do
+  hSetBuffering stdout LineBuffering
+  hSetBuffering stderr LineBuffering
+  forever $ do
+    -- take input from user
+    input <- getInput
+    -- process input in a separate thread
+    processThread <- forkIO (processInput input)
+    -- print output from process
+    output <- getOutput processThread
+    TIO.putStrLn output
+  where
+    -- | Gets input from user through command line.
+    getInput :: IO Text
+    getInput = TIO.putStr "Enter some text: " >> TIO.getLine
+
+    -- | Performs some processing on the input.
+    processInput :: Text -> IO ()
+    processInput input = do
+      when (input == "exit") $ exitFailure
+      -- do some complex processing here
+
+    -- | Waits for the process thread to finish and returns the output.
+    getOutput :: ThreadId -> IO Text
+    getOutput thread = do
+      output <- readMVar thread
+      return output

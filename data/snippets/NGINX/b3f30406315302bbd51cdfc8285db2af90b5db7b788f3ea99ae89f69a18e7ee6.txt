@@ -1,0 +1,63 @@
+# The upstream block defines a group of servers that will
+# handle incoming requests 
+upstream myapp {
+    server unix:/var/run/myapp.sock;
+    server 10.0.1.1:8000;
+    server 10.0.1.2:8000;
+}
+
+# The server block defines the configuration for a single 
+# HTTP or HTTPS server 
+server {
+    # Listen for connections on port 80 
+    listen 80;
+
+    # When a request comes in for the root path, serve
+    # the index.html file
+    location / {
+        root /path/to/myapp/public;
+        index index.html;
+    }
+
+    # All requests that start with /api/ will be 
+    # forwarded to the upstream group defined above 
+    location /api/ {
+        proxy_pass http://myapp;
+    }
+
+    # Configure caching for static files, will be cached 
+    # for 1 day 
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico)$ {
+        expires 1d;
+        add_header Cache-Control "public";
+    }
+
+    # Page not found error page 
+    error_page 404 /404.html;
+    location = /404.html {
+        internal;
+    }
+
+    # Enable Gzip compression for all responses 
+    gzip on;
+    gzip_types text/plain text/css application/json;
+
+    # Enable HTTP/2 
+    listen 443 ssl http2;
+    ssl_certificate /path/to/ssl/certificate;
+    ssl_certificate_key /path/to/ssl/key;
+
+    # Enable server-side caching using Redis 
+    # Store cached responses for 1 hour 
+    proxy_cache_path /path/to/cache levels=1:2 keys_zone=my_cache:10m inactive=1h;
+    proxy_cache_key "$host$request_uri";
+
+    # Send cacheable responses 
+    location /served_from_cache {
+        proxy_cache my_cache;
+        proxy_cache_valid 200 1h;
+        add_header X-Cached "1";
+        proxy_cache_bypass $http_pragma;
+        proxy_cache_revalidate on;
+    }
+}

@@ -1,0 +1,52 @@
+%% Kalman Filter Implementation
+% Define initial state estimate and covariance
+x_0 = [0; 0];
+P_0 = [1 0; 0 1];
+
+% Define state transition matrix and process noise covariance
+A = [1 1; 0 1];
+Q = [0.01 0; 0 0.01];
+
+% Define measurement matrix and noise covariance
+H = [2 0];
+R = 0.1;
+
+% Initialize arrays for state estimates and covariances
+X = [x_0];
+P = [P_0];
+
+% Generate true states and measurements
+T = 0:0.1:5;
+n = length(T);
+true_state = zeros(2,n);
+measurement = zeros(1,n);
+for i = 1:n
+    true_state(:,i+1) = A*true_state(:,i) + mvnrnd([0;0], Q)';
+    measurement(i) = H*true_state(:,i+1) + mvnrnd(0, R);
+end
+
+% Implement Kalman filter
+for i = 1:n
+    % Prediction step
+    x_pred = A*X(:,end);
+    P_pred = A*P(:,:,end)*A' + Q;
+    
+    % Update step
+    K = P_pred*H'/(H*P_pred*H' + R);
+    X(:,end+1) = x_pred + K*(measurement(i) - H*x_pred);
+    P(:,:,end+1) = (eye(2) - K*H)*P_pred;
+end
+
+% Plot results
+figure;
+subplot(2,1,1);
+plot(T, true_state(1,2:end), 'r', T, measurement, 'bo', T, X(1,2:end), 'k--');
+xlabel('Time');
+ylabel('Position');
+legend('True Position', 'Measurement', 'Estimated Position');
+
+subplot(2,1,2);
+plot(T, true_state(2,2:end), 'r', T, X(2,2:end), 'k--');
+xlabel('Time');
+ylabel('Velocity');
+legend('True Velocity', 'Estimated Velocity');

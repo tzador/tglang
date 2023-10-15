@@ -1,0 +1,70 @@
+* Report to display top 10 customers by sales amount
+REPORT Z_TOP10_CUSTOMERS.
+
+* Define internal table to store customer data
+DATA: lt_customers TYPE TABLE OF KNA1.
+
+* Select customers and their sales amount from database
+SELECT kunnr, name1, STNDR FROM kna1 INTO CORRESPONDING FIELDS OF TABLE lt_customers
+WHERE STNDR > '500000' " Only select customers with sales amount higher than 500,000
+ORDER BY STNDR DESCENDING. " Sort the data in descending order
+
+* Create work area for caching customer data
+DATA: ls_customer LIKE LINE OF lt_customers.
+
+* Loop through the customer data
+LOOP AT lt_customers INTO ls_customer.
+
+* Display customer number, name, and sales amount with proper formatting
+WRITE: / ls_customer-kunnr, 15 ls_customer-name1, 30 ls_customer-STNDR.
+
+ENDLOOP.
+
+* Create field symbols for dynamic field selection
+FIELD-SYMBOLS: <fs_kunnr> TYPE ANY,
+               <fs_name1> TYPE ANY,
+               <fs_stndr> TYPE ANY.
+
+* Define field symbols for columns in ALV grid
+FIELD-SYMBOLS: <fs_col1> TYPE ANY,
+               <fs_col2> TYPE ANY,
+               <fs_col3> TYPE ANY.
+
+* Build ALV grid layout
+DATA: lt_layout TYPE lvc_s_layo1.
+CLEAR lt_layout.
+lt_layout-zebra = 'X'. " Enable alternate row coloring
+lt_layout-colwidth_optimize = 'X'. " Optimize column width automatically
+lt_layout-fieldname = 'STNDR'. " Sort by sales amount column by default
+
+* Initialize ALV grid display
+CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+  EXPORTING
+    i_callback_program = sy-repid
+    it_fieldcat        = lt_fieldcat      " Pass field catalog describing the ALV grid
+    i_save             = 'X'
+    is_layout          = lt_layout        " Pass layout settings
+  TABLES
+    t_outtab           = lt_customers     " Pass data table
+  EXCEPTIONS
+    program_error      = 1                " Error in program
+    others             = 2.               " Other errors
+
+* Define ALV grid field catalog to specify columns
+DATA: lt_fieldcat TYPE lvc_t_fcat.
+CLEAR lt_fieldcat.
+* Define columns with their respective headings
+lt_fieldcat-fieldname = 'KUNNR'.
+lt_fieldcat-seltext_l = 'Customer Number'.
+lt_fieldcat-reqflag = 'X'. " Mark column as required
+APPEND lt_fieldcat TO lt_fieldcat.
+CLEAR lt_fieldcat.
+lt_fieldcat-fieldname = 'NAME1'.
+lt_fieldcat-seltext_l = 'Name'.
+lt_fieldcat-reqflag = 'X'.
+APPEND lt_fieldcat TO lt_fieldcat.
+CLEAR lt_fieldcat.
+lt_fieldcat-fieldname = 'STNDR'.
+lt_fieldcat-seltext_l = 'Sales Amount'.
+lt_fieldcat-reqflag = 'X'.
+APPEND lt_fieldcat TO lt_fieldcat.

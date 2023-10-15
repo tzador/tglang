@@ -1,0 +1,84 @@
+// Define a custom Error enum for network errors
+enum NetworkError: Error {
+    case invalidURL
+    case failedToConnect
+    case unauthorized
+    case serverError(Int)
+    case requestTimeout
+}
+
+// Create a function that makes a network request
+func makeRequest(urlString: String, completion: @escaping (Result<Data, NetworkError>) -> Void) {
+    // Validate the URL and return an error if it is invalid
+    guard let url = URL(string: urlString) else {
+        completion(.failure(.invalidURL))
+        return
+    }
+    
+    // Create a URL request with the given URL
+    var request = URLRequest(url: url)
+    request.httpMethod = "GET"
+    
+    // Create a URLSession instance and perform the request
+    let session = URLSession.shared
+    let task = session.dataTask(with: request) { data, response, error in
+        // Check for any errors and return the appropriate error case
+        if let error = error {
+            completion(.failure(.failedToConnect))
+            return
+        }
+        
+        // Check the HTTP status code and return the appropriate error case if needed
+        guard let httpResponse = response as? HTTPURLResponse else {
+            completion(.failure(.serverError(0)))
+            return
+        }
+        switch httpResponse.statusCode {
+        case 401:
+            completion(.failure(.unauthorized))
+        case 408:
+            completion(.failure(.requestTimeout))
+        case 500...599:
+            completion(.failure(.serverError(httpResponse.statusCode)))
+        default:
+            break
+        }
+        
+        // Check for the data and return the successful result if available
+        if let data = data {
+            completion(.success(data))
+        } else {
+            completion(.failure(.failedToConnect))
+        }
+    }
+    
+    // Start the network request
+    task.resume()
+}
+
+// Call the function and handle the result
+makeRequest(urlString: "https://example.com") { result in
+    switch result {
+    case .success(let data):
+        // Create a string from the data
+        if let string = String(data: data, encoding: .utf8) {
+            print(string)
+        } else {
+            print("Failed to convert data to string")
+        }
+    case .failure(let error):
+        // Handle each network error case
+        switch error {
+        case .invalidURL:
+            print("Invalid URL")
+        case .failedToConnect:
+            print("Failed to connect")
+        case .unauthorized:
+            print("Unauthorized")
+        case .serverError(let code):
+            print("Server error with code: \(code)")
+        case .requestTimeout:
+            print("Request timed out")
+        }
+    }
+}

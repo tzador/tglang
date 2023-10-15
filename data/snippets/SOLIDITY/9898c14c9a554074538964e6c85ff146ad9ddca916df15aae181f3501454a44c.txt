@@ -1,0 +1,53 @@
+//Example of a complex smart contract in Solidity
+
+//Importing the necessary libraries
+import "https://github.com/smartcontractkit/chainlink/evm/contracts/ChainlinkClient.sol";
+import "https://github.com/smartcontractkit/chainlink/evm/contracts/Chainlink.sol";
+
+contract ComplexContract is ChainlinkClient {
+    //State Variables
+    address owner; //Stores the owner address
+    uint256 public price; //Stores the current price
+    bytes32 public jobId; //Stores the Chainlink Job ID
+    address public oracle; //Stores the oracle address
+    uint256 constant private ORACLE_PAYMENT = 1 * LINK; //Payment for oracle service in wei
+
+    //Constructor Function
+    constructor(address _owner, uint256 _price, address _oracle, bytes32 _jobId) {
+        owner = _owner;
+        price = _price;
+        oracle = _oracle;
+        jobId = _jobId;
+    }
+
+    //Modifiers
+    modifier onlyOwner {
+        //Ensures only owner can call
+        require(msg.sender == owner, "Only the owner can call this function.");
+        _;
+    }
+
+    //Functions
+    //Gets the current price from an external source using Chainlink
+    function getCurrentPrice() public view returns(uint256) {
+        return price;
+    }
+
+    //Sets the current price
+    function setPrice(uint256 _price) public onlyOwner {
+        price = _price;
+    }
+
+    //Requests data from an external source using Chainlink
+    function requestData() public {
+        Chainlink.Request memory req = buildChainlinkRequest(jobId, address(this), this.fulfill.selector);
+        req.add("get", "https://example.com/api/price"); //URL to get data from
+        req.add("path", "data.payload"); //JSON path to access desired data
+        sendChainlinkRequestTo(oracle, req, ORACLE_PAYMENT); //Sends request to specified oracle with payment
+    }
+    
+    //Callback function used by Chainlink
+    //Updates the price when data is received from Chainlink
+    function fulfill(bytes32 _requestId, uint256 _price) public recordChainlinkFulfillment(_requestId) {
+        setPrice(_price);
+    }

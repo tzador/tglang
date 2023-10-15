@@ -1,0 +1,226 @@
+// Import necessary packages
+import {
+  GraphQLObjectType,
+  GraphQLSchema,
+  GraphQLInt,
+  GraphQLString,
+  GraphQLList,
+  GraphQLNonNull,
+  GraphQLInterfaceType,
+  GraphQLInputObjectType,
+  GraphQLUnionType,
+  GraphQLScalarType,
+  GraphQLEnumType,
+  GraphQLID
+} from 'graphql';
+
+// Define a custom scalar type
+const DateScalar = new GraphQLScalarType({
+  name: 'Date',
+  description: 'Custom scalar type for Date objects',
+  serialize(value) {
+    // Convert the JS Date object into a UNIX timestamp before serializing
+    return value.getTime();
+  },
+  parseValue(value) {
+    // Parse the incoming value (UNIX timestamp) into a JS Date object
+    return new Date(value);
+  },
+  parseLiteral(ast) {
+    // Parse the AST value (string) into a JS Date object
+    return new Date(parseInt(ast.value));
+  }
+});
+
+// Defining a custom interface
+const BookInterface = new GraphQLInterfaceType({
+  name: 'Book',
+  fields: {
+    title: {
+      type: GraphQLNonNull(GraphQLString),
+      description: 'The title of the book'
+    },
+    author: {
+      type: GraphQLNonNull(GraphQLString),
+      description: 'The author of the book'
+    },
+    publishedYear: {
+      type: GraphQLNonNull(GraphQLInt),
+      description: 'The year the book was published'
+    },
+    pageCount: {
+      type: GraphQLNonNull(GraphQLInt),
+      description: 'The number of pages in the book'
+    }
+  }
+});
+
+// Defining a custom input object type
+const BookInputType = new GraphQLInputObjectType({
+  name: 'BookInput',
+  fields: {
+    title: {
+      type: GraphQLNonNull(GraphQLString),
+      description: 'The title of the book'
+    },
+    author: {
+      type: GraphQLNonNull(GraphQLString),
+      description: 'The author of the book'
+    },
+    publishedYear: {
+      type: GraphQLNonNull(GraphQLInt),
+      description: 'The year the book was published'
+    },
+    pageCount: {
+      type: GraphQLNonNull(GraphQLInt),
+      description: 'The number of pages in the book'
+    }
+  }
+});
+
+// Defining a custom union type
+const BookOrAuthor = new GraphQLUnionType({
+  name: 'BookOrAuthor',
+  types: [BookInterface, AuthorInterface],
+  resolveType(value) {
+    // Determine the type of the value based on its properties
+    if(value.title || value.author) {
+      return BookInterface;
+    } else if (value.name || value.books) {
+      return AuthorInterface;
+    }
+    return null;
+  }
+});
+
+// Defining a custom enum type
+const BookGenre = new GraphQLEnumType({
+  name: 'BookGenre',
+  values: {
+    FICTION: {
+      value: 'Fiction',
+      description: 'A book of fiction'
+    },
+    NON_FICTION: {
+      value: 'Non-Fiction',
+      description: 'A book of non-fiction'
+    }
+  }
+});
+
+// Creating a GraphQLObjectType for a book
+const Book = new GraphQLObjectType({
+  name: 'Book',
+  // Implementing the BookInterface fields
+  interfaces: [BookInterface],
+  fields: {
+    title: {
+      type: GraphQLNonNull(GraphQLString),
+      description: 'The title of the book'
+    },
+    author: {
+      type: GraphQLNonNull(GraphQLString),
+      description: 'The author of the book'
+    },
+    publishedYear: {
+      type: GraphQLNonNull(GraphQLInt),
+      description: 'The year the book was published'
+    },
+    pageCount: {
+      type: GraphQLNonNull(GraphQLInt),
+      description: 'The number of pages in the book'
+    },
+    genre: {
+      type: BookGenre,
+      description: 'The genre of the book'
+    }
+  }
+});
+
+// Creating a GraphQLObjectType for an author
+const Author = new GraphQLObjectType({
+  name: 'Author',
+  // Implementing the AuthorInterface fields
+  interfaces: [AuthorInterface],
+  fields: {
+    name: {
+      type: GraphQLNonNull(GraphQLString),
+      description: 'The name of the author'
+    },
+    books: {
+      type: GraphQLList(Book),
+      description: 'The books written by the author'
+    }
+  }
+});
+
+// Define a query to get all books
+const Query = new GraphQLObjectType({
+  name: 'Query',
+  fields: {
+    books: {
+      type: GraphQLList(Book),
+      description: 'Returns a list of all books',
+      resolve() {
+        // Fetch data from a database or API here
+        return [
+          {
+            title: 'The Great Gatsby',
+            author: 'F. Scott Fitzgerald',
+            publishedYear: 1925,
+            pageCount: 218,
+            genre: 'Fiction'
+          },
+          {
+            title: 'To Kill a Mockingbird',
+            author: 'Harper Lee',
+            publishedYear: 1960,
+            pageCount: 281,
+            genre: 'Fiction'
+          },
+          {
+            title: '1984',
+            author: 'George Orwell',
+            publishedYear: 1949,
+            pageCount: 328,
+            genre: 'Fiction'
+          }
+        ];
+      }
+    }
+  }
+});
+
+// Define a mutation to add a new book
+const Mutation = new GraphQLObjectType({
+  name: 'Mutation',
+  fields: {
+    addBook: {
+      type: Book,
+      description: 'Add a new book with the given input',
+      args: {
+        book: { type: GraphQLNonNull(BookInputType) }
+      },
+      resolve(root, args) {
+        const newBook = {
+          title: args.book.title,
+          author: args.book.author,
+          publishedYear: args.book.publishedYear,
+          pageCount: args.book.pageCount,
+          genre: args.book.genre
+        };
+        // Perform logic to save the new book to a database or API here
+        return newBook;
+      }
+    }
+  }
+});
+
+// Define the schema using the Query and Mutation types
+const schema = new GraphQLSchema({
+  query: Query,
+  mutation: Mutation
+});
+
+// Print the SDL of the schema
+console.log(printSchema(schema));

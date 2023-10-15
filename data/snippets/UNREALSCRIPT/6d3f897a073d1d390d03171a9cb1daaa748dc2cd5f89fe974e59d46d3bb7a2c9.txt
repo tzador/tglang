@@ -1,0 +1,82 @@
+/** This is a class that defines a projectile weapon */
+class ProjectileWeapon extends Weapon;
+
+// The amount of damage this weapon does, can be changed by subclasses
+var int Damage;
+
+// The speed at which this projectile travels, can be changed by subclasses
+var float ProjectileSpeed;
+
+// Whether or not this weapon should inflict splash damage
+var bool bSplashDamage;
+
+// The radius of the splash damage effect, if enabled
+var float SplashRadius;
+
+// The type of damage this projectile inflicts
+var DamageType MyDamageType;
+
+// The mesh of the projectile visual
+var SkeletalMeshComponent ProjectileMesh;
+
+// The emitter for the muzzle flashes
+var ParticleSystemComponent MuzzleFlashEffect;
+
+// The sound to play when the weapon is fired
+var SoundCue FireSound;
+
+// The camera shake to play when the weapon is fired
+var CameraShake FireCamShake;
+
+/**
+* Constructor, initializes variables
+*/
+event class<Projectile> GetProjectileClass()
+{
+    // By default, we use the base projectile class
+    return class'Projectile';
+}
+
+/**
+* Called when the weapon is fired
+*/
+reliable simulated function FireWeapon()
+{
+    // Spawn a projectile at the weapon muzzle and set its damage and speed
+    local Projectile SpawnedProjectile;
+    SpawnedProjectile = Spawn(GetProjectileClass(), self,, Location);
+    SpawnedProjectile.Damage = Damage;
+    SpawnedProjectile.ProjectileSpeed = ProjectileSpeed;
+    SpawnedProjectile.MyDamageType = MyDamageType;
+
+    // Play the fire sound and spawn the muzzle flash effect
+    PlaySound(FireSound);
+    MuzzleFlashEffect = Spawn(class<ParticleSystemComponent>, Self);
+    MuzzleFlashEffect.SetTemplate(FireFlashTemplate);
+    MuzzleFlashEffect.AttachTo(Pawn(Owner).Mesh, 'handle_right');
+
+    // Apply camera shake to the player's camera
+    PlayerOwner.ClientPlayCameraShake(FireCamShake, 1.0f);
+
+    // If splash damage is enabled, perform a radial overlap check
+    if (bSplashDamage)
+    {
+        local array<Actor> OverlappedActors;
+
+        // Perform the overlap check at the projectile's location
+        SpawnedProjectile.GetActorLocation();
+        OverlappedActors.AddRange(RadialOverlap(SplashRadius, class'Pawn'));
+
+        // Loop through the overlapped actors and inflict damage to them
+        local int i;
+        for (i = 0; i < OverlappedActors.Length; i++)
+        {
+            local ProjectileHitTarget = ProjectileOverlapCheck(SpawnedProjectile, OverlappedActors[i]);
+            if (ProjectileHitTarget != None)
+                projectilehit(SpawnedProjectile, ProjectileHitTarget);
+        }
+    }
+
+    // Call the parent implementation of FireWeapon
+    Super.FireWeapon();
+}

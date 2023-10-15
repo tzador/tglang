@@ -1,0 +1,60 @@
+# This code snippet uses Microsoft Visual Studio Code to create a virtual machine in Microsoft Azure.
+
+# Import Azure modules
+Import-Module -Name Az.Compute
+Import-Module -Name Az.Resources
+
+# Get Azure subscription
+$subscription = Get-AzSubscription -Subscription "Your Azure Subscription Name"
+
+# Set context to the selected subscription
+Set-AzContext -Subscription $subscription | Out-null
+
+# Define resource group for the virtual machine
+$resourceGroupName = "MyResourceGroup"
+
+# Create resource group
+New-AzResourceGroup -Name $resourceGroupName -Location "West US"
+
+# Define virtual network name
+$vnetName = "MyVNet"
+
+# Create virtual network
+$vnet = New-AzVirtualNetwork -ResourceGroupName $resourceGroupName -Name $vnetName -AddressPrefix "10.0.0.0/16"
+
+# Define subnet name
+$subnetName = "MySubnet"
+
+# Create subnet
+$subnet = Add-AzVirtualNetworkSubnetConfig -Name $subnetName -AddressPrefix "10.0.0.0/24" -VirtualNetwork $vnet
+
+# Define public IP name
+$publicIPName = "MyPublicIP"
+
+# Create public IP
+$publicIP = New-AzPublicIpAddress -Name $publicIPName -ResourceGroupName $resourceGroupName -Location "West US" -AllocationMethod Dynamic
+
+# Define network security group name
+$nsgName = "MyNSG"
+
+# Create network security group
+$nsg = New-AzNetworkSecurityGroup -ResourceGroupName $resourceGroupName -Location "West US" -Name $nsgName
+
+# Allow RDP inbound traffic from any source
+$rdpRule = Add-AzNetworkSecurityRuleConfig -Name "Allow-RDP" -Description "Allow RDP inbound traffic" -Access Allow -Protocol Tcp -Direction Inbound -Priority 100 -SourceAddressPrefix * -SourcePortRange * -DestinationAddressPrefix * -DestinationPortRange 3389
+
+# Add RDP rule to network security group
+$nsg = Set-AzNetworkSecurityGroup -NetworkSecurityGroup $nsg -SecurityRule $rdpRule
+
+# Create network interface
+$nicName = "MyNIC"
+$nic = New-AzNetworkInterface -ResourceGroupName $resourceGroupName -Name $nicName -Location "West US" -SubnetId $vnet.Subnets[0].Id -PublicIpAddressId $publicIP.Id -NetworkSecurityGroupId $nsg.Id
+
+# Define virtual machine name
+$vmName = "MyVM"
+
+# Create virtual machine configuration
+$vmConfig = New-AzVMConfig -VMName $vmName -VMSize Standard_DS2_v2 | Set-AzVMOperatingSystem -Windows -ComputerName $vmName -Credential (Get-Credential) | Set-AzVMSourceImage -Publisher "MicrosoftWindowsServer" -Offer "WindowsServer" -SkU "2019-Datacenter" -Version latest | Add-AzVMNetworkInterface -Id $nic.Id
+
+# Create virtual machine
+New-AzVM -ResourceGroupName $resourceGroupName -Location "West US" -VM $vmConfig

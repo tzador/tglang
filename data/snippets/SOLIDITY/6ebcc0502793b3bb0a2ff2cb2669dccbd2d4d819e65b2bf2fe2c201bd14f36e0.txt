@@ -1,0 +1,101 @@
+pragma solidity ^0.8.0;                             // setting the solidity version to use
+ 
+interface ERC20 {
+    
+    function totalSupply() external view returns (uint);
+    
+    function balanceOf(address account) external view returns (uint);
+    
+    function transfer(address recipient, uint amount) external returns (bool);
+    
+    function allowance(address owner, address spender) external view returns (uint);
+    
+    function approve(address spender, uint amount) external returns (bool);
+    
+    function transferFrom(address sender, address recipient, uint amount) external returns (bool);
+    
+    event Transfer(address indexed from, address indexed to, uint value);
+    
+    event Approval(address indexed owner, address indexed spender, uint value);
+    
+}
+
+contract MyToken is ERC20 {                          // creating a contract named 'MyToken' that implements the ERC20 interface
+    
+    string public constant name = "My Token";        // declaring a public constant string variable named 'name' with initial value "My Token"
+    string public constant symbol = "MT";            // declaring a public constant string variable named 'symbol' with initial value "MT"
+    uint8 public constant decimals = 18;             // declaring a public constant uint8 variable named 'decimals' with initial value 18
+    
+    uint private _totalSupply;                       // declaring a private uint variable named '_totalSupply'
+    mapping(address => uint) private _balances;      // declaring a private mapping variable with key type address and value type uint named '_balances'
+    mapping(address => mapping(address => uint)) private _allowances;    // declaring a private nested mapping variable with key types address and address, and value type uint named '_allowances'
+    
+    constructor(uint256 initialSupply) {             // declaring a constructor function with a parameter named 'initialSupply' and visibility set to public
+        
+        _totalSupply = initialSupply;                // assigning the value of the 'initialSupply' parameter to the '_totalSupply' variable
+        
+        _balances[msg.sender] = _totalSupply;        // initializing the balance of the contract creator with the total supply
+        
+        emit Transfer(address(0), msg.sender, _totalSupply);        // emitting a Transfer event with the from address as the null address, the to address as the contract creator, and the value as the total supply
+    }
+    
+    function totalSupply() public view override returns (uint) {             // implementing the 'totalSupply' function from the ERC20 interface with visibility set to public and overriding the parent function
+        
+        return _totalSupply;                          // returning the value of the '_totalSupply' variable
+    }
+    
+    function balanceOf(address account) public view override returns (uint) {            // implementing the 'balanceOf' function from the ERC20 interface with visibility set to public and overriding the parent function
+        
+        return _balances[account];                    // returning the value of the '_balances' mapping at the specified account address
+    }
+    
+    function transfer(address recipient, uint amount) public override returns (bool) {   // implementing the 'transfer' function from the ERC20 interface with visibility set to public and overriding the parent function
+        
+        _transfer(msg.sender, recipient, amount);     // calling the internal '_transfer' function with the sender as the current caller, recipient as the specified address, and amount as the specified amount
+        
+        return true;                                  // returning a boolean value of true
+    }
+    
+    function allowance(address owner, address spender) public view override returns (uint) {    // implementing the 'allowance' function from the ERC20 interface with visibility set to public and overriding the parent function
+        
+        return _allowances[owner][spender];           // returning the value of the nested '_allowances' mapping at the specified owner and spender addresses
+    }
+    
+    function approve(address spender, uint amount) public override returns (bool) {    // implementing the 'approve' function from the ERC20 interface with visibility set to public and overriding the parent function
+        
+        _approve(msg.sender, spender, amount);        // calling the internal '_approve' function with the sender as the current caller, spender as the specified address, and amount as the specified amount
+        
+        return true;                                  // returning a boolean value of true
+    }
+    
+    function transferFrom(address sender, address recipient, uint amount) public override returns (bool) {      // implementing the 'transferFrom' function from the ERC20 interface with visibility set to public and overriding the parent function
+        
+        _transfer(sender, recipient, amount);         // calling the internal '_transfer' function with the sender as the specified address, recipient as the specified address, and amount as the specified amount
+        
+        _approve(sender, msg.sender, _allowances[sender][msg.sender] - amount);       // subtracting the transferred amount from the sender's allowance and calling the internal '_approve' function with the sender as the specified address, the current caller as the spender, and the new allowance amount
+        
+        return true;                                  // returning a boolean value of true
+    }
+    
+    function _transfer(address sender, address recipient, uint amount) internal {        // declaring an internal function named '_transfer' with parameters sender, recipient, and amount and visibility set to internal
+        
+        require(sender != address(0), "ERC20: transfer from the zero address");          // throwing an error if the sender address is the null address
+        require(recipient != address(0), "ERC20: transfer to the zero address");        // throwing an error if the recipient address is the null address
+        require(_balances[sender] >= amount, "ERC20: transfer amount exceeds balance"); // throwing an error if the sender does not have enough balance
+        
+        _balances[sender] -= amount;                    // subtracting the transferred amount from the sender's balance
+        _balances[recipient] += amount;                 // adding the transferred amount to the recipient's balance
+        
+        emit Transfer(sender, recipient, amount);       // emitting a Transfer event with the sender address, recipient address, and transferred amount
+    }
+    
+    function _approve(address owner, address spender, uint amount) internal {            // declaring an internal function named '_approve' with parameters owner, spender, and amount and visibility set to internal
+        
+        require(owner != address(0), "ERC20: approve from the zero address");            // throwing an error if the owner address is the null address
+        require(spender != address(0), "ERC20: approve to the zero address");            // throwing an error if the spender address is the null address
+        
+        _allowances[owner][spender] = amount;           // setting the allowance value for the specified owner and spender address to the specified amount
+        
+        emit Approval(owner, spender, amount);          // emitting an Approval event with the owner address, spender address, and allowance amount
+    }
+}

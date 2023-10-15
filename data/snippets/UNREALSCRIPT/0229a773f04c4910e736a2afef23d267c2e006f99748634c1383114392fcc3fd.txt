@@ -1,0 +1,57 @@
+class PlayerController extends AIController;
+//------------------------------------
+
+// Define a struct to store player variables
+struct PlayerVars
+{
+    var int experience;
+    var int level;
+    var float health;
+}
+
+// Define a function to calculate experience to reach next level
+function int GetExperienceToNextLevel(int currentLevel, int currentExperienceLevel)
+{
+    // Perform calculations based on experience curve
+    local float requiredExperience = ((currentLevel + 1) * 1000) - (currentExperienceLevel * 100);
+    return requiredExperience;
+}
+
+// Event called when player levels up
+event playerLevelUp(int newLevel)
+{
+
+    // Update player's level
+    self.PlayerVars.level = newLevel;
+
+    // Increase health based on level
+    local float newMaxHealth = newLevel * 10;
+    self.SetMaxHealth(newMaxHealth);
+
+    // Display level up message to player
+    self.ClientMessage("Congratulations, you have reached level " $ newLevel $ "!");
+
+    // Increase difficulty of enemies based on player's level
+    local array<Actor> enemies;
+    for (e:Level.AllActors(class'AIController', enemies))
+    {
+        // Access enemy's AIController and increase difficulty
+        local AIController enemyController;
+        enemyController = AIController(e);
+        enemyController.SetDifficulty(newLevel);
+    }
+}
+
+// Event called when player gains experience
+event playerGainedExperience(int experienceGained)
+{
+    // Update player's experience
+    self.PlayerVars.experience += experienceGained;
+
+    // Check if player has accumulated enough experience to level up
+    if (self.PlayerVars.experience >= GetExperienceToNextLevel(self.PlayerVars.level, self.PlayerVars.experience))
+    {
+        // Call playerLevelUp event and pass in new level 
+        playerLevelUp(self.PlayerVars.level + 1);
+    }
+}

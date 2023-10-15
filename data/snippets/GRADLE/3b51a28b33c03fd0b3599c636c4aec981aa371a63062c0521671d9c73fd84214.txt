@@ -1,0 +1,75 @@
+// Define variable for Gradle version
+def gradleVersion = "6.3"
+
+// Define task to download and install Gradle wrapper
+task installGradleWrapper(type: Wrapper) {
+    gradleVersion = gradleVersion
+}
+
+// Define task to run Gradle build
+task runGradleBuild(type: Exec, dependsOn: installGradleWrapper) {
+    // Set working directory
+    workingDir 'project/app'
+
+    // Set command to run Gradle build
+    commandLine './gradlew'
+
+    // Set arguments for Gradle build
+    args 'clean', 'build'
+}
+
+// Define task to promote a Gradle build
+task promoteBuild(dependsOn: runGradleBuild) {
+    // Set location of build artifacts
+    def buildArtifactsDir = "${project.projectDir}/build/artifacts"
+
+    // Use Gradle's 'copy' function to copy all artifacts to a different directory
+    copy {
+        // Set source directory for artifacts
+        from buildArtifactsDir
+
+        // Set destination directory
+        into "${project.projectDir}/promoted-build"
+
+        // Filter artifacts based on file extension
+        include '**/*.jar', '**/*.war'
+    }
+
+    // Output a message once the artifacts have been promoted
+    doLast {
+        println "Build artifacts successfully promoted!"
+    }
+}
+
+// Set set of tasks to execute when running 'gradle promote' command
+def promoteTasks = ["clean", "installGradleWrapper", "runGradleBuild", "promoteBuild"]
+
+// Define main task
+task promote(type: Copy) {
+    // Set description for task
+    description = "Promotes Gradle build artifacts to a different directory."
+
+    // Set tasks to execute
+    tasks promoteTasks
+
+    // Set task output directory
+    into "${project.projectDir}/promoted-build"
+}
+
+// Define task to run Gradle build and output build duration
+task runBuildWithTimer(type: Exec, dependsOn: installGradleWrapper) {
+    // Set working directory
+    workingDir 'project/app'
+
+    // Set command to run Gradle build
+    commandLine './gradlew'
+
+    // Set arguments for Gradle build
+    args 'clean', 'build'
+
+    // Measure the build duration and output it
+    standardOutput = new ByteArrayOutputStream()
+    doLast {
+        println "Build completed in ${(timeInMillis / 1000)} seconds."
+    }
+}

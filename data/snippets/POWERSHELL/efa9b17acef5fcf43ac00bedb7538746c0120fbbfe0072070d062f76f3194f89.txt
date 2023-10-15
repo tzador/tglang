@@ -1,0 +1,45 @@
+function Get-DiskSpace {
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory=$true)]
+        [string]$Path,
+        [Parameter(Mandatory=$false)]
+        [string]$Unit = "GB"
+    )
+
+    # Check if path exists
+    if (-not (Test-Path $Path)) {
+        Write-Output "Path does not exist"
+        return
+    }
+
+    # Get total size
+    $totalSize = Get-ChildItem $Path -Recurse -Force | Measure-Object -Property Length -Sum | Select-Object -ExpandProperty Sum
+
+    # Convert to specified unit
+    switch ($Unit) {
+        "GB" {$totalSize = ($totalSize / 1GB).ToString("F2") + " GB"}
+        "TB" {$totalSize = ($totalSize / 1TB).ToString("F2") + " TB"}
+        "PB" {$totalSize = ($totalSize / 1PB).ToString("F2") + " PB"}
+        default {Write-Output "Invalid unit specified, please use GB, TB, or PB"}
+    }
+
+    # Get free space
+    $freeSpace = (Get-PSDrive -Name ($Path.Split("\")[0])).Free
+
+    # Convert to specified unit
+    switch ($Unit) {
+        "GB" {$freeSpace = ($freeSpace / 1GB).ToString("F2") + " GB"}
+        "TB" {$freeSpace = ($freeSpace / 1TB).ToString("F2") + " TB"}
+        "PB" {$freeSpace = ($freeSpace / 1PB).ToString("F2") + " PB"}
+    }
+
+    # Get percentage of free space
+    $percentFree = ($freeSpace / $totalSize * 100).ToString("F2") + "% free"
+
+    # Output results
+    Write-Output "$Path : Total size - $totalSize | Free space - $freeSpace | Percentage free - $percentFree"
+}
+
+# Example usage
+Get-DiskSpace -Path "C:\Users\Admin" -Unit "TB"

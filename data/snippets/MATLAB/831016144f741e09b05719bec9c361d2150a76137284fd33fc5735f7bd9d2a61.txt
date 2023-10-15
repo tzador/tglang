@@ -1,0 +1,72 @@
+function [x,converged] = solve_nonlinear_equations(Fun,x0,tol,max_iter,varargin)
+%SOLVE_NONLINEAR_EQUATIONS Uses the Newton-Raphson method to solve a system of nonlinear equations.
+%   
+%   Description:
+%   This function uses the Newton-Raphson method to solve for the roots of a system of nonlinear equations.
+%   The equations are defined by the input function handle "Fun", which takes in the vector of variables "x" and outputs a vector of equations.
+%   The initial guess for the solution is provided by "x0", which is a vector of the same size as the output vector of "Fun".
+%   The solution is deemed to have converged if the absolute value of the norm of the residual, i.e. |F(x)|, is less than the tolerance "tol".
+%   The maximum number of iterations allowed is specified by "max_iter".
+%   Additional arguments can be passed to "Fun" using the variable inputs "varargin".
+%
+%   Inputs:
+%   - Fun: function handle that defines the nonlinear equations (e.g. @(x) [x(1)^2 - x(2)^2; 2*x(1)*x(2) - x(3)^2])
+%   - x0: initial guess for the solution (e.g. [1;2;3])
+%   - tol: tolerance for convergence (e.g. 1e-6)
+%   - max_iter: maximum number of iterations allowed (e.g. 100)
+%   - varargin: additional arguments to be passed to "Fun" (e.g. {'param1', val1, 'param2', val2})
+%
+%   Outputs:
+%   - x: vector containing the solution to the nonlinear equations, or the final iteration if maximum number of iterations is reached
+%   - converged: boolean indicating whether the solution has converged (1) or not (0)
+%
+%   Example:
+%   To solve for x and y in the system of equations:
+%       x^2 + y^2 = 9
+%       x + y = 5
+%   using initial guess x0 [1;2]:
+%       [x, converged] = solve_nonlinear_equations(@(x) [x(1)^2 + x(2)^2 - 9; x(1) + x(2) - 5], [1;2], 1e-6, 100)
+%
+%   Special cases:
+%   - If the solution does not converge within the specified tolerance and maximum number of iterations, the final iteration is returned as the solution.
+%   - If the residual is very small and the maximum number of iterations is not reached, the solution is deemed to have converged.
+%   - If the Jacobian matrix is singular, the solution will not converge.
+%
+%   Author: [Your Name]
+%   Date: [Date]
+%   
+
+% Initialize variables
+x = x0; % Solution vector
+converged = false; % Convergence indicator
+iter = 0; % Iteration counter
+epsilon = 1e-8; % Small value for Jacobian approximation
+
+while ~converged && iter < max_iter
+    iter = iter + 1; % Increment iteration counter
+    
+    % Calculate residual vector
+    F = Fun(x,varargin{:});
+    
+    % Calculate Jacobian matrix
+    J = zeros(length(x)); % Pre-allocate for efficiency
+    for i = 1:length(x)
+        % Approximate derivative using central difference
+        x_pert = x + epsilon*eye(length(x),1);
+        F_pert = Fun(x_pert,varargin{:});
+        J(:,i) = (F_pert - F)/epsilon;
+    end
+    
+    % Solve linear system J*dx = -F using LU decomposition
+    dx = -J\F;
+    
+    % Update solution
+    x = x + dx;
+    
+    % Check for convergence
+    if norm(F) < tol
+        converged = true; % Solution has converged
+    end
+end
+
+end % End of function

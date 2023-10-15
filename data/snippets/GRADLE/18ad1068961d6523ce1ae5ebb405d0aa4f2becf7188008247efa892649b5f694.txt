@@ -1,0 +1,63 @@
+plugins {
+   id 'java'
+   id 'application'
+   id 'com.gorylenko.gradle-git-properties' version '2.1.0'
+}
+
+repositories {
+   jcenter()
+   mavenCentral()
+}
+
+dependencies {
+   implementation 'org.apache.commons:commons-math3:3.6.1'
+   compileOnly 'org.projectlombok:lombok:1.18.12'
+   testImplementation 'junit:junit:4.13'
+}
+
+application {
+   mainClassName = 'com.example.Main'
+   mainClass('com.example.Main') { jvmArgs '-Xms256m', '-Xmx256m' }
+}
+
+compileJava {
+   options.encoding = 'UTF-8'
+}
+
+task generateGitProperties {
+   outputs.file gitPropertiesFile
+   onlyIf { file("git.properties").exists() }
+   doLast {
+       println "Generating git.properties file"
+       def hash = getHash()
+       new File(gitPropertiesFile).text = """#Gradle generated git properties
+git.commit.hash=${hash}
+"""
+   }
+}
+
+task runWithJvmArgs {
+   dependsOn generateGitProperties
+   
+   doLast {
+       println "Running application with custom JVM arguments"
+       application.run.jvmArgs '-Xms512m', '-Xmx512m'
+       application.conventionMapping.mainClass = 'com.example.Main'
+   }
+}
+
+def getHash() {
+   try {
+       def process = new ProcessBuilder('git', 'rev-parse', 'HEAD').start()
+       new BufferedReader(new InputStreamReader(process.getInputStream())).getText().trim()
+   } catch (IOException exception) {
+       exception.printStackTrace()
+       return null
+   }
+}
+
+gitPropertiesFile = project.file('src/main/resources/git.properties')
+
+task clean(type: Delete) {
+   delete rootProject.buildDir
+}

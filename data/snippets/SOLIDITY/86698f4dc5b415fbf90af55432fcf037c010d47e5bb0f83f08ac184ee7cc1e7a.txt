@@ -1,0 +1,168 @@
+/**
+ * @title ERC20 Token
+ * @dev Standard ERC20 token, with some additional functionalities.
+ * @notice The deployment of this contract also requires the deployment of
+ * a contract of the type Organisation, which will track the ownership
+ * hierarchy of tokens. This is needed in order to restrict token transfers
+ * only to certain addresses based on the ownership hierarchy.
+ */
+contract ERC20Token is IERC20Token {
+    
+    using SafeMath for uint256;
+    
+    // inheritance
+    IERC20Token otherToken;
+    
+    // balance and allowances mappings
+    mapping (address => uint256) public balances;
+    mapping (address => mapping (address => uint256)) public allowed;
+    
+    // total supply of tokens
+    uint256 totalSupply_;
+    
+    // token name and symbol
+    string public name;
+    string public symbol;
+    
+    // event declarations
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    
+    /**
+     * @dev constructor function
+     * @param _totalSupply Initial total supply of tokens
+     * @param _name Token name
+     * @param _symbol Token symbol
+     */
+    constructor(uint256 _totalSupply, string _name, string _symbol) public {
+        totalSupply_ = _totalSupply;
+        name = _name;
+        symbol = _symbol;
+    }
+    
+    /**
+     * @dev total supply of tokens
+     */
+    function totalSupply() public view returns (uint256) {
+        return totalSupply_;
+    }
+    
+    /**
+     * @dev balance of a specific address
+     * @param _owner Address to check balance for
+     */
+    function balanceOf(address _owner) public view returns (uint256) {
+        return balances[_owner];
+    }
+    
+    /**
+     * @dev transfer tokens to a specified address
+     * @param _to Address to transfer tokens to
+     * @param _value Amount of tokens to transfer
+     */
+    function transfer(address _to, uint256 _value) public returns (bool) {
+        require(_to != address(0));
+        require(_value <= balances[msg.sender]);
+        
+        // update balances
+        balances[msg.sender] = balances[msg.sender].sub(_value);
+        balances[_to] = balances[_to].add(_value);
+        
+        // emit Transfer event
+        emit Transfer(msg.sender, _to, _value);
+        
+        // return success
+        return true;
+    }
+    
+    /**
+     * @dev transfer tokens from a specified address to another specified address
+     * @param _from Address to transfer tokens from
+     * @param _to Address to transfer tokens to
+     * @param _value Amount of tokens to transfer
+     */
+    function transferFrom(address _from, address _to, uint256 _value) public returns (bool) {
+        require(_to != address(0));
+        require(_value <= balances[_from]);
+        require(_value <= allowed[_from][msg.sender]);
+        
+        // update balances and allowances
+        balances[_from] = balances[_from].sub(_value);
+        balances[_to] = balances[_to].add(_value);
+        allowed[_from][msg.sender] = allowed[_from][msg.sender].sub(_value);
+        
+        // emit Transfer event
+        emit Transfer(_from, _to, _value);
+        
+        // return success
+        return true;
+    }
+    
+    /**
+     * @dev approve another address to spend tokens on behalf of the caller
+     * @param _spender Address to approve
+     * @param _value Amount of tokens to approve
+     */
+    function approve(address _spender, uint256 _value) public returns (bool) {
+        allowed[msg.sender][_spender] = _value;
+        
+        // emit Approval event
+        emit Approval(msg.sender, _spender, _value);
+        
+        // return success
+        return true;
+    }
+    
+    /**
+     * @dev allowance of a specific address to spend tokens on behalf of another specified address
+     * @param _owner Address to check allowance for
+     * @param _spender Address that has been approved
+     */
+    function allowance(address _owner, address _spender) public view returns (uint256) {
+        return allowed[_owner][_spender];
+    }
+    
+    /**
+     * @dev increase allowance of a specific address to spend tokens on behalf of the caller
+     * @param _spender Address to increase allowance for
+     * @param _addedValue Amount of tokens to add to allowance
+     */
+    function increaseApproval(address _spender, uint _addedValue) public returns (bool) {
+        allowed[msg.sender][_spender] = allowed[msg.sender][_spender].add(_addedValue);
+        
+        // emit Approval event
+        emit Approval(msg.sender, _spender, allowed[msg.sender][_spender]);
+        
+        // return success
+        return true;
+    }
+    
+    /**
+     * @dev decrease allowance of a specific address to spend tokens on behalf of the caller
+     * @param _spender Address to decrease allowance for
+     * @param _subtractedValue Amount of tokens to subtract from allowance
+     */
+    function decreaseApproval(address _spender, uint _subtractedValue) public returns (bool) {
+        uint256 oldValue = allowed[msg.sender][_spender];
+        
+        // check if _subtractedValue is greater than oldValue
+        if (_subtractedValue > oldValue) {
+            allowed[msg.sender][_spender] = 0;
+        } else {
+            allowed[msg.sender][_spender] = oldValue.sub(_subtractedValue);
+        }
+        
+        // emit Approval event
+        emit Approval(msg.sender, _spender, allowed[msg.sender][_spender]);
+        
+        // return success
+        return true;
+    }
+    
+    /**
+     * @dev fallback function - does not accept ether
+     */
+    function () public payable {
+        revert();
+    }
+}

@@ -1,0 +1,72 @@
+; File name: random_numbers.asm
+; Description: This code snippet generates and prints out 10 random numbers between 0 and 9 in binary format.
+
+.model small ; Specify the memory model
+.stack 100h ; Reserve 100 bytes in stack
+
+.data
+
+; Create an array to store the 10 random numbers
+numbers db 10 dup (?)
+
+.code
+
+; Initialize the random number generator
+xor ax, ax
+mov ds, ax
+mov es, ax
+mov cx, 20h
+mov ah, 2dh
+int 21h
+
+; Generate and store 10 random numbers
+mov cx, 10 ; Set counter to 10
+xor ax, ax ; Clear AX
+continue:
+    add ax, 1 ; Increment AX by 1
+    int 20h ; Generate a random number
+    and al, 00001111b ; Retain only the last 4 bits
+    mov numbers[ax], al ; Store the random number in the array
+loop continue ; Repeat until counter reaches 10
+
+; Print out the random numbers in binary format
+xor bx, bx ; Clear BX for indexing
+print_loop:
+    mov al, numbers[bx] ; Move the next number into AL
+    push ax ; Save AL onto the stack
+    mov cx, 4 ; Set counter to 4
+inner_loop:
+    mov ah, 0 ; Clear AH
+    shld ax, bx, cl ; Shift BX into the most significant bits of AX
+    test al, 10000000b ; Check if the most significant bit is set
+    jnz print_1 ; If yes, print a 1
+    print_0: ; Otherwise, print a 0
+        push bx ; Save BX onto the stack
+        mov bx, 0 ; Clear BX
+        mov ah, 2 ; Set AH for printing
+        mov dl, '0' ; Set DL to the ASCII code for 0
+        int 21h ; Print 0
+        pop bx ; Restore BX from the stack
+    jmp next_bit
+    print_1:
+        push bx
+        mov bx, 0
+        mov ah, 2
+        mov dl, '1'
+        int 21h
+        pop bx
+    next_bit:
+        shl al, 1 ; Shift AL to the left by 1 bit
+    loop inner_loop ; Repeat until counter reaches 4
+    pop ax ; Restore AL from the stack
+    mov ah, 2 ; Set AH for printing
+    mov dl, 10 ; Set DL to the ASCII code for a line feed
+    int 21h ; Print a line feed
+    add bx, 1 ; Increment BX for indexing
+loop print_loop ; Repeat until all 10 numbers have been printed
+
+; Exit the program
+mov ah, 4ch
+int 21h
+
+end ; End of program

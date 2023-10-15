@@ -1,0 +1,86 @@
+public class SalesOrderTriggerHandler{
+    
+    //class variables
+    private Map<Id, Integer> orderTotalMap;
+    private List<Sales_Order__c> updatedOrders;
+    
+    //constructor
+    public SalesOrderTriggerHandler(){
+        orderTotalMap = new Map<Id, Integer>();
+        updatedOrders = new List<Sales_Order__c>();
+    }
+    
+    /**
+    * Method to handle before update logic for the Sales_Order__c object
+    * @param triggerNew - the new version of the records being updated
+    * @param triggerOldMap - a map of the old versions of the records being updated
+    * @param triggerNewMap - a map of the new versions of the records being updated
+    */
+    public void handleBeforeUpdate(List<Sales_Order__c> triggerNew, Map<Id, Sales_Order__c> triggerOldMap, Map<Id, Sales_Order__c> triggerNewMap){
+        for(Sales_Order__c order : triggerNew){
+            if(order.Status__c == 'Pending'){
+                Integer total = getTotal(order);
+                orderTotalMap.put(order.Id, total);
+            }
+        }
+    }
+    
+    /**
+    * Method to handle after update logic for the Sales_Order__c object
+    * @param triggerNew - the new version of the records being updated
+    * @param triggerOld - the old version of the records being updated
+    * @param triggerNewMap - a map of the new versions of the records being updated
+    * @param triggerOldMap - a map of the old versions of the records being updated
+    */
+    public void handleAfterUpdate(List<Sales_Order__c> triggerNew, List<Sales_Order__c> triggerOld, Map<Id, Sales_Order__c> triggerNewMap, Map<Id, Sales_Order__c> triggerOldMap){
+        for(Sales_Order__c order : triggerNew){
+            if(triggerNewMap.get(order.Id).Status__c == 'Approved'){
+                Integer totalBeforeUpdate = orderTotalMap.get(order.Id);
+                Integer totalAfterUpdate = getOrderTotal(order);
+                System.debug('Order total before update: ' + totalBeforeUpdate);
+                System.debug('Order total after update: ' + totalAfterUpdate);
+                Integer difference = totalAfterUpdate - totalBeforeUpdate;
+                System.debug('Difference: ' + difference);
+                if(difference != 0){
+                    order.Invoice_Amount__c += difference;
+                    updatedOrders.add(order);
+                }
+            }
+        }
+        
+        if(!updatedOrders.isEmpty()){
+            update updatedOrders;
+        }
+    }
+    
+    /**
+    * Method to get the total amount for a Sales Order
+    * @param order - the Sales Order record
+    * @return - the total amount of the Sales Order
+    */
+    private Integer getOrderTotal(Sales_Order__c order){
+        Integer total = 0;
+        //get line items for the order
+        List<Sales_Order_Line_Item__c> lineItems = [SELECT Unit_Price__c, Quantity__c FROM Sales_Order_Line_Item__c WHERE Sales_Order__c = :order.Id];
+        
+        //calculate total
+        for(Sales_Order_Line_Item__c item : lineItems){
+            total += item.Unit_Price__c * item.Quantity__c;
+        }
+        
+        return total;
+    }
+    
+    /**
+    * Method to get the total amount based on the price and quantity of the Sales Order
+    * @param order - the Sales Order record
+    * @return - the total amount of the Sales Order
+    */
+    private Integer getTotal(Sales_Order__c order){
+        Integer total = 0;
+        for(Sales_Order_Line_Item__c item : order.Sales_Order_Line_Items__r){
+            total += item.Unit_Price__c * item.Quantity__c;
+        }
+        return total;
+    }
+}

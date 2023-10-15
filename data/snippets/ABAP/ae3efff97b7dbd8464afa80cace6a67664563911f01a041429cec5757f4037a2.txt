@@ -1,0 +1,72 @@
+*&---------------------------------------------------------------------*
+*& Purpose: This program will loop through a range of dates and calculate *
+*&          the average temperature for each day                        *
+*& Input:   Date range and temperature data table                       *
+*& Output:  Average temperature for each day                             *
+*&---------------------------------------------------------------------*
+
+REPORT zcalculate_average_temperature.
+
+* Declaring variables for date ranges
+DATA: date_from TYPE dats,
+      date_to   TYPE dats.
+
+* Get user input for date range
+PARAMETERS date_from TYPE dats,
+            date_to   TYPE dats DEFAULT date_from.
+
+* Data table for temperature values
+DATA: BEGIN OF temperature_table,
+        date         TYPE dats,
+        temperature  TYPE p DECIMALS 2,
+      END OF temperature_table.
+
+* Data table type for holding average temperature for each day
+TYPES: BEGIN OF average_temperature_table,
+        date         TYPE dats,
+        avg_temp     TYPE p DECIMALS 2,
+      END OF average_temperature_table.
+
+* Internal table for storing average temperature for each day
+DATA: average_temperature TYPE STANDARD TABLE OF average_temperature_table.
+
+* Work area for storing current temperature record
+DATA: current_temperature TYPE temperature_table.
+
+* Calculating difference between start and end dates
+DATA: date_interval TYPE i.
+date_interval = date_to - date_from.
+
+* Looping through date range
+DO date_interval TIMES.
+
+  * Get current date within range
+  current_temperature-date = date_from + sy-index - 1.
+
+  * Fetch temperature value for current date from table
+  SELECT SINGLE temperature
+    INTO current_temperature-temperature
+    FROM temperature_table
+    WHERE date = current_temperature-date.
+
+  * Calculate average temperature for current date
+  current_temperature-avg_temp = current_temperature-temperature / 2.
+
+  * Add current record to average temperature table
+  INSERT current_temperature INTO TABLE average_temperature.
+
+ENDDO.
+
+* Sort average temperature table by date
+SORT average_temperature BY date.
+
+* Output average temperature for each day
+LOOP AT average_temperature INTO DATA(ls_average_temperature).
+  WRITE: / ls_average_temperature-date,
+         ls_average_temperature-avg_temp.
+ENDLOOP.
+
+* Calculate overall average temperature for date range
+DATA: overall_average_temp TYPE p DECIMALS 2.
+READ TABLE average_temperature INTO DATA(ls_avg_temp) INDEX 1.
+overall_average_temp = ls_avg_temp-avg_temp.

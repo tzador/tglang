@@ -1,0 +1,148 @@
+pragma solidity ^0.8.0; // specifies the solidity version
+
+// @title ERC20 Token Interface
+// @dev Interface for the ERC20 standard token.
+interface IERC20 {
+    function totalSupply() external view returns (uint256); // returns the total token supply
+    function balanceOf(address account) external view returns (uint256); // returns the balance of the specified account
+    function transfer(address recipient, uint256 amount) external returns (bool); // transfers the specified amount of tokens to the recipient address
+    function allowance(address owner, address spender) external view returns (uint256); // returns the remaining allowance of tokens for the specified owner and spender addresses
+    function approve(address spender, uint256 amount) external returns (bool); // sets the allowance for the specified spender address with the specified amount
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool); // transfers the specified amount of tokens from the sender address to the recipient address
+    event Transfer(address indexed from, address indexed to, uint256 value); // emits a transfer event after a successful transfer
+    event Approval(address indexed owner, address indexed spender, uint256 value); // emits an approval event after a successful approval
+}
+
+// @title ERC20 Token
+// @dev Implementation of the ERC20 standard token.
+contract ERC20Token is IERC20 {
+    string private _name; // token name
+    string private _symbol; // token symbol
+    uint8 private _decimals; // token decimals
+    uint256 private _totalSupply; // total token supply
+    mapping(address => uint256) private _balances; // mapping of account addresses to token balances
+    mapping(address => mapping (address => uint256)) private _allowances; // mapping of account addresses and spender addresses to token allowances
+
+    // @dev Sets the token name, symbol and decimal places at contract deployment.
+    constructor (string memory name_, string memory symbol_, uint8 decimals_) {
+        _name = name_;
+        _symbol = symbol_;
+        _decimals = decimals_;
+    }
+
+    // @inheritdoc IERC20
+    function name() public view returns (string memory) {
+        return _name;
+    }
+
+    // @inheritdoc IERC20
+    function symbol() public view returns (string memory) {
+        return _symbol;
+    }
+
+    // @inheritdoc IERC20
+    function decimals() public view returns (uint8) {
+        return _decimals;
+    }
+
+    // @inheritdoc IERC20
+    function totalSupply() public view override returns (uint256) {
+        return _totalSupply;
+    }
+
+    // @inheritdoc IERC20
+    function balanceOf(address account) public view override returns (uint256) {
+        return _balances[account];
+    }
+
+    // @inheritdoc IERC20
+    function transfer(address recipient, uint256 amount) public override returns (bool) {
+        _transfer(msg.sender, recipient, amount); // calls the internal _transfer function
+        return true;
+    }
+
+    // @inheritdoc IERC20
+    function allowance(address owner, address spender) public view override returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    // @inheritdoc IERC20
+    function approve(address spender, uint256 amount) public override returns (bool) {
+        _approve(msg.sender, spender, amount); // calls the internal _approve function
+        return true;
+    }
+
+    // @inheritdoc IERC20
+    function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
+        _transfer(sender, recipient, amount); // calls the internal _transfer function
+        _approve(sender, msg.sender, _allowances[sender][msg.sender] - amount); // adjusts the spender's allowance
+        return true;
+    }
+
+    // @dev Transfers the specified amount of tokens from the sender address to the recipient address.
+    function _transfer(address sender, address recipient, uint256 amount) internal {
+        require(sender != address(0), "Sender address must not be zero."); // checks if the sender address is valid
+        require(recipient != address(0), "Recipient address must not be zero."); // checks if the recipient address is valid
+        require(_balances[sender] >= amount, "Not enough balance to transfer."); // checks if the sender has enough balance to transfer
+        _balances[sender] -= amount; // subtracts the amount from the sender's balance
+        _balances[recipient] += amount; // adds the amount to the recipient's balance
+        emit Transfer(sender, recipient, amount); // emits the transfer event
+    }
+
+    // @dev Sets the spender's allowance for the specified owner address with the specified amount.
+    function _approve(address owner, address spender, uint256 amount) internal {
+        require(owner != address(0), "Owner address must not be zero."); // checks if the owner address is valid
+        require(spender != address(0), "Spender address must not be zero."); // checks if the spender address is valid
+        _allowances[owner][spender] = amount; // sets the spender's allowance for the owner
+        emit Approval(owner, spender, amount); // emits the approval event
+    }
+
+    // @notice Allows the contract owner to mint new tokens.
+    // @param recipient The address to receive the newly minted tokens.
+    // @param amount The amount of tokens to mint.
+    function mint(address recipient, uint256 amount) public {
+        require(msg.sender == owner(), "Only the contract owner can mint tokens."); // checks if the sender is the contract owner
+        require(recipient != address(0), "Recipient address must not be zero."); // checks if the recipient address is valid
+        _totalSupply += amount; // increases the total supply
+        _balances[recipient] += amount; // adds the amount to the recipient's balance
+        emit Transfer(address(0), recipient, amount); // emits the transfer event
+    }
+
+    // @notice Allows the contract owner to burn tokens.
+    // @param amount The amount of tokens to burn.
+    function burn(uint256 amount) public {
+        require(msg.sender == owner(), "Only the contract owner can burn tokens."); // checks if the sender is the contract owner
+        require(_balances[msg.sender] >= amount, "Not enough balance to burn."); // checks if the owner has enough balance to burn
+        _balances[msg.sender] -= amount; // subtracts the amount from the owner's balance
+        _totalSupply -= amount; // decreases the total supply
+        emit Transfer(msg.sender, address(0), amount); // emits the transfer event
+    }
+
+    // @notice Allows the contract owner to transfer ownership to a new address.
+    // @param newOwner The address to transfer ownership to.
+    function transferOwnership(address newOwner) public {
+        require(msg.sender == owner(), "Only the contract owner can transfer ownership."); // checks if the sender is the contract owner
+        require(newOwner != address(0), "New owner address must not be zero."); // checks if the new owner address is valid
+        _transferOwnership(newOwner); // calls the internal _transferOwnership function
+    }
+
+    // @dev Transfers ownership to a new address.
+    // @param newOwner The address to transfer ownership to.
+    function _transferOwnership(address newOwner) internal {
+        require(newOwner != address(0), "New owner address must not be zero."); // checks if the new owner address is valid
+        address oldOwner = owner(); // gets the contract owner
+        _balances[newOwner] = _balances[oldOwner]; // transfers the owner's token balance to the new owner
+        _balances[oldOwner] = 0; // sets the old owner's balance to 0
+        _renameOwner(newOwner); // calls the internal _renameOwner function
+    }
+
+    // @dev Renames the contract owner address in the token allowances mapping.
+    // @param newOwner The address to rename the owner address to.
+    function _renameOwner(address newOwner) internal {
+        require(newOwner != address(0), "New owner address must not be zero."); // checks if the new owner address is valid
+        address oldOwner = owner(); // gets the contract owner
+        uint256 allowance = _allowances[oldOwner][address(0)]; // gets the spender's allowance for the owner address
+        _allowances[newOwner][address(0)] = allowance; // sets the spender's allowance for the new owner address
+        delete(_allowances[oldOwner][address(0)]); // deletes the spender's allowance for the old owner address
+    }
+}

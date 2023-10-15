@@ -1,0 +1,166 @@
+class Weapon extends Inventory
+/* 
+This is a complex UNREALSCRIPT code snippet for creating a class called "Weapon" 
+which inherits from the Inventory class.
+*/
+	placeable; // Weapon can be placed in game world 
+	hidecategories(Unit); // Hides certain categories in Unreal Editor
+	// ------------------------------------------------------------------------------------------------
+	// Weapon Variables
+	var() config WeaponType WeaponClass; 
+	/*
+	This variable defines the specific type of weapon and links it to WeaponType class.
+	Using "var()" means it can be edited in Unreal Editor.
+	*/
+	var() config float WeaponDamage;
+	// Defines the amount of damage the weapon will deal to its target.
+	var() config float FireRate;
+	// Defines the rate of fire for the weapon.
+	var() config int ClipSize;
+	// Defines the maximum amount of ammo the weapon can hold.
+	var() config int MaxAmmo;
+	// Defines the maximum amount of ammo the player can carry for this weapon.
+	var() config bool bSingleShotReload;
+	// Defines whether the weapon requires the player to reload after every shot.
+	var() config bool bAutomatic;
+	// Defines whether the weapon is automatic or requires manual firing.
+	var() config int AmmoPerClip;
+	// Defines the amount of ammo consumed per shot.
+	var() config bool bAllowAltfire;
+	// Defines whether the weapon has an alternate firing mode.
+	var() config float Spread;
+	// Defines the spread of the weapon's shots.
+
+	// ------------------------------------------------------------------------------------------------
+	// Weapon Functions
+	function FireWeapon()
+	/*
+	This function handles the firing of the weapon.
+	*/
+	{
+		if (bAutomatic || bSingleShotReload) // If the weapon is automatic or requires reloading after each shot
+		{
+			while (ClipSize > 0) // While the weapon still has ammo
+			{
+				ReplicateCall(); // Calls the replicating function for network play
+				if (bAllowAltfire && FireMode == 1) // If the weapon has an alternate firing mode and the alternate fire button is pressed
+				{
+					AltFire(); // Calls the alternate firing function
+					ClipSize--; // Decreases ammo count by 1
+					BurstCount++; // Increases burst count by 1
+				}
+				else
+				{
+					NormalFire(); // Calls normal firing function
+					ClipSize--; // Decreases ammo count by 1
+					BurstCount++; // Increases burst count by 1
+				}
+				if (BurstCount >= AmmoPerClip) // If the burst count equals the amount of ammo consumed per shot
+				{
+					if (bSingleShotReload) // If the weapon requires reloading after each shot
+					{
+						ReloadWeapon(); // Calls reloading function
+					}
+					BurstCount = 0; // Resets burst count
+				}
+				else if (bAutomatic) // If the weapon is automatic
+				{
+					FinishedFiring(); // Calls function to end the firing sequence
+				}
+			}
+			if (ClipSize <= 0) // If the weapon runs out of ammo in the clip
+			{
+				OutOfAmmo(); // Calls function to handle being out of ammo
+			}
+		}
+		else // If the weapon is not automatic and does not require reloading after each shot
+		{
+			if (ClipSize > 0) // If the weapon still has ammo
+			{
+				ReplicateCall(); // Calls the replicating function for network play
+				if (bAllowAltfire && FireMode == 1) // If the weapon has an alternate firing mode and the alternate fire button is pressed
+				{
+					AltFire(); // Calls the alternate firing function
+					ClipSize--; // Decreases ammo count by 1
+					BurstCount++; // Increases burst count by 1
+				}
+				else
+				{
+					NormalFire(); // Calls normal firing function
+					ClipSize--; // Decreases ammo count by 1
+					BurstCount++; // Increases burst count by 1
+				}
+			}
+			if (BurstCount >= AmmoPerClip) // If the burst count equals the amount of ammo consumed per shot
+			{
+				ReloadWeapon(); // Calls reloading function
+				BurstCount = 0; // Resets burst count
+			}
+			if (ClipSize <= 0) // If the weapon runs out of ammo in the clip
+			{
+				OutOfAmmo(); // Calls function to handle being out of ammo
+			}
+		}
+
+		FinishedFiring(); // Calls function to end the firing sequence
+	}
+
+	function ReloadWeapon()
+	/*
+	This function handles reloading the weapon.
+	*/
+	{
+		// Check if player has enough ammo to reload
+		if (AmmoCount >= (MaxAmmo - ClipSize))
+		{
+			// Reload weapon
+			ClipSize += (MaxAmmo - ClipSize); // Increase clip size to maximum
+			AmmoCount -= (MaxAmmo - ClipSize); // Decrease ammo count by amount reloaded
+		}
+		else
+		{
+			// Reload with remaining ammo
+			ClipSize += AmmoCount; // Increase clip size by remaining ammo
+			AmmoCount = 0; // Set ammo count to 0
+		}
+	}
+
+	function NormalFire()
+	/*
+	This function handles the normal firing behavior of the weapon.
+	*/
+	{
+		// Create projectile
+		local Projectile proj;
+		proj = Spawn(class'Projectile',,,Location,Rotator); // Creates instance of projectile class
+		proj.SetRotation(Rotator(Player.ViewRotation)); // Sets rotation of projectile to player's view
+		proj.Velocity = Normal(proj.Velocity.Size(), Rotation); // Sets velocity of projectile based on current rotation
+		proj.SetOwner(Player); // Sets the player as the owner of the projectile
+		proj.WeaponType = WeaponClass; // Sets the weapon type of the projectile to the weapon's class
+		proj.Damage = WeaponDamage; // Sets the damage of the projectile to the weapon's damage
+		proj.SpawnedBy = Instigator; // Sets who spawned the projectile
+		proj.SetPlayerId(Player.PlayerId); // Sets the player's ID as the owner of the projectile
+	}
+
+	function AltFire()
+	/*
+	This function handles the alternate firing behavior of the weapon.
+	*/
+	{
+		// Perform alternate firing action here
+	}
+
+	defaultproperties
+	{
+		WeaponClass=WeaponType; // Default weapon class
+		WeaponDamage=40.0; // Default damage
+		FireRate=0.5; // Default rate of fire
+		ClipSize=30; // Default max ammo per clip
+		MaxAmmo=300; // Default max ammo count
+		bSingleShotReload=false; // Does not require reloading after each shot
+		bAutomatic=false; // Weapon is not automatic
+		AmmoPerClip=1; // Default ammo consumed per shot
+		bAllowAltfire=false; // Alternate firing mode is not allowed
+		Spread=10.0; // Default spread
+	}
+}

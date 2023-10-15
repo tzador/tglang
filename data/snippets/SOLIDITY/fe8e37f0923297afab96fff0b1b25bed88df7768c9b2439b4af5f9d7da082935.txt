@@ -1,0 +1,68 @@
+// This contract is an escrow contract that implements the five principles of SOLID
+contract Escrow {
+    address public buyer; // address of the buyer
+    address public seller; // address of the seller
+    address public arbiter; // address of the arbiter
+    uint public amount; // amount of ether being held in escrow
+    bool buyerApprove; // flag to track if buyer has approved release of funds
+    bool sellerApprove; // flag to track if seller has approved release of funds
+    bool arbiterApprove; // flag to track if arbiter has approved release of funds
+    
+    // constructor function to set initial parameters and assign roles
+    constructor(address _buyer, address _seller, address _arbiter) public {
+        buyer = _buyer;
+        seller = _seller;
+        arbiter = _arbiter;
+    }
+    
+    // function for buyer to deposit funds into the escrow contract
+    function depositFunds() public payable {
+        require(msg.sender == buyer && msg.value > 0); // only buyer can deposit funds
+        amount += msg.value; // add deposited amount to current amount in escrow
+    }
+    
+    // function for seller to release funds from the escrow contract
+    function releaseFunds() public {
+        require(msg.sender == seller && amount > 0 && buyerApprove && arbiterApprove); // only seller can release funds
+        seller.transfer(amount); // transfer funds to the seller's address
+        amount = 0; // reset amount to 0
+    }
+    
+    // function for buyer to approve release of funds
+    function approveFunds() public {
+        require(msg.sender == buyer && amount > 0); // only buyer can approve release of funds
+        buyerApprove = true; // set buyer approve flag to true
+    }
+    
+    // function for arbiter to approve release of funds
+    function arbiterApproveFunds() public {
+        require(msg.sender == arbiter && amount > 0 && sellerApprove); // only arbiter can approve release of funds
+        arbiterApprove = true; // set arbiter approve flag to true
+    }
+    
+    // function for seller to approve release of funds
+    function sellerApproveFunds() public {
+        require(msg.sender == seller && amount > 0 && arbiterApprove); // only seller can approve release of funds
+        sellerApprove = true; // set seller approve flag to true
+    }
+    
+    // function for buyer to reject release of funds
+    function rejectFunds() public {
+        require(msg.sender == buyer && amount > 0); // only buyer can reject release of funds
+        buyerApprove = false; // set buyer approve flag to false
+        sellerApprove = false; // set seller approve flag to false
+        arbiterApprove = false; // set arbiter approve flag to false
+    }
+    
+    // function for arbiter to resolve dispute and release funds
+    function resolveDispute() public {
+        require(msg.sender == arbiter && amount > 0 && buyerApprove && sellerApprove); // only arbiter can resolve dispute
+        seller.transfer(amount); // transfer funds to the seller's address
+        amount = 0; // reset amount to 0
+    }
+    
+    // fallback function to reject any direct payments to the contract
+    function() external {
+        revert();
+    }
+}

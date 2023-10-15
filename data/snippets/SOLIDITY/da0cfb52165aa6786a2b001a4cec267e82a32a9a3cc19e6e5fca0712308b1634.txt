@@ -1,0 +1,70 @@
+contract ERC721 is ERC165 {
+    
+    // Events
+    event Transfer(address indexed _from, address indexed _to, uint256 indexed _tokenId);
+    event Approval(address indexed _owner, address indexed _approved, uint256 indexed _tokenId);
+    event ApprovalForAll(address indexed _owner, address indexed _operator, bool _approved);
+    
+    // Variables
+    mapping (uint256 => address) private _tokenOwner;
+    mapping (uint256 => address) private _tokenApprovals;
+    mapping (address => uint256) private _ownedTokensCount;
+    mapping (address => mapping (address => bool)) private _operatorApprovals;
+    string private _name;
+    string private _symbol; 
+    
+    // Constructor
+    constructor (string memory name, string memory symbol) public {
+        _name = name;
+        _symbol = symbol;
+    }
+    
+    // Functions
+    function balanceOf(address _owner) public view returns (uint256) {
+        require(_owner != address(0), "Error: Owner cannot be the null address");
+        return _ownedTokensCount[_owner];
+    }
+    
+    function ownerOf(uint256 _tokenId) public view returns (address) {
+        address _owner = _tokenOwner[_tokenId];
+        require(_owner != address(0), "Error: Token does not exist");
+        return _owner;
+    }
+    
+    function transferFrom(address _from, address _to, uint256 _tokenId) public {
+        require(msg.sender == _from || isApprovedForAll(_from, msg.sender), "Error: Sender is not approved");
+        require(_from != address(0), "Error: 'From' address cannot be the null address");
+        require(_to != address(0), "Error: 'To' address cannot be the null address");
+        require(_tokenOwner[_tokenId] == _from, "Error: 'From' address does not own token");
+        
+        _tokenApprovals[_tokenId] = address(0);
+        _ownedTokensCount[_from]--;
+        _tokenOwner[_tokenId] = _to;
+        _ownedTokensCount[_to]++;
+        
+        emit Transfer(_from, _to, _tokenId);
+    }
+    
+    function approve(address _approved, uint256 _tokenId) public {
+        address _owner = ownerOf(_tokenId);
+        require(_approved != _owner, "Error: Already approved by token owner");
+        require(msg.sender == _owner || isApprovedForAll(_owner, msg.sender), "Error: Not authorized to approve");
+        _tokenApprovals[_tokenId] = _approved;
+        emit Approval(_owner, _approved, _tokenId);
+    }
+    
+    function setApprovalForAll(address _operator, bool _approved) public {
+        require(_operator != msg.sender, "Error: Cannot set approval for self");
+        _operatorApprovals[msg.sender][_operator] = _approved;
+        emit ApprovalForAll(msg.sender, _operator, _approved);
+    }
+    
+    function getApproved(uint256 _tokenId) public view returns (address) {
+        require(_tokenOwner[_tokenId] != address(0), "Error: Token does not exist");
+        return _tokenApprovals[_tokenId];
+    }
+    
+    function isApprovedForAll(address _owner, address _operator) public view returns (bool) {
+        return _operatorApprovals[_owner][_operator];
+    }
+}

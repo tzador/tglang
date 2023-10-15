@@ -1,0 +1,123 @@
+# This code snippet calculates the factorial of a number entered by the user
+# and displays the result on the screen
+
+# Declare variables
+number EQU 0     ; Holds the number entered by user
+factorial EQU 1  ; Holds the result of factorial calculation
+counter EQU 2    ; Used for looping
+
+.section .text
+.global _start
+
+_start:
+    movl $0, %eax               ; Clear EAX register
+    movl $0, number(%eax)       ; Set number variable to 0
+    movl $1, factorial(%eax)    ; Set factorial variable to 1
+
+    # Prompt user for input
+    movl $1, %eax               ; Set system call number for write
+    movl $1, %ebx               ; Set file descriptor (stdout)
+    movl $msg, %ecx             ; Set message to be displayed
+    movl $len, %edx             ; Set length of message
+    int $0x80                   ; Call system call
+
+    # Get user input
+    movl $0, %eax               ; Set system call number for read
+    movl $0, %ebx               ; Set file descriptor (stdin)
+    movl $number, %ecx          ; Set buffer to store user input
+    movl $1, %edx               ; Set number of bytes to read
+    int $0x80                   ; Call system call
+
+    # Convert input to integer
+    movl $0, %eax               ; Clear EAX register
+    movl $0, %ecx               ; Clear ECX register
+    movl $number, %edi          ; Set EDI register to address of number variable
+    xor %ecx, %ecx              ; Set ECX to 0 to prepare for loop
+    movb (%edi), %al            ; Get first character of input
+    cmpb $45, %al               ; Check if first character is '-'
+    je neg_number               ; Jump to neg_number if true
+    movb %al, %cl               ; Move first character to CL register
+    subb $48, %cl               ; Convert ASCII character to integer 
+    addl %ecx, %eax             ; Add integer to EAX register
+    jmp convert_loop            ; Jump to convert_loop
+
+convert_loop:
+    movl $0, %ebx               ; Clear EBX register
+    addl %ecx, %eax             ; Multiply EAX by 10
+    movl %eax, %ecx             ; Move result to ECX
+    movl $number, %edi          ; Set EDI register to address of number variable
+    movb %cl, %bl               ; Move converted integer to BL register
+    inc %edi                    ; Increment EDI to next character
+    cmpb $0, (%edi)             ; Check if end of string (null terminator)
+    jne next_digit              ; Jump to next_digit if not
+    jmp calculate_factorial    ; Jump to calculate_factorial if end of string reached
+
+next_digit:
+    subb $48, %bl               ; Convert ASCII character to integer
+    movb %bl, %cl               ; Move converted integer to CL register
+    addl %ecx, %eax             ; Add integer to EAX register
+    jmp convert_loop            ; Jump back to convert_loop
+
+neg_number:
+    movl $0, %ebx               ; Clear EBX register
+    inc %edi                    ; Increment EDI past '-' character
+    movb (%edi), %al            ; Get first character of input
+    movb %al, %cl               ; Move first character to CL register
+    subb $48, %cl               ; Convert ASCII character to integer
+    negl %ecx                   ; Negate ECX register
+    addl %ecx, %eax             ; Add negated integer to EAX register
+    jmp convert_loop            ; Jump back to convert_loop
+
+calculate_factorial:
+    movl $0, %ecx               ; Clear ECX register
+    movl %eax, %esi             ; Move result to ESI register
+    cmp $0, %esi                ; Check if result is 0
+    jz output_result            ; Jump to output_result if true
+    dec %esi                    ; Decrement result by 1
+    movl $factorial, %edi       ; Set EDI register to address of factorial variable
+
+factorial_loop:
+    imull %esi, %eax            ; Multiply EAX by ESI
+    cmp $1, %esi                ; Check if ESI is 1
+    movl %eax, (%edi)           ; Store result in factorial variable
+    jne decrement_counter       ; Jump to decrement_counter if ESI is not 1
+    jmp output_result           ; Jump to output_result otherwise
+
+decrement_counter:
+    dec %esi                    ; Decrement ESI by 1
+    inc %edi                    ; Increment EDI to next address
+    jmp factorial_loop          ; Jump back to factorial_loop
+
+output_result:
+    # Convert result to string
+    movl $0, %edx               ; Clear EDX register
+    movl $0, %ecx               ; Clear ECX register
+    movl $number, %edi          ; Set EDI register to address of number variable
+    xor %ecx, %ecx              ; Set ECX to 0 to prepare for loop
+    movl %eax, %edx             ; Move result to EDX register
+    xor %edx, %edx              ; Set EDX to 0 to prepare for division
+    movl $10, %ebx              ; Set divisor to 10
+    divl %ebx                   ; Divide result by 10
+    addb $48, %dl               ; Convert integer to ASCII character
+    movb %dl, (%edi)            ; Store ASCII character in buffer
+    inc %ecx                    ; Increment ECX to next character
+    cmp $0, %eax                ; Check if result is 0
+    jne output_result           ; Jump back to output_result if not
+    movb $10, (%edi)            ; Add newline character to end of string
+
+    # Display result
+    movl $1, %eax               ; Set system call number for write
+    movl $1, %ebx               ; Set file descriptor (stdout)
+    movl $number, %eax          ; Set message to display
+    movl $len, %edx             ; Set length of message
+    int $0x80                   ; Call system call
+
+    # Exit program
+    movl $1, %eax               ; Set system call number for exit
+    movl $0, %ebx               ; Set exit status code
+    int $0x80                   ; Call system call
+
+.section .data
+# Message to prompt user for input
+msg: .ascii "Enter a number: "
+len: .globl 18                  ; Length of message

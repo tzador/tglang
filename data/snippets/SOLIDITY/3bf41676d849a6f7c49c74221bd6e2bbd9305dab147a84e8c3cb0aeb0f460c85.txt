@@ -1,0 +1,99 @@
+// Contract to represent a decentralized marketplace for buying and selling goods
+
+pragma solidity ^0.8.0; // Defining the Solidity version being used
+
+contract Marketplace {
+  // Initializing the state variables
+  address public owner;
+  uint public productCount;
+  mapping (uint => Product) public products;
+
+  // Struct to represent a product
+  struct Product {
+    uint id;
+    string name;
+    uint price;
+    uint quantity;
+    address payable seller;
+    address payable buyer;
+    bool isSold;
+  }
+
+  // Event to be emitted when a new product is added
+  event ProductAdded(
+    uint id,
+    string name,
+    uint price,
+    address seller
+  );
+
+  // Event to be emitted when a product is sold
+  event ProductSold(
+    uint id,
+    string name,
+    uint price,
+    address seller,
+    address buyer
+  );
+
+  // Constructor to set the owner of the contract
+  constructor() {
+    owner = msg.sender;
+  }
+
+  // Function to add a new product to the marketplace
+  function addProduct(string memory _name, uint _price, uint _quantity) public {
+    // Ensure that the product price and quantity are greater than 0
+    require(_price > 0 && _quantity > 0, "Price and quantity must be greater than 0");
+
+    // Increment the product count
+    productCount++;
+
+    // Create a new product
+    products[productCount] = Product(productCount, _name, _price, _quantity, payable(msg.sender), payable(address(0)), false);
+
+    // Emit the ProductAdded event
+    emit ProductAdded(productCount, _name, _price, msg.sender);
+  }
+
+  // Function to buy a product
+  function buyProduct(uint _id) public payable {
+    // Verify that the product exists
+    require(products[_id].id > 0 && products[_id].id <= productCount, "Product with given id does not exist");
+
+    // Verify that the product is not already sold
+    require(!products[_id].isSold, "Product is already sold");
+
+    // Verify that the buyer has sent enough ether to purchase the product
+    require(msg.value >= products[_id].price, "Not enough ether sent to purchase the product");
+
+    // Ensure that the quantity being purchased is available
+    require(products[_id].quantity >= 1, "Quantity not available");
+
+    // Set the buyer and update the product details
+    products[_id].buyer = payable(msg.sender);
+    products[_id].isSold = true;
+    products[_id].quantity--;
+
+    // Send the payment to the seller
+    products[_id].seller.transfer(msg.value);
+
+    // Emit the ProductSold event
+    emit ProductSold(products[_id].id, products[_id].name, products[_id].price, products[_id].seller, products[_id].buyer);
+  }
+
+  // Function to withdraw any leftover ether by the seller after the product is sold out
+  function withdrawEther(uint _id) public payable {
+    // Verify that the product exists
+    require(products[_id].id > 0 && products[_id].id <= productCount, "Product with given id does not exist");
+
+    // Verify that the product has been sold out
+    require(products[_id].isSold, "Product is not yet sold");
+
+    // Verify that the sender is the seller
+    require(msg.sender == products[_id].seller, "Only the seller can withdraw the leftover ether");
+
+    // Transfer the leftover ether to the seller
+    payable(msg.sender).transfer(address(this).balance);
+  }
+}

@@ -1,0 +1,60 @@
+apply plugin: 'java'
+
+// Define dependencies
+dependencies {
+    implementation 'org.apache.commons:commons-lang3:3.9'
+    implementation 'com.google.guava:guava:28.1-jre'
+    compileOnly 'org.projectlombok:lombok:1.18.8'
+    testCompile 'junit:junit:4.12'
+}
+
+// Define repositories
+repositories {
+    mavenCentral()
+    jcenter()
+    google()
+}
+
+// Define tasks
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
+
+task compile(type: JavaCompile) {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+    options.compilerArgs = ["-Xlint:unchecked"]
+    sourceSets.main.java.srcDirs = ['src/main/java']
+    classpath = files() // Add any extra classpath directories here
+}
+
+// Define multiple source sets for different environments
+sourceSets {
+    development {
+        java.srcDirs = ['src/development/java']
+        resources.srcDirs = ['src/development/resources']
+        compileClasspath += sourceSets.main.output
+    }
+
+    production {
+        java.srcDirs = ['src/production/java']
+        resources.srcDirs = ['src/production/resources']
+        compileClasspath += sourceSets.main.output
+    }
+}
+
+// Define custom tasks with dependencies
+task generateReadme(type: Copy, dependsOn: compile) {
+    from 'src/main/resources/readme.md'
+    into 'build'
+}
+
+task runApplication(type: JavaExec, dependsOn: compile) {
+    main = 'com.example.Application'
+    classpath = sourceSets.main.runtimeClasspath
+}
+
+// Define task dependencies
+compile.dependsOn clean                      // compile task depends on clean task
+generateReadme.mustRunAfter compile           // generateReadme task runs after compile task
+runApplication.dependsOn productionClasses   // runApplication task depends on productionClasses task

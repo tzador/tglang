@@ -1,0 +1,123 @@
+%{
+    /* This is a comment section where you can include any general code or declarations */
+    #include <stdio.h>
+    #include <stdlib.h>
+    int a = 10; /* declare and initialize a variable a with value 10 */
+%}
+ 
+/* This section defines the tokens and their types for the BISON parser */
+%token NUMBER  /* defines integer token type */
+%token FLOAT   /* defines floating point token type */
+%token STRING  /* defines string token type */
+%token IDENTIFIER /* defines identifier token type */
+%token IF  /* defines if keyword token type */
+%token ELSE /* defines else keyword token type */
+ 
+/* This section defines the grammar rules for expressions and control flow statements */
+%%
+ 
+/* Each rule is defined by the name of the non-terminal followed by a colon and a list of tokens or non-terminals */
+program:
+    statement_list
+    { /* This code is executed when the rule is matched */
+        printf("Parsing successful!");
+    }
+;
+ 
+statement_list:
+    statement
+    | statement_list statement
+;
+ 
+statement:
+    expression
+    | control_statement
+;
+ 
+expression:
+    NUMBER
+    | FLOAT
+    | STRING
+    | IDENTIFIER
+    | expression '+' expression
+    { printf("Adding two expressions"); } /* This code is executed when the rule is matched */
+    | expression '-' expression
+    { printf("Subtracting two expressions"); }
+    | expression '*' expression
+    { printf("Multiplying two expressions"); }
+    | expression '/' expression
+    { printf("Dividing two expressions"); }
+;
+ 
+control_statement:
+    IF '(' expression ')' '{' statement '}'
+    | IF '(' expression ')' '{' statement '}' ELSE '{' statement '}'
+;
+ 
+%%
+ 
+/* This is the main function where the input is parsed and the BISON parser is run */
+int main()
+{
+    /* Prompt user to enter an expression */
+    printf("Enter an expression: ");
+     
+    /* Call the BISON parser */
+    yyparse();
+     
+    return 0;
+}
+ 
+/* This function is used to handle any syntax errors that may occur during parsing */
+void yyerror(char *message)
+{
+    /* Print the error message and exit the program */
+    printf("Syntax error: %s\n", message);
+    exit(1);
+}
+ 
+/* The following section contains the lex code, which defines the tokens for the BISON parser */
+ 
+/* First, include the header file for lex */
+%{
+    #include "lex.yy.h"
+%}
+ 
+/* Define the regular expressions for each token type */
+DIGIT    [0-9]
+NUM      {DIGIT}+
+FPNUM    {DIGIT}*\.{DIGIT}+
+STRING   \"[^\n]*\"
+WORD     [A-Za-z]+
+ 
+%% /* This section contains the rules for each token type */
+ 
+{NUM} { yylval = atoi(yytext); return (NUMBER); } /* convert string to integer and return the token type */
+ 
+{FPNUM} { yylval = atof(yytext); return (FLOAT); } /* convert string to floating point and return the token type */
+ 
+{STRING} { yylval = yytext; return (STRING); } /* return the string as it is */
+ 
+{WORD} { yylval = yytext; /* check if the word is a keyword and return the corresponding token type */
+        if (strcmp(yytext, "if") == 0) {
+            return (IF);
+        } else if (strcmp(yytext, "else") == 0) {
+            return (ELSE);
+        } else {
+            return (IDENTIFIER);
+        }
+    }  
+ 
+[ \t]+ /* ignore whitespace */
+ 
+{DIGIT}*\n { /* handle newlines */
+    yylineno++;
+}
+ 
+. { yyerror("Unknown character"); } /* handle any unknown characters */
+ 
+%% /* This section is used to define the main function for lex */
+int yywrap()
+{
+    return 1;
+}

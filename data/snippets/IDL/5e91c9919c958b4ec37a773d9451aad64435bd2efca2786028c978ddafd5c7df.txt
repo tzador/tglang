@@ -1,0 +1,80 @@
+;This is a code snippet in IDL
+
+pro fit_model, data, param, x, y, result  ;;Main function to fit model and return results
+;Parameters:
+;       data: input data array
+;       param: initial parameters for model
+;       x: x position array
+;       y: y position array
+;       result: idl structure containing fit results
+;
+;Output:
+;       result: idl structure with fitted parameters and error estimates
+
+  init = param[0]  ;;Set initial parameters
+  slope = param[1]
+  offset = param[2]
+  amp = param[3]
+  sigma = param[4]
+  tau = param[5]
+  ndata = n_elements(data)  ;;Get number of data points
+  chi2 = 0.0  ;;Initialize chi squared value
+  
+  ;;Loop through data points and calculate chi squared
+  for i=0, ndata-1 do begin
+    model = gauss_exp(x[i], init, slope, offset, amp, sigma, tau) ;;Calculate model at current point
+    err = sqrt(data[i]) ;;Calculate error at current point
+    chi2 = chi2 + (model-data[i])^2 / err^2 ;;Calculate chi squared value
+  endfor
+  
+  ;;Store results in structure
+  result.init = init
+  result.slope = slope
+  result.offset = offset
+  result.amp = amp
+  result.sigma = sigma
+  result.tau = tau
+  result.chi2 = chi2
+  
+end
+
+function gauss_exp, x, init, slope, offset, amp, sigma, tau  ;;Gaussian exponential model function
+;Parameters:
+;       x: independent variable array
+;       init: initial position parameter
+;       slope: slope parameter
+;       offset: offset parameter
+;       amp: amplitude parameter
+;       sigma: gaussian width parameter
+;       tau: exponential decay parameter
+;
+;Output:
+;       model: calculated model at input x values
+
+  model = offset + amp * exp(-(x-init)**2 / (2*sigma**2)) * exp(-abs(x-init) / tau) ;;Gaussian exponential model equation
+  
+  return, model
+end 
+
+;;Example usage:
+
+;;Generate dummy data
+x = findgen(100)
+y = 5 + 3*x + randomn(seed=0, 100) ;;Add random noise to linear relationship
+data = y + gauss(50, 2, n_elements(x)) ;;Add gaussian noise to data
+
+;;Set initial parameters
+param = [50, 3, 5, 8, 1, 2]
+
+;;Fit model and store results
+result = {init: 0, slope: 0, offset: 0, amp: 0, sigma: 0, tau: 0, chi2: 0} ;;Create empty structure to store results
+fit_model, data, param, x, y, result
+
+;;Print results
+print, 'Fitted init: ', result.init
+print, 'Fitted slope: ', result.slope
+print, 'Fitted offset: ', result.offset
+print, 'Fitted amp: ', result.amp
+print, 'Fitted sigma: ', result.sigma
+print, 'Fitted tau: ', result.tau
+print, 'Chi squared value: ', result.chi2

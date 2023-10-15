@@ -1,0 +1,34 @@
+/* This code snippet generates a summary table of customer transactions */
+options nosource nonotes nosymbolgen; /* These options turn off source code display, notes, and symbol generation */
+
+libname customer 'C:\SASFiles\CustomerData'; /* This libname statement assigns the location of the customer data to the SAS library named 'customer' */
+
+/* The data step below creates a temporary dataset 'trans' which contains the customer transactions */
+data trans (keep=customerid date trans_amount);
+  set customer.transactions; /* This set statement specifies the source dataset */
+  where date between '01Jan2021'd and '31Jan2021'd; /* This where statement filters the transactions to only those between January 1st and January 31st */
+  format date date9.; /* This format statement specifies the date format for display in the output */
+run;
+
+/* The proc summary step below generates the summary table of customer transactions */
+proc summary data=trans nway;
+  class customerid; /* This class statement specifies the variable to be summarized */
+  var trans_amount; /* This var statement specifies the variable to be used for the summary */
+  output out=summary (drop=_type_ rename=(_freq_=transactions sum=total_trans_amount)); /* This output statement creates the summary table and specifies new variable names */
+run;
+
+/* The data step below creates a final dataset 'summary_final' which contains the summary table and customer information from the original dataset */
+data summary_final;
+  merge customer.customers (keep=customerid name) summary; /* This merge statement combines the customer information with the summary table based on the common variable customerid */
+  by customerid; /* This by statement specifies the merging variable */
+  format total_trans_amount dollar12.; /* This format statement specifies the currency format for display in the output */
+run;
+
+/* The proc print step below prints the final summary table in the SAS log */
+proc print data=summary_final;
+  var name customerid total_trans_amount transactions; /* This var statement specifies the variables to be displayed in the output */
+  label name='Customer Name' customerid='Customer ID' total_trans_amount='Total Transaction Amount' transactions='Number of Transactions'; /* This label statement specifies the variable labels for display in the output */
+run;
+
+/* The libname statement below closes the SAS library */
+libname customer clear; /* This libname statement clears the assignment of the SAS library 'customer' */

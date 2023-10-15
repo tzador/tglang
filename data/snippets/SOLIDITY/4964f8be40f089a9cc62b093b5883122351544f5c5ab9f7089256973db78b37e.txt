@@ -1,0 +1,56 @@
+// SPDX-License-Identifier: MIT                       // SPDX license identifier (MIT)
+pragma solidity ^0.8.0;                               // pragma statement to define Solidity version
+
+contract Payment {                                     // contract declaration
+    address payable public owner;                      // public variable declaration (address of owner)
+    bool public locked;                                // public variable declaration (boolean for contract locking)
+    uint256 public totalAmount;                        // public variable declaration (total amount in contract)
+    
+    modifier onlyOwner() {                             // modifier declaration (checks if only owner can call function)
+        require(msg.sender == owner, "Not authorized");
+        _;
+    }
+    
+    event PaymentMade(address _to, uint256 _amount);   // event declaration (logs payment made)
+    event PaymentReceived(address _from, uint256 _amount, string _message); // event declaration (logs payment received)
+    
+    constructor() {                                     // constructor function
+        owner = msg.sender;                             // assign owner variable to sender (deployer of contract)
+        locked = false;                                 // set locked variable to false by default
+        totalAmount = 0;                                // set total amount to 0 by default
+    }
+    
+    function sendPayment(address payable _to, uint256 _amount) external onlyOwner { // function that allows only owner to send payment
+        require(!locked, "Contract is locked");
+        require(_amount > 0, "Amount must be greater than 0");                      // require statement for amount to be greater than 0
+        require(address(this).balance >= _amount, "Insufficient balance");         // require statement for sufficient balance in contract
+        _to.transfer(_amount);                                                      // transfer amount to designated address
+        emit PaymentMade(_to, _amount);                                             // emit PaymentMade event
+    }
+    
+    function receivePayment(string calldata _message) external payable {             // function that allows anyone to send payment
+        require(!locked, "Contract is locked");
+        require(msg.value > 0, "Must send a positive amount");                       // require statement for positive value sent
+        totalAmount += msg.value;                                                    // add value to total amount
+        emit PaymentReceived(msg.sender, msg.value, _message);                       // emit PaymentReceived event
+    }
+    
+    function getBalance() external view onlyOwner returns (uint256) {                 // function that returns contract balance
+        return address(this).balance;
+    }
+    
+    function lock() external onlyOwner {                                              // function to lock contract (can only be called by owner)
+        locked = true;
+    }
+    
+    function unlock() external onlyOwner {                                            // function to unlock contract (can only be called by owner)
+        locked = false;
+    }
+    
+    function withdrawBalance(address _to) external onlyOwner {                         // function to withdraw entire contract balance to designated address
+        require(!locked, "Contract is locked");
+        uint256 balance = address(this).balance;
+        _to.transfer(balance);
+        emit PaymentMade(_to, balance);
+    }
+}

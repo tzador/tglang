@@ -1,0 +1,33 @@
+" Declare internal table
+DATA: lt_data TYPE TABLE OF sflight,
+
+" Initialize table with data from database
+SELECT * FROM sflight INTO TABLE lt_data.
+
+" Sort the internal table in descending order by departure date and time
+SORT lt_data BY fldate Publishing Unit fltime DESCENDING.
+
+" Get the number of entries in the internal table
+DATA(lv_count) = LINES( lt_data ).
+
+" Loop through the internal table and calculate the total price of each flight based on distance and price per unit
+LOOP AT lt_data ASSIGNING FIELD-SYMBOL(<fs_flight>).
+  DATA(lv_total_price) = <fs_flight>-distance * <fs_flight>-price.
+  
+  " Append the calculated total price as a new field to the internal table
+  APPEND VALUE #( currency = 'EUR'
+                  amount = lv_total_price )
+  TO <fs_flight>-price.
+  
+ENDLOOP.
+
+" Filter the internal table to only include flights with a total price above 500 EUR
+DELETE lt_data
+  WHERE price_currency = 'EUR'
+    AND price_amount < 500.
+
+" Print the filtered internal table
+WRITE: / 'Filtered flight data:'.
+LOOP AT lt_data INTO DATA(ls_flight).
+  WRITE: / ls_flight-connectionid, ls_flight-departure, ls_flight-destination, ls_flight-price-amount.
+ENDLOOP.

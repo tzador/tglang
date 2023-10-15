@@ -1,0 +1,39 @@
+create or replace procedure update_salary(p_emp_id in number, p_new_salary in number)
+as
+begin
+    -- Update employee's salary
+    update employee
+    set salary = p_new_salary
+    where emp_id = p_emp_id;
+
+    -- Check if updated salary is greater than 100,000
+    if p_new_salary > 100000 then
+        -- Get employee's name
+        select first_name || ' ' || last_name into v_employee
+        from employee
+        where emp_id = p_emp_id;
+
+        -- Insert new salary record into salary_history table
+        insert into salary_history
+        values (p_emp_id, v_employee, p_new_salary, sysdate);
+
+    end if;
+    
+    -- If updated salary is less than 10% of previous salary, send notification
+    if p_new_salary < (select salary from employee where emp_id = p_emp_id) * 0.1 then
+        -- Get employee's email
+        select email into v_email
+        from employee
+        where emp_id = p_emp_id;
+
+        -- Compose email message
+        v_message := 'Hello ' || v_employee || ', your salary has been significantly decreased. Please contact HR for further details.';
+
+        -- Send email notification
+        send_email(v_email, v_message);
+    end if;
+    
+    -- Commit changes
+    commit;
+end;
+/

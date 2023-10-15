@@ -1,0 +1,87 @@
+# This is a complex NGINX configuration snippet for a reverse proxy server 
+
+# Set worker processes to default value of auto
+worker_processes auto;
+
+# Set error log path and level
+error_log /var/log/nginx/error.log warn;
+
+# Define events section
+events {
+    # Set default number of connections
+    worker_connections 1024;
+}
+
+# Set http section
+http {
+    # Set upstream server for reverse proxy
+    upstream backend {
+        server localhost:8080;
+    }
+
+    # Set log format
+    log_format main '$remote_addr - $remote_user [$time_local] '
+        '$request - $status $body_bytes_sent "$http_referer" '
+        '"$http_user_agent"';
+
+    # Set access log path
+    access_log /var/log/nginx/access.log main;
+
+    # Set server section
+    server {
+        # Define server name
+        server_name www.example.com;
+
+        # Set location for root path
+        location / {
+            # Reverse proxy configuration
+            proxy_pass http://backend;
+
+            # Set proxy headers
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+        
+        # Set location for static files
+        location /static/ {
+            # Set root path for static files
+            root /var/www/example.com;
+        }
+
+        # Set gzip compression
+        gzip on;
+        gzip_types text/plain application/xml;
+
+        # Set SSL configuration
+        ssl on;
+        ssl_certificate /etc/nginx/ssl/cert.pem;
+        ssl_certificate_key /etc/nginx/ssl/key.pem;
+
+        # Set caching configuration
+        proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=backend_cache:10m inactive=60m;
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+
+        # Set HTTP to HTTPS redirect
+        if ($scheme != "https") {
+            return 301 https://$host$request_uri;
+        }
+    }
+
+    # Set server for HTTPS requests
+    server {
+        # Define server name
+        server_name www.example.com;
+
+        # Set HTTPS location
+        location / {
+            # Reverse proxy configuration
+            proxy_pass http://backend;
+
+            # Set proxy headers
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+    }
+}

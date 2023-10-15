@@ -1,0 +1,57 @@
+*& Report Z_UPDATE_MATERIALS
+*
+* This program updates the price of materials based on a price list.
+*
+* Input parameters:
+* - iv_price_list: The name of the price list to use for updating materials
+* - iv_percent_increase: The percentage increase to apply to the prices
+* - it_materials: The table of materials to be updated, with fields matnr and
+*                werks
+*
+* Output parameters:
+* - et_updated_materials: The table of updated materials, with fields matnr and
+*                         updated_price
+*
+REPORT Z_UPDATE_MATERIALS.
+
+* Declare input parameters
+PARAMETERS:
+  iv_price_list TYPE string,
+  iv_percent_increase TYPE p DECIMALS 2,
+  it_materials TYPE STANDARD TABLE OF mara
+    WITH DEFAULT KEY COMPONENTS matnr werks.
+
+* Declare output parameter
+DATA: et_updated_materials TYPE STANDARD TABLE OF mara
+        WITH DEFAULT KEY COMPONENTS matnr updated_price.
+
+* Get price list
+DATA(lo_price_list) = cl_price_list=>get_price_list( iv_price_list ).
+
+* Loop through materials table
+LOOP AT it_materials INTO DATA(ls_material).
+
+  * Get material's current price
+  DATA(lo_material) = cl_material=>get_material( ls_material-matnr ).
+
+  * Calculate new price with percentage increase
+  DATA(lv_new_price) = lo_material->get_price( lo_price_list ) +
+                        lo_material->get_price( lo_price_list ) *
+                        ( iv_percent_increase / 100 ).
+
+  * Update material's price
+  lo_material->set_price( ls_material-matnr, lv_new_price ).
+
+  * Add updated material to output table
+  et_updated_materials = VALUE #(
+                            ( matnr = ls_material-matnr
+                              updated_price = lv_new_price )
+                          ).
+
+ENDLOOP.
+
+* Output updated materials table
+WRITE: / 'Updated Materials:'.
+LOOP AT et_updated_materials INTO DATA(ls_material).
+  WRITE: / ls_material-matnr, ls_material-updated_price.
+ENDLOOP.

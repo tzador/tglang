@@ -1,0 +1,94 @@
+/*
+This code snippet is written in UNREALSCRIPT. It creates a custom player controller class called CustomPlayerController that extends the built-in PlayerController class. This class adds functionality for the player to be able to crouch, jump, and wall jump.
+*/
+class CustomPlayerController extends PlayerController
+    placeable;
+    
+    // Crouch variables
+    var bool bIsCrouching;
+    var float crouchHeightMultiplier;
+    
+    // Jump variables
+    var float jumpHeight;
+    var float jumpSpeed;
+    
+    // Wall jump variables
+    var float wallJumpForce;
+    var float wallJumpCooldown;
+    var bool bCanWallJump;
+    
+    // Initialize function called when controller is spawned
+    function Initialize()
+    {
+        bIsCrouching = false;
+        crouchHeightMultiplier = 0.5;
+        jumpHeight = 500;
+        jumpSpeed = 1000;
+        wallJumpForce = 500;
+        wallJumpCooldown = 0.5;
+        bCanWallJump = true;
+    }
+    
+    // Override PlayerController's OnMovementKeyPressed function to handle crouching, jumping, and wall jumping
+    simulated event OnMovementKeyPressed(byte Key, vector Direction)
+    {
+        // Handle crouching
+        if (Key == MOVE_Crouch)
+        {
+            if (bIsCrouching)
+            {
+                bIsCrouching = false;
+                SetCapsuleSize(35, 88);
+                SetLocationZ(GetLocation().Z + 44);
+            }
+            else
+            {
+                bIsCrouching = true;
+                SetCapsuleSize(35 * crouchHeightMultiplier, 88 * crouchHeightMultiplier);
+                SetLocationZ(GetLocation().Z - 44);
+            }
+        }
+        
+        // Handle jumping
+        if (Key == MOVE_Jump)
+        {
+            if (bIsCrouching)
+            {
+                // Can't jump while crouching
+                return;
+            }
+            
+            // Check if player is on the ground
+            if (GetPawn().GetGroundRelativeVelocity().Z == 0)
+            {
+                // Add impulse to player's velocity to simulate jumping
+                Pawn.Velocity.Z = jumpHeight;
+            }
+        }
+        
+        // Handle wall jumping
+        if (Key == MOVE_Right || Key == MOVE_Left)
+        {
+            if (bCanWallJump && bIsCrouching == false)
+            {
+                // Check if player is touching a wall on the right or left side
+                if (Trace(200, GetViewRotation() * 50 + Vector(0, 0, 50), Key == MOVE_Right ? Vector(0, 0, -1) : Vector(0, 0, 1), true, vect(0, 0, 0), false, vect(0, 0, 0)))
+                {
+                    bCanWallJump = false;
+                    // Add impulse to player's velocity to simulate wall jumping away from the wall
+                    Pawn.Velocity += vect(Key == MOVE_Right ? -wallJumpForce : wallJumpForce, 0, wallJumpForce);
+                    // Reset bCanWallJump after wall jump cooldown
+                    SetTimer(wallJumpCooldown, false, 'ResetWallJump');
+                }
+            }
+        }
+        
+        // Call parent function to handle all other movement keys
+        super.OnMovementKeyPressed(Key, Direction);
+    }
+    
+    // Function to reset bCanWallJump after wall jump cooldown has passed
+    function ResetWallJump()
+    {
+        bCanWallJump = true;
+    }

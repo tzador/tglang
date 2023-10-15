@@ -1,0 +1,94 @@
+// This code snippet shows how to create a custom player character
+
+class CustomPlayerCharacter extends MyAwesomeGameContent extends UnrealPawn
+    placeable within Game;
+    
+    // Properties for custom character
+    var() const int InitialHealth;
+    var() int CurrentHealth;
+    
+    // Refers to custom mesh for character
+    var() config FirstPersonMesh;
+    
+    // Handles input for movement
+    simulated function UpdateMovement(float DeltaTime)
+    {
+        local Vector MovementInput;
+        
+        // Get input from player
+        MovementInput.X = GetAxis("MoveForward");
+        MovementInput.Y = GetAxis("MoveRight");
+        MovementInput.Z = GetAxis("MoveUp");
+        
+        // Calculate movement delta based on input and speed
+        local Vector MovementDelta;
+        MovementDelta = MovementInput * Speed;
+        
+        // Add movement delta to current position
+        Pawn.Location += RotatorToVector(PlayerView_Rotation) * MovementDelta;
+    }
+    
+    // Handles input for rotation
+    simulated function UpdateRotation(float DeltaTime)
+    {
+        local Vector RotationInput;
+        
+        // Get input from player
+        RotationInput.X = GetAxis("Turn");
+        RotationInput.Y = GetAxis("LookUp");
+        RotationInput.Z = GetAxis("TurnRate");
+        
+        // Calculate rotation delta based on input and rotation rate
+        local Rotator RotationDelta;
+        RotationDelta = RotationInput * RotationRate;
+        
+        // Add rotation delta to current rotation
+        Pawn.Rotation += RotationDelta;
+    }
+    
+    // Event when player takes damage
+    event TakeDamage(int DamageAmount, Pawn EventInstigator, Vector HitLocation, Vector Momentum, class DamageType DamageType)
+    {
+        // Subtract damage from current health
+        CurrentHealth -= DamageAmount;
+        
+        // Check if health is below 0, if so, kill character
+        if(CurrentHealth <= 0)
+        {
+            Pawn.Die(EventInstigator);
+        }
+    }
+    
+    // Event when player dies
+    event Died(Controller Killer, Class<DamageType> damageType, Vector hitLocation)
+    {
+        // Switch to spectating camera on death
+        Pawn.SetViewTarget(Killer);
+        
+        // Disable input and collision for character
+        Pawn.bCollideActors = false;
+        Pawn.bBlockActors = false;
+		Pawn.bBlockNonZeroExtentTraces = false;
+		
+		// Set location to behind character for spectating
+		Pawn.Location = hitLocation - Vector(PlayerView_Rotation) * 100;
+		
+		// Show death message to player
+		HUD.ShowDeathMessage();
+    }
+    
+    // Event when player respawns
+    event Respawn()
+    {
+        // Reset health to initial amount
+        CurrentHealth = InitialHealth;
+        
+        // Enable input and collision for character
+        Pawn.bCollideActors = true;
+        Pawn.bBlockActors = true;
+		Pawn.bBlockNonZeroExtentTraces = true;
+		
+		// Show respawn message to player
+		HUD.ShowRespawnMessage();
+    }
+}

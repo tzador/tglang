@@ -1,0 +1,115 @@
+# nginx.conf
+
+# Global Configuration
+user www-data; # sets the user for nginx
+worker_processes auto; # sets the number of worker processes to use
+
+events { # defines an event block
+	worker_connections 4096; # sets the maximum number of connections per worker process
+}
+
+http { # defines an http block
+	include mime.types; # includes the default MIME types
+	default_type application/octet-stream; # sets the default MIME type
+
+	# Proxy Cache
+	proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=cache:10m inactive=60m; # defines the directory and cache zone for proxy cache
+
+	# Logging
+	log_format my_format '$remote_addr - $remote_user [$time_local] "$request" ' # defines a custom log format
+	'$status $body_bytes_sent "$http_referer" "$http_user_agent"'; # adds additional details to the custom log format
+	access_log /var/log/nginx/access.log my_format; # sets the location and format for the access log
+	error_log /var/log/nginx/error.log; # sets the location for the error log
+
+	# Virtual Hosts
+	server { # defines a server block
+		listen 443 ssl; # sets the port and enables SSL
+		server_name example.com; # sets the server name
+
+		ssl_certificate /etc/ssl/certs/example.com.crt; # sets the SSL certificate
+		ssl_certificate_key /etc/ssl/private/example.com.key; # sets the SSL certificate key
+
+		# Upstream Servers
+		upstream app_server { # defines an upstream block
+			server 127.0.0.1:8000; # sets the address and port of the upstream server
+		}
+
+		# HTTPS Server Settings
+		location / { # defines a location block
+			proxy_pass http://app_server; # sets the upstream server to proxy to
+			proxy_set_header Host $host; # sets the host header for the upstream server
+			proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # sets the client IP address for the upstream server
+		}
+
+		# HTTP to HTTPS Redirect
+		location / { # defines a location block
+			return 301 https://$host$request_uri; # returns a 301 redirect to the HTTPS version of the URL
+		}
+	}
+
+	# Load Balancing
+	upstream web_servers { # defines an upstream block
+		server 10.0.0.1 weight=3; # sets the address and weight for the first server
+		server 10.0.0.2 weight=2; # sets the address and weight for the second server
+		server 10.0.0.3 weight=1; # sets the address and weight for the third server
+
+		# Sticky Sessions
+		ip_hash; # enables sticky sessions based on client IP address
+	}
+
+	server { # defines a server block
+		listen 80; # sets the port
+		server_name loadbalancer.com; # sets the server name
+
+		# Load Balancer Settings
+		location / { # defines a location block
+			proxy_pass http://web_servers; # sets the upstream servers to proxy to
+			proxy_set_header Host $host; # sets the host header for the upstream servers
+			proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # sets the client IP address for the upstream servers
+
+			# Health Checks
+			proxy_http_version 1.1; # enables HTTP 1.1 for health checks
+			proxy_set_header Connection ""; # sets the connection header to pass for health checks
+		}
+	}
+	
+	# Gzip Compression
+	gzip on; # enables gzip compression
+	gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/rss+xml text/javascript; # sets the file types to compress
+	
+	# Caching
+	server { # defines a server block
+		listen 8080; # sets the port
+		server_name example.com; # sets the server name
+
+		root /var/www/html; # sets the root directory for the server
+
+		# Enable Caching
+		location / { # defines a location block
+			proxy_cache cache; # enables caching
+			proxy_cache_valid 200 304 12h; # sets the caching time
+			proxy_cache_key "$scheme$request_method$host$request_uri"; # sets the cache key
+			add_header X-Cache-Status $upstream_cache_status; # adds a header to show the cache status
+
+			# Cache Bypass
+			set $no_cache 0; # sets a variable to bypass the cache
+			if ($http_cookie ~* "wordpress_logged_in") { # checks for a specific cookie
+				set $no_cache 1; # sets the variable to bypass the cache
+			}
+			proxy_no_cache $no_cache; # sets the variable as the condition to block caching
+
+			# Cache Purge
+			proxy_cache_purge localhost:8080 "$scheme$request_method$host$request_uri"; # adds the caching URL to be purged
+		}
+	}
+
+	# Security Headers
+	add_header X-Frame-Options SAMEORIGIN; # sets the X-Frame-Options header to protect against clickjacking
+	add_header X-XSS-Protection "1; mode=block"; # sets the X-XSS-Protection header to enable XSS filtering
+	add_header X-Content-Type-Options nosniff; # sets the X-Content-Type-Options header to protect against MIME type sniffing
+	add_header Referrer-Policy no-referrer; # sets the Referrer-Policy header to control referrer information
+	add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always; # sets the HSTS header to force HTTPS for the specified duration
+
+	# Server Version Hiding
+	server_tokens off; # disables server version information in response headers
+}

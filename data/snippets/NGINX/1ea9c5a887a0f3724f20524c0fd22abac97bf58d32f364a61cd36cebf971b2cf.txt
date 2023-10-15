@@ -1,0 +1,125 @@
+http {
+    ## Important: Don't put anything else in this block.
+    # Any configuration files in conf.d/*.conf will be loaded automatically
+    # and should be included in the main configuration file.
+
+    # Load modular configuration files from the /etc/nginx/conf.d directory.
+    # See https://nginx.org/en/docs/ngx_core_module.html#include
+    include /etc/nginx/conf.d/*.conf;
+
+    # Set a custom user agent string for Nginx http client.
+    http {
+        server_tokens off;
+
+        server {
+            listen 80;
+            server_name example.com;
+
+            # Set a proxy cache path.
+            proxy_cache_path /var/cache/nginx keys_zone=one:10m;
+
+            # Use the default expiration.
+            proxy_cache_valid 200 60m;
+
+            # Set a custom security header configuration.
+            add_header X-Frame-Options "SAMEORIGIN";
+            add_header X-Content-Type-Options "nosniff";
+            add_header Content-Security-Policy "default-src 'self';
+
+            # Send custom errors to the error page.
+            error_page 404 /custom_404.html;
+
+            # Set the error page location.
+            location /custom_404.html {
+                root /usr/share/nginx/html;
+                internal;
+            }
+
+            # Disable access to hidden files.
+            location ~ /\. {
+                deny all;
+                access_log off;
+                log_not_found off;
+            }
+
+            # Enable Gzip for faster page loading.
+            gzip on;
+            gzip_comp_level 6;
+            gzip_proxied any;
+            gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+            
+            # Allow file uploads up to 80MB.
+            client_max_body_size 80m;
+
+            # Set a server maintenance page.
+            #server {
+            #    listen 80 default_server;
+            #    server_name _;
+            #    return 503;
+            #    error_page 503 @maintenance;
+            #}
+
+            #location @maintenance {
+            #    rewrite ^(.*)$ /maintenance.html break;
+            #    root /usr/share/nginx/html;
+            #}
+
+            # Define a proxy server for load balancing.
+            upstream backend {
+                server backend1.example.com weight=5;
+                server backend2.example.com weight=3;
+                server backend3.example.com weight=2;
+            }
+            
+            # Define a virtual server for rereserisAPI.
+            server {
+                listen 80;
+                listen [::]:80;
+                server_name reserisapi.example.com;
+                
+                # Set up a location block for proxying.
+                location / {
+                    proxy_pass http://backend;
+                }
+            }
+
+            # Configure server caching.
+            proxy_cache_key "$scheme$request_method$host$request_uri";
+            proxy_cache_bypass $http_poxy;
+            proxy_no_cache $http_poxy;
+
+            # Set custom response headers.
+            add_header X-Content-Security-Policy "frame-ancestors 'none' ";
+            add_header Feature-Policy "sync-xhr 'self' https://api.example.com";
+            add_header X-Frame-Options "SAMEORIGIN" always;
+
+            # Allow access from specific IP addresses.
+            allow 127.0.0.1;
+            allow 192.168.1.1/24;
+            deny all;
+
+            # Enable URL rewriting.
+            location /users/ {
+                rewrite ^/users+$ /users/index.html permanent;
+            }
+
+            # Disable requests to PHP files.
+            location ~ \.php$ {
+                return 404;
+            }
+
+            # Set a default index page.
+            index index.html index.htm;
+
+            # Configure server logging.
+            access_log /var/log/nginx/access.log;
+            error_log /var/log/nginx/error.log;
+
+            # Configure server timeouts.
+            client_body_timeout 10;
+            client_header_timeout 10;
+            keepalive_timeout 300;
+            send_timeout 2;
+        }
+    }
+}

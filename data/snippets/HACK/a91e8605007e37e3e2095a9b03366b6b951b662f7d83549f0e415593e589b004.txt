@@ -1,0 +1,144 @@
+;/*
+-----------------------------
+|    HACK Programming Language     |
+|    Version 1.0.0           |
+|    Author: HACK Inc.       |
+-----------------------------
+*/
+
+;=====================================
+; Global variables
+;=====================================
+
+GLOBAL list_arr      ; list of all arrays
+GLOBAL len           ; length of list_arr
+GLOBAL heap          ; global heap for memory management
+GLOBAL stack         ; global stack for function calls
+GLOBAL input         ; global input variable
+GLOBAL output        ; global output variable
+GLOBAL temp          ; global temporary variable
+GLOBAL curr_scope    ; global current scope variable
+GLOBAL error         ; global error flag variable
+
+;=====================================
+; Main program
+;=====================================
+
+Begin:
+    SET curr_scope to main       ; set current scope as main
+    CALL main()                  ; call the main function
+    TERMINATE Program            ; end program execution
+
+;=====================================
+; Input/Output functions
+;=====================================
+
+READ:                           ; function for reading input from user
+    PEEK input                  ; get input from user
+    PUSH input, stack           ; push input on top of stack
+    RETURN                      ; return to the calling function
+
+PRINT:                         ; function for printing to console
+    POP output, stack           ; pop output from top of stack
+    POKE output                 ; print output to console
+    RETURN                      ; return to the calling function
+
+;=====================================
+; Array operations
+;=====================================
+
+CREATE_ARR:                    ; function for creating a new array
+    PUSH curr_scope, stack     ; push current scope on top of stack
+    SET temp to heap.free      ; set temp to current free memory address in heap
+    MALLOC list_arr[len]       ; allocate memory for list_arr
+    POP curr_scope, stack      ; pop current scope from top of stack
+    STORE temp in list_arr[len]; store temp in list_arr[len]
+    ADD len by 1               ; increment len by 1
+    RETURN                     ; return to the calling function
+
+GET_ARR:                      ; function for getting value from an array
+    POP temp, stack            ; pop index from top of stack
+    PEEK list_arr[temp]        ; get value from array at index
+    PUSH temp, stack           ; push value on top of stack
+    RETURN                     ; return to the calling function
+
+SET_ARR:                      ; function for setting value in an array
+    POP temp, stack            ; pop value from top of stack
+    POP list_arr[temp], stack  ; pop index from top of stack, set value at index
+    RETURN                     ; return to the calling function
+
+LEN_ARR:                      ; function for getting length of an array
+    PEEK len                   ; get length from global variable
+    PUSH len, stack            ; push length on top of stack
+    RETURN                     ; return to the calling function
+
+;=====================================
+; Conditional statements
+;=====================================
+
+IF:                           ; function for if statements
+    POP temp, stack           ; pop condition from top of stack
+    IF temp is true then      ; check if condition is true
+        PUSH true, stack      ; push true on top of stack
+        CALL main()           ; call main function
+    ENDIF                     ; end if block
+    RETURN                    ; return to the calling function
+
+ELSE:                         ; function for else statements
+    POP temp, stack           ; pop condition from top of stack
+    IF temp is false then     ; check if condition is false
+        CALL main()           ; call main function
+    ENDIF                     ; end if block
+    RETURN                    ; return to the calling function
+
+;=====================================
+; Loops
+;=====================================
+
+WHILE:                        ; function for while loops
+    POP temp, stack           ; pop condition from top of stack
+    WHILE temp is true do     ; check if condition is true
+        PUSH true, stack      ; push true on top of stack
+        CALL main()           ; call main function
+        POP temp, stack       ; pop updated condition from top of stack
+    ENDWHILE                  ; end while loop
+    RETURN                    ; return to the calling function
+
+;=====================================
+; Functions
+;=====================================
+
+DEFINE:                       ; function for defining a new function
+    POP temp, stack           ; pop function name from top of stack
+    PUSH temp, stack          ; push function name on top of stack
+    SET curr_scope to temp    ; set current scope to function name
+    SET temp to heap.free     ; set temp to current free memory address in heap
+    MALLOC list_arr[len]      ; allocate memory for list_arr
+    STORE temp in list_arr[len]; store temp in list_arr[len]
+    ADD len by 1              ; increment len by 1
+    RETURN                    ; return to the calling function
+
+CALL:                          ; function for calling an existing function
+    POP temp, stack            ; pop function name from top of stack
+    IF temp is equal to main then ; check if function name is main
+        CALL temp()            ; call main function
+    ELSE                       ; if not main, check if function name exists
+        PUSH temp, stack       ; push function name on top of stack
+        PUSH curr_scope, stack ; push current scope on top of stack
+        SET curr_scope to temp ; set current scope to function name
+        IF function temp does not exist in list_arr then ; check if function exists
+            SET error to true ; if function does not exist, set error flag to true
+        ELSE
+            CALL temp()       ; if function exists, call function
+        ENDIF
+        POP curr_scope, stack ; pop current scope from top of stack
+        POP temp, stack       ; pop function name from top of stack
+    ENDIF
+    RETURN                     ; return to the calling function
+
+RETURN:                       ; function for returning from a function
+    LOAD list_arr[len-2] in temp ; load return address from list_arr
+    SET curr_scope to temp    ; set current scope to return address
+    DELETE list_arr[len-2]    ; delete return address from list_arr
+    SUBTRACT len by 1         ; decrement len by 1
+    RETURN                    ; return to the calling function

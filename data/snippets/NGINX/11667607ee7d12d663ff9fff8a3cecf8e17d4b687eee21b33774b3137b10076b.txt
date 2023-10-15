@@ -1,0 +1,32 @@
+server {
+    listen 80; # tells NGINX to listen on port 80 for incoming requests
+    server_name example.com; # specifies the server name for this server block
+    location / { # sets a location for this server block
+        root /var/www/example.com; # sets the root directory for this location
+        index index.html index.php; # defines the priority order for index files to be served
+        if (!-e $request_filename) { # checks if requested file does not exist
+            rewrite ^/(.*)$ /index.php?$1 last; # rewrites the request to include index.php and pass the remaining request
+            break; # ends the current location block and processes the rewritten request
+        }
+        try_files $uri $uri/ /index.html; # tries to serve existing file, then existing directory, and if both fail, serves index.html
+    }
+    location /api/ { # sets a location for the API endpoint
+        proxy_pass http://localhost:3000/; # forwards requests to the API server running on port 3000
+        proxy_set_header Host $host; # sets the Host header for the proxied request
+        proxy_set_header X-Real-IP $remote_addr; # sets the X-Real-IP header for the proxied request
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # sets the X-Forwarded-For header for the proxied request
+        add_header X-Custom-Header "Custom Value"; # adds a custom header to the response from the API server
+    }
+    location ~ \.php$ { # sets a regular expression for files ending in .php for this location
+        include fastcgi_params; # includes the default fastcgi configuration parameters
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; # sets the SCRIPT_FILENAME parameter with the full file path
+        fastcgi_pass unix:/var/run/php/php7.2-fpm.sock; # passes requests to the PHP-FPM server
+    }
+    location ~ \.html$ { # sets a regular expression for files ending in .html for this location
+        expires 24h; # sets a cache expiration of 24 hours for these files
+    }
+    error_page 404 /404.html; # sets the error page for HTTP 404 errors
+    location = /404.html { # sets a location for the error page
+        internal; # indicates that this location will only be accessible from within NGINX and not directly from clients
+    }
+}

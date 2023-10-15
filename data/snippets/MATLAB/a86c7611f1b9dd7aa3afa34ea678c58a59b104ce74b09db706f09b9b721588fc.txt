@@ -1,0 +1,42 @@
+%% Gaussian Process Regression
+% Initialization
+x = linspace(-5,5,100)'; % generating input data points
+y = sin(x) + (randn(100,1)*0.2); % generating noisy output data points
+kernel = @(x,y) exp(-sum((x-y).^2)/2); % defining the kernel function (RBF)
+sigma = 1; % defining the hyperparameter sigma
+
+%% Training Gaussian Process
+K = zeros(100); % initializing the kernel matrix
+for i = 1:100
+    for j = 1:100
+        K(i,j) = kernel(x(i),x(j)); % filling in the kernel matrix
+    end
+end
+L = chol(K + (sigma^2)*eye(100)); % calculating the Cholesky decomposition of the kernel matrix
+alpha = L'\(L\y); % calculating the coefficients of the Gaussian process
+
+%% Predicting using Gaussian Process
+x_test = linspace(-6,6,200)'; % generating test data points
+K_star = zeros(200,100); % initializing the test kernel matrix
+for i = 1:200
+    for j = 1:100
+        K_star(i,j) = kernel(x_test(i),x(j)); % filling in the test kernel matrix
+    end
+end
+f_mean = K_star * alpha; % calculating the mean of the predictive distribution
+v = (L\K_star')'; % calculating the variance of the predictive distribution
+f_var = kernel(x_test) - sum(K_star.*v, 2); % calculating the variance of the predictive distribution
+
+%% Visualization
+figure; % creating a new figure
+hold on; % allowing multiple plots on the same axis
+plot(x,y,'r.','MarkerSize',20); % plotting the training data points
+plot(x_test,f_mean,'b-','LineWidth',2); % plotting the mean of the predictive distribution
+upper_bound = f_mean + 2*sqrt(f_var); % calculating upper bound for 95% confidence interval
+lower_bound = f_mean - 2*sqrt(f_var); % calculating lower bound for 95% confidence interval
+fill([x_test; flipud(x_test)], [upper_bound; flipud(lower_bound)], 'b', 'FaceAlpha', 0.2); % filling in the area between the upper and lower bounds
+xlim([-6,6]); % setting x-axis limits
+ylim([-3,3]); % setting y-axis limits
+xlabel('x'); % labeling x-axis
+ylabel('y'); % labeling y-axis
+legend('Train Data','Mean','95% Confidence Interval'); % adding legend to the plot

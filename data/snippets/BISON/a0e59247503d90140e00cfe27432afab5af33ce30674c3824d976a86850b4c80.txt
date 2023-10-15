@@ -1,0 +1,116 @@
+%token NUMBER /*This defines the token NUMBER to represent numeric values*/
+%token ID /*This defines the token ID to represent identifiers*/
+
+%% /*Defines the grammar rules*/
+
+expression:
+	NUMBER /*This rule states that an expression can be a single NUMBER token*/
+	| ID /*This rule states that an expression can be a single ID token*/
+	| expression '+' expression /*This rule states that an expression can also be an addition of two expressions*/
+	| expression '-' expression /*This rule states that an expression can also be a subtraction of two expressions*/
+	| expression '*' expression /*This rule states that an expression can also be a multiplication of two expressions*/
+	| expression '/' expression /*This rule states that an expression can also be a division of two expressions*/
+	;
+
+%% /*Defines the lexical analyzer rules*/
+
+%lex
+
+DIGIT	[0-9] /*This defines the range of digits*/
+ID	[a-zA-Z][a-zA-Z0-9]* /*This defines an identifier as a combination of letters and digits except for the first character*/
+BLANK	[ \t\n] /*This defines spaces, tabs, and new lines as blanks*/
+
+%type NUMBER
+%type ID
+
+%{
+/*Empty code block for C code that can be executed inside actions*/
+%}
+
+" "	{ /*If the lexical analyzer reads a blank, do nothing*/ }
+
+["+"*]	{ /*If the lexical analyzer reads one or more "+" symbols, return an addition rule*/ return ADD; }
+"-" 	{ /*If the lexical analyzer reads a "-" symbol, return a subtraction rule*/ return SUB; }
+"*" 	{ /*If the lexical analyzer reads a "*" symbol, return a multiplication rule*/ return MUL; }
+"/" 	{ /*If the lexical analyzer reads a "/" symbol, return a division rule*/ return DIV; }
+[0-9]+	{ /*If the lexical analyzer reads one or more digits, return the NUMBER token with the corresponding value*/ return NUMBER; }
+{ID}	{ /*If the lexical analyzer reads an identifier, return the ID token with the corresponding value*/ return ID; }
+
+%%
+/*Defines the parser rules*/
+
+%union {
+	double val; /*This defines the value associated with the NUMBER token*/
+	char *id; /*This defines the value associated with the ID token*/
+}
+
+%{
+/*C code that can be executed inside actions*/
+int yylex(); /*Function that calls the lexical analyzer*/
+void yyerror(char *s); /*Function that handles error messages*/
+double sym[26]; /*Symbol array to store identifier values*/
+%}
+
+%token <id> ID
+%token <val> NUMBER
+%type <val> expression
+
+%start program
+
+program:
+	| line program /*This rule states that a program can contain multiple lines*/
+	;
+
+line:
+	'\n' /*This rule states that a line can be a single new line character*/
+	| statement '\n' /*This rule states that a line can be a statement followed by a new line character*/
+	;
+
+statement:
+	| ID '=' expression /*This rule states that a statement can be an assignment of a value to an identifier*/
+	| expression /*This rule states that a statement can be an expression*/
+	;
+
+expression:
+	NUMBER /*This rule states that an expression can be a single NUMBER token*/
+	| ID /*This rule states that an expression can be a single ID token*/
+	| expression '+' expression /*This rule states that an expression can also be an addition of two expressions*/
+	| expression '-' expression /*This rule states that an expression can also be a subtraction of two expressions*/
+	| expression '*' expression /*This rule states that an expression can also be a multiplication of two expressions*/
+	| expression '/' expression /*This rule states that an expression can also be a division of two expressions*/
+	;
+
+%%
+/*Defines the C code for the functions*/
+
+int main(){
+	//Calling the parser to start the program
+	yyparse();
+	return 0;
+}
+
+int yyparse(){
+	//Calling the lexical analyzer to get the next token
+	int token = yylex();
+	//If the token is not newline, continue parsing
+	if (token != '\n'){
+		//If the token is an ID, store the corresponding value in the symbol array
+		if (token == ID){
+			sym[*yyval.id - 'a'] = yylval.id;
+		}
+		//If the token is a NUMBER, return the corresponding value
+		else if (token == NUMBER){
+			return yylval.val;
+		}
+	}
+	//If the token is newline, return 0 to signify end of program
+	else{
+		return 0;
+	}
+}
+
+void yyerror(char *s){
+	//Print the error message and exit the program
+	fprintf(stderr, "%s\n", s);
+	exit(1);
+}

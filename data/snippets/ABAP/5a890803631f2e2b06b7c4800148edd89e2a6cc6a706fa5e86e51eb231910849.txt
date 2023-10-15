@@ -1,0 +1,53 @@
+" Sample program to demonstrate nested SELECT statements
+
+REPORT demo_nested_select.
+
+" Internal table for storing data
+DATA: lt_orders TYPE STANDARD TABLE OF sflight,
+      lt_bookings TYPE STANDARD TABLE OF sbook.
+
+" Temporary table to hold results from nested select
+DATA: BEGIN OF lt_result OCCURS 0,
+        bookid TYPE sbook-bookid,
+        cid TYPE sbook-custid,
+        price TYPE sbook-price,
+      END OF lt_result.
+
+" Selecting all flights from sflight table
+SELECT *
+  FROM sflight
+  INTO TABLE lt_orders.
+
+" Selecting all bookings for flights with destination Frankfurt
+SELECT bookid, custid, price
+  FROM sbook
+  INTO TABLE lt_bookings
+  WHERE dest LIKE 'Frankfurt%'.
+
+" Looping through the list of flights
+LOOP AT lt_orders INTO DATA(lv_order).
+
+  " Looping through the list of bookings
+  " for the current flight
+  LOOP AT lt_bookings INTO DATA(lv_booking)
+    WHERE carrid = lv_order-carrid
+    AND connid = lv_order-connid.
+
+    " Appending the relevant data from
+    " the bookings to the temporary table
+    APPEND INITIAL LINE TO lt_result ASSIGNING FIELD-SYMBOL(<line>).
+    <line>-bookid = lv_booking-bookid.
+    <line>-cid = lv_booking-custid.
+    <line>-price = lv_booking-price.
+
+  ENDLOOP.
+
+ENDLOOP.
+
+" Displaying the final result
+FORMAT COLOR COL_HEADING INTENSIFIED ON.
+WRITE: / 'Customer ID', 15 'Booking ID', 25 'Price'.
+LOOP AT lt_result INTO DATA(lv_result).
+  FORMAT COLOR OFF.
+  WRITE: / lv_result-cid, 15 lv_result-bookid, 25 lv_result-price.
+ENDLOOP.

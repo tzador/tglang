@@ -1,0 +1,73 @@
+REPORT z_my_report.
+
+DATA: lv_table_name TYPE string,
+      lr_table TYPE REF TO data.
+
+* This is a complex program that generates a dynamic internal table based on user input
+* and performs various calculations and data manipulation.
+
+* First, we prompt the user for a table name and store it in a variable.
+PARAMETERS: p_table TYPE string.
+
+* Then, we check if the table provided by the user exists in the database.
+SELECT SINGLE tabname FROM dd02l
+  INTO lv_table_name
+  WHERE tabname = p_table.
+
+IF sy-subrc <> 0.
+  MESSAGE 'Table does not exist!' TYPE 'E'.
+ELSE.
+  * If the table exists, we create a dynamic internal table based on that table's structure.
+  CREATE DATA lr_table TYPE (lv_table_name).
+  * We also define a work area for the internal table.
+  FIELD-SYMBOLS: <fs_table> TYPE any TABLE.
+
+  * Next, we use the DESCRIBE statement to retrieve the structure of the user-provided table
+  * and assign it to our dynamic internal table.
+  DESCRIBE TABLE (lv_table_name) LINES DATA(lv_line_count).
+  ASSIGN lr_table->* TO <fs_table>.
+  REFRESH <fs_table>.
+
+  * Now, we populate the internal table with data from the user-provided table.
+  SELECT * FROM (lv_table_name)
+    INTO TABLE <fs_table>.
+
+  * We can then perform various calculations and data manipulation on the internal table.
+  LOOP AT <fs_table> ASSIGNING FIELD-SYMBOL(<fs_table_line>).
+    <fs_table_line>-amount = <fs_table_line>-quantity * <fs_table_line>-price.
+  ENDLOOP.
+
+  * Finally, we output the results to the user in a ALV grid.
+  DATA: lr_alv TYPE REF TO cl_salv_table,
+        lr_functions TYPE REF TO cl_salv_functions,
+        lr_columns TYPE REF TO cl_salv_columns_table.
+
+  CREATE OBJECT lr_alv
+      EXPORTING
+        i_structure_name = lv_table_name.
+
+  CALL METHOD lr_alv->get_functions
+      RECEIVING
+        value = lr_functions.
+
+  CALL METHOD lr_functions->set_all
+        EXPORTING
+          if_collapse       = abap_true
+          if_filter_visible = abap_true.
+
+  CALL METHOD lr_alv->get_columns
+      RECEIVING
+        value = lr_columns.
+
+  CALL METHOD lr_columns->set_optimize
+        EXPORTING
+          max_visible_items = '999'.
+
+  CALL METHOD lr_alv->set_table_for_first_display
+      EXPORTING
+        i_structure_name  = lv_table_name
+      CHANGING
+        it_outtab         = <fs_table>.
+
+
+ENDIF.

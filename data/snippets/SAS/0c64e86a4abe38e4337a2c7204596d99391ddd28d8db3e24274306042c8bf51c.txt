@@ -1,0 +1,63 @@
+/*This code snippet uses the SAS programming language to perform data cleaning and analysis */
+
+/*Setting the encoding for data input to accommodate different character sets*/
+OPTIONS VALIDVARNAME = ANY ENCODING = "UTF-8";
+
+/*Create a SAS library for the input data*/
+LIBNAME inputdata "/user/input_data";
+
+/*Reading in the raw data from a CSV file*/
+DATA raw_data;
+    INFILE "/user/input_data/data.csv" LRECL = 250 DSD FIRSTOBS = 2; /*LRECL specifies the maximum length of a record, DSD treats consecutive delimiters as one, FIRSTOBS skips the first row which contains column names*/
+    INPUT @1 sales_date MMDDYY10.
+          @12 product_name $30.
+          @43 sales_amount 6.
+          @50 customer_name $50.
+          @100 transaction_id $10.; /*INPUT statement specifies the order and type of data to be read in*/
+    FORMAT sales_date MMDDYY10. sales_amount 6.; /*FORMAT statement specifies the format of the data to be read in*/
+RUN;
+
+/*Creating a new variable 'total_sales' which calculates the total sales for each transaction*/
+DATA cleaned_data;
+    SET raw_data;
+    total_sales = sum(sales_amount); /*sum function calculates the total sales amount for each row*/
+RUN;
+
+/*Filtering out any transactions with $0 in total sales*/
+DATA filtered_data;
+    SET cleaned_data (WHERE = (total_sales > 0)); /*WHERE statement filters out rows that meet the specified condition*/
+RUN;
+
+/*Sorting the data in descending order of total sales*/
+PROC SORT DATA = filtered_data;
+    BY descending total_sales; /*descending keyword sorts the data in descending order*/
+RUN;
+
+/*Calculating the total sales for each product*/
+PROC SQL;
+    CREATE TABLE product_sales AS
+        SELECT product_name,
+               sum(total_sales) as product_total_sales
+            FROM filtered_data
+            GROUP BY product_name; /*GROUP BY statement groups the data by product name and calculates the sum of total sales for each product*/
+QUIT;
+
+/*Creating a bar chart to visualize the total sales for each product*/
+PROC SGPLOT DATA = product_sales;
+    VBAR product_name /response = product_total_sales; /*VBAR statement specifies the variables to be plotted on the bar chart*/
+RUN;
+
+/*Exporting the final data and visualization to a PDF file*/
+ODS PDF FILE = "/user/output_data/analysis_results.pdf";
+PROC PRINT DATA = filtered_data;
+RUN;
+PROC PRINT DATA = product_sales;
+RUN;
+PROC SGRENDER DATA = product_sales;
+    VBAR product_name /response = product_total_sales;
+RUN;
+QUIT;
+ODS PDF CLOSE;
+
+/*Closing the SAS library for the input data*/
+LIBNAME inputdata CLEAR;

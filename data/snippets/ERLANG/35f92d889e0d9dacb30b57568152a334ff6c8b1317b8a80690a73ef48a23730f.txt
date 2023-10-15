@@ -1,0 +1,61 @@
+-module(dijkstra).
+-export([shortest_path/3]).
+
+% Function to compute the shortest path between two vertices in a graph
+% Takes in the graph as a list of edges, the source vertex and the destination vertex
+shortest_path(Edges, Source, Dest) ->
+    % Convert the list of edges to a map, where the keys are the source vertices and the values are lists of connected vertices
+    Graph = maps:fold(fun add_edge/2, #{}, Edges),
+    % Initially, the distance of all vertices from the source is set to infinity
+    Distances = maps:fold(fun add_infinity/2, #{}, maps:keys(Graph)),
+    % Set the distance of the source vertex to 0
+    Distances1 = maps:put(Source, 0, Distances),
+    % Use a priority queue to keep track of vertices to be visited
+    Queue = queue:new(),
+    % Insert the source vertex with a distance of 0 into the queue
+    queue:in({Source, 0}, Queue),
+    % Call the algorithm function with the initial data
+    dijkstra_alg(Queue, Graph, Distances1).
+
+% Helper function to convert a list of edges to a map
+add_edge({From, To, Weight}, Graph) ->
+    % Check if the from vertex already exists in the map
+    case maps:is_key(From, Graph) of
+        true ->
+            % Append the to vertex to the existing list of connected vertices
+            maps:update_with(From, fun(List) -> [To|List] end, Graph);
+        false ->
+            % Create a new key-value pair with the from vertex as the key and a list containing the to vertex as the value
+            maps:put(From, [To], Graph)
+    end.
+
+% Helper function to set the distance of a vertex to infinity
+add_infinity(Vertex, Distances) ->
+    maps:put(Vertex, infinity, Distances).
+
+% Dijkstra's algorithm function
+dijkstra_alg(Queue, Graph, Distances) ->
+    % Check if the queue is empty
+    case queue:is_empty(Queue) of
+        true ->
+            % Return the final distances map
+            Distances;
+        false ->
+            % Dequeue the first element from the queue
+            {{Vertex, Distance}, NewQueue} = queue:out(Queue),
+            % Check if the distance of this vertex from the source is less than the current distance recorded in the map
+            case Distance < maps:get(Vertex, Distances, infinity) of
+                true ->
+                    % Update the distance of this vertex in the map
+                    Distances1 = maps:put(Vertex, Distance, Distances),
+                    % Get the list of connected vertices from the graph
+                    Edges = maps:get(Vertex, Graph),
+                    % Loop through each connected vertex and enqueue it with the new distance
+                    Queue1 = lists:foldl(fun({ToVertex, Weight}, Q) -> queue:in({ToVertex, Distance + Weight}, Q) end, NewQueue, Edges),
+                    % Call the algorithm function recursively with the updated queue and distances map
+                    dijkstra_alg(Queue1, Graph, Distances1);
+                false ->
+                    % Skip this vertex and continue with the next vertex in the queue
+                    dijkstra_alg(NewQueue, Graph, Distances)
+            end
+    end.

@@ -1,0 +1,50 @@
+/* This is a SAS code snippet for data manipulation */
+
+/* Create a temporary data set of sales data
+from a larger data set */
+data temp_sales;
+   set salesdata;
+   where Region in ('North', 'South', 'East', 'West');
+   /* Keep only the regions we are interested in */
+   keep Store_ID Region Total_Sales;
+   /* Keep only the necessary variables */
+   if Total_Sales > 20000;
+   /* Keep only stores with total sales greater than $20,000 */
+run;
+
+/* Sort the temporary data set by region and
+descending total sales */
+proc sort data=temp_sales
+         out=sales_summary;
+   by Region descending Total_Sales;
+run;
+
+/* Calculate the average sales for each region
+and store it in a new variable */
+data sales_avg;
+   set sales_summary;
+   by Region;
+   retain Sales_Region_Avg;
+   /* Retain the value of Sales_Region_Avg for each observation in a region */
+   if first.Region then Sales_Region_Avg = Total_Sales;
+   /* Set the initial value of Sales_Region_Avg for each region */
+   else Sales_Region_Avg = (Sales_Region_Avg + Total_Sales) / 2;
+   /* Calculate the average sales by adding the total sales for the current observation to the previous value and dividing by two */
+run;
+
+/* Merge the temporary data set and the calculated average sales data set */
+data final_sales;
+   merge temp_sales(in=a) sales_avg(in=b);
+   by Store_ID;
+   if a and b;
+   /* Keep only the observations that exist in both data sets */
+run;
+
+/* Output the final data set to a text file */
+proc export data=final_sales
+            outfile='C:\Users\User\Documents\sales_summary.txt'
+            dbms=tab
+            replace;
+   var Store_ID Region Total_Sales Sales_Region_Avg;
+   /* Specify the variables to be included in the text file */
+run;

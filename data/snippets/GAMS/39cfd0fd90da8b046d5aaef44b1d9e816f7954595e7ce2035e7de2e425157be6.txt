@@ -1,0 +1,57 @@
+* This is a GAMS code snippet that will solve a transportation problem
+Sets
+       i   set of origins   (* Locations *)
+       j   set of destinations   (* Destinations *)
+       k   set of supplies
+       l   set of demands
+       mv  set of modes
+       o   supply parameters
+       d   demand parameters
+
+Parameters
+       c(i,j)   transport costs
+       f(i)     fixed costs for supply
+       g(j)     fixed costs for demand
+       u(i,j,k) unitt transport costs
+       a(i,k)   lower bounds on supply
+       b(j,l)   upper bounds on demand
+       s(i,k,k) supply scaling
+       p(i,k,mv)supply per mode
+       q(l,j,mv)demand per mode
+
+Variables        z     total cost
+                 x(i,j) shipment quantities in units
+                 y(i)   units shipped from supplies
+                 w(j,l) units received at demands
+                 v(i,j, mv, k) mode usage
+
+Positive variable x,y,w,v;
+
+Eqns
+     obj   define objective function
+     cost  minimize total cost
+     sup   meet supply constraints
+     dem   meet demand constraints;
+
+Equations
+           totalflow
+           demand
+           supply;
+totalflow..
+           sum((i,j), x(i,j)) =e= z;
+supply(i,k,l)..
+           y(i) + sum(mv, v(i,j,mv,k)) =e= a(i,k)*s(i,k,l);
+demand(j,l) ..
+           w(j,l) + sum(mv, v(i,j,mv,k)) =e= b(j,l)*s(i,k,l);
+
+obj..      z        =e= f("cbxlabel")*y
+         + g("cbylabel")*w
+         + sum((i,j,k,mv),p(i,k,mv)*u(i,j,k)*v(i,j,mv,k))
+         + sum((i,j), c(i,j)*x(i,j));
+cost.negate = yes;
+
+Model transport /all/;
+
+Solve transport using MCP;
+
+Display x.l, y.l, w.l;

@@ -1,0 +1,105 @@
+%{
+// This section is used for declaring macros, variables, and other pre-processor directives.
+
+// Declare a variable for the token type
+%token <tokentype> IDENTIFIER INTEGER
+
+// Declare a variable for the current token
+%token CURRENT_TOKEN
+
+// Declare a variable for keeping track of the current line number
+%lex-param {
+    int line = 1;
+}
+
+// Declare a function for handling errors
+void yyerror(const char *msg) {
+    fprintf(stderr, "Error on line %d: %s\n", line, msg);
+}
+
+// Declare a struct for holding information about an identifier
+struct identifier {
+    char *name;
+    int value;
+};
+
+// Declare a global variable for holding the symbol table
+struct identifier symbol_table[100];
+
+// Declare functions for adding and searching identifiers in the symbol table
+int add_identifier(const char *name, int value) {
+    struct identifier id = {.name = strdup(name), .value = value};
+    symbol_table[table_idx++] = id;
+}
+
+int search_identifier(const char *name) {
+    int i;
+    for (i = 0; i < table_idx; i++) {
+        if (strcmp(symbol_table[i].name, name) == 0) {
+            return symbol_table[i].value;
+        }
+    }
+    yyerror("Undeclared variable.");
+    return 0;
+}
+%}
+
+%token <tokentype> DIGIT
+
+// This section defines the grammar rules for the BISON language.
+// <expression> is the start symbol.
+
+// <expression> can be either an <identifier>, an <integer>, or another <expression>
+expression:
+    IDENTIFIER { $$ = search_identifier($1); }
+    | INTEGER { $$ = $1; }
+    | expression '+' expression { $$ = $1 + $3; }
+    | expression '-' expression { $$ = $1 - $3; }
+    | expression '*' expression { $$ = $1 * $3; }
+    | expression '/' expression { $$ = $1 / $3; }
+    ;
+
+// <identifier> can be any string of characters starting with a letter
+identifier:
+    [a-zA-Z] { yylval.tokentype = IDENTIFIER; return $1; }
+    ;
+
+// <integer> can be any integer value
+integer:
+    DIGIT { yylval.tokentype = INTEGER; return $1; }
+    ;
+
+// This section defines the lexical analysis rules for the BISON language.
+// It uses regular expressions to match tokens.
+
+// <digit> matches a sequence of one or more digits
+DIGIT    [0-9]+
+
+// <identifier> matches a string of characters starting with a letter followed by any combination of letters or digits
+IDENTIFIER  [a-zA-Z][a-zA-Z0-9]*
+%%
+
+// This section defines the main function and includes necessary libraries.
+// It sets up the initial state, parses the input, and prints out the result of the expression.
+
+// Include necessary libraries
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+%}
+
+// Define the main function
+int main() {
+
+    // Set up the initial state
+    yyparse();
+
+    // Parse the input
+    yylex();
+
+    // Print out the result of the expression
+    printf("The result is: %d\n", $$);
+
+    return 0;
+}

@@ -1,0 +1,49 @@
+/* This program retrieves data from a table and updates it */
+DEFINE VARIABLE hQuery AS HANDLE NO-UNDO.
+DEFINE VARIABLE cCustNum AS CHARACTER NO-UNDO FORMAT "x(8)" INIT "".
+DEFINE VARIABLE cCustName AS CHARACTER NO-UNDO FORMAT "x(30)" INIT "".
+DEFINE VARIABLE cState AS CHARACTER NO-UNDO FORMAT "x(2)" INIT "".
+DEFINE VARIABLE dBalance AS DECIMAL NO-UNDO FORMAT ">$>>>,>>>,>>9.99" INIT 0.
+
+/* Create a query object */
+CREATE QUERY hQuery.
+
+/* Set the query's table and fields to retrieve */
+hQuery:SET-BUFFERS("Customer").
+hQuery:QUERY-PREPARE("FOR EACH Customer WHERE Customer.CustNum = '" + cCustNum + "' NO-LOCK, EACH CustomerAddress NO-LOCK WITH CustomerAddress.AddressType = 'BILL'").
+
+/* Open the query */
+hQuery:QUERY-OPEN().
+
+/* Begin transaction */
+START TRANSACTION.
+
+/* Loop through the query results */
+REPEAT:
+  /* Get field values and display them */
+  hQuery:GET-NEXT().
+  DISPLAY "Customer Number: " + cCustNum SKIP
+          "Customer Name: " + cCustName SKIP
+          "State: " + cState SKIP
+          "Balance: " + STRING(dBalance, ">$>>>,>>>,>>9.99").
+
+  /* Update the balance field */
+  IF dBalance < 0 THEN
+      ASSIGN dBalance = dBalance * -1.
+
+/* Store the updated record */
+hQuery:STORE().
+
+/* Check for errors and handle them */
+IF NOT hQuery:QUERY-OFF-END THEN DO:
+    MESSAGE "Error updating record" VIEW-AS ALERT-BOX.
+END.
+
+/* End transaction */
+END TRANSACTION.
+
+/* Close the query */
+hQuery:QUERY-CLOSE().
+
+/* Destroy the query object */
+DELETE OBJECT hQuery.

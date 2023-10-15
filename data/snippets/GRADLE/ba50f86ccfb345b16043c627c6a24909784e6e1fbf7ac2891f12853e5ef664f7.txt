@@ -1,0 +1,87 @@
+// Define an enum for different types of tasks
+enum TaskType{
+    COMPILE,
+    RUN,
+    TEST,
+    DEPLOY
+}
+
+// Create a task for compiling source code
+task compile(type: GradleBuild) {
+    tasks.add(TaskType.COMPILE) // Add compile task to list of tasks
+    inputs.dir(sourceDir) // Set source directory as input for task
+    outputs.dir(outputDir) // Set output directory as output for task
+    doLast {
+        println "Compiling source code..."
+        compileJava.options.compilerArgs = ["-Xlint"] // Set compiler arguments
+        exec {
+            commandLine distributedCompiler // Use distributed compiler for faster build
+        }
+    }
+}
+// Create a task for running the compiled code
+task run(type: Exec, dependsOn: compile) {
+    inputs.dir(outputDir) // Set output directory as input for task
+    doLast {
+        println "Running compiled code..."
+        exec {
+            commandLine java, "-jar", outputJar // Run the compiled code from outputJar
+        }
+    }
+}
+// Create a task for running tests
+task test(type: Test) {
+    tasks.add(TaskType.TEST) // Add test task to list of tasks
+    inputs.dir(sourceDir) // Set source directory as input for task
+    outputs.file(testReport) // Set test report file as output for task
+    testLogging.events = ["passed", "skipped"] // Only log passed and skipped tests
+}
+// Create a task for deploying the application
+task deploy(type: Exec, dependsOn: [compile, test]) {
+    tasks.add(TaskType.DEPLOY) // Add deploy task to list of tasks
+    inputs.dir(outputDir) // Set output directory as input for task
+    outputs.file(deployedJar) // Set deployed jar file as output for task
+    doLast {
+        println "Deploying application..."
+        exec {
+            commandLine scp, outputJar, remoteServer // Use SCP to transfer jar file to remote server for deployment
+        }
+    }
+}
+
+// Configure build script to use Java plugin
+apply plugin: 'java'
+// Configure build script to use test task
+apply plugin: 'base'
+// Configure build script to use distribution plugin for creating a distributable jar file
+apply plugin: 'distribution'
+
+// Configure source and output directories
+ext.outputDir = file("build/output")
+ext.sourceDir = file("src/main/java")
+
+// Configure output jar file
+ext.outputJar = file("$outputDir/application.jar")
+
+// Configure test report file
+ext.testReport = file("$outputDir/reports/test/report.txt")
+
+// Configure deployed jar file (for deployment task)
+ext.deployedJar = file("/opt/application/application.jar")
+
+// Configure remote server (for deployment task)
+ext.remoteServer = "user@host"
+
+// Configure distributed compiler tool (can be set in gradle.properties or as an environment variable)
+ext.distributedCompiler = "distcc"
+
+// Configure java executable
+ext.java = System.getProperty('java.home') + "/bin/java"
+
+// Configure scp executable
+ext.scp = "scp"
+
+// Add tasks to default build task
+defaultTasks 'compile', 'run'
+// Add all tasks to list of tasks (for use in deployment task)
+allTasks = [compile, run, test, deploy]

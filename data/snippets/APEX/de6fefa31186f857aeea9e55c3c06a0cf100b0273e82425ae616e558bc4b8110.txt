@@ -1,0 +1,46 @@
+// This code snippet is a class that implements a database trigger in APEX.
+// It is used to update the account record whenever a related contact record is updated.
+
+trigger ContactTrigger on Contact (after update) {
+
+    // Initialize a set to hold the account IDs of all the contacts being updated
+    Set<Id> accountIds = new Set<Id>();
+
+    // Loop through the trigger's new list of contacts
+    for (Contact contact : Trigger.new) {
+
+        // Check if the contact has a value in the AccountId field
+        if (contact.AccountId != null) {
+
+            // Add the account ID to the set
+            accountIds.add(contact.AccountId);
+        }
+    }
+
+    // Create a map to hold the updated account records
+    Map<Id, Account> accountsToUpdate = new Map<Id, Account>();
+
+    // Query for all the updated account records using the account IDs from the set
+    for (Account account : [SELECT Id, (SELECT Id FROM Contacts) FROM Account WHERE Id IN :accountIds]) {
+
+        // Loop through the related contacts and check if they have updated email addresses
+        for (Contact contact : account.Contacts) {
+            if (contact.Email != null && contact.Email != Trigger.oldMap.get(contact.Id).Email) {
+
+                // Update the account's email address with the first contact's email
+                account.Email = contact.Email;
+
+                // Add the updated account to the map
+                accountsToUpdate.put(account.Id, account);
+                break;
+            }
+        }
+    }
+
+    // Check if there are updated accounts in the map
+    if (!accountsToUpdate.isEmpty()) {
+
+        // Use the bulk API to update all the accounts in the map
+        Database.update(accountsToUpdate.values());
+    }
+}

@@ -1,0 +1,104 @@
+// This is a contract that implements a basic voting system
+contract VotingSystem {
+
+    // Define a structure for a Voter
+    struct Voter {
+        bool hasVoted; // flag to indicate if the voter has already voted
+        uint8 vote; // stores the vote of the voter
+    }
+
+    // Define a structure for a Candidate
+    struct Candidate {
+        string name; // name of the candidate
+        uint8 voteCount; // number of votes received by the candidate
+    }
+
+    // Define a variable to store the address of the contract creator (election manager)
+    address electionManager;
+
+    // Array of candidates
+    Candidate[] public candidates;
+
+    // Mapping to store voters
+    mapping(address => Voter) public voters;
+
+    // Event to be emitted when a new candidate is added
+    event NewCandidateAdded(string name);
+
+    // Event to be emitted when a voter casts a vote
+    event VoteCasted(address voter, string candidateName);
+
+    // Modifier to restrict certain functions to only the election manager
+    modifier onlyElectionManager(){
+        require(msg.sender == electionManager, "This function can only be called by the election manager");
+        _;
+    }
+
+    // Function to add a new candidate
+    function addCandidate(string memory _name) public onlyElectionManager {
+        // Create a new candidate struct
+        Candidate memory newCandidate = Candidate({
+            name: _name,
+            voteCount: 0
+        });
+        // Add the candidate to the array of candidates
+        candidates.push(newCandidate);
+        // Emit the NewCandidateAdded event
+        emit NewCandidateAdded(_name);
+    }
+
+    // Function for a voter to cast a vote
+    function castVote(string memory _candidateName) public {
+        // Check if the sender has already voted
+        require(!voters[msg.sender].hasVoted, "You have already casted your vote.");
+
+        // Loop through the list of candidates to find the specified candidate
+        for(uint i = 0; i < candidates.length; i++){
+            // If the candidate is found, add 1 to their vote count and mark the voter as having voted
+            if(keccak256(abi.encodePacked(candidates[i].name)) == keccak256(abi.encodePacked(_candidateName))){
+                candidates[i].voteCount++;
+                voters[msg.sender].hasVoted = true;
+                voters[msg.sender].vote = i+1;
+                // Emit the VoteCasted event
+                emit VoteCasted(msg.sender, _candidateName);
+                break;
+            }
+        }
+    }
+
+    // Function to get the total number of votes received by a candidate
+    function getVoteCount(string memory _candidateName) public view returns (uint8) {
+        // Loop through the list of candidates to find the specified candidate
+        for(uint i = 0; i < candidates.length; i++){
+            // Return the vote count of the candidate if found
+            if(keccak256(abi.encodePacked(candidates[i].name)) == keccak256(abi.encodePacked(_candidateName))) {
+                return candidates[i].voteCount;
+            }
+        }
+    }
+
+    // Function to get the winner of the election
+    function getWinner() public view returns (string memory) {
+        // Set a temporary variable to store the name of the candidate with the most votes
+        string memory winnerName;
+        // Set a temporary variable to store the highest vote count
+        uint8 maxVotes = 0;
+
+        // Loop through the list of candidates
+        for(uint i = 0; i < candidates.length; i++){
+            // If the current candidate has more votes than the current highest vote count,
+            // update the temporary variables
+            if(candidates[i].voteCount > maxVotes) {
+                maxVotes = candidates[i].voteCount;
+                winnerName = candidates[i].name;
+            }
+            // If there is a tie, return an empty string
+            else if(candidates[i].voteCount == maxVotes) {
+                return "";
+            }
+        }
+        // Return the name of the winner if there is one
+        return winnerName;
+    }
+
+}

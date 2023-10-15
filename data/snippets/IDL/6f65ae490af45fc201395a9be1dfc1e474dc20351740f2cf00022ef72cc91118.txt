@@ -1,0 +1,148 @@
+; Procedure for performing Singular Value Decomposition (SVD)
+
+pro svd, input_matrix, row_dimension, col_dimension, U, S, V
+;Function takes input_matrix as the input argument, along with the dimensions of the input matrix and output variables: U, S, V
+
+;Initialize U and V as empty arrays of size row_dimensionxrow_dimension and col_dimensionxcol_dimension respectively
+U = fltarr(row_dimension, row_dimension)
+V = fltarr(col_dimension, col_dimension)
+
+; Initialize S as a diagonal matrix of size row_dimensionxcol_dimension
+S = fltarr(row_dimension, col_dimension)
+
+; Initialize temporary arrays to be used in the algorithm
+A = input_matrix
+B = fltarr(col_dimension, col_dimension)
+C = fltarr(row_dimension, col_dimension)
+D = fltarr(col_dimension, row_dimension)
+E = fltarr(row_dimension, row_dimension)
+F = fltarr(col_dimension, col_dimension)
+G = fltarr(row_dimension, col_dimension)
+H = fltarr(col_dimension, row_dimension)
+I = fltarr(col_dimension, row_dimension)
+
+; Perform SVD using Golub-Reinsch Algorithm
+; Step 1: Perform bidiagonalization of input_matrix using Householder transformations
+pro bidiagonalize_matrix, input_matrix, row_dimension, col_dimension, B, C
+; Function takes input_matrix as the input argument, along with the dimensions of the input matrix and output variables: B, C
+; Initialize temporary arrays
+V = fltarr(col_dimension, col_dimension)
+X = fltarr(row_dimension, col_dimension)
+Y = fltarr(row_dimension, row_dimension)
+Z = fltarr(row_dimension, col_dimension)
+W = fltarr(col_dimension, row_dimension)
+
+; Perform Householder transformations to reduce input_matrix to a bidiagonal matrix
+for j=0, col_dimension-1 do begin
+	; Compute vector v and its norm
+	v = input_matrix(0:row_dimension-1, j)
+	v_norm = vector_norm(v)
+	
+	; Compute Householder reflector
+	if j eq 0 then
+		e1 = fltarr(row_dimension)
+		e1(0) = 1.0
+		alpha = -sign(v(0))*v_norm
+	else begin
+		e1 = fltarr(row_dimension)
+		e1(0) = 0.0
+		e1(1:row_dimension-1) = B(j-1, 0:row_dimension-2)
+		alpha = -sign(B(j-1,0))*vector_norm(e1)
+	endif
+	v = v - alpha*e1
+	v_norm = vector_norm(v)
+	
+	; Normalize v
+	v = v/v_norm
+	
+	; Apply Householder transformation to input_matrix
+	input_matrix(0:row_dimension-1, j:col_dimension-1) = input_matrix(0:row_dimension-1, j:col_dimension-1) - 2*v#(v#input_matrix(0:row_dimension-1, j:col_dimension-1))
+	
+	; Store the Householder reflector in B
+	if j lt col_dimension-1 then B(j, (j+1):col_dimension-1) = v(1:row_dimension-1)
+	
+	; Compute vector w and its norm
+	w = input_matrix(j, j+1:col_dimension-1)
+	w_norm = vector_norm(w)
+	
+	; Compute Householder reflector
+	e = fltarr(row_dimension)
+	e(0) = 0.0
+	e(j+1) = 1.0
+	alpha = -sign(w(0))*w_norm
+	
+	; Apply Householder transformation to input_matrix
+	input_matrix(0:row_dimension-1, j+1:col_dimension-1) = input_matrix(0:row_dimension-1, j+1:col_dimension-1) - 2*((input_matrix(0:row_dimension-1, j+1:col_dimension-1)#e)*w)
+
+	; Store the Householder reflector in C 
+	if j lt row_dimension-1 then C(j, j+1:col_dimension-1) = w
+endfor
+
+; Step 2: Compute SVD using Golub-Reinsch Algorithm
+for i=0, col_dimension-1 do begin
+	; Initialize temporary arrays
+	U_temp = fltarr(row_dimension, 1)
+	V_temp = fltarr(col_dimension, 1)
+	
+	; Perform iterations to compute the diagonal elements of S
+	for k=i+1, row_dimension-1 do begin
+		S(k,i) = input_matrix(k,i)
+		S(i,k) = input_matrix(i,k)
+	endfor
+	
+	;Compute rotation matrix for reducing the norm of the first row to zero
+	if i gt 0 then 
+		V_temp(i) = input_matrix(-1,i-1)
+		V_temp(i+1) = input_matrix(0,i-1)
+		U_temp(i+1) = vector_norm(V_temp)
+		V_temp = V_temp/U_temp(i+1)
+		input_matrix(0:row_dimension-1, i-1:i) = input_matrix(0:row_dimension-1, i-1:i) - V_temp#(V_temp#input_matrix(0:row_dimension-1, i-1:i))
+		input_matrix(i-1, i-1) = U_temp(i+1)
+	endif
+	
+	; Compute rotation matrix for reducing the norm of the last column to zero
+	if i lt row_dimension-2 then begin
+		U_temp = input_matrix(0, i+1:row_dimension-2)
+		X(0:row_dimension-1,i) = U_temp(1:row_dimension-1)
+		X(i+1:row_dimension-1,i+1) = -U_temp
+		Y(i+1:row_dimension-1,i+1) = vector_norm(U_temp)
+		U_temp = Y(0:row_dimension-1,i+1:i+1)
+		V_temp = vector_norm(U_temp)
+		U_temp = U_temp/V_temp
+		input_matrix(0:row_dimension-1, i+1:i+1) = input_matrix(0:row_dimension-1, i+1:i+1) - U_temp#(U_temp#input_matrix(0:row_dimension-1, i+1:i+1))
+		input_matrix(i:i+1, i+1) = V_temp
+	endif
+	
+	; Compute rotation matrix for reducing the norm of the last row to zero
+	if i lt row_dimension-2 then begin
+		V_temp = input_matrix(i+1, i+1:col_dimension-1)
+		V_temp = V_temp/Y(i+1, i+1)
+		W(i+1:col_dimension-1, i) = V_temp
+		Y(i+1:row_dimension-1, i+1:col_dimension-1) = vector_norm(V_temp)
+		V_temp = V_temp/Y(i+1, i+1)
+		input_matrix(i+1:row_dimension-1, i+1:col_dimension-1) = input_matrix(i+1:row_dimension-1, i+1:col_dimension-1) - V_temp#(V_temp#input_matrix(i+1:row_dimension-1,i+1:col_dimension-1))
+		input_matrix(i+1, i+1) = Y(i+1, i+1)
+	endif
+	
+	; Compute U and V matrices
+	U(0:row_dimension-1, i:i) = V_temp
+	V(i:col_dimension-1, i) = U_temp
+endfor
+
+; Transpose V matrix
+V = transpose(V)
+
+; Sort diagonal matrix S in descending order
+ind = sort(S, dim=3)
+S = S(ind)
+
+; Print outputs
+print, 'The input matrix, A:'
+print, A
+print, 'The left-singular vectors, U:'
+print, U
+print, 'The singular values, S:'
+print, S
+print, 'The right-singular vectors, V:'
+print, V
+end

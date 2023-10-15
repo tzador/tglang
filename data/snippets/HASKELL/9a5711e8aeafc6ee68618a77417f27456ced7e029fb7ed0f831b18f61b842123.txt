@@ -1,0 +1,37 @@
+{-# LANGUAGE GADTs, TypeFamilies, FlexibleInstances #-}
+
+-- Define a type family to represent natural numbers
+type family Nat where
+  Nat = Zero 			  -- Zero is a type synonym for Nat
+  Nat = Succ Nat  	    -- Succ is a type constructor for Nat, representing the successor of a given Nat 
+
+-- Define a GADT, representing a vector of type 'a' with a length represented by type 'n'
+data Vec a n where
+  Nil :: Vec a Zero -- Empty vector
+  (:-) :: a -> Vec a n -> Vec a (Succ n) -- Non-empty vector
+
+-- Define a type class 'VecConcat' to implement vector concatenation operation
+class VecConcat n1 n2 where
+  type VecConcatResult n1 n2 :: Nat -- Type family to represent result length
+  (<>) :: Vec a n1 -> Vec a n2 -> Vec a (VecConcatResult n1 n2)
+
+-- Implement the concatenation of two vectors
+instance VecConcat Zero n where
+  type VecConcatResult Zero n = n
+  Nil <> ys = ys
+
+instance (VecConcat n1 n2) => VecConcat (Succ n1) n2 where
+  type VecConcatResult (Succ n1) n2 = Succ (VecConcatResult n1 n2)
+  (x :- xs) <> ys = x :- (xs <> ys)
+  
+-- Test the implementation
+vec1 :: Vec Int (Succ (Succ Zero))
+vec1 = 1 :- 2 :- Nil
+
+vec2 :: Vec Int (Succ (Succ Zero))
+vec2 = 3 :- 4 :- Nil
+
+vec3 :: Vec Int (Succ (Succ (Succ Zero)))
+vec3 = vec1 <> vec2
+
+-- The result vector is [1,2,3,4]

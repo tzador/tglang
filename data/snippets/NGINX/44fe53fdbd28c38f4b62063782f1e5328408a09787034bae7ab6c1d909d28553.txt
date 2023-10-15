@@ -1,0 +1,62 @@
+server {
+    listen 80;
+    server_name example.com;
+
+    # Root directory for serving static content
+    root /var/www/example.com;
+
+    location / {
+        # Set gzip compression
+        gzip on;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+        # Cache configuration
+        proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=example.com:100m inactive=60m;
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+
+        # Proxy settings for caching
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_ignore_headers Set-Cookie;
+        proxy_ignore_headers Cache-Control;
+        proxy_ignore_headers X-Accel-Expires;
+
+        proxy_cache_bypass $http_pragma;
+        proxy_no_cache $http_pragma;
+
+        # Load balancing with round-robin method
+        upstream example_upstream {
+            server 127.0.0.1:8000;
+            server 127.0.0.1:8001;
+            server 127.0.0.1:8002;
+        }
+
+        # Pass requests to upstream servers
+        proxy_pass http://example_upstream;
+    }
+
+    # Server blocks for handling specific URLs
+    location /admin/ {
+        # Require Basic Authentication
+        auth_basic "Admin Dashboard";
+        auth_basic_user_file /etc/nginx/.htpasswd;
+
+        # Proxy settings for caching
+        proxy_pass http://example_upstream;
+    }
+
+    location /api/ {
+        # Reverse proxy for API server
+        proxy_pass http://127.0.0.1:8080;
+
+        # Set proxy headers
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Accel-Internal /internal-api/;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # Enable websocket proxy
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}

@@ -1,0 +1,61 @@
+const { GraphQLObjectType, GraphQLString, GraphQLInt, GraphQLList } = require('graphql'); //Importing necessary modules
+
+//Defining a GraphQLObjectType for a user
+const UserType = new GraphQLObjectType({
+  name: 'User',
+  description: 'A user in the system',
+  fields: () => ({
+    id: { type: GraphQLInt }, //Field for user's ID
+    username: { type: GraphQLString }, //Field for user's username
+    email: { type: GraphQLString }, //Field for user's email
+    age: { type: GraphQLInt }, //Field for user's age
+    friends: {
+      type: new GraphQLList(UserType), //Field for user's friends, which can be a list of other users
+      resolve(parent, args) {
+        //Query to retrieve the user's friends
+        return User.find({ friends: parent.id });
+      },
+    },
+  }),
+});
+
+//Defining a GraphQL query to retrieve all users
+const query = new GraphQLObjectType({
+  name: 'Query',
+  fields: {
+    users: {
+      type: new GraphQLList(UserType), //Return type of the query
+      resolve(parent, args) {
+        //Query to retrieve all users from the database
+        return User.find();
+      },
+    },
+  },
+});
+
+//Defining a GraphQL mutation to add a new user
+const mutation = new GraphQLObjectType({
+  name: 'Mutation',
+  fields: {
+    addUser: {
+      type: UserType, //Return type of the mutation
+      args: {
+        username: { type: GraphQLString }, //Argument for user's username
+        email: { type: GraphQLString }, //Argument for user's email
+        age: { type: GraphQLInt }, //Argument for user's age
+      },
+      resolve(parent, args) {
+        //Creating a new user object with the given arguments and saving it to the database
+        const user = new User({
+          username: args.username,
+          email: args.email,
+          age: args.age,
+        });
+        return user.save();
+      },
+    },
+  },
+});
+
+//Exporting the query and mutation for use in the main application
+module.exports = { query, mutation };

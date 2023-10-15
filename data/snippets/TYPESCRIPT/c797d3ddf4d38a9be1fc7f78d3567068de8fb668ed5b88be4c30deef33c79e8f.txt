@@ -1,0 +1,87 @@
+//Importing necessary libraries
+import { Component, OnInit } from '@angular/core';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { ActivatedRoute, Router } from '@angular/router';
+import { FormGroup, FormControl, Validators } from '@angular/forms';
+
+@Component({
+  selector: 'app-create-order',
+  templateUrl: './create-order.component.html',
+  styleUrls: ['./create-order.component.css']
+})
+
+//Class declaration
+export class CreateOrderComponent implements OnInit {
+  //Variable declarations
+  orderForm: FormGroup;
+  products: any[];
+  customerName: string;
+  errorMessage: string;
+
+  //Initializing variables
+  constructor(private http: HttpClient, private activatedRoute: ActivatedRoute, private router: Router) { }
+
+  //OnInit function
+  ngOnInit(): void {
+    //Creating form group with form controls and validators
+    this.orderForm = new FormGroup({
+      'productName': new FormControl(null, Validators.required),
+      'quantity': new FormControl(null, [Validators.required, Validators.min(1), Validators.max(10)]),
+      'customerName': new FormControl(this.customerName, Validators.required)
+    });
+
+    //Calling getProduct function to get product data from API
+    this.getProduct();
+  }
+
+  //Function to get product data from API
+  getProduct(): void {
+    //Getting product id from route parameters
+    const id = this.activatedRoute.snapshot.params.id;
+
+    //Making GET request to API endpoint
+    this.http.get(`https://example.com/api/products/${id}`).subscribe(
+      (res: any) => {
+        //Assigning response data to products variable
+        this.products = [res];
+      },
+      //Error handling
+      (err: any) => {
+        //Assigning error message to errorMessage variable
+        this.errorMessage = err.error.message;
+      }
+    );
+  }
+
+  //Function to submit order form
+  onSubmit() {
+    //Getting form controls values
+    const customerName = this.orderForm.value.customerName;
+    const productName = this.orderForm.value.productName;
+    const quantity = this.orderForm.value.quantity;
+
+    //Creating request body with form data
+    const body = {
+      'customerName': customerName,
+      'product': {
+        'productName': productName,
+        'quantity': quantity
+      }
+    }
+    //Setting headers for POST request
+    const headers = new HttpHeaders().set('Content-Type', 'application/json');
+
+    //Making POST request to API endpoint
+    this.http.post('https://example.com/api/orders', body, { headers: headers }).subscribe(
+      (res: any) => {
+        //Navigate to order success page
+        this.router.navigate(['/order-success']);
+      },
+      //Error handling
+      (err: any) => {
+        //Assigning error message to errorMessage variable
+        this.errorMessage = err.error.message;
+      }
+    );
+  }
+}

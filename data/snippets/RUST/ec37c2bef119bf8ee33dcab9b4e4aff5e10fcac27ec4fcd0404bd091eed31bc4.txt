@@ -1,0 +1,102 @@
+use std::{collections::HashMap, io::{self, Read, Write}, mem, net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream}, sync::{mpsc, Arc, Mutex}};
+use serde::{Serialize, Deserialize};
+use actix_web::{Error, HttpRequest, HttpResponse, web::{self, Data, Json, Path}, Residual, Result, State};
+use rand::{thread_rng, Rng};
+use futures::future::{result, FutureExt, TryFutureExt};
+use tokio::{stream::StreamExt, timer::Interval};
+use hyper::{Body, Request, Response};
+use log::{error, info, warn};
+use sha2::{Digest, Sha256};
+
+const BUFFER_SIZE: u16 = 1024;
+
+#[actix_rt::main]
+async fn main() -> std::io::Result<()> {
+    let listener = TcpListener::bind("127.0.0.1:8080").await.unwrap();
+    
+    info!("Server started on port 8080");
+    
+    while let Ok((stream, addr)) = listener.accept().await {
+        let shared_stream = Arc::new(Mutex::new(stream));
+        let sender = Arc::clone(&shared_stream);
+        
+        tokio::spawn(async move {
+            let (read_half, write_half) = shared_stream.lock().await.split();
+            
+            let mut reader = io::BufReader::with_capacity(BUFFER_SIZE as usize, read_half);
+            let mut writer = io::BufWriter::with_capacity(BUFFER_SIZE as usize, write_half);
+            let mut buffer = [0u8; BUFFER_SIZE as usize];
+            
+            // Read data from the TCP stream
+            match reader.read_exact(&mut buffer).await {
+                Ok(_) => {
+                    let data = &buffer[..];
+                    
+                    // Deserialize the data into a struct using serde
+                    let deserialized_data: Result<RequestData, _> = serde_json::from_slice(&data);
+                    
+                    match deserialized_data {
+                        Ok(request_data) => {
+                            // Perform some logic on the data
+                            let result = process_data(request_data);
+                            
+                            // Serialize the result back into JSON using serde
+                            let serialized_result = serde_json::to_vec(&result).unwrap();
+                            
+                            // Write the result back to the TCP stream
+                            writer.write_all(&serialized_result).await.unwrap();
+                        },
+                        Err(_) => {
+                            error!("Failed to deserialize data into RequestData struct");
+                            
+                            // Write back an error to the TCP stream
+                            let error_message = ErrorMessage { code: 400, message: "Bad request".into() };
+                            let serialized_error = serde_json::to_vec(&error_message).unwrap();
+                            writer.write_all(&serialized_error).await.unwrap();
+                        }
+                    }
+                },
+                Err(_) => {
+                    error!("Failed to read data from TCP stream");
+                }
+            }
+        });
+    }
+    
+    Ok(())
+}
+
+// Struct for storing request data
+#[derive(Serialize, Deserialize)]
+struct RequestData {
+    pub username: String,
+    pub password: String,
+}
+
+// Struct for storing error message
+#[derive(Serialize, Deserialize)]
+struct ErrorMessage {
+    pub code: u16,
+    pub message: String,
+}
+
+// Function for processing the data
+fn process_data(data: RequestData) -> Result<String, Error> {
+    // Perform some validation and logic on the data
+    let username = data.username;
+    let password = data.password;
+    
+    // Perform some random number generation
+    let mut rng = thread_rng();
+    let random_number: u32 = rng.gen();
+    
+    // Perform some encryption using a sha256 hash
+    let mut hasher = Sha256::new();
+    hasher.update(password);
+    let hashed_password = hasher.finalize();
+    
+    // Combine the data and generated random number into a result string
+    let result = format!("Hello {}! Your password {} has been encrypted and combined with the random number {}.", username, hex::encode(hashed_password), random_number);
+    
+    Ok(result)
+}

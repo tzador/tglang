@@ -1,0 +1,122 @@
+const { GraphQLObjectType, GraphQLInt, GraphQLString, GraphQLList, GraphQLSchema } = require('graphql');
+
+// Define custom GraphQL Object Type
+const UserType = new GraphQLObjectType({
+    name: 'User',
+    description: 'Represents a user in our application',
+    fields: () => ({
+        id: { type: GraphQLInt },
+        name: { type: GraphQLString },
+        age: { type: GraphQLInt },
+        posts: { 
+            type: new GraphQLList(PostType),
+            resolve(parent, args) {
+                // Some logic to fetch data from database
+                return db.posts.findAll({ where: { userId: parent.id }});
+            }
+        }
+    })
+});
+
+// Define custom GraphQL Object Type
+const PostType = new GraphQLObjectType({
+    name: 'Post',
+    description: 'Represents a post in our application',
+    fields: () => ({
+        id: { type: GraphQLInt },
+        title: { type: GraphQLString },
+        content: { type: GraphQLString },
+        author: {
+            type: UserType,
+            resolve(parent, args) {
+                // Some logic to fetch data from database
+                return db.users.findOne({ where: { id: parent.userId } });
+            }
+        }
+    })
+});
+
+// Root Query
+const RootQuery = new GraphQLObjectType({
+    name: 'RootQueryType',
+    description: 'Root Query',
+    fields: {
+        user: { 
+            type: UserType,
+            args: { id: { type: GraphQLInt } },
+            resolve(parent, args) {
+                // Some logic to fetch data from database
+                return db.users.findOne({ where: { id: args.id } });
+            }
+        },
+        post: { 
+            type: PostType,
+            args: { id: { type: GraphQLInt } },
+            resolve(parent, args) {
+                // Some logic to fetch data from database
+                return db.posts.findOne({ where: { id: args.id } });
+            }
+        },
+        users: { 
+            type: new GraphQLList(UserType),
+            resolve(parent, args) {
+                // Some logic to fetch data from database
+                return db.users.findAll();
+            }
+        },
+        posts: { 
+            type: new GraphQLList(PostType),
+            resolve(parent, args) {
+                // Some logic to fetch data from database
+                return db.posts.findAll();
+            }
+        }
+    }
+});
+
+// Mutations
+const Mutation = new GraphQLObjectType({
+    name: 'Mutation',
+    description: 'Mutations',
+    fields: {
+        addUser: {
+            type: UserType,
+            args: {
+                name: { type: GraphQLString },
+                age: { type: GraphQLInt }
+            },
+            resolve(parent, args) {
+                // Some logic to create a new user in database
+                return db.users.create({
+                    name: args.name,
+                    age: args.age
+                });
+            }
+        },
+        addPost: {
+            type: PostType,
+            args: {
+                title: { type: GraphQLString },
+                content: { type: GraphQLString },
+                userId: { type: GraphQLInt }
+            },
+            resolve(parent, args) {
+                // Some logic to create a new post in database
+                return db.posts.create({
+                    title: args.title,
+                    content: args.content,
+                    userId: args.userId
+                });
+            }
+        }
+    }
+});
+
+// Create GraphQL Schema
+const schema = new GraphQLSchema({
+    query: RootQuery,
+    mutation: Mutation
+});
+
+// Export schema
+module.exports = schema;

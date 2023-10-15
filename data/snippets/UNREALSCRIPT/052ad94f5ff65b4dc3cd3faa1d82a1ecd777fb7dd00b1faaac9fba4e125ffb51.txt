@@ -1,0 +1,166 @@
+/** Code block for a custom Weapon class in UnrealScript */
+
+class MyWeapon extends Weapon;
+
+// Constants
+const int MAX_AMMO = 200; // Maximum amount of ammo for this weapon
+const float FIRE_RATE = 0.2; // Rate at which the weapon can fire
+
+// Variables
+var int AmmoCount; // Current amount of ammo
+var float LastFireTime; // Time since the weapon last fired
+
+// Functions
+
+/**
+ * Handle firing the weapon
+ * 
+ * @param FireMode - The fire mode of the weapon (single fire, burst fire, etc.)
+ */
+function FireWeapon(FireMode FireMode)
+{
+    // Check if we have enough ammo to fire and if enough time has passed since the last fire
+    if (AmmoCount > 0 && (TimeSince(LastFireTime) > FIRE_RATE))
+    {
+        // Play firing animation and sound
+        PlayFiringAnimation();
+        PlayFiringSound();
+
+        // Spawn projectile and add it to the game world
+        SpawnProjectile(FireMode);
+
+        // Decrement ammo count and set last fire time
+        AmmoCount--;
+        LastFireTime = GetPawn().GetWorldInfo().RealTimeSeconds;
+    }
+}
+
+/**
+ * Handle spawning the projectile for the given fire mode
+ * 
+ * @param FireMode - The fire mode of the weapon (single fire, burst fire, etc.)
+ */
+function SpawnProjectile(FireMode FireMode)
+{
+    // Create a new instance of the projectile class
+    Projectile Projectile;
+
+    // Set the projectile's initial location and rotation
+    Projectile.SetActorLocation(GetMuzzleLocation());
+    Projectile.SetActorRotation(GetMuzzleRotation());
+
+    // Set the projectile's velocity depending on the fire mode
+    switch (FireMode)
+    {
+        case FireMode.Single:
+            // Fire a single projectile straight ahead
+            Projectile.SetVelocity(GetAdjustedAim());
+            break;
+
+        case FireMode.Burst:
+            // Fire multiple projectiles in a cone 
+            for (int i = 0; i < 3; i++)
+            {
+                Projectile.SetVelocity
+                (
+                    GetAdjustedAim() + // Adds a random offset to the aim vector
+                    Vector(0, 0, FMath.RandRange(-50, 50)) + // Random z-axis offset
+                    Vector(FMath.RandRange(-50, 50), FMath.RandRange(-50, 50), 0) // Random xy-axis offset
+                );
+            }
+                
+            break;
+
+        case FireMode.Charged:
+            // Fire a charged projectile with increased velocity
+            Projectile.SetVelocity(GetAdjustedAim() * 2);
+            break;
+    }
+
+    // Add the projectile to the game world
+    Projectile.AttachTo(None);
+    Projectile.SetOwner(GetInstigator());
+    Projectile.SetTimer(FMath.RandRange(3, 5), NULL, true);
+}
+
+/**
+ * Calculate and return the adjusted aim vector for the projectile spawn
+ */
+function Vector GetAdjustedAim()
+{
+    // Get the owner's pawn and camera location and rotation
+    local Pawn OwnerPawn;
+    local Vector CameraLocation;
+    local Rotator CameraRotation;
+
+    OwnerPawn = GetOwner().Pawn;
+    CameraLocation = OwnerPawn.Location;
+
+    // Calculate an offset (spread) for the aim vector depending on camera rotation
+    local float Scale;
+    Scale = 1.0f;
+    if (CameraRotation.Pitch < -160) 
+    {
+        Scale = 0.1f;
+    }
+    else if (CameraRotation.Pitch < -130)
+    {
+        Scale = 0.5f;
+    }
+
+    // Get the aim vector and apply the offset
+    local Vector Aim;
+    Aim = RotationToVector(CameraRotation);
+    Aim = Aim * Scale;
+
+    // Return the adjusted aim vector
+    return Aim;
+}
+
+/**
+ * Get the location of the weapon's muzzle (where the projectile will be spawned)
+ */
+function Vector GetMuzzleLocation()
+{
+    // Get the weapon's socket location for the muzzle
+    local Vector MuzzleLocation;
+    MuzzleLocation = GetSocketLocation('muzzle');
+    return MuzzleLocation;
+}
+
+/**
+ * Get the rotation of the weapon's muzzle (where the projectile will be spawned)
+ */
+function Rotator GetMuzzleRotation()
+{
+    // Get the weapon's socket rotation for the muzzle
+    local Rotator MuzzleRotation;
+    MuzzleRotation = GetSocketRotation('muzzle');
+    return MuzzleRotation;
+}
+
+/**
+ * Get the time since the last fire
+ */
+function float TimeSince(float LastTime)
+{
+    // Get the current world time and return the difference
+    return GetPawn().GetWorldInfo().RealTimeSeconds - LastTime;
+}
+
+/** Helper function for easily playing firing animation */
+function PlayFiringAnimation()
+{
+    PlayWeaponAnimation('Fire');
+}
+
+/** Helper function for easily playing firing sound */
+function PlayFiringSound()
+{
+    PlaySound(SoundCue'Sounds.Pistol.Fire');
+}
+
+defaultproperties
+{
+    AmmoCount = MAX_AMMO; // Set starting ammo to maximum
+}

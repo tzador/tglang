@@ -1,0 +1,23 @@
+trigger UpdateAccountFields on Opportunity (after insert, after update) {
+    
+    // Get the list of Opportunity Ids from trigger context
+    Set<Id> opportunityIds = new Set<Id>();
+    
+    for (Opportunity opp : Trigger.new) {
+        opportunityIds.add(opp.Id);
+    }
+    
+    // Retrieve the related Accounts
+    Map<Id, Account> accountsMap = new Map<Id, Account>([SELECT Id, Name, BillingState FROM Account WHERE Id IN :opportunityIds]);
+    
+    // Loop through Opportunities and update related Account fields if necessary
+    for (Opportunity opp : Trigger.new) {
+        Account acc = accountsMap.get(opp.Id);
+        if (opp.StageName == 'Closed Won' && acc.BillingState != 'California') {
+            acc.BillingState = 'California';
+        }
+    }
+    
+    // Update the related Accounts
+    update accountsMap.values();
+}

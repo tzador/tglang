@@ -1,0 +1,95 @@
+server {
+
+  # Defines the port on which the server will listen for requests
+  listen 80;
+
+  # Defines the server name, which can be a domain name or IP address
+  server_name example.com;
+
+  # Sets the root directory for the server, where the files for the website are stored
+  root /var/www/example;
+
+  # Sets the default index file names, in case the user does not specify a specific file in the URL
+  index index.html index.htm;
+
+  # Defines the location of the error log for this server block
+  error_log /var/log/nginx/example.error.log;
+
+  # Enables access logs for this server block, with the specified log format and location
+  access_log /var/log/nginx/example.access.log main;
+
+  # Defines a location block for requests that start with /images/
+  location /images/ {
+
+    # Sets up a limit on the maximum allowed size of the request body,
+    # in this case 10MB
+    client_max_body_size 10M;
+
+    # Sets up a limit on the rate at which requests can be processed,
+    # in this case 5 requests per second
+    limit_rate 5r/s;
+
+    # Defines the root directory for this particular location, different from the server root
+    root /var/www/example/images;
+
+    # Sets up a cache for these requests, with a size of 100MB and a TTL of 1 hour
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=images_cache:100m inactive=1h;
+
+    # Specifies the cache key for requests in this location block
+    proxy_cache_key $uri;
+
+    # Enables caching for GET requests to this location block
+    proxy_cache_methods GET;
+
+    # Sets up headers to be passed to the backend server for this location block
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+    # Sets a proxy timeout for this location block
+    proxy_read_timeout 60s;
+
+    # Specifies which upstream server to use for handling requests in this location block
+    # In this case, a load-balanced pool of servers named "images"
+    proxy_pass http://images;
+  }
+
+  # Defines a location block for requests starting with /videos/
+  location /videos/ {
+
+    # Sets a proxy timeout for this location block
+    proxy_read_timeout 60s;
+
+    # Specifies which upstream server to use for handling requests in this location block
+    # In this case, a load-balanced pool of servers named "videos"
+    proxy_pass http://videos;
+
+    # Enables gzip compression for responses to requests in this location block,
+    # with a minimum compression level of 5, and a buffer size of 16k
+    gzip on;
+    gzip_min_length 5;
+    gzip_buffers 16 8k;
+
+    # Enables HTTP/2 for requests in this location block
+    http2_push_preload on;
+
+    # Sets up caching for responses in this location block, with a size of 50MB and a TTL of 1 hour
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=videos_cache:50m inactive=1h;
+
+    # Specifies the cache key for requests in this location block
+    proxy_cache_key $uri;
+
+    # Changes the name of the response header from "Server" to "MyServer"
+    proxy_hide_header Server;
+    proxy_set_header MyServer $server_name;
+
+    # Sets up a limit on the maximum allowed size of the response body,
+    # in this case 1MB
+    proxy_max_temp_file_size 1m;
+  }
+
+  # Defines a virtual location for requests to /maintenance.html
+  location = /maintenance.html {
+
+    # Returns a HTTP 503 response with a custom message.
+    return 503 'Site is undergoing maintenance, please check back later.';
+  }
+}

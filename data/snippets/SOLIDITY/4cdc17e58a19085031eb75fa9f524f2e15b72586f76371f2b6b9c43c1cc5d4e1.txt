@@ -1,0 +1,83 @@
+// This contract is an example of using the Solidity programming language
+
+// Import necessary libraries
+import "./SafeMath.sol";
+import "./Ownable.sol";
+
+// Start of contract
+contract MyContract is Ownable {
+    using SafeMath for uint256; // Use SafeMath library for secure operations on numbers
+    
+    //state variables
+    mapping(address => uint256) balances; // Mapping of addresses and their corresponding balances
+    uint256 totalSupply; // Total supply of the token
+    
+    // Events
+    event Transfer(address indexed from, address indexed to, uint256 value); // Triggered when tokens are transferred
+    event Approval(address indexed owner, address indexed spender, uint256 value); // Triggered when an allowance is set
+    
+    // Constructor function
+    constructor(uint256 _initialSupply) public {
+        totalSupply = _initialSupply; // Set the total supply to the value passed in
+        
+        // Set the balance of the contract creator to the total supply
+        balances[msg.sender] = totalSupply;
+    }
+    
+    // Function to get the balance of a specific address
+    function balanceOf(address _owner) public view returns (uint256) {
+        return balances[_owner];
+    }
+    
+    // Function to transfer tokens from one address to another
+    function transfer(address _to, uint256 _value) public {
+        require(_to != address(0)); // Check that the recipient's address is not 0
+        
+        require(_value <= balances[msg.sender]); // Check that the sender has enough balance
+        
+        balances[msg.sender] = balances[msg.sender].sub(_value); // Subtract the amount from the sender's balance
+        balances[_to] = balances[_to].add(_value); // Add the amount to the recipient's balance
+        
+        emit Transfer(msg.sender, _to, _value); // Trigger the transfer event
+    }
+    
+    // Function to allow another address to spend tokens on behalf of the sender
+    function approve(address _spender, uint256 _value) public {
+        require(_spender != address(0)); // Check that the spender's address is not 0
+        
+        balances[msg.sender] = balances[msg.sender].sub(_value); // Subtract the amount from the sender's balance
+        balances[_spender] = balances[_spender].add(_value); // Add the amount to the spender's balance
+        
+        emit Approval(msg.sender, _spender, _value); // Trigger the approval event
+    }
+    
+    // Function to get the allowed amount of tokens for a specific address
+    function allowance(address _owner, address _spender) public view returns (uint256) {
+        return balances[_owner][_spender];
+    }
+    
+    // Function to transfer tokens from one address to another on behalf of the sender
+    function transferFrom(address _from, address _to, uint256 _value) public {
+        require(_from != address(0)); // Check that the sender's address is not 0
+        require(_to != address(0)); // Check that the recipient's address is not 0
+        
+        // Check that the sender has enough balance and the allowance is greater than or equal to the amount
+        require(_value <= balances[_from] && _value <= balances[_from][msg.sender]); 
+        
+        balances[_from] = balances[_from].sub(_value); // Subtract the amount from the sender's balance
+        balances[_to] = balances[_to].add(_value); // Add the amount to the recipient's balance
+        
+        emit Transfer(_from, _to, _value); // Trigger the transfer event
+    }
+    
+    // Function to burn tokens by deducting them from the contract supply
+    function burn(uint256 _value) public onlyOwner {
+        require(_value <= balances[msg.sender]); // Check that the sender has enough balance
+        
+        totalSupply = totalSupply.sub(_value); // Subtract the amount from the total supply
+        balances[msg.sender] = balances[msg.sender].sub(_value); // Subtract the amount from the sender's balance
+        
+        emit Transfer(msg.sender, address(0), _value); // Trigger the transfer event to send tokens to the 0 address
+    }
+    
+}

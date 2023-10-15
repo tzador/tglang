@@ -1,0 +1,123 @@
+// Verification of a 4-bit ripple carry adder
+
+// Declare input signals
+module ripple_carry_adder (
+  input [3:0] a, // 4-bit input signal A
+  input [3:0] b, // 4-bit input signal B
+  input cin,     // Carry in signal
+  input clk,     // Clock signal
+  output [3:0] sum, // 4-bit output signal sum
+  output cout        // Carry out signal
+  );
+
+// Declare internal wires
+wire [3:0] a_xor_b;            // Output of XOR gate between A & B
+wire [3:0] a_and_b;            // Output of AND gate between A & B
+wire [4:0] a_and_b_and_cin;    // Output of AND gate between (A & B) and cin
+wire [4:0] a_xor_b_xor_cin;    // Output of XOR gate between (A XOR B) and cin
+wire [2:0] sum_part;           // Output of half adder
+wire carry_part;               // Output of carry bit from half adder
+
+// Instantiate 4 half adders for each bit
+half_adder ha0(
+  a_xor_b[0],               // Output from LSB half adder
+  a_and_b[0],               // Output from LSB half adder
+  a[0], b[0]                // Inputs for LSB half adder
+  );
+
+half_adder ha1(
+  a_xor_b[1],               // Output from 2nd bit half adder
+  a_and_b[1],               // Output from 2nd bit half adder
+  a[1], b[1]                // Inputs for 2nd bit half adder
+  );
+
+half_adder ha2(
+  a_xor_b[2],               // Output from 3rd bit half adder
+  a_and_b[2],               // Output from 3rd bit half adder
+  a[2], b[2]                // Inputs for 3rd bit half adder
+  );
+
+half_adder ha3(
+  a_xor_b[3],               // Output from MSB half adder
+  a_and_b[3],               // Output from MSB half adder
+  a[3], b[3]                // Inputs for MSB half adder
+  );
+
+// Instantiate full adder for LSB
+full_adder fa0(
+  sum_part[0],                  // Output of sum bit for LSB
+  carry_part,                   // Carry bit from half adder
+  a_and_b_and_cin[0],           // Inputs for full adder- (A & B) and cin
+  a_xor_b_xor_cin[0],           // Inputs for full adder- (A XOR B) and cin
+  cin                           // Carry in signal
+  );
+
+// Instantiate full adders for remaining bits
+full_adder fa1(
+  sum_part[1],                  // Output of sum bit for 2nd bit
+  carry_part,                   // Carry bit from half adder
+  a_and_b_and_cin[1],           // Inputs for full adder- (A & B) and cin
+  a_xor_b_xor_cin[1],           // Inputs for full adder- (A XOR B) and cin
+  carry_part                    // Carry in signal from LSB full adder
+  );
+
+full_adder fa2(
+  sum_part[2],                  // Output of sum bit for 3rd bit
+  carry_part,                   // Carry bit from half adder
+  a_and_b_and_cin[2],           // Inputs for full adder- (A & B) and cin
+  a_xor_b_xor_cin[2],           // Inputs for full adder- (A XOR B) and cin
+  carry_part                    // Carry in signal from 2nd bit full adder
+  );
+
+full_adder fa3(
+  sum_part[3],                  // Output of sum bit for MSB
+  cout,                         // Carry out signal from previous full adder
+  a_and_b_and_cin[3],           // Inputs for full adder- (A & B) and cin
+  a_xor_b_xor_cin[3],           // Inputs for full adder- (A XOR B) and cin
+  carry_part                    // Carry in signal from 3rd bit full adder
+  );
+
+// Assign sum output bits
+assign sum = {sum_part[3], sum_part[2], sum_part[1], sum_part[0]};    // Concatenate sum bits
+
+// Assign carry out signal
+assign cout = fa3.carry; // Use last full adder's carry out signal as overall carry out signal
+
+endmodule
+
+
+// Definition of half adder
+
+module half_adder (
+  output sum,    // Output sum bit
+  output carry,  // Output carry bit
+  input a,       // Input signal a
+  input b        // Input signal b
+  );
+
+// Instantiate XOR gate for sum
+xor(sum, a, b);
+
+// Instantiate AND gate for carry
+and(carry, a, b);
+
+endmodule
+
+
+// Definition of full adder
+
+module full_adder (
+  output sum,    // Output sum bit
+  output carry,  // Output carry bit
+  input and_gate,                   // Input to AND gate
+  input xor_gate,                   // Input to XOR gate
+  input carry_in                     // Carry in signal
+  );
+
+// Instantiate XOR gate for sum
+xor(sum, xor_gate, carry_in);
+
+// Instantiate AND gate for carry
+and(carry, and_gate, carry_in);
+
+endmodule

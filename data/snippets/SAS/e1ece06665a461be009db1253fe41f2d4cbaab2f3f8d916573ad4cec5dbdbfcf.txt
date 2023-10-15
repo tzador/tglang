@@ -1,0 +1,34 @@
+/* Initialize variables and set initial values */
+data input_dataset;
+	infile 'data/input_data.txt'; /* specify input file */
+	input Name $ Age Sex $; /* define variables and their types */
+	Marital_Status = 'Single'; /* create new variable with default value */
+run;
+
+/* Filter and sort data */
+proc sort data=input_dataset out=filtered_dataset; /* sort data by age in ascending order */
+	where Age >= 18 and Sex = 'Female' and Marital_Status = 'Single'; /* filter data based on conditions */
+	by Age; /* specify sort variable */
+run;
+
+/* Calculate age percentiles for each name */
+proc univariate data=filtered_dataset noprint; /* perform univariate analysis on filtered dataset */
+	var Age; /* specify variable to analyze */
+	output out=percentiles pctlpts=10 to 90 by 10 pctlpre=Percentile; /* save age percentiles to new dataset */
+run;
+
+/* Create output dataset with unique names and their corresponding percentiles */
+data output_dataset;
+	set percentiles; /* use percentiles dataset as input */
+	by Name; /* sort data by name */
+	if first.Name; /* keep only the first row for each unique name */
+	keep Name Percentile10 Percentile50 Percentile90; /* keep only the desired percentiles */
+run;
+
+/* Export output dataset to CSV file */
+proc export data=output_dataset outfile='data/percentiles.csv' dbms=csv replace; /* specify output file name and format */
+run;
+
+/* Check for any missing values in output dataset */
+proc means data=output_dataset n nmiss; /* use means procedure to check for missing values */
+run;

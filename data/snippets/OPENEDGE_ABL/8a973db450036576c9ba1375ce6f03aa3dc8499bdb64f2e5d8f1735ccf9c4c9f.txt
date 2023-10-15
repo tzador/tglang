@@ -1,0 +1,44 @@
+/* This is a complex code snippet in OPENEDGE_ABL */
+
+/* Creating a dynamic cursor for querying a table */
+DEFINE VARIABLE hCursor AS HANDLE NO-UNDO.
+hCursor = CREATE CURSOR.
+hCursor:ADD-NEW-FIELD("customer_id", "CHARACTER", 10).
+hCursor:ADD-NEW-FIELD("customer_name", "CHARACTER", 50).
+hCursor:ADD-NEW-FIELD("order_date", "DATE").
+hCursor:ADD-NEW-FIELD("order_amount", "DECIMAL", 10, 2).
+
+/* Opening a database table and populating the dynamic cursor with the query results */
+FOR EACH customer WHERE customer.city = "New York" AND customer.status = "ACTIVE", 
+    EACH order OF customer WHERE order.order_date > "01/01/2021":
+    hCursor:CREATE-ROW().
+    hCursor:SET-DATA("customer_id", customer.cust_id).
+    hCursor:SET-DATA("customer_name", customer.cust_name).
+    hCursor:SET-DATA("order_date", order.order_date).
+    hCursor:SET-DATA("order_amount", order.amount).
+    hCursor:SAVE-ROW().
+END.
+
+/* Setting up a temp-table to hold the filtered results */
+DEFINE TEMP-TABLE ttCustomer NO-UNDO
+    FIELD customer_id AS CHARACTER FORMAT "x(10)"
+    FIELD customer_name AS CHARACTER FORMAT "x(50)"
+    FIELD order_date AS DATE
+    FIELD order_amount AS DECIMAL FORMAT ">>>,>>>,>>9.99".
+    
+/* Looping through the dynamic cursor and inserting the data into the temp-table */
+DO WHILE hCursor:GET-NEXT():
+    CREATE ttCustomer.
+    ttCustomer.customer_id = hCursor:GET-STRING("customer_id").
+    ttCustomer.customer_name = hCursor:GET-STRING("customer_name").
+    ttCustomer.order_date = hCursor:GET-DATETIME("order_date").
+    ttCustomer.order_amount = hCursor:GET-DECIMAL("order_amount").
+END.
+
+/* Displaying the temp-table data in a browse window */
+DEFINE VARIABLE vBrowse AS CHARACTER NO-UNDO.
+vBrowse = BROWSE ttCustomer NO-LOCK.
+RUN ttCustomer.p WHERE INPUT ttCustomer.cust_id = ? customer_id NO-CONSOLE.
+SET vBrowse VIEW AS DIALOG-BOX NO-ROW-MARKERS NO-ROW-SELECT NO-TITLE VIEW-AS DIALOG-BOX POSITION 2 COL 30 SCREENLINES 5 NO-BOX AUTO-REDRAW.
+DISPLAY vBrowse WITH FRAME fBrowse.
+/* end */

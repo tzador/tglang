@@ -1,0 +1,95 @@
+# set worker processes based on number of CPU cores
+worker_processes auto;
+
+# enable error logging to specified file
+error_log /var/log/nginx/error.log;
+
+# defines the user and group of Nginx processes
+user www-data;
+
+# define event module used in Nginx
+events {
+    # specifies the maximum number of connections that can be opened at the same time
+    worker_connections 1024;
+}
+
+# define HTTP module used in Nginx
+http {
+    # configure server section
+    server {
+        # specify the port on which Nginx will listen for connections
+        listen 80;
+
+        # define the server name
+        server_name www.example.com;
+
+        # define location of static files
+        location /static {
+            # root directory for static files
+            root /var/www/html;
+            
+            # enable caching for static files
+            expires 30d;
+        }
+
+        # define location of dynamic requests
+        location /api/ {
+            # proxy requests to specified server
+            proxy_pass http://localhost:8000;
+            
+            # enable proxy buffering to optimize performance
+            proxy_buffering on;
+            
+            # set maximum size for request body
+            client_max_body_size 10M;
+        }
+    }
+    
+    # configure upstreams for load balancing
+    upstream backend {
+        # define IP addresses and ports of backend servers
+        server 192.168.1.1:8080;
+        server 192.168.1.2:8080;
+    }
+    
+    # configure server section for load balanced requests
+    server {
+       # specify the port on which Nginx will listen for connections
+       listen 80;
+       
+       # define the server name
+       server_name api.example.com;
+       
+       # proxy requests to upstream servers
+       location / {
+          proxy_pass http://backend/;
+       }
+    }
+    
+    # configure server section for SSL
+    server {
+        # specify the port on which Nginx will listen for secure connections
+        listen 443 ssl;
+        
+        # define the server name
+        server_name www.example.com;
+        
+        # configure SSL certificate and key paths
+        ssl_certificate /etc/nginx/ssl/certificate.crt;
+        ssl_certificate_key /etc/nginx/ssl/private_key.key;
+        
+        # enable SSL session caching for better performance
+        ssl_session_cache shared:SSL:20m;
+        
+        # enable SSL session timeout
+        ssl_session_timeout 5m;
+        
+        # enable secure protocols and ciphers
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+        
+        # enable OCSP stapling for improved security
+        ssl_stapling on;
+        ssl_stapling_verify on;
+    }
+}

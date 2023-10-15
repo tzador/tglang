@@ -1,0 +1,66 @@
+# Declare a variable named "SOURCES" and set its value to a list of source files
+set(SOURCES 
+    src/main.cpp 
+    src/utils.cpp 
+    src/input.cpp
+)
+# Set the minimum required CMake version
+cmake_minimum_required(VERSION 3.5)
+
+# Declare a project named "MyProject"
+project(MyProject)
+
+# Set the build type to "Debug" if not specified
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Debug)
+endif()
+
+# Add the "SOURCES" variable to the list of source files for the project
+add_executable(MyProject ${SOURCES})
+
+# Set compile flags for the project
+target_compile_options(MyProject PRIVATE 
+                       -Wall 
+                       -Wextra 
+                       -pedantic 
+                       -Werror
+)
+
+# Add a custom target "generate-docs" that generates Doxygen documentation
+add_custom_target(generate-docs
+    COMMAND doxygen Doxyfile
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Generating documentation with Doxygen"
+)
+# Add a rule to generate the "generate-docs" target before building the project
+add_dependencies(MyProject generate-docs)
+
+# Add the path to a directory containing headers to the list of include directories for the project
+include_directories(include)
+
+# Specify a list of libraries to link with the project
+target_link_libraries(MyProject 
+                      pthread 
+                      boost_system
+)
+
+# Define a macro "DEBUG_LOG" that prints the message only if the build type is "Debug"
+macro(DEBUG_LOG message)
+    if(CMAKE_BUILD_TYPE MATCHES Debug)
+        message(STATUS ${message})
+    endif()
+endmacro()
+
+# Call the DEBUG_LOG macro with a message
+DEBUG_LOG("Building project ${PROJECT_NAME}")
+
+# Add a post-build command to copy the built executable to a custom location
+add_custom_command(TARGET MyProject POST_BUILD 
+    COMMAND ${CMAKE_COMMAND} -E copy 
+            $<TARGET_FILE:MyProject> 
+            ${CMAKE_CURRENT_SOURCE_DIR}/bin/$<TARGET_FILE_NAME:MyProject>
+    COMMENT "Copying the executable to bin directory"
+)
+
+# Install the built executable to a custom location
+install(TARGETS MyProject DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/bin)

@@ -1,0 +1,29 @@
+/**
+ * This is a sample trigger for the Account object in Salesforce
+ * It performs a simple calculation when a record is inserted or updated
+ */
+
+trigger AccountTrigger on Account (before insert, before update) {
+    
+    // First, create a map to store the account IDs and their corresponding discount values
+    Map<Id, Double> accountDiscountMap = new Map<Id, Double>();
+    
+    // Loop through the trigger's new and updated account records
+    for(Account acc : Trigger.new) {
+        
+        // Perform the calculation by multiplying the account's annual revenue by 0.05
+        Double discount = acc.AnnualRevenue * 0.05;
+        
+        // Add the account ID and discount value to the map
+        accountDiscountMap.put(acc.Id, discount);
+    }
+    
+    // Query for related opportunity records and update their discount field with the value from the map
+    List<Opportunity> oppList = [SELECT Id, Discount__c FROM Opportunity WHERE AccountId IN :accountDiscountMap.keySet()];
+    for(Opportunity opp : oppList) {
+        opp.Discount__c = accountDiscountMap.get(opp.AccountId);
+    }
+    
+    // Update the opportunity records in the database
+    update oppList;
+}

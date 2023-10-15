@@ -1,0 +1,89 @@
+#Define a server block
+server {
+    #Set listen port to 80 (HTTP)
+    listen 80;
+    #Set server name to example.com
+    server_name example.com;
+    #Redirect all requests to HTTPS
+    return 301 https://$server_name$request_uri;
+}
+#Define a server block for HTTPS
+server {
+    #Set listen port to 443 (HTTPS)
+    listen 443 ssl;
+    #Set ssl certificate and key paths
+    ssl_certificate /etc/nginx/ssl/server.crt;
+    ssl_certificate_key /etc/nginx/ssl/server.key;
+    #Set server name to example.com
+    server_name example.com;
+    #Password protect the site
+    auth_basic "Restricted Access";
+    auth_basic_user_file /etc/nginx/.htpasswd;
+    #Set root directory for site files
+    root /var/www/example.com;
+    #Define location of index file
+    index index.html;
+    #Set access controls
+    allow 192.168.255.0/24;
+    deny all;
+    #Set caching headers
+    expires 30d;
+    #Set gzip compression for faster loading
+    gzip on;
+    gzip_comp_level 5;
+    gzip_types text/plain text/css application/javascript image/png;
+    #Define additional server configurations
+    location / {
+        #Set caching rules
+        proxy_cache_bypass $http_pragma;
+        proxy_cache_valid 200 302 10m;
+        proxy_cache_valid 404 1m;
+        #Define reverse proxy for upstream server
+        proxy_pass http://backend-server;
+        #Set proxy headers
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    #Define URI location for /robots.txt
+    location = /robots.txt {
+        #Set caching rules for robots.txt
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        #Serve robots.txt file
+        allow all;
+        #Deny access to any other files starting with "robots."
+        #Prevents parsing of any other robots files
+        deny all;
+    }
+}
+#Define upstream server configuration
+upstream backend-server {
+    #Set server IP and port
+    server 127.0.0.1:8080;
+    #Set connection timeout and number of attempts
+    set $proxy_upstream_timeout 60s;
+    set $proxy_upstream_tries 2;
+    #Define failover server if main server fails
+    #Increases reliability of site
+    backup;
+    #Load balancing options
+    #Round robin - each request goes to next server in rotation
+    #Least connections - request goes to server with least amount of active connections
+    #ip_hash - relies on client IP to determine which server to use
+    #hash $remote_addr consistent; - request from same client always goes to same server
+    #random - requests are randomly distributed between servers
+    #weighted - servers are assigned weights, higher weight means more requests sent to that server
+    #least_time - requests go to server with lowest average response time
+    #least_conn - requests go to server with least number of connections
+    #preferred - specifies a server to always send requests to (if available)
+    #Least-connected and round-robin methods are used below
+    #Weighted and ip_hash methods can be used by uncommenting lines and adjusting values
+    ip_hash;
+    #least_conn;
+    #least_time;
+    #preferred=backup;
+    #Set keepalive connections for upstream server
+    keepalive 5;
+}

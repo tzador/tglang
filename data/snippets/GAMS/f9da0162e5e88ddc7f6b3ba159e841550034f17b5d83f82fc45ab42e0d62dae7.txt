@@ -1,0 +1,71 @@
+* Open Pit Mining Model
+option lp = cplex;
+set LOC 'Mining locations';
+parameter OPR(LOC) 'Ore production rate', 
+          SC(LOC) 'Stripping cost', 
+          CAPEX 'Capital expenditure';
+ $MININF
+set PORD 'Production periods' /2007*2016/;
+ 
+table MCT(LOC,PORD) 'Mining cost table'
+      2007   2008   2009   2010   2011   2012   2013   2014   2015   2016
+ 'L1'   100    100    100     50     50     50     50     50     50     80
+ 'L2'   150    150    150     50     50     50     50     50     50     80
+ 'L3'   170    170    170    100    100    100    100    100    100    100
+ 'L4'   120    120    120     70     70     70     70     70     70    120
+ 'L5'   200    200    200    100    100    100    100    100    100    100;
+		  
+* Define variables 
+variable XP(LOC,PORD)  'Ore production amount ton/year' +
+		 FREE 'Ore production rate'/9.f/
+		  positive variables XS(LOC,PORD)  'Stripping amount ton/year'
+		  binary variables y(LOC,PORD)		'Site active';
+		  
+* Objective function 
+equation cost
+obj .. COST =E= sum ((LOC,PORD), XP(LOC,pprd)*MCT(LOC,PORD) +
+		 XS(LOC,pord)*SC(LOC,pord));
+		 
+* Constraints 
+equation product_required
+yi(pord)$(ord(PORD,prd)=ORDB(PORD,'2016'))
+..sum((loc,yi)$(ord(LOC,loc)=ORDB(LOC,'l2')),XP(LOC,pord))		  =G=     100;
+ 
+equation product_ratio1(product_required,pprd)
+..sum((loc,pord)
++        XP(LOC,pord))
++        XS(LOC,pord))
+          +SC(LOC,pord))
+- response_product <E> sum((loc,pord)
++        				   XP(LOC,pord))
++        				   XS(LOC,pord))
++        				   );
+		   
+* Define equations
+equation plant_capacity(plant) 'Plant processing capacity' ;
+capacity_eq(plant) ..
+	Y.FX(plant) - plant.proc_cap(Y.FX(plant)))) + 
+	sum(Sum(PORD, (loc,prd), capacity(LOC)(pord,prd) $.eqname='EQ1')), l1d(LOC)(prd)*Y.FX(plant) =E= prodution_required(product_ratio2,pord)
+	   ;
+	   
+*Add equations to constraint block
+cost.. sum(
+cost.. sum((loc,pord), XS(LOC,pord)*SC(LOC,pord)) =L= CAPEX;
+* Define equation name
+COST.LOCCOST(LOC,PORD)
+* Define objective function
+obj(eqnname) =E= sum((loc,pord),
+XP(LOC,pord)*MCT(LOC,PORD) + 
+XS(LOC,pord)*SC(LOC,PORD) );
+* Add equation to the object block
+cost_opt.. COST.LOCCOST(LOC,PORD) =E= obj(eqnname)$
+* Initialize variables
+XP.UPPER(LOC,PORD)=MCT(LOC,PORD);
+XS.UPPER(LOC,PORD)=xp(Lpc,pord)/5)('oc').
+model
+
+MODEL MINING /cost, plant_capacity, cost.. sum((loc,pord), XP(LOC,pord)*MCT(LOC,PORD) + XS(LOC,pord)*SC(LOC,pord)) =L= CAPEX/;
+*Solve the model
+solve MINING using lp minimizing COST.LOCCOST;
+*Print solution
+display XP.LOCCOST, XS.LOCCOST, y.LOCCOST;

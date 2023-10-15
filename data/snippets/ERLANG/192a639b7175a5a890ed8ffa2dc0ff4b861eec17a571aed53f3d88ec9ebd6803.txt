@@ -1,0 +1,60 @@
+%% This module contains functions for finding the shortest path in a graph.
+-module(shortest_path).
+-export([dijkstra/2]).
+
+%% This function calculates the shortest path in a graph using Dijkstra's algorithm.
+%% It takes in the graph represented as a list of nodes and their connections,
+%% and the starting and ending nodes for the path.
+%% Returns the shortest path as a list of nodes, or an empty list if no path can be found.
+dijkstra(Graph, Start, End) ->
+    %% Initialize an empty list for visited nodes.
+    Visited = [],
+    %% Initialize a priority queue with starting node and distance 0.
+    PriorityQueue = [{Start, 0}],
+    %% Call the dijkstra_helper function to perform the actual calculation.
+    {Path, _} = dijkstra_helper(Graph, Visited, PriorityQueue, [], Start, End),
+    Path.
+
+%% This is the helper function for Dijkstra's algorithm.
+%% It recursively loops through the graph, updating the priority queue and visited list,
+%% and keeping track of the shortest path found so far.
+dijkstra_helper(Graph, Visited, PriorityQueue, AccPath, CurrentNode, End) ->
+    %% If the current node is the end node, return the accumulated path.
+    if CurrentNode == End ->
+        {lists:reverse([CurrentNode | AccPath]), 0};
+    true ->
+        %% Otherwise, continue the recursion.
+        %% Update the priority queue with the connections of the current node.
+        NewQueue = update_queue(Graph, CurrentNode, PriorityQueue),
+        %% Get the next unvisited node with the shortest distance.
+        {NextNode, Distance} = get_next_node(NewQueue),
+        %% Add it to the visited list.
+        NewVisited = [CurrentNode | Visited],
+        %% Recursively call the function with the new parameters.
+        dijkstra_helper(Graph, NewVisited, NewQueue, [CurrentNode | AccPath], NextNode, End)
+    end.
+
+%% This function updates the priority queue with the connections of the current node.
+%% It calculates the distance from the starting node to each connected node,
+%% and adds it to the queue along with the previous node in the path.
+update_queue(Graph, CurrentNode, PriorityQueue) ->
+    %% Get the connections of the current node from the graph.
+    Connections = proplists:get_value(CurrentNode, Graph),
+    %% Map over the connections to calculate the distance and add to the queue.
+    Update = fun({Node, Distance}) ->
+        {Node, Distance + proplists:get_value(CurrentNode, PriorityQueue)}
+    end,
+    %% Return the updated priority queue.
+    lists:map(Update, Connections).
+
+%% This function returns the next unvisited node with the shortest distance in the priority queue.
+%% If there are no unvisited nodes left or no path can be found, it returns an empty list.
+get_next_node(PriorityQueue) ->
+    %% Filter out nodes that have already been visited.
+    Unvisited = lists:filter(fun({Node, _}) -> not lists:member(Node, Visited) end, PriorityQueue),
+    %% Sort the remaining nodes by their distance.
+    Sorted = lists:sort(fun({_, Distance1}, {_, Distance2}) -> Distance1 =< Distance2 end, Unvisited),
+    %% If there are still unvisited nodes, return the first one.
+    if Sorted =/= [] -> hd(Sorted);
+    true -> []
+    end.

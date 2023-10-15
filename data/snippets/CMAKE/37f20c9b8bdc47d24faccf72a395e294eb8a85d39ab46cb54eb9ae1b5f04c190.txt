@@ -1,0 +1,61 @@
+# Define a variable called "SOURCES" containing a list of all source files
+set(SOURCES
+    main.cpp
+    helper.cpp
+    other.cpp
+)
+
+# Add a custom target that runs a command after building the project
+add_custom_target(run-tests COMMAND ${CMAKE_CXX_COMPILER} test.cpp)
+
+# Set compiler flags for specific build types
+set(CMAKE_CXX_FLAGS_DEBUG "-g")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+
+# Include a library called "libexample" from the specified directory
+include_directories(libexample)
+
+# Create a shared library called "example" using the listed source files
+add_library(example SHARED ${SOURCES})
+
+# Add a target "test" that links the "example" library and runs the specified command
+add_custom_target(test
+    COMMAND ${CMAKE_COMMAND} -E env
+    LD_LIBRARY_PATH=${CMAKE_CURRENT_BINARY_DIR}
+    ${CMAKE_CTEST_COMMAND} --force-new-ctest-process --output-on-failure
+    DEPENDS example
+)
+
+# Set the "source" property for a target named "example" to the list of source files
+set_source_files_properties(${SOURCES} PROPERTIES LANGUAGE CXX)
+
+# Define a preprocessor macro called "DEBUG" for the "debug" build type
+target_compile_definitions(example PRIVATE
+    $<$<CONFIG:Debug>:DEBUG>
+)
+
+# Set additional linker libraries for a target named "example"
+target_link_libraries(example
+    pthread
+    dl
+)
+
+# Add a subdirectory for external dependencies and link them to the "example" target
+add_subdirectory(externals)
+target_link_libraries(example
+    PUBLIC
+    external_lib
+)
+
+# Set the install location for the "example" target
+install(TARGETS example RUNTIME DESTINATION bin LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
+
+# Set the build type to "Release" if not specified
+cmake_minimum_required(VERSION 3.0)
+
+# Set the project name and version
+project(my_project VERSION 1.0)
+
+# Create an executable for the "main" source file and link it to the "example" library
+add_executable(main main.cpp)
+target_link_libraries(main example)

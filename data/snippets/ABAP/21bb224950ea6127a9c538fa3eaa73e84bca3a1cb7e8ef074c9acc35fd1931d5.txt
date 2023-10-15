@@ -1,0 +1,45 @@
+*&---------------------------------------------------------------------*
+*& Report Y_PARKING_LIST
+*&
+*&---------------------------------------------------------------------*
+*& Purpose: This report generates a list of cars parked in a parking lot
+*&---------------------------------------------------------------------*
+REPORT y_parking_list.
+
+* Select all parked cars from database table
+SELECT * FROM parked_cars INTO TABLE @DATA(lt_parked_cars).
+
+* Retrieve list of all available parking spaces 
+SELECT * FROM parking_spaces INTO TABLE @DATA(lt_parking_spaces).
+
+* Loop through parked cars and check if they have a designated parking space
+LOOP AT lt_parked_cars INTO DATA(ls_parked_car).
+
+  DATA(lo_parking_space) = NEW lcl_parking_space( iv_car_id = ls_parked_car-car_id ).
+
+  * If no designated parking space is found, assign random available space
+  IF lo_parking_space->get_space( ) IS INITIAL.
+
+    DATA(lo_random_space) = NEW lcl_random_space( iv_car_id = ls_parked_car-car_id ).
+    lo_random_space->get_space( ).
+
+  ELSE.
+    lo_parking_space->get_space( ).
+    lo_parking_space->update_status( ).
+  ENDIF.
+
+ENDLOOP.
+
+* Finally, output the list of parked cars with their designated parking space
+WRITE: / 'LIST OF PARKED CARS WITH DESIGNATED PARKING SPACES:',
+       / '----------------------------------------------'.
+
+LOOP AT lt_parked_cars INTO DATA(ls_parked_car).
+
+  WRITE: / ls_parked_car-car_id,
+         ls_parked_car-car_make,
+         ls_parked_car-car_model,
+         ls_parked_car-car_color,
+         ls_parked_car-designated_space.
+  
+ENDLOOP.

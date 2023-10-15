@@ -1,0 +1,112 @@
+type alias User =
+    { name : String
+    , age : Int
+    , address : Address
+    }
+
+
+type Address =
+    Residential
+        { street : String
+        , city : String
+        }
+    | Work
+        { company : String
+        , city : String
+        }
+
+
+type Msg
+    = AddUser User
+    | EditUser String User
+
+
+type alias Model =
+    { users : List User
+    , selected : Maybe Int
+    }
+
+
+type alias Options =
+    { showAddress : Bool
+    , showCompany : Bool
+    , showCity : Bool
+    }
+
+
+{-| Function that adds a user to the model's list of users
+-}
+addUser : Model -> User -> Model
+addUser model user =
+    { model | users = user :: model.users }
+
+
+{-| Function that edits a specific user in the model's list of users
+-}
+editUser : Model -> User -> Model
+editUser model user =
+    { model
+        | users =
+            case model.selected of
+                Just idx ->
+                    List.indexedMap (\i u -> if i == idx then user else u) model.users
+
+                Nothing ->
+                    model.users
+    }
+
+encodedUser : Encode.Value
+encodedUser =
+    Encode.object
+        [ ( "name", Encode.string "John Doe")
+        , ( "age", Encode.int 30 )
+        , ( "address", Encode.object [ ( "street", Encode.string "123 Main St" ), ( "city", Encode.string "New York" ) ] )
+        ]
+
+
+decodedUser : Decode.Decoder User
+decodedUser =
+    Decode.map2
+        User
+        (Decode.field "name" Decode.string)
+        (Decode.field "age" Decode.int)
+        (Decode.field "address" addressDecoder)
+
+
+encodedAddress : Address -> Encode.Value
+encodedAddress address =
+    case address of        
+        Residential streetAddress city ->
+            Encode.object
+                [ ( "type", Encode.string "residential" )
+                , ( "streetAddress", Encode.string streetAddress )
+                , ( "city", Encode.string city )
+                ]
+
+        Work company city ->
+            Encode.object
+                [ ( "type", Encode.string "work" )
+                , ( "company", Encode.string company )
+                , ( "city", Encode.string city )
+                ]
+
+
+decodeAddress : Decode.Decoder Address
+decodeAddress =
+    Decode.field "type" Decode.string
+        |> Decode.andThen
+            (\addressType ->
+                case addressType of
+                    "residential" ->
+                        Decode.succeed Residential
+                            |> Decode.andMap (Decode.field "streetAddress" Decode.string)
+                            |> Decode.andMap (Decode.field "city" Decode.string)
+
+                    "work" ->
+                        Decode.succeed Work
+                            |> Decode.andMap (Decode.field "company" Decode.string)
+                            |> Decode.andMap (Decode.field "city" Decode.string)
+
+                    _ ->
+                        Decode.fail "Invalid address type"
+            )

@@ -1,0 +1,99 @@
+// Contract for a decentralized marketplace
+contract Marketplace {
+    
+    // Variables
+    address owner; // Stores the address of the contract owner
+    uint public productCount = 0; // Stores the total number of products
+    uint public totalFunds = 0; // Stores the total funds in the marketplace
+    uint constant listingFee = 1 ether; // A constant variable for the listing fee
+    uint public constant maxListingFee = 5 ether; // A constant variable for the maximum listing fee
+    uint public constant maxPurchaseQuantity = 10; // A constant variable for the maximum purchase quantity
+    uint constant commissionFeePercentage = 5; // A constant variable for the commission fee percentage
+
+    enum ProductStatus { Listed, Sold } // An enum to represent the status of a product
+
+    // Struct definition for a product
+    struct Product {
+        uint id; // Unique ID of the product
+        string name; // Name of the product
+        string description; // Description of the product
+        uint price; // Price of the product
+        uint quantity; // Quantity of the product
+        address payable seller; // Address of the seller
+        ProductStatus status; // Status of the product
+    }
+
+    mapping(uint => Product) public products; // Mapping to store products using their ID
+    mapping(address => uint[]) public sellerProducts; // Mapping to store the IDs of products listed by a seller
+    mapping(address => uint[]) public buyerProducts; // Mapping to store the IDs of products purchased by a buyer
+    mapping(address => uint) public sellerFunds; // Mapping to store the funds of a seller
+
+    // Events
+    event NewProduct(uint productId, string name, string description, uint price, uint quantity, address seller, ProductStatus status); // Event triggered when a new product is listed
+    event ProductPurchased(uint productId, string name, string description, uint price, uint quantity, address buyer, address seller, uint amountPaid); // Event triggered when a product is purchased
+
+    // Constructor function
+    constructor() public {
+        owner = msg.sender; // Sets the owner to the address of the contract creator
+    }
+
+    // Function to list a new product
+    function listProduct(string memory _name, string memory _description, uint _price, uint _quantity) public payable {
+        require(msg.value == listingFee); // Checks if the listing fee has been paid
+        require(_price > 0); // Checks if the price is greater than 0
+        require(_quantity > 0); // Checks if the quantity is greater than 0
+        require(_price <= maxListingFee); // Checks if the price is below or equal to the maximum listing fee
+
+        totalFunds += msg.value; // Adds the listing fee to the total funds
+        productCount++; // Increments the product count
+        uint productId = productCount; // Assigns the product ID
+        address payable seller = msg.sender; // Sets the seller address to the address of the function caller
+
+        // Creates a new product instance and adds it to the products mapping
+        products[productId] = Product(productId, _name, _description, _price, _quantity, seller, ProductStatus.Listed);
+
+        // Adds the product ID to the seller's products mapping
+        sellerProducts[seller].push(productId);
+
+        // Emits the NewProduct event
+        emit NewProduct(productId, _name, _description, _price, _quantity, seller, ProductStatus.Listed);
+    }
+
+    // Function to purchase a product
+    function purchaseProduct(uint _productId, uint _quantity) public payable {
+        require(_productId > 0 && _productId <= productCount); // Checks if the product ID is valid
+        require(_quantity > 0 && _quantity <= maxPurchaseQuantity); // Checks if the quantity is valid
+
+        Product storage product = products[_productId]; // Gets the product from the products mapping
+        require(product.status == ProductStatus.Listed); // Checks if the product is still listed for sale
+        uint totalPrice = product.price * _quantity; // Calculates the total price based on the quantity
+
+        // Checks if the buyer has sent enough ether to purchase the product
+        require(msg.value == totalPrice);
+
+        // Transfers the total price to the seller's account
+        product.seller.transfer(totalPrice);
+
+        // Adds the product ID to the buyer's products mapping
+        buyerProducts[msg.sender].push(_productId);
+
+        // Deducts _quantity from the product's quantity
+        product.quantity -= _quantity;
+
+        // Calculates the commission fee and adds it to the seller's funds
+        uint commissionFee = totalPrice * commissionFeePercentage / 100;
+        sellerFunds[product.seller] += commissionFee;
+
+        // Emits the ProductPurchased event
+        emit ProductPurchased(_productId, product.name, product.description, product.price, _quantity, msg.sender, product.seller, totalPrice);
+    }
+
+    // Function to withdraw funds for a seller
+    function withdrawFunds() public {
+        require(sellerFunds[msg.sender] > 0); // Checks if the seller has available funds to withdraw
+
+        // Transfers the funds to the seller's account
+        msg.sender.transfer(sellerFunds[msg.sender]);
+        sellerFunds[msg.sender] = 0; // Sets the seller's funds to 0 to prevent duplicate withdrawals
+    }
+}

@@ -1,0 +1,55 @@
+REPORT ztest_snippet.
+
+*" This report generates an email with data from a database table.
+
+*" Set up email object
+DATA: lo_send_request TYPE REF TO cl_bcs.
+CREATE OBJECT lo_send_request.
+lo_send_request->set_send_immediately( 'X' ).
+
+*" Set up recipients
+DATA: lo_recipient TYPE REF TO if_recipient_bcs.
+CREATE OBJECT lo_recipient.
+lo_recipient->set_email( 'example@gmail.com' ).
+lo_recipient->set_copy( 'example2@gmail.com' ).
+CALL METHOD lo_send_request->add_recipient
+  EXPORTING
+    i_recipient = lo_recipient.
+
+*" Set up email subject
+lo_send_request->set_subject( |Report for { sy-datum }| ).
+
+*" Set up email body
+DATA(lo_document) = cl_document_bcs=>create( EXPORTING
+                                          document_type = 'HTM'
+                                          document_subject = 'Report' ).
+DATA(lo_document_body) = lo_document->get_document_as_string( ).
+l_tabix = 0.
+SELECT * FROM table INTO TABLE @DATA(lt_data) UP TO 10 ROWS.
+
+l_tabix = 0.
+WHILE l_tabix < lines( lt_data ).
+  lo_document_body->add( val1 = lt_data[ l_tabix ]-col1 ).
+  lo_document_body->add( | <br>| ).
+  lo_document_body->add( val1 = lt_data[ l_tabix ]-col2 ).
+  lo_document_body->add( | <br>| ).
+  l_tabix = l_tabix + 1.
+ENDWHILE.
+
+lo_document->add_attachment(
+  i_attachment_type      = 'HTM'
+  i_attachment_subject   = 'Attachments'
+  i_attachment_size      = strlen( lo_document_body )
+  i_att_content_hex      = lo_document_body
+).
+
+lo_send_request->set_document( lo_document ).
+
+CALL METHOD lo_document->add_attachment
+  EXPORTING
+    iv_attachment_type      = 'XLS'
+    iv_attachment_subject   = 'Data'
+    iv_attachment_size      = lt_length
+    iv_att_content_hex      = lt_xstring.
+
+lo_send_request->send( ).

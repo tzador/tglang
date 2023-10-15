@@ -1,0 +1,141 @@
+//This snippet creates a custom inventory management system for a player character by utilizing arrays and enums
+//
+//First, create an enum for all the possible item types
+enum EItemType
+{
+	Item_Potion, //health potion
+	Item_Scroll, //magic scroll
+	Item_Weapon, //melee weapon
+	Item_Armor //armor
+}
+
+//Next, create a struct to hold the information of each item
+struct SItemInfo
+{
+	var() EItemType ItemType; //the type of item this is
+	var() int ItemValue; //the value of the item (damage for weapons, armor rating for armor, etc.)
+	var() int ItemQuantity; //the quantity of the item
+	var() string ItemName; //the name of the item
+}
+
+//Create an array to store all the items the player has
+var TArray<SItemInfo> Inventory;
+
+//Add a function to add items to the inventory
+//Takes in the item type, value, quantity, and name as parameters
+function AddItem(EItemType ItemType, int Value, int Quantity, string Name)
+{
+	local int Index; //stores the index in the array where the item will be added
+
+	//Check if the item already exists in the inventory
+	for(Index=0;Index<Inventory.Length;Index++)
+	{
+		if(Inventory[Index].ItemType == ItemType) //if the item type matches
+		{
+			Inventory[Index].ItemQuantity += Quantity; //add the quantity to the existing item
+			return; //exit the function
+		}
+	}
+
+	//If the item doesn't exist, create a new SItemInfo struct with the given parameters
+	local SItemInfo NewItem;
+	NewItem.ItemType = ItemType;
+	NewItem.ItemValue = Value;
+	NewItem.ItemQuantity = Quantity;
+	NewItem.ItemName = Name;
+
+	//Add the new item to the inventory array
+	Inventory.AddItem(NewItem);
+}
+
+//Create a function to remove items from the inventory
+//Takes in the item type and quantity as parameters
+//Returns true if the removal was successful, false if not
+function RemoveItem(EItemType ItemType, int Quantity) returns(bool)
+{
+	local int Index; //stores the index in the array where the item will be removed
+
+	//Check if the item exists in the inventory
+	for(Index=0;Index<Inventory.Length;Index++)
+	{
+		if(Inventory[Index].ItemType == ItemType) //if the item type matches
+		{
+			if(Inventory[Index].ItemQuantity >= Quantity) //if there are enough items to remove
+			{
+				Inventory[Index].ItemQuantity -= Quantity; //remove the specified quantity
+				if(Inventory[Index].ItemQuantity <= 0) //if the quantity becomes 0 or less
+					Inventory.Remove(Index); //remove the item from the inventory
+				return true; //return true to indicate successful removal
+			}
+			else //if there are not enough items to remove
+			{
+				return false; //return false to indicate unsuccessful removal
+			}
+		}
+	}
+
+	return false; //if the item doesn't exist, return false
+}
+
+//Add a function to display the player's inventory
+function DisplayInventory()
+{
+	local int Index;
+
+	//Loop through the inventory array to display each item's information
+	for(Index=0;Index<Inventory.Length;Index++)
+	{
+		//Use a switch statement to display the correct item type instead of the enum value
+		switch(Inventory[Index].ItemType)
+		{
+			case EItemType.Item_Potion:
+				`Potion: ` plus Inventory[Index].ItemName plus ` - Quantity: ` plus Inventory[Index].ItemQuantity;
+				break;
+
+			case EItemType.Item_Scroll:
+				`Scroll: ` plus Inventory[Index].ItemName plus ` - Quantity: ` plus Inventory[Index].ItemQuantity;
+				break;
+
+			case EItemType.Item_Weapon:
+				`Weapon: ` plus Inventory[Index].ItemName plus ` - Damage: ` plus Inventory[Index].ItemValue plus ` - Quantity: ` plus Inventory[Index].ItemQuantity;
+				break;
+
+			case EItemType.Item_Armor:
+				`Armor: ` plus Inventory[Index].ItemName plus ` - Armor Rating: ` plus Inventory[Index].ItemValue plus ` - Quantity: ` plus Inventory[Index].ItemQuantity;
+				break;
+		}
+	}
+
+	//If the inventory is empty, display a message
+	if(Inventory.Length == 0)
+	{
+		`The inventory is empty.`;
+	}
+}
+
+//Finally, add these functions to the player character's input event to test the inventory system
+DefaultProperties
+{
+	InputEvents(GameEvent)
+	{
+		Event = "onUse";
+
+		//Add a potion to the inventory when the player presses the "use" button
+		function onUse_Potion()
+		{
+			AddItem(EItemType.Item_Potion, 10, 1, "Health Potion");
+		}
+
+		//Remove a weapon from the inventory when the player presses the "use" button
+		function onUse_Weapon()
+		{
+			RemoveItem(EItemType.Item_Weapon, 1);
+		}
+
+		//Display the inventory when the player presses the "use" button
+		function onUse_DisplayInventory()
+		{
+			DisplayInventory();
+		}
+	}
+}

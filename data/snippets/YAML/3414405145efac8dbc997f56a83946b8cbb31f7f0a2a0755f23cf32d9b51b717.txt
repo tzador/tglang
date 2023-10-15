@@ -1,0 +1,66 @@
+# This is a YAML configuration file for a sample web application deployment
+
+# Define a list of environment variables
+env-vars:
+  - key: "DATABASE_URL"
+    value: "mongodb://localhost:27017/sampledb"
+
+# Define a list of volumes to mount
+volumes:
+  - name: "config-volume"
+    path: "/etc/webapp/config"
+  - name: "data-volume"
+    path: "/var/lib/webapp/data"
+
+# Define a list of containers for the deployment
+containers:
+  - name: "webapp"
+    image: "mywebapp:latest"
+    ports:
+      - port: 80
+        targetPort: 8080
+    env:
+      - name: "DB_URL"
+        valueFrom:
+          secretKeyRef:
+            name: "db-secret"
+            key: "url"
+    volumeMounts:
+      - name: "config-volume"
+        mountPath: "/etc/webapp/config"
+      - name: "data-volume"
+        mountPath: "/var/lib/webapp/data"
+  - name: "db"
+    image: "mongo:latest"
+    ports:
+      - port: 27017
+        targetPort: 27017
+    env:
+      - name: "MONGO_INITDB_ROOT_USERNAME"
+        value: "admin"
+      - name: "MONGO_INITDB_ROOT_PASSWORD"
+        valueFrom:
+          secretKeyRef:
+            name: "db-secret"
+            key: "password"
+    volumeMounts:
+      - name: "data-volume"
+        mountPath: "/data/db"
+
+# Define a list of persistent volume claims for the deployment
+persistentVolumeClaims:
+  - name: "data-pvc"
+    storageClassName: "standard"
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: "5Gi"
+
+# Define a list of secrets
+secrets:
+  - name: "db-secret"
+    type: "Opaque"
+    data:
+      url: dHNlcnZpY2VfYXBwbGljYXRpb25fdXNlci5hcGFjaGUyNDYh
+      password: cHJldGFoZWxpX3Bhc3N3b3Jk

@@ -1,0 +1,174 @@
+/**
+* This is a multiplayer game mode that allows players to race against each other.
+* It includes detailed code for setting up the race, keeping track of checkpoints, and managing player progress.
+*/
+
+class RaceGameMode extends GameMode;
+
+// Add new variables to track the race game mode
+var(Alias=RaceGameMode, EditInline) config playerRaceSettingsClass RacePlayerSettings;
+var(Alias=RaceGameMode) int raceLapCount;
+var(Alias=RaceGameMode) bool raceStarted;
+var(Alias=RaceGameMode) int raceCurrentLap;
+var(Alias=RaceGameMode) array<Vector> raceCheckpointLocations;
+var(Alias=RaceGameMode) array<class<RaceCheckpoint>> raceCheckpointClasses;
+
+// Set up the game mode
+event InitGame(string options, out string error = "");
+
+begin:
+    Super.InitGame(options, error);
+    raceStarted = false;
+    raceCurrentLap = 1;
+
+// Begin the race
+function StartRace()
+{
+    raceStarted = true;
+    foreach Controller(Alias=MyPlayer) PlayerController controller in WorldInfo.PlayerControllers
+    {
+        controller.bShowTips = false;
+        controller.bOnlyOwnerSee = true;
+
+        // Spawn and assign a RacePlayerSettings for each player
+        RacePlayerSettings newSettings;
+        newSettings = Spawn(class'${playerRaceSettingsClass}', controller);
+        controller.Player.PlayerSettings = newSettings;
+    }
+}
+
+// Spawn checkpoints for the race
+function SpawnCheckpoints()
+{
+    local Vector checkpointLocation;
+
+    // Loop through each checkpoint location
+    foreach (checkpointIndex in raceCheckpointLocations.Length)
+    {
+        // Create a new checkpoint class at the specified location
+        raceCheckpointClasses[checkpointIndex] = Spawn(class'${raceCheckpointClasses[checkpointIndex]}', checkpointLocation);
+
+        // Set the checkpoint properties
+        RaceCheckpoint newCheckpoint = raceCheckpointClasses[checkpointIndex];
+        newCheckpoint.index = checkpointIndex;
+        newCheckpoint.isStart = checkpointIndex == 0;
+        newCheckpoint.isFinish = checkpointIndex == raceCheckpointLocations.Length - 1;
+        newCheckpoint.nextCheckpoint = raceCheckpointClasses[checkpointIndex + 1];
+
+        // Set the checkpoint's location
+        if (checkpointIndex == 0)
+        {
+            checkpointLocation = raceCheckpointLocations[checkpointIndex];
+        }
+        else
+        {
+            checkpointLocation += raceCheckpointLocations[checkpointIndex] - raceCheckpointLocations[0];
+        }
+
+        newCheckpoint.SetLocation(checkpointLocation);
+    }
+}
+
+// Reset the race
+function ResetRace()
+{
+    raceStarted = false;
+    raceCurrentLap = 1;
+    foreach (Checkpoint in raceCheckpointClasses)
+    {
+        Checkpoint.ResetCheckpoint();
+    }
+}
+
+// Update the player's progress
+function UpdatePlayerProgress(PlayerController controller, int checkpointIndex)
+{
+    // Set the player's current lap based on the checkpoint index
+    if (checkpointIndex == raceCheckpointLocations.Length - 1)
+    {
+        controller.Player.PlayerSettings.CurrentLap = raceCurrentLap + 1;
+        raceCurrentLap++;
+    }
+    else
+    {
+        controller.Player.PlayerSettings.CurrentLap = raceCurrentLap;
+    }
+
+    // Update the checkpoint for the player
+    controller.Player.PlayerSettings.CurrentCheckpoint = checkpointIndex;
+}
+
+// Check if a player has finished the race
+function bool CheckPlayerFinished(PlayerController controller)
+{
+    // Get the player's race settings
+    RacePlayerSettings settings = RacePlayerSettings(controller.Player.PlayerSettings);
+
+    // Check if the player has reached the final checkpoint
+    if (settings.CurrentCheckpoint == raceCheckpointLocations.Length - 1)
+    {
+        // Update the player's time and finish position
+        settings.RaceTime = Time;
+        settings.FinishPosition = racingPlayers.Num() + 1;
+
+        // Add the player to the list of racing players
+        racingPlayers.AddItem(settings);
+
+        // Check if all players have finished the race
+        if (racingPlayers.Num() == WorldInfo.PlayerControllers.Length)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Check if a player has passed a checkpoint
+function CheckpointPassed(PlayerController controller, RaceCheckpoint checkpoint)
+{
+    if (checkpoint.index == checkpoint.nextCheckpoint.index)
+    {
+        // Player has reached the finish line
+        if (CheckPlayerFinished(controller))
+        {
+            // Show the results for all players
+            ShowResults();
+        }
+    }
+    else if (checkpoint.index == raceCheckpointLocations.Length - 1)
+    {
+        // Player has reached the last checkpoint to complete a lap
+        UpdatePlayerProgress(controller, 0);
+    }
+    else
+    {
+        // Player has passed to the next checkpoint
+        UpdatePlayerProgress(controller, checkpoint.index + 1);
+    }
+}
+
+// Show the race results
+function ShowResults()
+{
+    Sort(racingPlayers, AutoSortHigher);
+    ShowResultsDialog(AutoSortHigher, false);
+}
+
+// Calculate the player's race time
+function float GetPlayerRaceTime(RacePlayerSettings playerSettings)
+{
+    float raceTime = playerSettings.RaceTime - Level.TimeSeconds;
+
+    // Add time for each lap not completed
+    int missingLaps = raceLapCount - playerSettings.CurrentLap;
+    raceTime += (missingLaps * raceCheckpointLocations.Length);
+
+    // Add penalties for missing checkpoints
+    if (playerSettings.CurrentLap != raceLapCount)
+    {
+        int missingCheckpoints = raceCheckpointLocations.Length - playerSettings.CurrentCheckpoint;
+        float penalty = missingCheckpoints / raceCheckpointLocations.Length;
+        raceTime += (penalty * raceCheckpointLocations.Length);
+    }
+    return raceTime;
+}

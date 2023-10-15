@@ -1,0 +1,67 @@
+PROGRAM concurrency
+
+!This program demonstrates the use of concurrent programming in FORTRAN
+!It creates three separate threads to perform different tasks simultaneously
+
+USE ISO_C_BINDING   !use standard Fortran library for C interoperability
+
+!declare variables
+INTEGER(C_INT) :: thread1, thread2, thread3    !thread handles
+INTEGER(C_INT) :: status   !used to check for success or failure
+
+!thread 1 subroutine
+SUBROUTINE thread1_func()
+  WRITE(*,*) "Executing thread 1..."
+  CALL SLEEP(3)      !pause for 3 seconds
+  WRITE(*,*) "Thread 1 finished!"
+END SUBROUTINE
+
+!thread 2 subroutine
+SUBROUTINE thread2_func()
+  WRITE(*,*) "Executing thread 2..."
+  CALL SLEEP(5)      !pause for 5 seconds
+  WRITE(*,*) "Thread 2 finished!"
+END SUBROUTINE
+
+!thread 3 subroutine
+SUBROUTINE thread3_func()
+  WRITE(*,*) "Executing thread 3..."
+  CALL SLEEP(7)      !pause for 7 seconds
+  WRITE(*,*) "Thread 3 finished!"
+END SUBROUTINE
+
+!main program
+DO CONCURRENT (i = 1:3)    !create 3 concurrent threads
+  SELECT CASE (i)
+    CASE (1)
+      CALL C_F_POINTER(NULL(), thread1)  !initialize thread 1 handle
+      CALL C_FUNLOC(thread1, status)     !check for success
+      IF (status /= 0) STOP "ERROR: Could not allocate thread 1 handle"
+      CALL C_F_PROCPOINTER(C_FUNLOC(thread1_func), thread1)    !point to thread 1 subroutine
+      CALL TTHREAD_CREATE(thread1, status)    !create thread 1
+      IF (status /= 0) STOP "ERROR: Could not create thread 1"
+    CASE (2)
+      CALL C_F_POINTER(NULL(), thread2)  !initialize thread 2 handle
+      CALL C_FUNLOC(thread2, status)     !check for success
+      IF (status /= 0) STOP "ERROR: Could not allocate thread 2 handle"
+      CALL C_F_PROCPOINTER(C_FUNLOC(thread2_func), thread2)    !point to thread 2 subroutine
+      CALL TTHREAD_CREATE(thread2, status)    !create thread 2
+      IF (status /= 0) STOP "ERROR: Could not create thread 2"
+    CASE (3)
+      CALL C_F_POINTER(NULL(), thread3)  !initialize thread 3 handle
+      CALL C_FUNLOC(thread3, status)     !check for success
+      IF (status /= 0) STOP "ERROR: Could not allocate thread 3 handle"
+      CALL C_F_PROCPOINTER(C_FUNLOC(thread3_func), thread3)    !point to thread 3 subroutine
+      CALL TTHREAD_CREATE(thread3, status)    !create thread 3
+      IF (status /= 0) STOP "ERROR: Could not create thread 3"
+  END SELECT
+END DO
+
+!wait for threads to finish
+CALL TTHREAD_JOIN(thread1, status)
+CALL TTHREAD_JOIN(thread2, status)
+CALL TTHREAD_JOIN(thread3, status)
+
+!terminate program
+STOP
+END PROGRAM concurrency

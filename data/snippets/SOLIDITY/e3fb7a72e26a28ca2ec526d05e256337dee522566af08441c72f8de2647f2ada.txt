@@ -1,0 +1,63 @@
+import "./Token.sol"; //importing external contract
+pragma solidity ^0.8.4; //specifying solidity version
+
+contract Crowdsale {
+    address payable public wallet; //public payable address of wallet
+    Token public tokenContract; //public token contract instance
+    uint256 public rate; //public rate of token per ETH
+    uint256 public weiRaised; //public amount of wei raised
+    uint256 public minPurchase; //public minimum purchase amount
+    uint256 public maxPurchase; //public maximum purchase amount
+
+    event TokensPurchased(address indexed purchaser, address indexed beneficiary, uint256 value, uint256 amount); //event for token purchase
+
+    constructor(address payable _wallet, Token _tokenContract, uint256 _rate, uint256 _minPurchase, uint256 _maxPurchase) {
+        require(_wallet != address(0)); //require wallet address to be valid
+        require(address(_tokenContract) != address(0)); //require token contract address to be valid
+        require(_rate > 0); //require rate to be greater than zero
+        require(_minPurchase > 0); //require minimum purchase amount to be greater than zero
+        require(_maxPurchase > 0); //require maximum purchase amount to be greater than zero
+        wallet = _wallet; //set wallet address
+        tokenContract = _tokenContract; //set token contract instance
+        rate = _rate; //set rate
+        minPurchase = _minPurchase; //set minimum purchase amount
+        maxPurchase = _maxPurchase; //set maximum purchase amount
+    }
+
+    fallback() external payable { //fallback function to handle incoming Ether payments
+        buyTokens(msg.sender); //call buyTokens function passing in the sender's address
+    }
+
+    receive() external payable { //receive function to receive incoming Ether payments
+        buyTokens(msg.sender); //call buyTokens function passing in the sender's address
+    }
+
+    function buyTokens(address _beneficiary) public payable { //function to buy tokens with ETH
+        require(_beneficiary != address(0)); //require beneficiary address to be valid
+        require(msg.value >= minPurchase && msg.value <= maxPurchase); //require msg value to be within minimum and maximum purchase amounts
+        uint256 weiAmount = msg.value; //initialize wei amount
+        uint256 tokens = weiAmount / rate; //calculate tokens based on current rate
+        weiRaised = weiRaised + weiAmount; //increment wei raised
+        tokenContract.transfer(_beneficiary, tokens); //transfer tokens to beneficiary
+        emit TokensPurchased(msg.sender, _beneficiary, weiAmount, tokens); //emit TokensPurchased event
+        wallet.transfer(msg.value); //transfer ETH to wallet
+    }
+
+    function setRate(uint256 _newRate) external { //function to set new rate for tokens
+        require(msg.sender == wallet); //require caller to be wallet address
+        require(_newRate > 0); //require new rate to be greater than zero
+        rate = _newRate; //set new rate
+    }
+
+    function setMinPurchase(uint256 _newMinPurchase) external { //function to set new minimum purchase amount
+        require(msg.sender == wallet); //require caller to be wallet address
+        require(_newMinPurchase > 0); //require new minimum purchase amount to be greater than zero
+        minPurchase = _newMinPurchase; //set new minimum purchase amount
+    }
+
+    function setMaxPurchase(uint256 _newMaxPurchase) external { //function to set new maximum purchase amount
+        require(msg.sender == wallet); //require caller to be wallet address
+        require(_newMaxPurchase > 0); //require new maximum purchase amount to be greater than zero
+        maxPurchase = _newMaxPurchase; //set new maximum purchase amount
+    }
+}

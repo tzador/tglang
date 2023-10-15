@@ -1,0 +1,58 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
+ 
+-- This is an example of a typeclass in Haskell, called "MonadState"
+ 
+class Monad m => MonadState s m | m -> s where
+  -- A function to get the current state of type "s"
+  get :: m s
+ 
+  -- A function to set the current state to a new value of type "s"
+  put :: s -> m ()
+ 
+  -- A function to apply a function to the current state and return the result
+  state :: (s -> (a, s)) -> m a
+ 
+  -- A default implementation of "state" using "get" and "put"
+  state f = do
+    s <- get
+    let (a, s') = f s
+    put s'
+    return a
+ 
+instance MonadState s ((->) s) where
+  -- For functions, "get" simply returns the current state
+  get = \s -> (s, s)
+ 
+  -- For functions, "put" replaces the current state with the given value
+  put = \s' _ -> ((), s')
+ 
+  -- For functions, "state" takes in a function and applies it to the current state
+  state = \f s -> f s
+ 
+instance MonadState s m => MonadState s (StateT s m) where
+  -- For monad transformers, "get" and "put" are simply lifted versions of the original functions
+  get = lift get
+  put s = lift (put s)
+ 
+  -- For monad transformers, "state" takes in a function and applies it to the underlying monad's state
+  state f = StateT $ \s -> do
+    (a, s') <- runStateT (f s) s
+    return (a, s')
+ 
+-- An example usage of "MonadState" with a simple counter
+ 
+count :: MonadState Int m => m Int
+count = do
+  -- Get the current value of the counter
+  current <- get
+  -- Increment the counter by 1
+  put (current + 1)
+  -- Return the current value of the counter
+  return current
+ 
+-- Running the example with the initial state of 0 and printing the final value of the counter
+finalCount :: Int
+finalCount = runState (count >>= count >>= count) 0

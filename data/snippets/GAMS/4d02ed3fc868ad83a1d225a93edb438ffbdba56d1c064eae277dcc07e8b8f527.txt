@@ -1,0 +1,53 @@
+set i 'locations' /1*5/;
+set j 'products' /1*3/;
+
+parameter c(i,j) 'cost of shipping';
+c(i,j) = uniformInt(10,50); 
+display c;
+
+variable x(i,j) 'amount shipped';
+positive variable x;
+
+equation cost;
+cost.. sum((i,j), c(i,j)*x(i,j)) =e= 500;
+ 
+model shipping /all/;
+solve shipping min cost;
+ 
+parameter report(i,j);
+report(i,j) = x.l(i,j);
+display report;
+
+set a(i) 'available products' /4*5/;
+a(i) = 0;
+display a;
+
+alias(i,k);
+parameter f('transport',i) 'capacity factor per location';
+f(i,j) = uniformReal(0.5,1);
+display f;
+
+set t 'transport modes' /truck, train/;
+alias(t,m);
+ 
+coefficient b(i,j,t) 'binary variables to determine mode of transport';
+binary variables b;
+
+set c(i,t) 'cutoffs for modes of transport' /1,3/;
+c(i,t) = ceil(1.5*sum(j, b(i,j,t)));
+display c;
+
+coefficient p(t) 'cost of each transport mode';
+p(t) = uniformInt(100,200);
+display p;
+
+parameter obj 'objective function';
+obj = sum((i,j), c(i,j)*(x(i,j)*f(i,j))) + sum((i,t), p(t)*sum(j, b(i,j,t)));
+ 
+equation limit(i,t);
+limit(i,t).. sum(j, b(i,j,t)) =l= c(i,t);
+ 
+model transportation /all/;
+solve transportation min obj using mip;
+ 
+display x.l, b.l;

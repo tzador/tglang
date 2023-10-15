@@ -1,0 +1,72 @@
+# Worker processes, number can be equal to number of CPU cores on server
+worker_processes 4; 
+
+# Sets the maximum number of connections that each worker process can handle simultaneously
+events {
+    worker_connections 1024;
+}
+
+# Http block, handles all HTTP related directives
+http {
+
+    # Maps the request URI to a file path on the server
+    # Can be used for static file serving or reverse proxy
+    # Wildcard characters can be used for pattern matching
+    map $request_uri $file_path {
+        # Match e-mails to a specific file
+        ~*\/emails\/user(.*)\/$  /srv/www/user_emails.html;
+        # Other URIs that do not match will be served default file
+        default /srv/www/index.html;
+    }
+
+    # Various server settings
+    server {
+
+        # Server name, can be domain name or IP address
+        # Used to determine which server block to use for handling requests
+        server_name example.com;
+
+        # Default port to listen on, can be overridden by specifying a different port in the browser
+        # Default is port 80 for HTTP
+        listen 80;
+
+        # Location block, handles directives for specific request locations
+        location / {
+
+            # Enables file serving from specified file path on server
+            try_files $file_path $uri $uri/ =404;
+
+            # Set different response headers based on file type
+            types {
+                text/html html;
+                text/css css;
+            }
+        }
+
+        # Location block for handling static files
+        location ~ ^\/assets\/(js|css|img) {
+
+            # If file exists, serve it directly without passing through nginx processing
+            # Saves time and resources and improves performance for static files
+            if (-f $request_filename) {
+                rewrite ^/assets\/(js|css|img)(.*)/$ /$1/$2 break;
+            }
+
+            # Cache settings for static files
+            expires 1d;
+            etag on;
+            add_header Cache-Control public;
+        }
+
+        # Location block for handling reverse proxy requests
+        location /api/ {
+
+            # If request matches /api/ pattern, pass it to a specified backend server
+            proxy_pass https://api.example.com;
+
+            # Specifies what headers to pass to the backend server
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header Host $host;
+        }
+    }
+}

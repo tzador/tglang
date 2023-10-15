@@ -1,0 +1,48 @@
+# Import necessary libraries
+library(tidyverse)
+library(lubridate)
+library(glue)
+library(knitr)
+
+# Read in data from csv file
+data <- read.csv("data.csv")
+
+# Perform data cleaning
+clean_data <- data %>%
+  select(-c("id", "notes")) %>% # Remove unnecessary columns
+  filter(date > as.Date("2020-01-01")) %>% # filter data by date
+  mutate(month = month(date), # add new column for month
+         year = year(date)) %>% # add new column for year
+  filter(!is.na(value)) %>% # remove rows with missing values
+  mutate(country = ifelse(country == "USA", "United States", country)) %>% # standardize country names
+  group_by(country, year, month) %>% # group data by country, year, and month
+  summarise(total_value = sum(value), # calculate total value for each country, year, and month
+            average_value = mean(value), # calculate average value for each country, year, and month
+            median_value = median(value)) # calculate median value for each country, year, and month
+
+# Create plots for data visualization
+plot1 <- clean_data %>%
+  ggplot(aes(x = year, y = total_value, color = country)) + # specify x and y variables and color
+  geom_line() + # create line plot
+  labs(title = "Total Value Over Time", x = "Year", y = "Total Value") + # add labels to plot
+  theme_minimal() # set theme to minimal
+
+plot2 <- clean_data %>%
+  ggplot(aes(x = month, y = average_value, fill = country)) + # specify x and y variables and fill
+  geom_bar(stat = "identity", position = "dodge") + # create bar plot with dodged placement
+  labs(title = "Average Value by Month", x = "Month", y = "Average Value") + # add labels to plot
+  theme_minimal() # set theme to minimal
+
+plot3 <- clean_data %>%
+  ggplot(aes(x = year, y = median_value, fill = country)) + # specify x and y variables and fill
+  geom_col() + # create column plot
+  labs(title = "Median Value by Year", x = "Year", y = "Median Value") + # add labels to plot
+  theme_minimal() # set theme to minimal
+
+# Create HTML report with plots and data table
+rmarkdown::render("report.Rmd", # specify R Markdown file
+                  output_file = "report.html", # specify output file name
+                  params = list(plot1 = plot1, # pass plots as parameters
+                                plot2 = plot2,
+                                plot3 = plot3,
+                                table = clean_data)) # pass data table as parameter

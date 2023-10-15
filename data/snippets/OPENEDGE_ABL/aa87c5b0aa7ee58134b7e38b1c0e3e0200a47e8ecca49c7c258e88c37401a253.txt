@@ -1,0 +1,77 @@
+/* This code snippet creates a class for a custom report generator */
+/* It contains different methods for generating reports in different formats */
+
+CLASS cReportGenerator:
+
+    /* Property declarations */
+    DEFINE PRIVATE VARIABLE cReportName AS CHARACTER NO-UNDO.
+    DEFINE PRIVATE VARIABLE cReportFormat AS CHARACTER NO-UNDO.
+    DEFINE PRIVATE VARIABLE cReportData AS HANDLE NO-UNDO.
+    DEFINE PRIVATE VARIABLE cReportOptions AS CHARACTER NO-UNDO.
+
+    /* Constructor method */
+    METHOD PUBLIC VOID Initialize(cName AS CHARACTER, cFormat AS CHARACTER):
+        ASSIGNS cReportName = cName,
+                cReportFormat = cFormat.
+    END METHOD.
+
+    /* Method for setting report data */
+    METHOD PUBLIC VOID SetData(cSource AS CHARACTER, cFilter AS CHARACTER):
+        FIND cSource NO-ERROR.
+        IF AVAILABLE(cSource) THEN
+            ASSIGN cReportData = cSource:DEFAULT-BUFFER-HANDLE
+                   cReportOptions = cFilter.
+    END METHOD.
+
+    /* Method for generating PDF report */
+    METHOD PUBLIC CHARACTER GeneratePDFReport():
+        DEFINE VARIABLE cReportOutput AS CHARACTER NO-UNDO.
+        DEFINE VARIABLE cPDF AS COM-HANDLE NO-UNDO.
+        CREATE "TempTable" cReportData.
+        ASSIGN cReportOutput = "report.pdf".
+        cPDF = COM-HANDLE("Aspose.PDF.Generator.Pdf").
+        cPDF:BindFO(cReportData).
+        cPDF:Save(cReportOutput).
+        RETURN cReportOutput.
+    END METHOD.
+
+    /* Method for generating CSV report */
+    METHOD PUBLIC CHARACTER GenerateCSVReport():
+        DEFINE VARIABLE cReportOutput AS CHARACTER NO-UNDO.
+        DEFINE VARIABLE hFileStream AS HANDLE NO-UNDO.
+        DEFINE VARIABLE hTextWriter AS HANDLE NO-UNDO.
+        ASSIGN cReportOutput = "report.csv".
+        hFileStream = FILE-STREAM(cReportOutput, APPEND).
+        hTextWriter = TEXT-WRITER(hFileStream, "UTF-8", FALSE).
+        FOR EACH cReportData.
+            WRITE hTextWriter VALUE(cReportData:NAME) ";" VALUE(cReportData:VALUE).
+        END.
+        hTextWriter:CLOSE().
+        RETURN cReportOutput.
+    END METHOD.
+    
+    /* Method for generating HTML report */
+    METHOD PUBLIC CHARACTER GenerateHTMLReport():
+        DEFINE VARIABLE cReportOutput AS CHARACTER NO-UNDO.
+        DEFINE VARIABLE hPdf AS HANDLE NO-UNDO.
+        DEFINE VARIABLE hPdfOptions AS HANDLE NO-UNDO.
+        ASSIGN cReportOutput = "report.html".
+        hPdf = CREATE "Aspose.PDF.Generator.Pdf".
+        hPdfOptions = CREATE "Aspose.PDF.Generator.HtmlSection".
+        hPdfOptions:BindFO(cReportData).
+        hPdfOptions:Save(cReportOutput).
+        RETURN cReportOutput.
+    END METHOD.
+
+    /* Method for generating XML report */
+    METHOD PUBLIC CHARACTER GenerateXMLReport():
+        DEFINE VARIABLE cReportOutput AS CHARACTER NO-UNDO.
+        DEFINE VARIABLE hXml AS HANDLE NO-UNDO.
+        ASSIGN cReportOutput = "report.xml".
+        hXml = CREATE "System.Xml.XmlDocument".
+        hXml:LoadXml(cReportData:GET-XML("UTF-8")).
+        hXml:Save(cReportOutput).
+        RETURN cReportOutput.
+    END METHOD.
+    
+END CLASS.

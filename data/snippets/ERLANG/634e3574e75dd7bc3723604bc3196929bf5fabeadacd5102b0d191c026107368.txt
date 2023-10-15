@@ -1,0 +1,123 @@
+%% Erlang module defining a server process
+
+
+-module(server).
+
+%% Import necessary modules
+
+-compile(export_all).
+-import(lists,[foreach/2]).
+
+%% Define server process
+
+server() ->
+
+    %% Initialize server state
+
+    State = init_state(),
+
+    %% Set up server process loop
+
+    loop(State).
+
+%% Define server process loop
+
+loop(State) ->
+
+    %% Listen for incoming messages
+
+    receive
+
+        %% Handle 'start' message from client
+
+        {start, Timeout} ->
+
+            %% Spawn client process
+
+            Client = spawn_client(),
+
+            %% Add client to server state
+
+            NewState = add_client(State, Client),
+
+            %% Send response to client
+
+            Client ! {response, "Client connected"},
+
+            %% Wait for Timeout milliseconds
+
+            timer:sleep(Timeout),
+
+            %% Tell client to disconnect
+
+            disconnect_client(Client),
+
+            %% Remove client from server state
+
+            NewState = remove_client(State, Client),
+
+            %% Loop with updated state
+
+            loop(NewState);
+
+        %% Handle 'get_clients' message from client
+
+        {get_clients, Client} ->
+
+            %% Get list of clients from server state
+
+            ClientList = get_clients(State),
+
+            %% Convert list to string
+
+            ClientString = lists:foreach(fun(Client) -> ClientToString(Client) end, ClientList),
+
+            %% Send client list to requesting client
+
+            Client ! {client_list, ClientString},
+
+            %% Loop with unchanged state
+
+            loop(State);
+
+        %% Handle 'disconnect' message from client
+
+        {disconnect, Client} ->
+
+            %% Tell client to disconnect
+
+            disconnect_client(Client),
+
+            %% Remove client from server state
+
+            NewState = remove_client(State, Client),
+
+            %% Loop with updated state
+
+            loop(NewState);
+
+        %% Handle unrecognized message
+
+        _ -> loop(State)
+    end.
+
+%% Helper functions to manipulate server state
+
+init_state() ->
+    {clients, []}.
+
+add_client(State, Client) ->
+    {clients, Lists} = State,
+    {clients, [Client | Lists]}.
+
+remove_client(State, Client) ->
+    {clients, Lists} = State,
+    {clients, lists:delete(Client, Lists)}.
+
+get_clients(State) ->
+    {clients, lists:reverse(State)}.
+
+%% Helper function to convert client pid to string
+
+client_to_string(Client) ->
+    io_lib:format("~p", [Client]).

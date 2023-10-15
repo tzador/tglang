@@ -1,0 +1,78 @@
+/* This code snippet is for creating a custom weapon in UNREALSCRIPT */
+
+class MyCustomWeapon extends Weapon;
+
+/** Determines the behavior and properties of the custom weapon */
+function InitProperties()
+{
+    Super.InitProperties();
+
+    BaseDamage = 50;
+    DamageMultiplier = 1.5f; // The damage will be multiplied by 1.5
+    WeaponType = WT_Projectile;
+
+    SetMuzzleFlashTexture(none);
+    SetMuzzleFlashMesh(none);
+    SetMuzzleFlashPsTemplate(none);
+    SetMuzzleFlashPsScale(1.0f);
+    SetMuzzleFlashDuration(-1); // Will last until the effect is manually turned off
+
+    SetWeaponMesh('MyCustomWeaponMesh'); // Attach custom weapon mesh to the player's hand
+    SetAimingMode(AM_Translate);
+
+    WeaponFireStyle = FS_SingleShot;
+
+    SetSound(SoundCue'Weapons.MyCustomWeapon.MyCustomWeaponFireSound'); // Assign custom firing sound to the weapon
+    SetAmmoHUDAnim('AmmoAnim');
+
+    SetInstantHitInfo(AmmoClass, 1, 50000.f, 50000.f, 10000.f, 100.f, TraceChannel, MF_AutoTarget, 0, false); // Sets the properties for an instant hit projectile
+
+    SetWeaponBarrelMesh('MyCustomWeaponBarrelMesh'); // Attach custom barrel mesh to the weapon
+    SetWeaponFlashLocation('MuzzleFlashSocket'); // Set the location for the muzzle flash
+    SetBarrelSmokeScale(3.5f);
+}
+
+/** Determines the behavior when the weapon is fired */
+function FireProjectile(Vector StartTrace, Vector EndTrace)
+{
+    local Vector TempVec;
+
+    StartTrace = Pawn.Owner.EyeLocation;
+    EndTrace = StartTrace + Normalize(Pawn.Owner.AimRotation) * 10000.f;
+
+    if (Pawn == none || Pawn.IsDead()) // If the player is not alive or the player character is missing
+    {
+        return;
+    }
+
+    TempVec = Projectile(ProjectileClass(Weapon.FireStart(StartTrace, EndTrace))).Vel;
+
+    TempVec.Z = TempVec.Z + 128 * Max(0, TempVec.Size()/1000); // Set a maximum speed for the projectile's Z velocity
+
+    if (AmmoCount <= 0) // If the weapon has no ammo left
+    {
+        return;
+    }
+
+    // Create a fake muzzle flash at the defined location
+    local EffectMuzzleFlash MuzzleFlashEffect;
+    MuzzleFlashEffect = Spawn(class'EffectMuzzleFlash', Weapon,,, StartTrace + ::Pawn.UpdatedMesh().Ax*);
+    MuzzleFlashEffect.PlayAnim('MuzzleFlashAnim');
+
+    // Spawn the projectile and set its properties
+    local Projectile Proj;
+    Proj = Spawn(ProjectileClass,,Location, 0, 0, SocketName);
+    Proj.SetPawnOwner(Pawn);
+    Proj.Vel = TempVec;
+
+    AmmoCount--; // Decrease ammo count
+    PlayWeaponSound(WeaponSoundFire, true); // Play firing sound
+
+    // Randomize the spread of the projectiles by rotating them around the Z-axis
+    for (local int i = 0; i < NumProjectiles; i++)
+    {
+        TempVec = Normalize(ProjectileClass(Vel)) * RandomFloat(GSpreadMin, GSpreadMax) + ::Pawn.UpdatedMesh().Ax*RandomFloat(HSpreadMin, HSpreadMax);
+
+        SpawnProjectile34(TempVec, SocketName, Pawn.Owner.EyeLocation);
+    }
+}

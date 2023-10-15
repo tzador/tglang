@@ -1,0 +1,44 @@
+FORM generate_report
+  USING p_date TYPE d
+        p_currency TYPE c.
+
+  DATA: lt_data TYPE TABLE OF zsales_data,
+        lt_report TYPE TABLE OF zreport_line.
+
+  SELECT *
+    FROM zsales_data
+    INTO TABLE lt_data
+    WHERE date = p_date
+    AND currency = p_currency.
+
+  LOOP AT lt_data ASSIGNING FIELD-SYMBOL(<fs_data>).
+    DATA(lv_net_sales) = <fs_data>-gross_sales - <fs_data>-discount.
+    DATA(lv_vat) = lv_net_sales * <fs_data>-vat_rate.
+    DATA(lv_total) = lv_net_sales + lv_vat.
+
+    INSERT zreport_line
+      FROM <fs_data>-customer
+      FROM <fs_data>-product
+      FROM lv_net_sales
+      FROM lv_vat
+      FROM lv_total
+      INTO TABLE lt_report.
+  ENDLOOP.
+
+  DATA(lv_grand_total) = REDUCE #( INIT grand_total = 0 FOR <line> in lt_report NEXT grand_total = grand_total + <line>-total ).
+
+  REFRESH lt_report.
+  INSERT zreport_line
+    FROM ''
+    FROM ''
+    FROM ''
+    FROM ''
+    FROM lv_grand_total
+    INTO TABLE lt_report.
+
+  WRITE:/ 'Report for', p_date, 'and currency', p_currency.
+  WRITE:/ 'Customer', 'Product', 'Net Sales', 'VAT', 'Total'.
+  LOOP AT lt_report INTO DATA(ls_report).
+    WRITE:/ ls_report-customer, ls_report-product, ls_report-net_sales, ls_report-vat, ls_report-total.
+  ENDLOOP.
+ENDFORM.

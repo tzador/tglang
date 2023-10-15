@@ -1,0 +1,69 @@
+-module(tictactoe). %%Defines the module name
+
+-export([start/0, display_board/1, get_move/1, is_valid_move/3, check_win/1, game_loop/3]). %%Exports the functions for use outside the module
+
+start() -> %%Function for starting the game
+    Board = ["-", "-", "-", "-", "-", "-", "-", "-", "-"], %%Creates a list to represent the board
+    display_board(Board), %%Calls the display_board function to show the initial board state
+    game_loop(Board, "X", "O"). %%Starts the game loop with player X's turn
+
+display_board(Board) -> %%Function for displaying the board
+    io:format("~s ~s ~s ~n~s ~s ~s ~n~s ~s ~s ~n", [%%Formats the board layout with placeholders for each element
+        Board !! [1, 2, 3],
+        Board !! [4, 5, 6],
+        Board !! [7, 8, 9]
+    ]).
+
+get_move(Player) -> %%Function for getting the move from the user
+    io:format("\nPlayer ~s's turn. Choose a position (1-9): ", [Player]), %%Prompts the user for input
+    Input = io:get_line(""), %%Gets the user's input
+    try %%Tries to convert the input to an integer
+        Move = list_to_integer(Input), %%Converts the user input to an integer
+        is_valid_move(Move, Player, Board), %%Calls the is_valid_move function to check if the move is valid
+        Move %%Returns the move if it is valid
+    catch %%Catches any errors in converting the input to an integer
+        error:badarg -> %%Handles bad input, prompts the user to try again
+            io:format("Invalid input. Please choose a position (1-9): "),
+            get_move(Player)
+    end.
+
+is_valid_move(Move, Player, Board) -> %%Function for checking if the move is valid
+    case lists:nth(Move, Board) of %%Uses pattern matching to check if the element at the given position is empty
+        "-" -> true; %%If the element is empty, the move is valid
+        _ -> %%If the element is not empty, the move is not valid
+            io:format("Position already taken. Please choose another position: "),
+            get_move(Player)
+    end.
+
+check_win(Board) -> %%Function for checking if a player has won the game
+    Rows = [%%Creates a list of lists representing the possible winning rows
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+        [1, 4, 7],
+        [2, 5, 8],
+        [3, 6, 9],
+        [1, 5, 9],
+        [3, 5, 7]
+    ],
+    lists:any(%%Uses the any function to loop through the Rows list and check if any of the winning rows have all the same elements
+        fun(Row) ->
+            Tuple = {lists:nth(1, Row, Board), lists:nth(2, Row, Board), lists:nth(3, Row, Board)}, %%Creates a tuple of the elements in the row
+            Tuple == {Player, Player, Player}
+        end, Rows).
+
+game_loop(Board, Player1, Player2) ->
+    case (check_win(Board) /= true) andalso (length(lists:filter(fun(X) -> X == "-" end, Board)) > 0) of %%Checks if there is a valid move left on the board and no player has won
+        true -> %%If there is a valid move left, the game continues
+            Move = get_move(Player1), %%Gets a move from player 1
+            NewBoard = lists:replace_element(Board, Move, Player1), %%Updates the board with player 1's move
+            display_board(NewBoard), %%Displays the updated board
+            game_loop(NewBoard, Player2, Player1); %%Calls the game loop with the updated board, swapping the players' turns
+        false -> %%If there are no valid moves left or a player has won, the game ends
+            case check_win(Board) of %%Checks if a player has won the game
+                true -> %%If a player has won, displays the winner
+                    io:format("Player ~s has won the game!~n", [Player1]);
+                false -> %%If there are no valid moves left, displays a tie
+                    io:format("Tie game.~n")
+            end
+    end.

@@ -1,0 +1,86 @@
+// Importing necessary libraries and interfaces
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC721/IERC721.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Counters.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/math/SafeMath.sol";
+
+// Defining an interface for a non-fungible token (e.g. a collectible)
+interface ICollectible is IERC721 {
+    // Function for minting a new collectible and assigning it to a specific address
+    function mintCollectible(address to) external;
+}
+
+// Contract for a marketplace that allows for buying and selling of collectibles
+contract CollectibleMarketplace {
+    // Using SafeMath library to prevent overflows/underflows in numeric operations
+    using SafeMath for uint256;
+
+    // Using Counters library to keep track of unique collectible IDs
+    using Counters for Counters.Counter;
+    Counters.Counter private _collectibleIds;
+
+    // Defining a struct for a collectible listing on the marketplace
+    struct CollectibleListing {
+        // Address of the collectible being sold
+        address collectible;
+        // Identifier of the collectible being sold
+        uint256 collectibleId;
+        // Address of the seller
+        address seller;
+        // Price of the listing
+        uint256 price;
+    }
+
+    // Mapping to keep track of all active collectible listings on the marketplace
+    mapping(uint256 => CollectibleListing) private _collectibleListings;
+
+    // Function for listing a collectible for sale on the marketplace
+    function listCollectibleForSale(address collectible, uint256 collectibleId, uint256 price) external {
+        // Ensuring that the caller is the owner of the collectible being listed
+        require(collectible.ownerOf(collectibleId) == msg.sender, "Not the owner of the collectible");
+
+        // Generating a new unique ID for the collectible listing
+        uint256 listingId = _collectibleIds.current();
+
+        // Creating and storing a new CollectibleListing struct
+        CollectibleListing memory newListing = CollectibleListing(collectible, collectibleId, msg.sender, price);
+        _collectibleListings[listingId] = newListing;
+
+        // Incrementing the counter for unique listing IDs
+        _collectibleIds.increment();
+    }
+
+    // Function for buying a collectible from the marketplace
+    function buyCollectible(uint256 listingId) external payable {
+        // Retrieving the collectible listing from the mapping
+        CollectibleListing memory listing = _collectibleListings[listingId];
+
+        // Ensuring that the listing is active and the buyer has sent enough Ether
+        require(listing.collectible != address(0), "Listing not found");
+        require(msg.value >= listing.price, "Not enough Ether sent");
+
+        // Transferring the collectible to the buyer's address
+        ICollectible(listing.collectible).transferFrom(listing.seller, msg.sender, listing.collectibleId);
+
+        // Paying the seller the listing price
+        payable(listing.seller).transfer(listing.price);
+
+        // Deleting the listing from the mapping
+        delete _collectibleListings[listingId];
+    }
+    
+    // Function for cancelling a collectible listing on the marketplace (can only be done by the seller)
+    function cancelCollectibleListing(uint256 listingId) external {
+        // Retrieving the collectible listing from the mapping
+        CollectibleListing memory listing = _collectibleListings[listingId];
+
+        // Ensuring that the listing is active and the caller is the seller
+        require(listing.collectible != address(0), "Listing not found");
+        require(listing.seller == msg.sender, "Not the seller");
+
+        // Transferring the collectible back to the seller
+        ICollectible(listing.collectible).transferFrom(address(this), msg.sender, listing.collectibleId);
+
+        // Deleting the listing from the mapping
+        delete _collectibleListings[listingId];
+    }
+}

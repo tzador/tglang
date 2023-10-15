@@ -1,0 +1,65 @@
+// This contract stores information about employees
+// It implements the OpenZeppelin Ownable contract for access control
+
+pragma solidity >=0.4.22 <0.9.0;
+
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol";
+
+contract EmployeeDatabase is Ownable {
+    
+    // Struct for storing employee information
+    struct Employee {
+        uint id; // unique identifier
+        string name; // name of the employee
+        uint salary; // monthly salary in wei
+        bool active; // whether the employee is still employed
+    }
+    
+    // Mapping to store employees against their ids
+    mapping (uint => Employee) public employees;
+    
+    // Event triggered when a new employee is added
+    event NewEmployeeAdded(uint id, string name, uint salary);
+    
+    // Event triggered when an employee's salary is updated
+    event SalaryUpdated(uint id, uint newSalary);
+    
+    // Event triggered when an employee's active status is changed
+    event EmployeeStatusChanged(uint id, bool active);
+    
+    // Modifier to check if an employee already exists
+    modifier employeeExists(uint _id) {
+        require(employees[_id].id != 0, "Employee with given id does not exist");
+        _;
+    }
+    
+    // Function to add a new employee
+    function addEmployee(uint _id, string calldata _name, uint _salary) external onlyOwner {
+        require(_id != 0, "Invalid id provided");
+        require(bytes(_name).length > 0, "Name cannot be empty");
+        require(_salary > 0, "Salary must be greater than 0");
+        require(employees[_id].id == 0, "Employee with given id already exists");
+        
+        employees[_id] = Employee(_id, _name, _salary, true);
+        emit NewEmployeeAdded(_id, _name, _salary);
+    }
+    
+    // Function to update an employee's salary
+    function updateSalary(uint _id, uint _newSalary) external onlyOwner employeeExists(_id) {
+        require(_newSalary > 0, "New salary must be greater than 0");
+        
+        employees[_id].salary = _newSalary;
+        emit SalaryUpdated(_id, _newSalary);
+    }
+    
+    // Function to change an employee's active status
+    function changeEmployeeStatus(uint _id, bool _active) external onlyOwner employeeExists(_id) {
+        employees[_id].active = _active;
+        emit EmployeeStatusChanged(_id, _active);
+    }
+    
+    // Function to get an employee's information
+    function getEmployee(uint _id) external view returns(uint, string memory, uint, bool) {
+        return (employees[_id].id, employees[_id].name, employees[_id].salary, employees[_id].active);
+    }
+}

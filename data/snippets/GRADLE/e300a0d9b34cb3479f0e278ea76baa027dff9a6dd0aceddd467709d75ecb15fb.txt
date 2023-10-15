@@ -1,0 +1,84 @@
+plugins {
+    // Applies the 'java' plugin to the current project
+    id 'java'
+
+    // Exposes the Maven publish configuration
+    id 'maven-publish'
+}
+
+// The version of the library being published
+def libVersion = '1.0.0'
+
+// Specifies the publication group ID
+group = 'com.example.library'
+
+// Specifies the publication artifact ID
+// This will be used as the name of the JAR file
+archivesBaseName = 'example-library'
+
+// Configures the Javadoc task to generate Javadoc for all source sets
+task javadocResourcesJar(type:Jar) {
+    // Specifies the output directory for the Javadoc resources JAR
+    destinationDirectory = file("$buildDir/docs/javadoc")
+    // Includes all Javadoc resources from all source sets
+    from tasks.withType(Javadoc) {
+        Classpath += false
+        options.memberLevel = org.gradle.external.javadoc.StandardJavadocDoclet.memberLevel.ALL
+        options.docletpath = configurations.jacocoAnt.docletJar.asPath
+    }
+}
+
+// Configures the Javadoc task to generate Javadoc for the main source set only
+javadoc {
+    // Specifies the output directory for the Javadoc
+    destinationDir = file("$buildDir/docs/javadoc/main")
+    // Includes only the main source set in the Javadoc generation
+    // Any other source sets can be excluded by using the exclude() method
+    source = sourceSets.main.allJava
+}
+
+// Configures the Javadoc resources task to generate the Javadoc resources JAR
+javadocResources {
+    // Specifies the source directory for the Javadoc resources
+    srcDir = javadoc.destinationDirectory
+    // Includes all resources in the JAR
+    include '**/*'
+    // Customizes the name of the JAR file
+    baseName = 'javaDoc'
+    // Specifies the output directory for the JAR
+    destinationDir = file(javadocResources.destinationDirectory)
+}
+
+// Configures the publishing of the library
+publishing {
+    // Creates a new Maven publication
+    publications {
+        // Specifies the name of the publication
+        maven(MavenPublication) {
+            // Specifies the publication group ID (same as the project's group ID)
+            groupId = group
+            // Specifies the publication artifact ID (same as the project's archive base name)
+            artifactId = archivesBaseName
+            // Specifies the publication version (same as the libVersion variable)
+            version = libVersion
+
+            // Configures the JAR publication
+            from components.java
+
+            // Includes the Javadoc resources JAR in the publication
+            artifact javadocResources
+
+            // Specifies the URL for the Maven repository where the library will be published
+            // This can be configured for different repositories such as Nexus or Artifactory
+            url = 'https://example-repo.com'
+
+            // Configures the authentication for the Maven repository
+            // This can also be read from a properties file or environment variables for security reasons
+            // In this example, we are using a hardcoded username and password
+            credentials {
+                username 'my-username'
+                password 'my-password'
+            }
+        }
+    }
+}

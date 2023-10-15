@@ -1,0 +1,82 @@
+// Start of Bison specification
+%code requires {
+#include <stdio.h>
+#include <stdlib.h>
+}
+
+%code {
+
+int count_lines = 0; 
+int count_words = 0; 
+int count_chars = 0;
+
+void count(line) {
+	count_words++;
+	while (isspace(*line) && *line) line++;
+	if (!isspace(*line) && *line) count_chars++;
+	while (!isspace(*line) && *line) line++;
+	if (*line) count(*line);
+}
+
+}
+
+%token COMMENT
+
+%%
+
+// Rules Section
+
+// Match single-line comments starting with '//'
+"//"(.*) {
+	count_lines++;
+	count_chars += strlen($$);
+}
+
+// Match multi-line comments between '/*' and '*/'
+"/*" {
+	count($$);
+	if (!*yytext) BEGIN COMMENT;
+	count_lines++;
+	count_chars += 2;
+}
+
+<Comment>"*/" {
+	count_lines++;
+	count_chars += 2;
+	BEGIN 0;
+}
+
+// End of Rules Section
+
+%%
+// End of Bison specification
+
+// Start of Flex specification
+%{
+#include "mybison.tab.h" // Forward declaration for mybison.tab.c file
+int yyleng; // Variable for token length
+%}
+
+%option noyywrap noinput nounput
+
+%%
+
+// Rules Section
+
+// Match any token (word of characters, numbers and underscores)
+[a-zA-Z0-9_]+ {
+	yyleng = strlen(yytext);
+	count_lines++;
+	count($$);
+}
+
+// Match any whitespace characters
+\n|\t| " " {
+	count_lines++;
+	count_chars++;
+}
+
+// End of Rules Section
+
+%%
+// End of Flex specification

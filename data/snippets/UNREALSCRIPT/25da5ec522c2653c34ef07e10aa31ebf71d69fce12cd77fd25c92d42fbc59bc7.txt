@@ -1,0 +1,106 @@
+class EnemyPawn extends AIController;
+
+// This class represents an AI-controlled enemy pawn in the game.
+
+var() int Enemy Health; // variable holding the enemy's current health
+var() int Damage; // variable representing the damage dealt by the enemy
+
+// Initialize the enemy pawn's attribute values
+function InitializePawn()
+{
+    Super.InitializePawn();
+
+    // Set the enemy health to a random value between 50 and 100
+    SetEnemyHealth(RandRange(50, 100));
+
+    // Set the damage of the enemy to a random value between 10 and 20
+    SetDamage(RandRange(10, 20));
+}
+
+// Setters for the enemy pawn's variables
+simulated function SetEnemyHealth(int NewHealth)
+{
+    EnemyHealth = NewHealth;
+}
+
+simulated function SetDamage(int NewDamage)
+{
+    Damage = NewDamage;
+}
+
+// Logic for when the enemy takes damage
+// Parameters:
+// DamageTaken - the amount of damage taken by the enemy
+// InstigatedBy - the instigator of the damage (e.g. the player)
+// DamageEvent - the type of damage event (e.g. bullet, explosion)
+function TakeDamage(int DamageTaken, Pawn InstigatedBy, vector HitLocation, vector Momentum, class<DamageType> DamageEvent)
+{
+    // Check if the enemy is already dead (health <= 0)
+    if(EnemyHealth <= 0)
+    {
+        return;
+    }
+    
+    // Subtract the damage taken from the enemy's health
+    EnemyHealth -= DamageTaken;
+
+    // Check if the enemy's health has dropped below 0
+    if(EnemyHealth <= 0)
+    {
+        // Call the function to handle the enemy's death
+        HandleDeath(InstigatedBy);
+    }
+}
+
+// Function to handle the enemy's death
+// Parameters:
+// Killer - the killer of the enemy (e.g. the player)
+function HandleDeath(Pawn Killer)
+{
+    // Destroy the enemy pawn actor
+    Destroy();
+    
+    // Spawn a death particle effect at the enemy's location
+    Spawn(class'DeathParticleEffect',,, Location);
+    
+    // Award points to the killer
+    Killer.AddPoints(100);
+}
+
+// Function to attack a specified target
+// Parameters:
+// Target - the target pawn to attack
+function Attack(Pawn Target)
+{
+    // Calculate the direction to the target
+    local vector Direction = Target.Location - Location;
+    Direction.Z = 0;
+    Direction = vect(Normalize(Direction));
+
+    // Calculate the rotation to face the target
+    local rotator NewRotation = rotator(direction - Rotation);
+    
+    // Rotate towards the target over time
+    Rotation += RInterpTo(Rotation, NewRotation, DeltaTime, 10);
+    
+    // If the rotation is close enough, attack the target
+    if(VSize(direction - Rotation) < 0.2)
+    {
+        // Calculate the damage to deal to the target
+        local int AttackDamage = RandRange(Damage * 0.8, Damage * 1.2);
+
+        // Tell the target to take damage
+        Target.TakeDamage(AttackDamage, self, Location, Momentum, class'DamageType_Bullet');
+    }
+}
+
+defaultproperties
+{
+    // Initialize the default values for the variables
+    EnemyHealth = 100;
+    Damage = 15;
+    
+    // Set the default collision sphere size for the enemy
+    CollisionRadius = 42;
+    CollisionHeight = 96;
+}

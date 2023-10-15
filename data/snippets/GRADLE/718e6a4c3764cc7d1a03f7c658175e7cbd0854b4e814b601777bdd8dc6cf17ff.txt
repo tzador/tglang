@@ -1,0 +1,71 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'com.google.protobuf' version '0.8.17'
+}
+
+application {
+    mainClassName = 'com.example.Main'
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src/main/java']
+        }
+        resources {
+            srcDirs = ['src/main/proto', 'src/main/resources']
+        }
+    }
+}
+
+protobuf {
+    protoc {
+        artifact = 'com.google.protobuf:protoc:3.7.1'
+    }
+
+    generatedFilesBaseDir = "$projectDir/src/main/generated"
+
+    fileTouched {
+        inputs.property('$fileInputDir').asFileTree + file('build.gradle')
+        outputs.file("$generatedFilesBaseDir/example.pb")
+    }
+
+    fileGenerating {
+        outputs.file("$generatedFilesBaseDir/Main.java")
+    }
+
+    plugins {
+        grpc {
+          artifact = 'io.grpc:protoc-gen-grpc-java:1.18.0'      
+        }
+    }
+
+    generateProtoTasks {
+        all().each { task ->
+            task.plugins {
+                grpc {
+                    // Ensure that you use the latest version here when integrating the Java plugin or
+                    // latest SNAPSHOT for the new features (like `includeUnknownEnumValues` and
+                    // `includeUnknownFields`).
+                    // This is the version for Java/JavaLite compatibility.
+                    artifact = 'io.grpc:protoc-gen-grpc-java-lite:1.18.0'
+                }
+            }
+        }
+    }
+}
+
+protobuf {
+    // blank protobuf task just to have it possible to change the artifact property of the protoc task
+    protoc {}
+}
+
+// [START gradle_cpp_and_grpc_build_example]
+task cppbuild(type: Exec) {
+    dependsOn 'build'
+    commandLine 'g++', '-Ibuild/data/main/generated', 'src/cpp/hello-world.cc', '-Lbuild/libs/main/debug', '-Isrc/cpp',
+        '-lhello-world',
+        '-std=c++11', '-o', file('build/hello-world')
+}
+// [END gradle_cpp_and_grpc_build_example]

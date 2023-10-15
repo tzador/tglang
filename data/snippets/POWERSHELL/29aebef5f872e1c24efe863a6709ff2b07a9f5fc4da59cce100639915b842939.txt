@@ -1,0 +1,42 @@
+# This code snippet is a PowerShell script
+# It creates and manages a virtual machine using the Hyper-V module
+
+# Variables for virtual machine settings
+$VmName = "MyVM"
+$Switch = "HyperSwitch"
+$Partition = "/dev/sdc"
+$Image = "ubuntu-lts.vhdx"
+$Memory = 4GB
+$CpuCount = 2
+$DiskSize = 40GB
+
+# Create a new virtual switch
+New-VMSwitch -Name $Switch -AllowManagementOS
+
+# Create a new virtual machine
+New-VM -Name $VmName -Switch $Switch -Path (Join-Path $env:ProgramData "Microsoft\Windows\Hyper-V")
+
+# Set memory and CPU count for the virtual machine
+Set-VMMemory -VMName $VmName -DynamicMemoryEnabled $True -MinimumBytes $Memory
+Set-VMProcessor -VMName $VmName -Count $CpuCount
+
+# Add a new virtual hard disk for the virtual machine
+Add-VMHardDiskDrive -VMName $VmName -Path (Join-Path $env:ProgramData "Microsoft\Windows\Hyper-V") -SizeBytes $DiskSize
+
+# Mount the disk image for the virtual machine
+$Disk = Mount-VHD -Path (Join-Path $env:ProgramData "Microsoft\Windows\Hyper-V\$Image") -Passthru
+
+# Create a new partition on the virtual disk
+New-Partition -DiskNumber $Disk.Number -UseMaximumSize -IsActive
+
+# Format the newly created partition
+Format-Volume -PartitionNumber 2 -DriveLetter "C"
+
+# Unmount the disk image
+Dismount-VHD -Path (Join-Path $env:ProgramData "Microsoft\Windows\Hyper-V\$Image")
+
+# Configure the virtual machine to boot from the virtual hard disk
+Set-VMFirmware -VMName $VmName -BootOrder "Firmware" -FirstBootDevice (Get-VMHardDiskDrive -VMName $VmName)
+
+# Start the virtual machine
+Start-VM -VMName $VmName

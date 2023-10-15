@@ -1,0 +1,207 @@
+// This code snippet generates a random maze and finds the shortest path using Dijkstra's algorithm
+
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <algorithm>
+
+using namespace std;
+
+// structure to represent a cell in the maze
+struct Cell {
+    int row, col, value;
+    bool explored;
+};
+
+// function to generate a random maze grid of given size
+vector<vector<Cell>> generateMaze(int rows, int cols) {
+    // create an empty maze grid
+    vector<vector<Cell>> maze(rows, vector<Cell>(cols));
+
+    // initialize the cells with random values
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            maze[i][j].row = i;
+            maze[i][j].col = j;
+            maze[i][j].value = rand() % 2; // 0 represents a wall, 1 represents an empty space
+            maze[i][j].explored = false;
+        }
+    }
+
+    // set the starting point
+    maze[0][0].value = 1;
+
+    // set the ending point
+    maze[rows-1][cols-1].value = 1;
+
+    return maze;
+}
+
+// function to print the maze grid
+void printMaze(vector<vector<Cell>> maze) {
+    for (vector<Cell> row : maze) {
+        for (Cell cell : row) {
+            if (cell.value == 0) { // wall
+                cout << "██";
+            }
+            else if (cell.value == 1) { // empty space
+                cout << "  ";
+            }
+        }
+        cout << endl;
+    }
+}
+
+// structure to represent a node in the graph for Dijkstra's algorithm
+struct Node {
+    int row, col, distance; // distance represents the shortest distance from the starting point to this node
+    bool visited;
+};
+
+// function to compare two nodes based on their distance (used in priority queue)
+struct compareNodes {
+    bool operator() (Node& n1, Node& n2) {
+        return n1.distance > n2.distance; // nodes with smaller distance will have higher priority
+    }
+};
+
+// function to find the shortest path from starting point to ending point using Dijkstra's algorithm
+vector<Cell> findShortestPath(vector<vector<Cell>> maze) {
+    int rows = maze.size();
+    int cols = maze[0].size();
+
+    // initialize an empty graph for Dijkstra's algorithm
+    vector<vector<Node>> graph(rows, vector<Node>(cols));
+
+    // initialize the starting node
+    graph[0][0].row = 0;
+    graph[0][0].col = 0;
+    graph[0][0].distance = 0;
+    graph[0][0].visited = false;
+
+    // initialize all other nodes with default values
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            if (!(i == 0 && j == 0)) { // ignore the starting node
+                graph[i][j].row = i;
+                graph[i][j].col = j;
+                graph[i][j].distance = INT_MAX; // initially set all distances to infinity
+                graph[i][j].visited = false;
+            }
+        }
+    }
+
+    // create a priority queue to store the nodes with smallest distance at the top
+    priority_queue<Node, vector<Node>, compareNodes> pq;
+
+    // push the starting node to the priority queue
+    pq.push(graph[0][0]);
+
+    // loop until the priority queue becomes empty
+    while (!pq.empty()) {
+        // extract the node with the smallest distance from the starting point
+        Node current = pq.top();
+        pq.pop();
+
+        // if the current node is the ending point, return the shortest path
+        if (current.row == rows-1 && current.col == cols-1) {
+            vector<Cell> shortestPath;
+
+            // traverse the graph backwards from the ending point to the starting point
+            while (current.distance != 0) {
+                // add the current cell to the shortest path
+                shortestPath.push_back(maze[current.row][current.col]);
+
+                // find the neighboring cell with one less distance from the starting point
+                int minRow = current.row;
+                int minCol = current.col;
+                for (int i = -1; i <= 1; i++) {
+                    for (int j = -1; j <= 1; j++) {
+                        // check for valid neighboring cells
+                        if (i == 0 && j == 0) continue; // ignore the current cell
+                        if (current.row + i < 0 || current.row + i >= rows || current.col + j < 0 || current.col + j >= cols) continue; // neighbor outside the maze boundary
+                        if (graph[current.row + i][current.col + j].visited || graph[current.row + i][current.col + j].distance == INT_MAX) continue; // neighbor already visited or unreachable
+                        if (graph[current.row + i][current.col + j].distance < graph[minRow][minCol].distance) {
+                            minRow = current.row + i;
+                            minCol = current.col + j;
+                        }
+                    }
+                }
+
+                // update the current node
+                current = graph[minRow][minCol];
+            }
+
+            // add the starting point to the shortest path
+            shortestPath.push_back(maze[0][0]);
+
+            // reverse the shortest path to get the correct order
+            reverse(shortestPath.begin(), shortestPath.end());
+
+            // return the shortest path
+            return shortestPath;
+        }
+
+        // mark the current node as visited
+        graph[current.row][current.col].visited = true;
+
+        // add unvisited neighboring nodes to the priority queue
+        for (int i = -1; i <= 1; i++) {
+            for (int j = -1; j <= 1; j++) {
+                // check for valid neighboring cells
+                if (i == 0 && j == 0) continue; // ignore the current cell
+                if (current.row + i < 0 || current.row + i >= rows || current.col + j < 0 || current.col + j >= cols) continue; // neighbor outside the maze boundary
+                if (graph[current.row + i][current.col + j].visited) continue; // neighbor already visited
+                if (graph[current.row + i][current.col + j].distance != INT_MAX) continue; // a shorter path to this neighbor has already been found
+                if (maze[current.row + i][current.col + j].value == 0) continue; // neighbor is a wall
+
+                // calculate the new distance to this neighbor node
+                int newDistance = current.distance + 1;
+
+                // update the distance for this neighbor node if the new distance is smaller
+                if (newDistance < graph[current.row + i][current.col + j].distance) {
+                    graph[current.row + i][current.col + j].distance = newDistance;
+
+                    // push the updated neighbor node to the priority queue
+                    pq.push(graph[current.row + i][current.col + j]);
+                }
+            }
+        }
+    }
+
+    // if the priority queue becomes empty, no path from starting point to ending point exists
+    return {};
+}
+
+// main function to run the program
+int main() {
+    // generate a random maze of size 10x10
+    vector<vector<Cell>> maze = generateMaze(10, 10);
+
+    // print the maze before finding the shortest path
+    cout << "Maze before finding shortest path:" << endl;
+    printMaze(maze);
+    cout << endl;
+
+    // find the shortest path using Dijkstra's algorithm
+    vector<Cell> shortestPath = findShortestPath(maze);
+
+    // mark the cells in the shortest path as explored
+    for (Cell cell : shortestPath) {
+        cell.explored = true;
+    }
+
+    // print the maze after finding the shortest path
+    cout << "Maze after finding shortest path:" << endl;
+    printMaze(maze);
+    cout << endl;
+
+    // print the shortest path in the maze
+    cout << "Shortest path:" << endl;
+    for (Cell cell : shortestPath) {
+        cout << "(" << cell.row << ", " << cell.col << ") ";
+    }
+    cout << endl;
+
+    return 0;
+}

@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: MIT
+// This is a contract that implements a timecard system for employees
+
+contract TimecardSystem {
+    address owner;
+    
+    struct Employee {
+        address addr;
+        uint salary;
+        uint lastPayday;
+        uint totalHoursWorked;
+        mapping (uint => bool) paidDates;
+    }
+
+    mapping(address => Employee) employees;
+    uint constant payDuration = 30 days;
+
+    // Constructor sets the owner of the contract
+    constructor() public {
+        owner = msg.sender;
+    }
+
+    // Function to add a new employee
+    function addEmployee(address _employee, uint _salary) public onlyOwner {
+        var employee = employees[_employee];
+        require(employee.addr == 0x0);
+        employees[_employee] = Employee({
+            addr: _employee,
+            salary: _salary,
+            lastPayday: now,
+            totalHoursWorked: 0
+        });
+    }
+
+    // Function to remove an existing employee
+    function removeEmployee(address _employee) public onlyOwner {
+        delete employees[_employee];
+    }
+
+    // Function to update the salary of an existing employee
+    function updateSalary(address _employee, uint _salary) public onlyOwner {
+        var employee = employees[_employee];
+        require(employee.addr != 0x0);
+        employee.salary = _salary;
+    }
+
+    // Function to add hours worked by an employee
+    function addHoursWorked(uint _hours) public {
+        var employee = employees[msg.sender];
+        require(employee.addr != 0x0);
+        require(_hours > 0);
+        employee.totalHoursWorked = employee.totalHoursWorked + _hours;
+    }
+
+    // Function to calculate and pay employee salary
+    function paySalary(address _employee) private {
+        var employee = employees[_employee];
+        require(employee.addr != 0x0);
+        
+        // Calculate the salary to be paid based on hours worked
+        uint payment = employee.salary * (employee.totalHoursWorked / 8);
+        
+        // Reset total hours worked
+        employee.totalHoursWorked = 0;
+        
+        // Transfer the salary to the employee address
+        employee.addr.transfer(payment);
+        
+        // Mark the payment date as paid
+        employee.paidDates[now / payDuration] = true;
+    }
+
+    // Function to check if an employee has been paid for a specific date
+    function checkPayStatus(address _employee, uint _date) public view returns (bool) {
+        var employee = employees[_employee];
+        require(employee.addr != 0x0);
+        return employee.paidDates[_date];
+    }
+
+    // Function to pay all employees
+    function payAllEmployees() public onlyOwner {
+        for (uint i = 0; i < employees.length; i++) {
+            if (!employees[i].paidDates[now / payDuration]) {
+                paySalary(employees[i].addr);
+            }
+        }
+    }
+
+    // Modifier to restrict access to contract owner only
+    modifier onlyOwner() {
+        require(msg.sender == owner);
+        _;
+    }
+}

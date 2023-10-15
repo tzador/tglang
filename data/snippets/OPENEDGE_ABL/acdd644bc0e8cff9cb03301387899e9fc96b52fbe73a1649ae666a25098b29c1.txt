@@ -1,0 +1,63 @@
+/* Declare a temp-table to store customer data */
+DEFINE TEMP-TABLE ttCustomer
+    FIELD custName AS CHARACTER
+    FIELD custAddress AS CHARACTER
+    FIELD custAge AS INTEGER
+    FIELD custEmail AS CHARACTER.
+
+/* Define a data stream to read customer data from a text file */
+DEFINE STREAM sCustomer FOR "customers.txt".
+
+/* Define a procedure to process the data from the data stream */
+DEFINE PROCEDURE processCustomers:
+    /* Create a handle to the data stream */
+    DEFINE VARIABLE hStream AS HANDLE NO-UNDO.
+    /* Create a handle to the temp-table */
+    DEFINE VARIABLE hTable AS HANDLE NO-UNDO.
+    /* Create variables to store field values from the data stream */
+    DEFINE VARIABLE name AS CHARACTER.
+    DEFINE VARIABLE address AS CHARACTER.
+    DEFINE VARIABLE age AS INTEGER.
+    DEFINE VARIABLE email AS CHARACTER.
+
+    /* Get the handle to the data stream */
+    hStream = STREAM sCustomer:HANDLE.
+    
+    /* Initialize the temp-table with field names and types */
+    CREATE ttCustomer.
+    
+    /* Create an import mapping to map the fields from the data stream to the temp-table */
+    CREATE IMPORT ttCustomer.
+    IMPORT ttCustomer custName, custAddress, custAge, custEmail.
+    
+    /* Open the data stream to start reading data */
+    OPEN STREAM hStream.
+    
+    /* Loop through each record in the stream */
+    DO WHILE AVAILABLE(hStream):
+        /* Read the record and store the values in variables */
+        INPUT STREAM hStream, name, address, age, email.
+        /* Create a new record in the temp-table */
+        CREATE ttCustomer.
+        /* Assign values from variables to fields in the temp-table */
+        ASSIGN ttCustomer.custName = name
+               ttCustomer.custAddress = address
+               ttCustomer.custAge = age
+               ttCustomer.custEmail = email.
+    END.
+    
+    /* Close the data stream */
+    CLOSE STREAM hStream.
+    
+    /* Display the entered data */
+    FOR EACH ttCustomer:
+        DISPLAY ttCustomer WITH FRAME fDisplay.
+    END.
+    
+    /* Drop the temp-table and import mapping */
+    DELETE OBJECT ttCustomer.
+    DELETE OBJECT IMPORT ttCustomer.
+END PROCEDURE.
+
+/* Call the procedure to process the data */
+RUN processCustomers.

@@ -1,0 +1,64 @@
+pragma solidity ^0.8.1;
+
+import "hardhat/console.sol";
+
+contract Voting {
+    address owner;
+
+    struct Candidate {
+        string name;
+        uint256 voteCount;
+    }
+
+    mapping(address => bool) public hasVoted;
+    Candidate[] public candidates;
+
+    event NewCandidate(string name);
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can perform this action.");
+        _;
+    }
+
+    function addCandidate(string memory _name) public onlyOwner {
+        for (uint256 i = 0; i < candidates.length; i++) {
+            require(
+                keccak256(bytes(candidates[i].name)) !=
+                    keccak256(bytes(_name)),
+                "Candidate already exists."
+            );
+        }
+
+        candidates.push(Candidate(_name, 0));
+        emit NewCandidate(_name);
+    }
+
+    function vote(uint256 _candidateIdx) public {
+        require(
+            _candidateIdx < candidates.length,
+            "Invalid candidate index."
+        );
+        require(!hasVoted[msg.sender], "You have already voted.");
+
+        candidates[_candidateIdx].voteCount++;
+        hasVoted[msg.sender] = true;
+    }
+
+    function getWinner() public view returns (string memory) {
+        uint256 idx = 0;
+        uint256 voteCount = 0;
+
+        for (uint256 i = 0; i < candidates.length; i++) {
+            if (candidates[i].voteCount > voteCount) {
+                idx = i;
+                voteCount = candidates[i].voteCount;
+            }
+        }
+
+        return candidates[idx].name;
+    }
+}

@@ -1,0 +1,38 @@
+$Title Optimization Model for Production Planning;
+Sets
+    i Plants /p1*p3/
+    j Products /pr1*pr5/
+    t Time Periods /1*6/
+    k Markets /m1*m2/
+    reg Regions /rg1*rg3;
+Parameters
+    cap(i) Production Capacity of Plants i
+    demand(j, t) Demand for Products j in Time Period t
+    production_cost(i, j) Cost of producing Product j in Plant i
+    transportation_cost(i, k, reg) Cost of transporting from Plant i to Market k in Region reg
+    inventory_cost(j, t) Cost of holding Product j in inventory in Time Period t
+    demand_growth(j, t) Annual growth rate of demand for Product j in Time Period t
+    commodity_price(j, k, reg) Price of Product j in Market k in Region reg;
+Variables
+    x(i, j, t) Production of Product j in Plant i in Time Period t
+    y(i, k, reg, t) Amount of Product transported from Plant i to Market k in Region reg in Time Period t
+    z(j, t) Inventory level of Product j in Time Period t
+    profit Total Profit;
+Equations
+    production_equation(i, j, t) Equating Production with Demand and Inventory Levels
+    demand_growth_equation(j, t) Equating Demand Growth with New Inventory Levels
+    profit_equation Profit Calculation based on Production, Transportation, and Inventory Costs;
+    
+production_equation(i, j, t)..
+    cap(i)*x(i, j, t)$
+    production_cost(i,j)*x(i,j,t) + z(j, t-1) - y(i,k,j)*transportation_cost(i,k,reg) =g= demand(j,t) + z(j,t);$
+    
+demand_growth_equation(j, t)..
+    z(j, t)*demand_growth(j, t) =l= z(j, t-1) + z(j, t) - z(j, t+1);$
+    
+profit_equation..
+    profit =e= sum((i, j, t), production_cost(i,j)*x(i,j,t)) + sum((i, k, reg, t), transportation_cost(i,k,reg)*y(i,k,reg,t)) - sum((j, t), inventory_cost(j,t)*z(j,t)) - sum((j, t), commodity_price(j,k,reg)*z(j,t)*demand(j,t)),
+    x.m(i,j,t), y.m(i,k,reg,t), z.m(j,t), profit;
+    
+Model production_model /all/;
+Solve production_model using lp maximizing profit;

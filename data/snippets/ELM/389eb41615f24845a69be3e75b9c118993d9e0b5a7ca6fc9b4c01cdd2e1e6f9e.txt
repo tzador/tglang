@@ -1,0 +1,87 @@
+-- Declare a custom type with a generic data structure, which 
+-- includes a list of values and functions for manipulating them
+
+type alias MyList a =
+    { values : List a
+    , map : (a -> a) -> MyList a
+    , filter : (a -> Bool) -> MyList a
+    , foldl : (a -> b -> a) -> a -> MyList b -> a
+    }
+
+
+-- Define a function that creates an empty MyList with the 
+-- specified type
+
+empty : MyList a
+empty =
+    MyList [] (\fn -> empty) (\fn -> empty) (\fn start _ -> start)
+
+
+-- Define a function that adds a new value to the MyList
+
+add : a -> MyList a -> MyList a
+add value myList =
+    MyList (values myList ++ [value]) (\fn -> add (fn value) myList) (\fn -> add value (filter fn myList)) (\fn start l -> foldl fn start (add value l))
+
+
+-- Define a function that maps a function over all the values 
+-- in the MyList and returns a new MyList with the updated values
+
+map : (a -> b) -> MyList a -> MyList b
+map fn myList =
+    MyList (List.map fn (values myList)) (\newFn -> map (newFn << fn) myList) (\newFn -> map fn (filter newFn myList)) (\newFn start l -> foldl newFn start (map fn l))
+
+
+-- Define a function that filters the values in the MyList 
+-- based on a predicate function
+
+filter : (a -> Bool) -> MyList a -> MyList a
+filter pred myList =
+    MyList (List.filter pred (values myList)) (\fn -> filter (pred << fn) myList) (\fn -> filter fn (filter pred myList)) (\fn start l -> foldl fn start (filter pred l))
+
+
+-- Define a function that folds a function over the values in 
+-- the MyList starting with an initial value
+
+foldl : (a -> b -> a) -> a -> MyList b -> a
+foldl fn start myList =
+    List.foldl fn start (values myList)
+
+
+-- Create a new MyList with initial values
+
+myList : MyList Int
+myList =
+    empty
+        |> add 2
+        |> add 4
+        |> add 6
+        |> add 8
+
+
+-- Map the multiply function over all the values in the 
+-- MyList and return a new MyList with the updated values
+
+multiply : Int -> Int -> Int
+multiply x y =
+    x * y
+
+myMultipliedList : MyList Int
+myMultipliedList =
+    map multiply myList
+
+
+-- Filter the values in the MyList based on being greater 
+-- than or equal to 4
+
+myFilteredList : MyList Int
+myFilteredList =
+    filter (\x -> x >= 4) myList
+
+
+-- Fold over the values in the MyList starting with an 
+-- initial value of 0 and adding all values together
+
+mySum : Int
+mySum =
+    foldl (+) 0 myList

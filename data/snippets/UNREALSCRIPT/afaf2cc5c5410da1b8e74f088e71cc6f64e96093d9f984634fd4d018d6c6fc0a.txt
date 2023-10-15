@@ -1,0 +1,154 @@
+/** A custom Actor that can move and rotate. */
+class CustomActor extends Actor
+    extendsPlaceable
+    within (CollapsingHorizon)
+    notplaceable
+    minimalapi
+    abstract
+    config (MyGameEngine)
+    defaultproperties
+{
+    /** Amount of health remaining for this actor */
+    var()var float Health;
+    
+    /** Name of the owner of this actor */
+    var string Owner; 
+
+    /** Type of this actor*/
+    var enum EActorType
+    {
+        None,
+        NPC,
+        Player,
+        Boss
+    }
+    
+    /** Speed of movement for this actor */
+    var(float) EditInlineConfigurable Auto
+
+    /** Model used for rendering this actor */
+    var() EditInline const MeshObject Mesh;
+
+    /** Initial location and rotation of this actor */
+    event PostBeginPlay()
+    {
+    	SetActorLocation(Vector(0, 0, 0));
+        SetActorRotation(Rotator(0, 0, 0));
+    }
+
+    /** Sets the health of the actor to the given value
+    * @param NewHealth The new health value for the actor
+    */
+    function SetHealth(float NewHealth)
+    {
+        Health = NewHealth;
+    }
+
+    /** Rotates the actor by the given amount
+    * @param Amount The amount to rotate the actor by
+    */
+    function RotateActor(Rotator Amount)
+    {
+        SetActorRotation(GetActorRotation + Amount);
+    }
+
+    /** Moves the actor in the given direction
+    * @param Direction The direction in which to move the actor
+    */
+    function MoveActor(Vector Direction)
+    {
+        SetActorLocation(GetActorLocation + Direction);
+    }
+
+    /** Checks if the actor is within a specified distance from the given actor
+    * @param Other The other actor to check distance against
+    * @param Distance The maximum distance allowed between the two actors
+    * @return Whether or not the actor is within the specified distance from the other actor
+    */
+    event bool CheckDistanceWithin(Actor Other, float Distance)
+    {
+        local Vector CurrentLocation;
+        local Vector OtherLocation;
+        local float DistanceSquared;
+
+        // Get current location
+        CurrentLocation = GetActorLocation();
+
+        // Get other actor's location
+        OtherLocation = Other.GetActorLocation();
+
+        // Calculate distance between the two locations, squared
+        DistanceSquared = VSizeSquared(OtherLocation - CurrentLocation);
+
+        // Compare to maximum distance squared
+        if (DistanceSquared < Distance * Distance)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    /** Called when another actor overlaps with this one
+    * @param Other The actor that has overlapped with this one
+    */
+    event Touch(Actor Other)
+    {
+        // Do something when touched by another actor
+        // For example, damage the actor's health
+        if (Other.Health > 0)
+        {
+            Other.SetHealth(Other.Health - 10);
+        }
+    }
+}
+
+/** A simple HUD displaying the health of the player */
+class SimpleHUD extends HUD
+{
+    /** Reference to the player actor*/
+    var PlayerActor Owner;
+
+    /** Reference to the health panel for the HUD */
+    var CanvasPanel HealthPanel;
+
+    /** Reference to the text displaying the player's health */
+    var const TextDisplay PlayerHealthText;
+
+    /** Background image for the health panel */
+    const DefaultHud Backdrop(Bitmap'Gfx.HUD.Hud');
+
+    /** PostBeginPlay - initialize the HUD */
+    function PostBeginPlay()
+    {
+        // Get reference to the player actor
+        Owner = PlayerActor(Level.GetLevelInfo().GetPlayerPawn());
+
+        // Create the health panel with the player's name and health displayed
+        HealthPanel = CanvasPanel(CanvasPanelClass'SimpleCanvasPanel_Class', -1, -1, 128, 64);
+
+        // Create the player's health text
+        PlayerHealthText = Spawn(class'TextDisplay', HealthPanel);
+        PlayerHealthText.Font = Font'Engine.Resources.STY_Font.Fonts.NormalFont';
+        PlayerHealthText.SetStringValue(PlayerActor.ActivePawn.Health);
+        PlayerHealthText.SetLocation(5, 5);
+
+        // Add the health panel to the HUD
+        CanvasObject.AddChild(Child, HealthPanel);
+
+        // Float the health panel in the top left corner
+        CanvasPanel.OwnerAnchor = ST_Right;
+        CanvasPanel.OwnerAnchor = ST_Top;
+        CanvasPanel.Align = A_TOPRIGHT;
+        CanvasPanel.bHidden = false;
+        HealthPanel.bHidden = false;
+    }
+
+    /** Tick - update the player's health value on the HUD */
+    function Tick()
+    {
+        // Update the player's health text
+        PlayerHealthText.SetStringValue(PlayerActor.ActivePawn.Health);
+        super.Tick();
+    }
+}

@@ -1,0 +1,97 @@
+pragma solidity ^0.8.0;
+
+contract Crowdsale {
+    using SafeMath for uint256; // importing a library
+
+    mapping(address => uint256) balances; // creating a mapping to store address => balance
+    uint256 public totalSupply; // declaring a public state variable
+
+    address payable public owner; // declaring a public payable state variable
+    address payable public wallet; // declaring a public payable state variable
+    uint256 public rate; // declaring a public state variable
+
+    constructor(uint256 _totalSupply, address payable _wallet, uint256 _rate) {
+        totalSupply = _totalSupply; // initializing the total supply
+        owner = msg.sender; // assigning the contract creator as the owner
+        wallet = _wallet; // assigning the wallet address for receiving funds
+        rate = _rate; // setting the conversion rate
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner); // only the owner can execute this function
+        _;
+    }
+
+    /**
+     * @dev payment function
+     */
+    function buyTokens() public payable {
+        uint256 amount = msg.value.mul(rate); // calculating the amount of tokens to be allocated
+        require(amount > 0); // amount must be greater than 0
+        require(totalSupply >= amount); // total supply must be greater than or equal to amount
+        balances[msg.sender] = balances[msg.sender].add(amount); // allocating tokens to buyer's address
+        totalSupply = totalSupply.sub(amount); // updating the total supply
+        wallet.transfer(msg.value); // transferring the funds to the designated wallet
+    }
+
+    /**
+     * @dev withdrawal function for the owner
+     */
+    function withdraw() public onlyOwner {
+        address(this).balance; // checking the current balance of the contract
+        wallet.transfer(address(this).balance); // transferring the contract's balance to the wallet
+    }
+
+    /**
+     * @dev function to check the balance of a given address
+     * @param _address the address to be checked
+     */
+    function balanceOf(address _address) public view returns (uint256) {
+        return balances[_address]; // returning the balance of the given address
+    }
+}
+
+/**
+ * @title SafeMath
+ * @dev Math operations with safety checks that throw on error
+ */
+library SafeMath {
+    /**
+     * @dev Multiplies two numbers, throws on overflow.
+     */
+    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+        if (a == 0) {
+            return 0;
+        }
+        uint256 c = a * b;
+        require(c / a == b);
+        return c;
+    }
+
+    /**
+     * @dev Integer division of two numbers, truncating the quotient.
+     */
+    function div(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b > 0);
+        uint256 c = a / b;
+        return c;
+    }
+
+    /**
+     * @dev Subtracts two numbers, throws on overflow (i.e. if subtrahend is greater than minuend).
+     */
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b <= a);
+        uint256 c = a - b;
+        return c;
+    }
+
+    /**
+     * @dev Adds two numbers, throws on overflow.
+     */
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        uint256 c = a + b;
+        require(c >= a);
+        return c;
+    }
+}

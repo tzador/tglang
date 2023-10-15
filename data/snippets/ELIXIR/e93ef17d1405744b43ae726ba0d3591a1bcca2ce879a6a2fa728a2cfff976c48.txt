@@ -1,0 +1,65 @@
+#GenServer Module 
+#This module creates a process that handles requests in a separate process.
+defmodule Example.Server do
+  use GenServer
+
+  #start_link/1
+  #starts the server when called
+  def start_link(state) do
+    GenServer.start_link(__MODULE__, state)
+  end
+
+  #init/1
+  #initializes the server state
+  def init(state) do
+    {:ok, state}
+  end
+
+  #handle_call/3
+  #handles synchronous calls from the client
+  def handle_call(:request, _from, state) do
+    {:reply, state, state}
+  end
+
+  #handle_cast/3
+  #handles asynchronous requests from the client
+  def handle_cast({:update, data}, state) do
+    {:noreply, Map.update(state, :data, fn old_data -> [old_data | data] end)}
+  end
+
+  #handle_info/2
+  #handles asynchronous messages sent to the server
+  def handle_info({:message, text}, state) do
+    IO.puts "Received message: #{text}"
+    {:noreply, state}
+  end
+end
+
+#Client module
+defmodule Example.Client do
+  #request/1
+  #sends a synchronous request to the server
+  def request(pid) do
+    GenServer.call(pid, :request)
+  end
+
+  #start/0
+  #starts the server and sends it an asynchronous request
+  def start do
+    {:ok, pid} = Example.Server.start_link([])
+    GenServer.cast(pid, {:update, "New Data"})
+    pid
+  end
+
+  #send_message/2
+  #sends an asynchronous message to the server
+  def send_message(pid, message) do
+    GenServer.cast(pid, {:message, message})
+  end
+end
+
+#Example usage
+{:ok, pid} = Example.Server.start_link([])
+Example.Client.request(pid) #returns the initial state
+Example.Client.send_message(pid, "Hello") #prints "Received message: Hello" in the server logs
+Example.Client.start #starts the server and sends it "New Data" as an asynchronous request

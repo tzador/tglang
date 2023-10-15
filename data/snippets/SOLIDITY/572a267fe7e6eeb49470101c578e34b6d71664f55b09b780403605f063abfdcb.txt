@@ -1,0 +1,70 @@
+contract ExampleContract {
+  // Owner variable
+  address public owner;
+
+  // Events
+  event OwnerSet(address indexed oldOwner, address indexed newOwner);
+  event ItemAdded(uint256 id, string name, uint256 price);
+  event ItemPurchased(uint256 id, string name, uint256 quantity, address buyer);
+
+  // Struct representing a single item
+  struct Item {
+    string name;
+    uint256 price;
+    uint256 quantity;
+    bool exists;
+  }
+
+  // Mappings
+  mapping(uint256 => Item) public items;
+  mapping(address => uint256) public balances;
+
+  // Modifiers
+  modifier onlyOwner {
+    require(msg.sender == owner, "Only the owner can call this function.");
+    _;
+  }
+
+
+  // Constructor function, sets the owner variable to the deployer's address
+  constructor() public {
+    owner = msg.sender;
+  }
+
+  // Function to set a new owner for the contract
+  function setOwner(address _newOwner) public onlyOwner {
+    address oldOwner = owner;
+    owner = _newOwner;
+    emit OwnerSet(oldOwner, _newOwner);
+  }
+
+  // Function to add a new item to the contract
+  function addItem(uint256 _id, string memory _name, uint256 _price, uint256 _quantity) public onlyOwner {
+    // Check if item already exists
+    require(!items[_id].exists, "An item with this id already exists.");
+
+    // Create new item and add it to the mapping
+    Item memory newItem = Item(_name, _price, _quantity, true);
+    items[_id] = newItem;
+
+    // Emit event
+    emit ItemAdded(_id, _name, _price);
+  }
+
+  // Function to purchase an item
+  function purchaseItem(uint256 _id, uint256 _quantity) public payable {
+    // Check if item exists
+    require(items[_id].exists, "This item does not exist.");
+
+    // Check if enough ether was sent for the purchase
+    require(msg.value >= items[_id].price * _quantity, "Insufficient funds.");
+
+    // Update item quantity and balance mapping
+    items[_id].quantity -= _quantity;
+    balances[owner] += msg.value;
+
+    // Send the purchased item to the buyer
+    emit ItemPurchased(_id, items[_id].name, _quantity, msg.sender);
+    msg.sender.transfer(msg.value);
+  }
+}

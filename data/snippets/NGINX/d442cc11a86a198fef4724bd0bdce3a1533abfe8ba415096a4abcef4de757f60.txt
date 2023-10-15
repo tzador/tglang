@@ -1,0 +1,56 @@
+server {
+    # listen on port 80
+    listen 80;
+    # server name
+    server_name example.com;
+    # enable gzip compression
+    gzip on;
+    # static files caching
+    location ~* \.(css|js|jpg|jpeg|png|gif|ico|svg)$ {
+        # cache settings
+        expires 30d;
+        add_header Cache-Control "public";
+        add_header Vary "Accept-Encoding";
+        # enable gzip compression
+        gzip on;
+        # enable caching for compressed files
+        gzip_static on;
+        # set compression level and buffer size
+        gzip_comp_level 5;
+        gzip_buffers 16 8k;
+    }
+    # reverse proxy for API requests
+    location /api/ {
+        proxy_pass http://localhost:3000;
+        # add HTTP headers
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Host $host;
+        # enable caching
+        proxy_cache_bypass $http_cache_control;
+        proxy_no_cache $http_cache_control;
+        proxy_cache_bypass $http_pragma;
+        proxy_no_cache $http_pragma;
+        # set cache expiration time
+        proxy_cache_valid 200 20m;
+        # enable caching for compressed responses
+        gzip on;
+        gzip_proxied any;
+        gzip_comp_level 5;
+        gzip_types text/plain text/css application/json;
+    }
+    # proxy for serving dynamic files
+    location /images/ {
+        proxy_pass http://localhost:8080;
+        # enable caching of responses
+        proxy_cache_bypass $http_cache_control;
+        proxy_no_cache $http_cache_control;
+        proxy_cache_bypass $http_pragma;
+        proxy_no_cache $http_pragma;
+        # set cache expiration time
+        proxy_cache_valid 200 20m;
+    }
+    # allow only specific IP addresses
+    allow 192.168.1.1;
+    deny all;
+}

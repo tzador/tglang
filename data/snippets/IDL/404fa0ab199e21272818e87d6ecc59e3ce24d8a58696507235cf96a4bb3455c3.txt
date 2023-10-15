@@ -1,0 +1,99 @@
+pro plot_map, lat, lon, data, title='', /triangles, /hires
+; This procedure plots data onto a map using the specified latitude and longitude coordinates
+
+; Define variables
+data_size = size(data)
+npoints = data_size(2)
+ntriangles = data_size(1)
+longitude = lon * !dpi / 180.0
+latitude = lat * !dpi / 180.0
+
+; Set up map projection
+map = map_projinit(projection='cylindrical', $
+    latdef=[-80, 80], londef=[-180, 180], $
+    aspect_ratio=1.5, dimension =data_size)
+
+; Set up color table
+ct = obj_new('IDLgrColorTable')
+ct->setRamp, 'blue-red', reverse=1
+
+; Create base map
+map_base = obj_new('IDLgrMap', map)
+map_base->setFillColor, 'white'
+
+; Draw coastlines
+coastline = map_base->drawcoastlines()
+
+; Initialize map objects
+map_data = obj_new('IDLgrMap', map)
+map_grid = obj_new('IDLgrMap', map)
+
+; Set data coordinates
+data_coords = obj_new('IDLgrTransform', data_size)
+data_coords->initWithMap, map_data, longitude, latitude, /nometadata
+
+; Set up triangles
+triangles = obj_new('IDLgrTriangles')
+triangles->setIndexData, indgen(ntriangles), 3, 0
+triangles->setData, data_coords->array, npoints, ntriangles
+
+; Set data properties
+triangles->setDataBoundary, 'undef', 'wrap'
+triangles->setDataColor, ct->interpolate(data, ncolors=256)
+
+; Draw triangles
+map_data->draw, triangles
+
+; Add title
+if title ne '' then begin
+    title_text = obj_new('IDLgrText', title, /data)
+    title_text->setProperties, color='black', font_size=15
+    title_text->setLocation, 0.5*data_size[0], 0.95*data_size[1]
+    map_grid->draw, title_text
+endif
+
+; Draw lat/lon grid
+if keyword_set(hires) then begin
+    map_grid->drawmapgrid, latitude=nice(;degree=1, /integer), $
+        longitude=nice(degree=1, /integer), $
+        color='black', linestyle='solid', thickness=1.5
+endif else begin
+    map_grid->drawmapgrid, /standard
+endelse
+
+; Draw meridians and parallels
+map_grid->drawmeridians, latitude=nice(degree=10, /integer), $
+    color='black', linestyle='solid', thickness=0.5
+map_grid->drawparallels, color='black', linestyle='solid', thickness=0.5
+
+; Add legend
+legend_data = obj_new('IDLgrLegend')
+legend_data->setLegendText, ["0", "10", "20", "30", "40", "50", "60", "70", "80", "90"]
+legend_data->setLabel, 'COLOR', 'Temperature (Celsius)'
+map_legend = obj_new('IDLgrMap', map)
+map_legend->setLocation, 0.95, 0.1, /normal
+map_legend->draw, legend_data
+
+; Add colorbar
+caption = obj_new('IDLgrText', 'Temperature (Celsius)', /data)
+caption->setLocation, 0.5*data_size[0], 0.05 *data_size[1], /normal
+margin = 0.1
+map_colorbar = obj_new('IDLgrMap', map)
+map_colorbar->setColor, 'white'
+map_colorbar->setLocation, 0, margin, 1-margin, 1-margin, /normal
+map_colorbar->setClip = 0
+
+colorbar = obj_new('IDLgrColorBar')
+colorbar->setOrientation, 1
+colorbar->setLocation, margin/2, 0, 1-margin/2, 1
+colorbar->addText, caption, 0.5, 1, /glue
+colorbar->setFillBackground, 0
+colorbar->setGridStyle, 2
+colorbar->setFillModeByKeyword, /rainbow
+colorbar->setDataRange, 0, 90
+colorbar->draw, map_colorbar
+
+; Export map to an image file
+map->save, 'map_plot.png', resolution=300, /truecolor
+
+end

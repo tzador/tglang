@@ -1,0 +1,84 @@
+apply plugin: 'java'
+apply plugin: 'application'
+
+// Specify main class for application plugin
+mainClassName = 'com.example.Main'
+
+// Specify dependencies
+dependencies {
+    // Include library for data analytics
+    implementation 'org.apache.spark:spark-core_2.12:3.2.0'
+    // Include library for web development
+    implementation 'org.springframework.boot:spring-boot-starter-web:2.5.5'
+    // Include library for database connection
+    implementation 'mysql:mysql-connector-java:8.0.26'
+}
+
+// Configure tasks
+task buildJar(type: Jar) {
+    manifest {
+        attributes 'Main-Class': 'com.example.Main'
+    }
+    // Include dependencies in the jar
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    // Add additional files to the jar
+    from("someDir") {
+        include "files/**"
+        exclude "files/test/**"
+    }
+}
+
+// Specify repositories to download dependencies from
+repositories {
+    mavenCentral()
+    jcenter()
+    maven {
+        url 'https://repo.spring.io/milestone'
+    }
+    maven { url "https://plugins.gradle.org/m2/" }
+}
+
+// Configure build properties
+ext {
+    // Set default values for properties
+    buildDirName = 'build'
+    version = '1.0.0'
+    // Set property based on user input
+    if (project.hasProperty('env')) {
+        environment = project.env
+    } else {
+        environment = 'prod'
+    }
+}
+
+// Customize build tasks based on environment
+if (environment == 'dev') {
+    // Add additional dependencies for development environment
+    dependencies {
+        implementation 'org.springframework:spring-jdbc:5.3.10'
+    }
+    // Set custom task for running development server
+    task runDevServer(type: JavaExec, dependsOn: 'build') {
+        classpath = sourceSets.main.runtimeClasspath
+        main = 'com.example.dev.Main'
+    }
+}
+
+// Define custom task for running tests
+task runTests(type: Test) {
+    // Exclude specific tests from execution
+    exclude '**/IntegrationTest*.java'
+    // Set system property for test environment
+    systemProperties(System.getProperties())
+}
+
+// Define custom tasks for build and deploy
+task buildAndDeploy(dependsOn: ['buildJar', 'runTests']) {
+    // Run custom tasks sequentially
+    ordered() {
+        // Execute buildJar task
+        buildJar()
+        // Execute runTests task
+        runTests()
+    }
+}

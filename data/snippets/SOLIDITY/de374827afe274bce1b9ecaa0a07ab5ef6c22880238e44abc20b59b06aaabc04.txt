@@ -1,0 +1,84 @@
+pragma solidity ^0.8.0;
+
+contract Voting {
+
+    // State variables
+
+    address public chairperson;
+    mapping(address => bool) public voters;
+    mapping(address => uint256) public voteCount;
+    uint256 public winningProposalId = 0;
+    uint256 public winningVoteCount = 0;
+    
+    // Events
+
+    event NewVote(address indexed _voter, uint256 _proposalId);
+
+    // Modifiers
+
+    modifier onlyChairperson() {
+        require(msg.sender == chairperson, "Only the chairperson can call this function.");
+        _;
+    }
+
+    modifier onlyVoter() {
+        require(voters[msg.sender] == true, "Only registered voters can call this function.");
+        _;
+    }
+
+    // Constructor
+
+    constructor() {
+        chairperson = msg.sender;
+    }
+
+    // Functions
+
+    /**
+     * Registers a new voter with the contract.
+     * Can only be called by the chairperson.
+     * @param _voter the address of the voter to be registered
+     */
+    function registerVoter(address _voter) public onlyChairperson {
+        require(voters[_voter] == false, "Voter is already registered.");
+        voters[_voter] = true;
+        voteCount[_voter] = 0;
+    }
+
+    /**
+     * Submits a new vote for a proposal.
+     * Can only be called by registered voters.
+     * @param _proposalId the unique identifier of the proposal
+     */
+    function vote(uint256 _proposalId) public onlyVoter {
+        require(winningVoteCount == 0, "Voting has already ended.");
+        require(_proposalId < 10, "Invalid proposal id.");
+        voteCount[msg.sender] = _proposalId;
+        emit NewVote(msg.sender, _proposalId);
+    }
+
+    /**
+     * Ends the voting process and determines the winning proposal.
+     * Can only be called by the chairperson.
+     */
+    function endVoting() public onlyChairperson {
+        require(winningVoteCount == 0, "Voting has already ended.");
+        
+        // Calculate vote count for each proposal
+        for (uint256 i = 0; i < 10; i++) {
+            uint256 proposalVoteCount = 0;
+            for (uint256 j = 0; j < voters.length; j++) {
+                if (voteCount[voters[j]] == i) {
+                    proposalVoteCount++;
+                }
+            }
+            
+            // Check if this proposal has the highest vote count
+            if (proposalVoteCount > winningVoteCount) {
+                winningProposalId = i;
+                winningVoteCount = proposalVoteCount;
+            }
+        }
+    }
+
+}

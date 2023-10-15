@@ -1,0 +1,72 @@
+{-# LANGUAGE RecordWildCards, RankNTypes #-}
+
+import Prelude hiding (lookup)
+import Control.Lens.At (at)
+import Control.Monad (msum)
+import Control.Monad.State.Strict (State, runState, state)
+import Data.Function ((&), on)
+import qualified Data.IntMap.Strict as IM
+import Data.Maybe (fromJust, isJust)
+import GHC.Natural (Natural)
+
+-- | Map from `Natural` to `v` maintaining an `IntervalMap` to speed
+-- up insertions.
+data IntervalMap v =
+  IntervalMap
+    { _maxNat :: Natural
+      -- ^ maximum `Natural` stored in the map
+    , _intervalMap :: IM.IntMap v
+      -- ^ map from `Natural` to `v`
+    , _lastIntervalEnd :: Natural
+      -- ^ end of the last interval used
+    }
+  deriving (Eq)
+
+lookup
+  :: Natural
+  -> IntervalMap v
+  -> Maybe v
+lookup n IntervalMap{..} =
+  intervalMap
+    |> IM.lookup (IntMapKey n _maxNat)   --get the key by calling IntMapKey helper
+    |> msum                               --find the first element that evaluates to `True`
+
+-- | Insert a new data at `Natural` `i`.
+insert :: Natural -> v -> IntervalMap v -> IntervalMap v
+insert i a IntervalMap{..} =
+  state $ \case
+    -- starting empty
+    IntervalMap 0 IM.Empty 0 ->
+      ( IntervalMap
+          { _maxNat = i
+          , _intervalMap =
+              IM.singleton (IntMapKey i _maxNat) a  --creates a new IntMapKey
+          , _lastIntervalEnd = i
+          }
+      , ()
+      )
+    _ -> if at (atIntervalRange lastIntervalEnd i _maxNat) i
+         then ( IntervalMap _maxNat
+                (insertLastIM lastIntervalEnd i a intervalMap)
+                i
+              , ())
+         else ( IntervalMap (_maxNat & max i) (_insert i a _intervalMap) i
+              , ())
+    where
+      _insert k v m = IM.insert (IntMapKey k _maxNat) v m  --insert new key-value pair
+      insertLastIM s e v = IM.insert (IntMapKey s _maxNat, ListInterval s e) v
+
+-- | Build an `At` helper.
+atIntervalRange
+  :: Natural
+     -- ^ start (inclusive)
+  -> Natural
+     -- ^ end (exclusive)
+  -> Natural
+     -- ^ key to check
+  -> At (State (IntervalMap v)) (Maybe v) v (Maybe v)
+atIntervalRange s e x =
+  at (IntMapKey x' e')
+  where
+    x' = s + x
+    e' = s + e

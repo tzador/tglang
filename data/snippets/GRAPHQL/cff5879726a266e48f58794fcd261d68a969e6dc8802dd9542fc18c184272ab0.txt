@@ -1,0 +1,88 @@
+// Define Book type
+type Book {
+  id: ID
+  title: String
+  author: String
+  year: Int
+}
+
+// Define Query type
+type Query {
+  books: [Book]!
+  book(title: String!): Book
+}
+
+// Create resolvers for Query type
+const {booksData} = require('./booksData');
+
+const resolvers = {
+  Query: {
+    books: () => booksData,
+    book: (_, {title}) => booksData.find(book => book.title === title)
+  }
+};
+
+// Define Mutation type
+type Mutation {
+  addBook(title: String!, author: String!, year: Int!): Book!
+  updateBook(id: ID!, title: String!, author: String, year: Int): Book!
+  deleteBook(id: ID!): Book!
+}
+
+// Create resolvers for Mutation type
+const uuidv4 = require('uuid/v4');
+
+const resolvers = {
+  Mutation: {
+    addBook: (_, {title, author, year}) => {
+      const newBook = {id: uuidv4(), title, author, year};
+      booksData.push(newBook);
+      return newBook;
+    },
+    updateBook: (_, {id, title, author, year}) => {
+      const bookToUpdate = booksData.find(book => book.id === id);
+      bookToUpdate.title = title || bookToUpdate.title;
+      bookToUpdate.author = author || bookToUpdate.author;
+      bookToUpdate.year = year || bookToUpdate.year;
+      return bookToUpdate;
+    },
+    deleteBook: (_, {id}) => {
+      const bookIndex = booksData.findIndex(book => book.id === id);
+      const deletedBook = booksData[bookIndex]
+      booksData.splice(bookIndex, 1);
+      return deletedBook;
+    } 
+  }
+}
+
+// Define Schema
+const {makeExecutableSchema} = require('graphql-tools');
+
+const typeDefs = `
+  type Book {
+    id: ID
+    title: String
+    author: String
+    year: Int
+  }
+
+  type Query {
+    books: [Book]!
+    book(title: String!): Book
+  }
+
+  type Mutation {
+    addBook(title: String!, author: String!, year: Int!): Book!
+    updateBook(id: ID!, title: String!, author: String, year: Int): Book!
+    deleteBook(id: ID!): Book!
+  }
+`;
+
+// Create Schema
+const schema = makeExecutableSchema({
+  typeDefs,
+  resolvers
+});
+
+// Export Schema
+module.exports = schema;

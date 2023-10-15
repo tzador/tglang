@@ -1,0 +1,46 @@
+server {
+    listen     443 ssl;
+    server_name example.com;
+
+    # ssl configs
+    ssl_certificate /etc/ssl/example.crt;
+    ssl_certificate_key  /etc/ssl/example.key;
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    # redirects port 80 to port 443
+    if ($scheme = http){
+        return 301 https://$server_name$request_uri;
+    }
+
+    # cache configurations
+    proxy_cache_path /var/www/cache levels=1:2 keys_zone=example_cache:10m inactive=60m;
+
+    # gzip compression
+    gzip on;
+    gzip_types text/plain text/css text/javascript application/javascript;
+
+    location / {
+        # proxy configurations
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # cache rules
+        proxy_cache example_cache;
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+        proxy_cache_valid 200 60m;
+        proxy_cache_valid 404 1m;
+
+        # timeout settings
+        proxy_connect_timeout 7s;
+        proxy_read_timeout 60s;
+    }
+
+    # error pages
+    error_page 403 /403.html;
+    error_page 404 /404.html;
+    error_page 500 /500.html;
+}

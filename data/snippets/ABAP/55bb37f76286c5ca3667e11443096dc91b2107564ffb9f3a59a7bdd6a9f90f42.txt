@@ -1,0 +1,84 @@
+* Class definition for creating and manipulating purchase orders
+
+CLASS lcl_purchase_order DEFINITION.
+
+  PUBLIC SECTION.
+
+    TYPES:
+      ty_po_header TYPE ekko, " PO Header Structure
+      ty_po_items TYPE ekpo. " PO Item Structure
+
+    DATA:
+      mt_po_header TYPE STANDARD TABLE OF ty_po_header, " PO Header Internal Table
+      mt_po_items TYPE STANDARD TABLE OF ty_po_items. " PO Item Internal Table
+
+    METHODS:
+      constructor IMPORTING iv_number TYPE ekko-ebeln, " Constructor method
+      add_item EXPORTING iv_item TYPE ekpo, " Method to add an item to the PO
+      delete_items IMPORTING iv_line TYPE i, " Method to delete line items from the PO
+      get_total_price RETURNING VALUE(rv_price) TYPE p, " Method to calculate total price of PO items
+      display_po. " Method to display the complete PO
+ENDCLASS.
+
+CLASS lcl_purchase_order IMPLEMENTATION.
+
+  METHOD constructor.
+
+    SELECT SINGLE * FROM ekko WHERE ebeln = iv_number INTO DATA(ls_po_header).
+
+    IF sy-subrc = 0.
+      " Assign PO header data to internal table
+      APPEND ls_po_header TO mt_po_header.
+    ELSE.
+      " If PO not found, raise exception
+      RAISE EXCEPTION TYPE cx_root EXPORTING textid = 'PO_NOT_FOUND'.
+    ENDIF.
+
+  ENDMETHOD.
+
+  METHOD add_item.
+
+    " Check if PO exists
+    CHECK mt_po_header IS NOT INITIAL.
+
+    " Add new item to PO item internal table
+    APPEND iv_item TO mt_po_items.
+
+  ENDMETHOD.
+
+  METHOD delete_items.
+
+    " Delete item from internal table at specified line
+    DELETE mt_po_items INDEX iv_line.
+
+  ENDMETHOD.
+
+  METHOD get_total_price.
+
+    DATA(lv_price) = 0.
+
+    " Loop through PO items and sum up total price
+    LOOP AT mt_po_items INTO DATA(ls_po_item).
+      lv_price = lv_price + ls_po_item-preis.
+    ENDLOOP.
+
+    rv_price = lv_price.
+
+  ENDMETHOD.
+
+  METHOD display_po.
+
+    " Display PO header data
+    WRITE: / 'PO Number:' , mt_po_header-ebeln,
+           / 'Vendor:' , mt_po_header-lifnr,
+           / 'PO Date:', mt_po_header-aedat,
+           / 'Currency:', mt_po_header-waers.
+
+    " Display PO items
+    LOOP AT mt_po_items INTO DATA(ls_po_item).
+      WRITE: / ls_po_item-matnr, ls_po_item-menge, ls_po_item-meins, ls_po_item-preis.
+    ENDLOOP.
+
+  ENDMETHOD.
+
+ENDCLASS.

@@ -1,0 +1,55 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GADTs #-}
+
+import Data.Kind (Type)
+
+-- | Type-level list, indexed by its length.
+data List (n :: Nat) (a :: Type) where
+  Nil  :: List 0 a
+  Cons :: a -> List n a -> List (n + 1) a
+
+-- | Type-level natural numbers
+data Nat = Z | S Nat
+
+-- | Type-class for checking if a list is sorted in ascending order.
+class Sorted (list :: List n a) where
+
+  -- | Function for inserting an element into a sorted list, preserving the order.
+  -- Complexity: O(n)
+  insertSorted :: Ord a => a -> List n a -> List (n + 1) a
+
+  -- | Function for merging two sorted lists into one sorted list.
+  -- Complexity: O(n + m)
+  mergeSorted :: Ord a => List n a -> List m a -> List (n + m) a
+
+  -- | Function for sorting a list in ascending order.
+  -- Complexity: O(n^2)
+  sort :: Ord a => List n a -> List n a
+  sort Nil         = Nil
+  sort (Cons x xs) = insertSorted x (sort xs)
+
+-- | Instance of 'Sorted' for empty list.
+instance Sorted (List 0 a) where
+
+  insertSorted x Nil = Cons x Nil
+
+  mergeSorted Nil Nil = Nil
+  mergeSorted Nil ys  = ys
+  mergeSorted xs Nil  = xs
+
+  sort Nil = Nil
+
+-- | Instance of 'Sorted' for non-empty lists.
+instance {-# OVERLAPPABLE #-} Sorted xs => Sorted (Cons x xs) where
+
+  insertSorted x (Cons y ys) =
+    if x <= y
+      then Cons x (Cons y ys)
+      else Cons y (insertSorted x ys)
+
+  mergeSorted (Cons x xs) (Cons y ys) =
+    if x <= y
+      then Cons x (mergeSorted xs (Cons y ys))
+      else Cons y (mergeSorted (Cons x xs) ys)
+
+  sort (Cons x xs) = insertSorted x (sort xs)

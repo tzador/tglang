@@ -1,0 +1,63 @@
+/* This is a QML Component that creates a circular progress bar
+   
+   Use this component to display the progress of an operation or
+   to visualize the completion of a task. */
+
+import QtQuick 2.12  // Importing the QtQuick module
+
+Item {  // Base Item
+    property real startAngle: 0       // The starting angle of the progress bar
+    property real incrementAngle: 0   // Angle to increment on each progress
+    property real endAngle: 360       // The end angle of the progress bar
+
+    property real progress: 0   // Property to control the progress of the bar
+    property real min: 0        // The minimum value of the progress
+    property real max: 100      // The maximum value of the progress
+
+    property bool animate: true   // Whether or not to animate the progress bar
+    property int animationDelay: 100    // Delay between each animation step in milliseconds
+
+    onProgressChanged: {    // Signal handler for when the progress property changes
+        // Calculate the incremental angle based on the current progress
+        incrementAngle = (endAngle - startAngle) * (progress - min) / (max - min)
+        
+        if(animate) {
+            // Use a Timer to animate the progress update
+            var timer = Qt.createQmlObject('import QtQuick 2.12; Timer { interval: animationDelay; repeat: true; running: true; onTriggered: parent.incrementAngle++ }', this);
+        } else {
+            // Update the angle directly for non-animated progress bar
+            incrementAngle = startAngle + (endAngle - startAngle) * (progress - min) / (max - min);
+        }
+    }
+
+    onCompleted: {  // Signal handler for when the component is completed
+        // Draw the circular progress bar using the Canvas API
+        var canvas = Qt.createQmlObject('import QtQuick 2.12; Canvas { id: progressCanvas; anchors.fill: parent; onPaint: { drawSingleArc(canvas, {centerX: width/2, centerY: height/2, radius: Math.min(width/2, height/2)-2, startAngle:startAngle, endAngle: incrementAngle + startAngle, antialias: true, style: Canvas.ArcStyle, color: "#5580FF"}) } }', this);
+    }
+
+    function drawSingleArc(item, params) {    // Function to draw the arc on the canvas
+        // Set the properties of the arc based on the given parameters
+        item.context.strokeStyle = params.color;
+        item.context.lineWidth = 4;
+        item.context.antiAlias = params.antialias;
+        item.context.arc(params.centerX, params.centerY, params.radius, params.startAngle * Math.PI/180, params.endAngle * Math.PI/180)
+        item.context.stroke();
+    }
+}
+
+// Example usage:
+
+// Create an instance of the CircularProgressBar component
+CircularProgressBar {
+    id: progressBar
+    anchors.centerIn: parent
+    width: 200; height: 200
+    // Customize the progress bar's appearance
+    startAngle: -90
+    endAngle: 270
+    animationDelay: 50
+    progress: 25
+    min: 0
+    max: 50
+    animate: true
+}

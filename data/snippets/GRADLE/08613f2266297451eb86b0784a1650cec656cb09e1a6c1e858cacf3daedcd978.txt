@@ -1,0 +1,59 @@
+plugins {
+    id 'java'
+    id 'jacoco'
+    id 'checkstyle'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.apache.commons:commons-lang3:3.4'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.3.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.3.0'
+}
+
+jacocoTestReport {
+    reports {
+        xml.enabled true
+        csv.enabled false
+        html.enabled true
+        html.destination file("$buildDir/reports/jacoco/html")
+    }
+    afterEvaluate {
+        classDirectories.from = files(classDirectories.files.collect {
+            fileTree(dir: it,
+            include: [
+                '**/classes',
+                '**/test-classes',
+                '**/jacoco/classes',
+                '**/jacoco/test-classes'
+            ])
+        })
+    }
+}
+
+task doCheckstyle(type: Checkstyle) {
+    configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+    sourceSets = [sourceSets.main, sourceSets.test]
+    consoleOutput = 'plain'
+    ignoreFailures = false
+    showViolations = true
+    includeTestSourceDir = true
+}
+
+task checkstyleReport(type: Checkstyle) {
+    mustRunAfter 'doCheckstyle'
+    sourceSets = [sourceSets.main, sourceSets.test]
+    configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+    configProperties = [
+            "checkstyle.cache.file": file("$project.rootDir/build/checkstyle/cache.xml"),
+            "checkstyle.output.base": file("$project.rootDir/build/checkstyle/run/")
+    ]
+    source('#dirtyHackSoThatReportDoesntComplainAboutThereBeingNoSourceFiles')
+    maxErrors = 0
+    maxWarnings = 0
+}
+
+check.dependsOn checkstyleReport

@@ -1,0 +1,55 @@
+/* This code snippet performs a logistic regression analysis on a dataset */
+/* Import the data */
+PROC IMPORT OUT=work.data
+DATAFILE="C:\Users\Documents\data.csv"
+DBMS=csv REPLACE;
+GETNAMES=YES;
+DATAROW=2;
+RUN;
+
+/* Explore the data */
+PROC CONTENTS DATA=work.data;
+RUN;
+
+/* Create indicator variables for categorical predictor variables */
+DATA data;
+SET work.data;
+LENGTH region dummy_region $ 1;
+IF region="north" THEN dummy_region=1; /* 1 = True, 0 = False */
+ELSE dummy_region=0;
+FORMAT dummy_region 1.;
+LABEL dummy_region="Region (North)";
+RUN;
+
+/* Create training and testing datasets */
+PROC SORT DATA=data;
+BY descending response_var;
+RUN;
+DATA train_data test_data;
+SET data;
+/* 60% of data used for training, 40% for testing */
+IF _N_<=0.6*COUNT(STANDARDIZED_RESPONSE_VAR) THEN output train_data;
+ELSE output test_data;
+RUN;
+
+/* Fit logistic regression model using training data */
+PROC LOGISTIC DATA=train_data
+DESCENDING
+CONTRAST
+PLOTS(ONLY)=(FITSTAT ROC(ENCHARACTERIZES="AVERAGE"));
+CLASS categorical_var1 categorical_var2 / PARAM=GLM;
+MODEL response_var(event="1") = continuous_var1 continuous_var2 dummy_region / LINK=LOGIT;
+SCORE data=test_data
+OUT=scored_data; /* New dataset will be created with predicted values */
+RUN;
+
+/* Evaluate the model using various performance measures */
+PROC CLASSIFY DATA=scored_data HIERARCHICAL GOODNESSNET
+THRESHOLD=(0.1 to 0.9 by 0.1);
+RUN;
+
+/* Create a receiver operating characteristic (ROC) curve */
+PROC SGPLOT DATA=scored_data SUBGROUP=region;
+ROC CURVE response_var = '1';
+FORMAT response_var ROC.;
+RUN;

@@ -1,0 +1,59 @@
+require "http/client"
+
+class YouTubeAPI
+  #This class is used to make requests to the YouTube API and retrieve data
+  #It requires the 'http/client' library to handle HTTP requests
+  
+  YT_BASE_URL = "https://www.googleapis.com/youtube/v3"
+  
+  def initialize(key)
+    #Takes in the API key as a parameter and sets it as an instance variable
+    @api_key = key
+  end
+  
+  def search_videos(query, max_results)
+    #Makes a GET request to the 'search' endpoint of the YouTube API
+    #Takes in a search query and the maximum number of videos to be returned as parameters
+    
+    client = HTTP::Client.new(YT_BASE_URL)
+    response = client.get("/search", {q: query, maxResults: max_results, key: @api_key})
+    #The response will be in JSON format, which we can parse using the 'JSON.parse' method
+    parsed_response = JSON.parse(response.body)
+    
+    #Extract the video IDs and titles from the response
+    video_ids = parsed_response["items"].map{|item| item["id"]["videoId"]}
+    video_titles = parsed_response["items"].map{|item| item["snippet"]["title"]}
+    
+    #Return an array of videos with their IDs and titles
+    videos = video_ids.zip(video_titles)
+    return videos
+  end
+  
+  def get_channel(channel_id)
+    #Makes a GET request to the 'channels' endpoint of the YouTube API
+    #Takes in a channel ID as a parameter
+    
+    client = HTTP::Client.new(YT_BASE_URL)
+    response = client.get("/channels", {id: channel_id, key: @api_key})
+    parsed_response = JSON.parse(response.body)
+    
+    #Extract the channel information from the response
+    channel_name = parsed_response["items"][0]["snippet"]["title"]
+    subscriber_count = parsed_response["items"][0]["statistics"]["subscriberCount"]
+    
+    #Create a hash with the channel information and return it
+    channel_info = {"name": channel_name, "subscribers": subscriber_count}
+    return channel_info
+  end
+end
+
+#Create an instance of the YouTubeAPI class with an API key
+youtube_api = YouTubeAPI.new("<YOUR API KEY>")
+
+#Search for videos related to "programming tutorials" and return the first 10 results
+videos = youtube_api.search_videos("programming tutorials", 10)
+puts videos
+
+#Get information about the channel "FreeCodeCamp"
+channel_info = youtube_api.get_channel("UC8butISFwT-Wl7EV0hUK0BQ")
+puts channel_info

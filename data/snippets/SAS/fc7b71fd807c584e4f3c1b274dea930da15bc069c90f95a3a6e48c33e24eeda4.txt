@@ -1,0 +1,56 @@
+/*This is a SAS code snippet that creates a macro named 'test_macro' which takes in a dataset and outputs the summary statistics of selected variables.*/
+
+%macro test_macro(dataset);
+  /*create a temp dataset with selected variables*/
+  proc sql noprint;
+    create table summary as
+      select var1, var2, var3
+      from &dataset.;
+  quit;
+  
+  /*calculate summary statistics for selected variables*/
+  proc means data=summary n nmiss min max mean median std;
+    var var1 var2 var3;
+    output out=summary_stats;
+  run;
+  
+  /*create a macro variable to store the number of observations in the dataset*/
+  proc sql noprint;
+    select count(*) into :numobs from &dataset.;
+  quit;
+  
+  /*print out the summary statistics*/
+  %put "Total Observations: &numobs.";
+  %put "Summary Statistics for Selected Variables:";
+  %put "Variable         Obs      N      NMiss       Min       Max      Mean     Median      Std";
+  
+  /*use a loop to print out the summary statistics for each variable*/
+  data _null_;
+    set summary_stats;
+    length var_name $20.;
+    retain var_name;
+    if _n_ = 1 then do;
+      call execute('%put "---------------------------------------------"');
+    end;
+    else do;
+      call execute('%put ' + var_name + ' ' + left(put(obs,8.))
+                    + left(put(n,8.))
+                    + left(put(nmiss,8.))
+                    + left(put(min,12.))
+                    + left(put(max,12.))
+                    + left(put(mean,12.2))
+                    + left(put(median,12.2))
+                    + left(put(std,12.2));
+      );
+      call execute('%put "---------------------------------------------"');
+    end;
+  run;
+  
+  /*delete the temp dataset*/
+  proc datasets nolist;
+    delete summary;
+  quit;
+%mend test_macro;
+
+/*call the macro with a dataset named 'my_data'*/
+%test_macro(my_data);

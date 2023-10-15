@@ -1,0 +1,48 @@
+$ontext
+This code snippet solves a multi-period production planning problem in GAMS. 
+It minimizes the production costs while satisfying constraints on production capacity, storage capacity, and demand.
+$offtext
+ 
+Sets
+     t           /t1*t5/          time periods
+     i           /a,b,c/          products
+     k           /prod1,prod2/    production facilities
+     s           /inv1,inv2/      storage facilities
+ 
+Parameters
+     a(i)                        unit cost of producing product i
+     b(i)                        unit cost of storing product i
+     d(t,i)                      demand for product i at period t
+     cp(k)                       production capacity of facility k
+     cs(s)                       storage capacity of facility s
+     c(k,s)                      cost of transferring product from k to s
+ 
+Variables
+     x(t,i,k)                    amount of product i produced at period t in facility k
+     y(t,i,k)                    binary variable indicating if product i is being produced at period t in facility k
+     z(t,i,s)                    amount of product i stored at period t in facility s
+     w(t,i,s)                    binary variable indicating if product i is being stored at period t in facility s
+     cost                        total cost
+ 
+Binary variables y and w are used to handle logical conditions and are declared as binary variables.
+ 
+Positive variable x and z are used to represent production and storage quantities.
+ 
+Equations
+     obj                         objective function for minimization of cost
+     cons1(t,i)                  constraint on satisfying demand for each product at each time period
+     cons2(t,i)                  constraint on production capacity for each product at each time period
+     cons3(s,i)                  constraint on storage capacity for each product at each time period
+     cons4(t,k)                  constraint on ensuring production only occurs at facilities with available capacity
+     cons5(t,s)                  constraint on ensuring storage only occurs at facilities with available capacity
+ 
+obj..     cost =e= sum(t,i,k, (a(i)*x(t,i,k) + b(i)*z(t,i,k)) + sum(t,i,s, b(i)*w(t,i,s)) + sum(t,i,k, sum(t,i,s, c(k,s)*x(t,i,k)*w(t,i,s)));
+cons1(t,i).. sum(k, x(t,i,k)) + sum(s, z(t,i,s))  =g= d(t,i);
+cons2(t,i).. x(t,i,k)  =l= cp(k)*y(t,i,k);
+cons3(s,i).. z(t,i,s)  =l= cs(s)*w(t,i,s);
+cons4(t,k).. sum(i, x(t,i,k))  =l= cp(k);
+cons5(t,s).. sum(i, z(t,i,s))  =l= cs(s);
+ 
+model multi_period_planning /all/;
+ 
+solve multi_period_planning using MIP minimizing cost;

@@ -1,0 +1,116 @@
+pragma solidity ^0.8.0;
+
+// This contract creates an ERC20 token with the implementation of a vote system
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract Vote is IERC20, Ownable {
+    
+    // Token name
+    string public name = "Vote Token";
+    // Token ticker
+    string public symbol = "VOTE";
+    // Token decimals
+    uint public decimals = 18;
+    // Initial supply of tokens
+    uint public totalSupply = 100000 * 10 ** decimals;
+    
+    // Mappings for balances and allowances
+    mapping(address => uint) balances;
+    mapping(address => mapping(address => uint)) allowances;
+    
+    // Mapping for votes, stores the number of votes for each address
+    mapping(address => uint) votes;
+    
+    // Contructor function, mints the initial supply to the contract creator
+    constructor() {
+        balances[msg.sender] = totalSupply;
+    }
+    
+    // Returns the total supply of tokens
+    function totalSupply() public view override returns (uint) {
+        return totalSupply;
+    }
+    
+    // Returns the balance of a given address
+    function balanceOf(address account) public view override returns (uint) {
+        return balances[account];
+    }
+    
+    // Transfers an amount of tokens from the sender to a given recipient 
+    function transfer(address recipient, uint amount) public override returns (bool) {
+        require(balances[msg.sender] >= amount, "Insufficient balance");
+        
+        balances[msg.sender] -= amount;
+        balances[recipient] += amount;
+        
+        emit Transfer(msg.sender, recipient, amount);
+        return true;
+    }
+    
+    // Returns the remaining allowance of a given owner for a given spender
+    function allowance(address owner, address spender) public view override returns (uint) {
+        return allowances[owner][spender];
+    }
+    
+    // Approves a spender to transfer tokens on behalf of the owner
+    function approve(address spender, uint amount) public override returns (bool) {
+        allowances[msg.sender][spender] = amount;
+        
+        emit Approval(msg.sender, spender, amount);
+        return true;
+    }
+    
+    // Transfers an amount of tokens from a given sender to a given recipient, if approved by the sender
+    function transferFrom(address sender, address recipient, uint amount) public override returns (bool) {
+        require(balances[sender] >= amount, "Insufficient balance");
+        require(allowances[sender][msg.sender] >= amount, "Allowance exceeded");
+        
+        balances[sender] -= amount;
+        balances[recipient] += amount;
+        allowances[sender][msg.sender] -= amount;
+        
+        emit Transfer(sender, recipient, amount);
+        return true;
+    }
+    
+    // Allows a user to vote for a given proposal by transferring a certain amount of tokens
+    function vote(uint proposalId) public {
+        require(votes[msg.sender] == 0, "You already voted");
+        require(balances[msg.sender] >= proposalId, "Insufficient balance for proposal");
+        
+        votes[msg.sender] = proposalId;
+        balances[msg.sender] -= proposalId;
+        
+        emit Vote(msg.sender, proposalId);
+    }
+    
+    // Returns the number of votes for a given address
+    function getVotes(address account) public view returns (uint) {
+        return votes[account];
+    }
+    
+    // Allows the owner to mint a given amount of tokens to a given recipient
+    function mint(address recipient, uint amount) public onlyOwner {
+        balances[recipient] += amount;
+        totalSupply += amount;
+        
+        emit Transfer(address(0), recipient, amount);
+    }
+    
+    // Allows the owner to burn a given amount of tokens from their own balance
+    function burn(uint amount) public onlyOwner {
+        require(balances[msg.sender] >= amount, "Insufficient balance");
+        
+        balances[msg.sender] -= amount;
+        totalSupply -= amount;
+        
+        emit Transfer(msg.sender, address(0), amount);
+    }
+    
+    // Defines the events for transfer, approval and voting
+    event Transfer(address indexed from, address indexed to, uint amount);
+    event Approval(address indexed owner, address indexed spender, uint amount);
+    event Vote(address indexed voter, uint proposalId);
+}

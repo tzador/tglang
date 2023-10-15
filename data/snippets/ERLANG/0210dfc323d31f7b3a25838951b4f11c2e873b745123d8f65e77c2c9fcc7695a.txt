@@ -1,0 +1,87 @@
+-module(request_handler).
+%% This is a module that handles incoming HTTP requests.
+
+%% Exported functions
+-export([handle_request/2]).
+
+%% Imports
+-include("cowboy.hrl").
+-include_lib("stdlib/include/qlc.hrl").
+
+%% Handles incoming HTTP requests
+%%
+%% `Req` - is a record that contains all the information about the incoming request
+%% `State` - is the state of the request handler
+handle_request(Req, State) ->
+    % Start handling the request with an initial state
+    {ok, StartState} = init(Req, State),
+
+    % Get path and method from request
+    Path = cowboy_req:path(Req),
+    Method = cowboy_req:method(Req),
+
+    % Handle GET request
+    case Method of
+        <<"GET">> ->
+            % Get query parameters from request
+            {Params, _} = cowboy_req:qs(Req),
+            
+            % Get headers from request
+            {Headers, _} = cowboy_req:headers(Req),
+
+            % Process the request with the given parameters and headers
+            {ok, Res} = process_request(Path, Method, Params, Headers, StartState),
+
+            % Send response to the client
+            {ok, cowboy_req:reply(200, [], Res), Req};
+        _ ->
+            % Handle all other request methods
+            {ok, cowboy_req:method_not_allowed(), Req}
+    end.
+
+%% Initialize request
+%%
+%% `Req` - is the record containing the request information
+%% `State` - is the state of the request handler
+init(Req, State) ->
+    % Get the request body
+    {Body, Req1} = cowboy_req:read_body(10000, Req),
+
+    % Parse the request body
+    Post = cowboy_qs:parse(Body),
+
+    % Add the request body to the request record
+    cowboy_req:set(post, Post, Req1),
+
+    % Add the request method and path to the request record
+    cowboy_req:set(method, cowboy_req:method(Req1), Req1),
+    cowboy_req:set(path, cowboy_req:path(Req1), Req1),
+
+    % Add the state information to the request record
+    cowboy_req:set(state, State, Req1).
+
+%% Processes the request
+%%
+%% `Path` - is the path of the request
+%% `Method` - is the method of the request
+%% `Params` - is the query parameters of the request
+%% `Headers` - is the headers of the request
+%% `State` - is the state of the request handler
+process_request(Path, Method, Params, Headers, State) ->
+    % Create a query list comprehension to filter specific data from a state list
+    ListComp = qlc:q([{Batch, Customer, Product, Quantity} || {Batch, Customer, Product, Quantity} <- State, Product == <<"apple">>]),
+
+    % Execute the query and get the results
+    Results = qlc:eval(ListComp),
+
+    % Convert the results to a string
+    ResultsAsString = io_lib:format("Results: ~p", [Results]),
+
+    % Create the response body using the results list and query parameters
+    ResBody = [<<"Product: ">>, Params, ["\n"], ResultsAsString],
+
+    % Create the response headers
+    ResHeaders = [{<<"content-type">>, <<"text/plain">>}, {<<"content-length">>, integer_to_binary(length(ResBody))}],
+
+    % Return the response and updated state
+    {ok, ResBody, Headers, State}.

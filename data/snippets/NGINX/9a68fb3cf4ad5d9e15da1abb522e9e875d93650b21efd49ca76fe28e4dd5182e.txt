@@ -1,0 +1,68 @@
+# server block for domain example.com
+server {
+  listen 80; # listen for HTTP connections on port 80
+  server_name example.com; # specify the domain name
+  root /var/www/example.com/public_html; # specify the root directory for the website
+
+  # location block for handling requests to the root directory
+  location / {
+    index index.html; # specify the default file to serve if no specific file is requested
+  }
+
+  # location block for handling requests to the /images path
+  location /images/ {
+    try_files $uri $uri/ /images/index.php; # tries to find the requested file, then index.php, or finally returns a 404 error
+  }
+
+  # location block for handling requests to the /admin path
+  location /admin/ {
+    alias /var/www/example.com/admin/; # specify the directory where the admin files are located
+    deny 192.168.1.1; # deny access to the admin directory from a specific IP address
+    allow 192.168.1.0/24; # allow access to the admin directory from a range of IP addresses
+    allow 10.0.0.0/8; # allow access to the admin directory from a different range of IP addresses
+    deny all; # deny access to the admin directory from all other IP addresses
+    auth_basic "Restricted"; # enable basic authentication for this directory
+    auth_basic_user_file /etc/nginx/htpasswd; # specify the location of the file containing usernames and hashed passwords for authentication
+    try_files $uri $uri/ /admin/index.php; # tries to find the requested file, then index.php, or finally returns a 404 error
+  }
+
+  # location block for handling requests to the /downloads path
+  location /downloads/ {
+    root /var/www/example.com/; # specify the root directory for the downloads
+    autoindex on; # enable directory listing for this directory
+    autoindex_exact_size off; # do not display exact file sizes in the directory listing
+    autoindex_format html; # use HTML formatting for the directory listing
+    autoindex_localtime on; # display file modification times using local time
+    try_files $uri $uri/ /downloads/index.php; # tries to find the requested file, then index.php, or finally returns a 404 error
+  }
+
+  # location block for handling requests to the /api path for the API backend
+  location /api/ {
+    proxy_pass http://localhost:3000; # pass requests to localhost on port 3000 to handle all requests to the /api path
+    proxy_set_header Host $host; # pass the original request's Host header to the backend
+    proxy_set_header X-Real-IP $remote_addr; # pass the original request's IP address to the backend
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # pass the list of client IP addresses to the backend
+  }
+
+  # location block for handling requests to the /static path for static assets
+  location /static/ {
+    alias /var/www/example.com/static/; # specify the directory where the static assets are located
+    access_log off; # disable access logging for this directory
+    expires 1d; # cache the assets for 1 day
+    add_header Cache-Control "public"; # add a cache control header to enable caching by intermediate caches
+    try_files $uri $uri/; # tries to find the requested file or directory
+  }
+
+  # error pages for different HTTP error codes
+  error_page 404 /error_pages/404.html; # specifies the relative path to the 404 error page
+  error_page 500 /error_pages/500.html; # specifies the relative path to the 500 error page
+
+  # handling for different request methods
+  if ($request_method = POST) { # if the request method is POST
+    return 405; # return a 405 error code
+  }
+
+  if ($request_method = DELETE) { # if the request method is DELETE
+    return 405; # return a 405 error code
+  }
+}

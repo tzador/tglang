@@ -1,0 +1,43 @@
+/* This code populates a dynamic query from a comma-separated list of conditions */
+
+DEFINE VARIABLE hQuery AS HANDLE NO-UNDO.
+DEFINE VARIABLE cInput AS CHARACTER NO-UNDO.
+
+/* Initialize the query */
+CREATE QUERY hQuery.
+
+/* Define the base table and fields to retrieve */
+hQuery:SET-BUFFERS(BUFFER Table1:HANDLE, BUFFER Table2:HANDLE).
+hQuery:QUERY-PREPARE("FOR EACH Table1, EACH Table2 WHERE Table1.field1 = Table2.field2").
+
+/* Prompt user for input */
+cInput = PROMPT-FOR("Enter comma-separated list of conditions: ").
+
+/* Split the input into individual conditions */
+DEFINE VARIABLE cCondition AS CHARACTER NO-UNDO.
+DEFINE VARIABLE iPos AS INT NO-UNDO.
+DEFINE VARIABLE iPrevPos AS INT NO-UNDO.
+DEFINE VARIABLE iLength AS INT NO-UNDO.
+DO iPos = 1 TO LENGTH(cInput):
+    IF SUBSTRING(cInput, iPos, 1) = "," THEN DO:
+        /* Get the length of the condition */
+        iLength = iPos - iPrevPos - 1.
+        /* Extract the condition from the input string */
+        cCondition = SUBSTRING(cInput, iPrevPos + 1, iLength).
+        /* Add the condition to the query */
+        hQuery:QUERY-PARSE(cCondition).
+        /* Increment previous position */
+        iPrevPos = iPos.
+    END.
+END.
+
+/* Execute the query and display the results */
+hQuery:QUERY-OPEN().
+hQuery:GET-FIRST().
+DO WHILE AVAILABLE(hQuery):
+    DISPLAY Table1.field1 Table2.field2.
+    hQuery:GET-NEXT().
+END.
+
+/* Free up memory */
+DELETE OBJECT hQuery.

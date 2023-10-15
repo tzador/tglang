@@ -1,0 +1,128 @@
+//This code snippet creates a custom weapon class with various properties and functions
+
+class CustomWeapon extends UTWeapon;
+
+//Properties
+var int Ammo;
+event OnFire();
+
+//Functions
+simulated function GiveAmmo(int AmmoAmount, optional bool bForce);
+function AddAmmo(int AmmoAmount);
+function AddAmmoToWeapon(int AmmoAmount);
+reliable server function Fire();
+ 
+//Constructor
+function CustomWeapon(Vector Location, Rotation Rot, class<Weapon> WpnClass);
+ 
+//Logic and Implementation
+simulated function GiveAmmo(int AmmoAmount, optional bool bForce)
+{
+    if (AmmoAmount <= 0)
+    {
+        return;
+    }
+
+    if (bForce || !bAutoSwitchTo)
+    {
+        Ammo = Min(AmmoAmount, AmmoCap);
+    }
+    else
+    {
+        Ammo = 1;
+    }
+}
+
+function AddAmmo(int AmmoAmount)
+{
+    if (AmmoAmount <= 0)
+    {
+        return;
+    }
+
+    Ammo += AmmoAmount;
+    if (Ammo > AmmoCap)
+    {
+        Ammo = AmmoCap;
+    }
+}
+
+function AddAmmoToWeapon(int AmmoAmount)
+{
+    if (AmmoAmount <= 0)
+    {
+        return;
+    }
+
+    Weapon.Ammo += AmmoAmount;
+    if (Weapon.Ammo > AmmoCap)
+    {
+        Weapon.Ammo = AmmoCap;
+    }
+}
+
+reliable server function Fire()
+{
+    if (CurrentState == 'Active')
+    {
+        if (Ammo == 0)
+        {
+            PlayWeaponSound(outOfAmmoSound);
+        }
+        else
+        {
+            if (ImpactFlash)
+            {
+                SpecialFireClasses(Class,WeaponFireFOV);
+            }
+
+            switch(state)
+            {
+                case 'InstantHit':
+                    AddSpread(instantHitSpread); // Add spread to weapon
+                    InstantFire(...) // Use InstantFire to fire the weapon using given parameters
+                    break;
+                case 'Projectile':
+                    FireProjectile(...) // Use FireProjectile to fire a projectile from the weapon
+                    break;
+                case 'AltFire':
+                    fireAltProjectile(...) // Alternative firing mode, can fire a different projectile or type of projectile
+            }
+
+            --Ammo;
+            if (Ammo < 0)
+                Ammo = 0;
+        }
+        bAltFire = false;
+    }
+    else
+    {
+        PlayWeaponSound(emptySound); // Play an empty sound if weapon is not active
+    }
+}
+
+function CustomWeapon(Vector Location, Rotation Rot, class<Weapon> WpnClass)
+{
+    //Super
+    Super(Location, Rot, WpnClass);
+    
+    //Initialize properties
+    Ammo = MaxAmmo;
+    AmmoCap = MaxAmmo;
+    ImpactFlash = true;
+    AltFireProjectileClass = class'UTProjectile';
+
+    //Set state and add fire modes
+    state = 'InstantHit';
+    Default.FireRate = 600;
+    Default.AmmoCost = 1;
+    AddFireMode('Projectile', class'UTProjectile', PlayerFireRate, False);
+    AddFiremode('AltFire', class'UTProjectile', PlayerAltFireRate, False);
+    
+    //Set flags for weapon usage
+    bAIFlag = false;
+    bShouldChargeAmmo = false;
+    bShouldSlowStrike = false;
+    bCanStayLowered = true;
+    bMeleeWeapon = False;
+}

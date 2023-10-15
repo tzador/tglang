@@ -1,0 +1,177 @@
+CLASS lcl_purchase_order DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+    CLASS-METHODS:
+      get_purchase_orders
+        RETURNING
+          VALUE(rt_purchase_orders) TYPE STANDARD TABLE,
+      create_purchase_order
+        IMPORTING
+          i_purchase_order TYPE zpurchord.
+    CLASS-METHODS:
+      get_vendor
+        IMPORTING
+          i_purchase_order TYPE zpurchord
+        RETURNING
+          VALUE(rf_vendor) TYPE zvendor.
+    CLASS-DATA:
+      iv_vendor TYPE zvendor.
+
+  PROTECTED SECTION.
+    Methods:
+      get_purchase_orders
+        RETURNING
+          VALUE(rt_purchase_orders) TYPE STANDARD TABLE.
+
+  PRIVATE SECTION.
+    Class-Data:
+      mt_purchase_orders TYPE STANDARD TABLE.
+    Data:
+      mv_purchase_order TYPE zpurchord.
+
+ENDCLASS.
+
+CLASS lcl_purchase_order IMPLEMENTATION.
+
+  METHOD get_purchase_orders.
+    SELECT * FROM zpurchord
+      INTO TABLE rt_purchase_orders.
+  ENDMETHOD.
+
+  METHOD create_purchase_order.
+    INSERT zpurchord
+      FROM i_purchase_order.
+  ENDMETHOD.
+
+  METHOD get_vendor.
+    SELECT SINGLE zvendor
+      FROM zpurchord
+      INTO rf_vendor
+      WHERE purch_ord = i_purchase_order.
+  ENDMETHOD.
+
+  METHOD get_purchase_orders.
+    SELECT * FROM zpurchord
+      INTO TABLE mt_purchase_orders.
+    rt_purchase_orders = mt_purchase_orders.
+  ENDMETHOD.
+
+  METHOD create_purchase_order.
+    INSERT zpurchord
+      FROM i_purchase_order.
+  ENDMETHOD.
+
+  METHOD add_vendor.
+    io_purchase_order->iv_vendor = iv_vendor.
+  ENDMETHOD.
+
+ENDCLASS.  "lcl_purchase_order
+
+CLASS lcl_purchase_order_analyzer DEFINITION INHERITING FROM lcl_purchase_order
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+    CLASS-METHODS:
+      check_if_order_exists
+        IMPORTING
+          i_purchase_order TYPE zpurchord
+        RETURNING
+          VALUE(rb_order_exists) TYPE abap_bool
+        RAISING
+          lx_order_not_found.
+    METHODS:
+      get_total_price
+        EXPORTING
+          i_purchase_order TYPE zpurchord
+        RETURNING
+          VALUE(rv_total_price) TYPE ztotalprice.
+
+  PRIVATE SECTION.
+    METHODS:
+      get_delivery_date
+        IMPORTING
+          i_purchase_order TYPE zpurchord
+        RETURNING
+          VALUE(rd_delivery_date) TYPE datum.
+
+    Nested Types:
+      BEGIN OF tt_component,
+        comp_name TYPE zcomponent,
+        price TYPE zcomponentprice,
+      END OF tt_component.
+
+    Nested Types:
+      BEGIN OF ty_delivery_date,
+        delivery_date TYPE datum,
+      END OF ty_delivery_date.
+
+    Private Types:
+      BEGIN OF ty_total_price,
+        total_price TYPE ztotalprice,
+      END OF ty_total_price.
+ENDCLASS.
+
+CLASS lcl_purchase_order_analyzer IMPLEMENTATION.
+
+  METHOD check_if_order_exists.
+    SELECT SINGLE *
+      FROM zpurchord
+      WHERE purch_ord = i_purchase_order.
+    IF sy-subrc = 0.
+      rb_order_exists = abap_true.
+    ELSE.
+      RAISE EXCEPTION TYPE lx_order_not_found.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD get_total_price.
+    SELECT SUM(price)
+      FROM zcposition
+      INTO @DATA(rv_total_price)
+      WHERE purch_ord = i_purchase_order.
+  ENDMETHOD.
+
+  METHOD get_delivery_date.
+    SELECT SINGLE de_date
+      FROM zdelivery
+      INTO @DATA(rd_delivery_date)
+      WHERE purch_ord = i_purchase_order.
+  ENDMETHOD.
+
+ENDCLASS.  "lcl_purchase_order_analyzer
+
+CLASS lcl_purchase_order_analyzer_2 DEFINITION INHERITING FROM lcl_purchase_order_analyzer
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PRIVATE SECTION.
+    METHODS:
+      get_comp_details
+        IMPORTING
+          i_purchase_order TYPE zpurchord
+        RETURNING
+          VALUE(rt_comp_details) TYPE tt_component.
+
+  PROTECTED SECTION.
+    DATA:
+      lv_comp_price TYPE zcomponentprice,
+      lt_comp_details TYPE tt_component.
+ENDCLASS.
+
+CLASS lcl_purchase_order_analyzer_2 IMPLEMENTATION.
+
+  METHOD get_comp_details.
+    SELECT comp_name, price
+      FROM zcomponent
+      INTO CORRESPONDING FIELDS OF TABLE lt_comp_details
+      WHERE purch_ord = i_purchase_order.
+    rt_comp_details = lt_comp_details.
+  ENDMETHOD.
+
+ENDCLASS.  "lcl_purchase_order_analyzer_2

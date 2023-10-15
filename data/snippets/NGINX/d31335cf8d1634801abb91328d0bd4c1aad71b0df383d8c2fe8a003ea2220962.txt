@@ -1,0 +1,52 @@
+#Set up server configuration
+server {
+    listen 80;
+    server_name www.example.com; #Defines the server domain name
+    
+    #Set up server logs, access log for recording incoming requests and error log for recording server errors
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+    
+    location / {
+        #Set up proxy_pass to direct requests to a specified destination
+        proxy_pass http://backend/;
+        
+        #Set up caching using proxy_cache, cache valid for 24 hours
+        proxy_cache my_cache;
+        proxy_cache_valid 200 24h;
+        
+        #Set up load balancing
+        proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+        proxy_redirect off;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        
+        #Set up headers to be forwarded to backend
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    
+    #Set up gzip compression for faster data transfer
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml;
+    
+    #Set up server security
+    server_tokens off;
+    server_name_in_redirect off;
+    client_max_body_size 20m;
+    client_body_buffer_size 256k;
+    
+    #Set up SSL
+    listen 443 ssl;
+    ssl_certificate /etc/nginx/ssl/example.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/example.com.key;
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+    ssl_ciphers EECDH+AESGCM:EDH+AESGCM;
+    ssl_prefer_server_ciphers on;
+}
+
+#Set up load balancing pool
+upstream backend {
+    server 10.0.0.1:80;
+    server 10.0.0.2:80;
+}

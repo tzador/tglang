@@ -1,0 +1,58 @@
+%% This is a Prolog database that contains information about a fictional store and its inventory
+
+% Define the store's inventory as dynamic (allowing for changes)
+:- dynamic(inventory/3).
+
+% Store's inventory: (item name, quantity in stock, price per unit)
+inventory(apples, 50, 1.50).
+inventory(bananas, 30, 2.00).
+inventory(oranges, 20, 3.00).
+inventory(grapes, 10, 4.50).
+inventory(pineapples, 5, 5.00).
+
+% Define a predicate to check if an item is in stock
+in_stock(Item) :-
+    inventory(Item, Quantity, _), % Get the quantity of the item
+    \+ Quantity =< 0. % Check if quantity is not less than or equal to 0
+
+% Define a predicate to calculate the total cost of a list of items
+% First parameter is a list of items and second parameter is the total cost
+calc_total_cost([], 0). % Base case: empty list has a total cost of 0
+calc_total_cost([Item|Rest], Total) :-
+    inventory(Item, Quantity, Price), % Get the quantity and price of item
+    calc_total_cost(Rest, NextTotal), % Recursive call with rest of items
+    Total is NextTotal + (Quantity * Price). % Calculate total by adding product of quantity and price
+
+% Define a predicate to add an item to the inventory
+% First parameter is the item name, second parameter is the quantity, third parameter is the price
+add_to_inventory(Item, NewQuantity, NewPrice) :-
+    inventory(Item, Quantity, _), % Get current quantity of item
+    retract(inventory(Item, _, _)), % Remove current inventory record
+    NewQuantity is Quantity + NewQuantity, % Calculate new quantity
+    assert(inventory(Item, NewQuantity, NewPrice)). % Add updated inventory record
+
+% Define a predicate to reduce the quantity of an item in the inventory
+% First parameter is the item name, second parameter is the quantity to be reduced
+reduce_inventory(Item, Quantity) :-
+    inventory(Item, CurrentQuantity, _), % Get current quantity of item
+    retract(inventory(Item, _, _)), % Remove current inventory record
+    NewQuantity is CurrentQuantity - Quantity, % Calculate new quantity
+    assert(inventory(Item, NewQuantity, _)). % Add updated inventory record without changing price
+
+% Define a predicate to remove an item from the inventory completely
+% First parameter is the item name
+remove_from_inventory(Item) :-
+    retract(inventory(Item, _, _)). % Remove inventory record completely
+
+% Define a predicate to print the current inventory
+print_inventory :-
+    write('Inventory:'), nl,
+    inventory(Item, Quantity, Price), % Get info from inventory
+    write(Item), write(': '), write(Quantity), write(' units, $'), write(Price), write(' each.'), nl, % Print info
+    fail. % Make predicate fail to stop printing
+
+% Define a predicate to save the current inventory to a file
+save_inventory(FileName) :-
+    tell(FileName), % Open file with given name
+    listing(inventory/3), % Save inventory predicate
+    told. % Close file

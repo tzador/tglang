@@ -1,0 +1,80 @@
+const { ApolloServer, gql } = require('apollo-server');
+  const axios = require('axios');
+
+  // Define schema
+  const typeDefs = gql`
+    # The "Character" object type
+    type Character {
+      name: String
+      status: String
+      species: String
+      type: String
+      gender: String
+      image: String
+      episode: [Episode]
+    }
+
+    # The "Episode" object type
+    type Episode {
+      name: String
+      air_date: String
+      episode: String
+    }
+
+    # The "Query" type
+    type Query {
+      characters(page: Int): [Character]
+      character(id: Int!): Character
+      episodes: [Episode]
+      episode(id: Int!): Episode
+    }
+  `;
+
+  // Define resolvers
+  const resolvers = {
+    Query: {
+      // Characters query
+      characters: (parent, args) =>
+        axios
+          .get(`https://rickandmortyapi.com/api/character/?page=${args.page}`)
+          .then((res) => res.data.results)
+          .catch((err) => console.log(err.response.data)),
+
+      // Character query with id as argument
+      character: (parent, args) =>
+        axios
+          .get(`https://rickandmortyapi.com/api/character/${args.id}`)
+          .then((res) => res.data)
+          .catch((err) => console.log(err.response.data)),
+
+      // Episodes query
+      episodes: () =>
+        axios
+          .get('https://rickandmortyapi.com/api/episode')
+          .then((res) => res.data.results)
+          .catch((err) => console.log(err.response.data)),
+
+      // Episode query with id as argument
+      episode: (parent, args) =>
+        axios
+          .get(`https://rickandmortyapi.com/api/episode/${args.id}`)
+          .then((res) => res.data)
+          .catch((err) => console.log(err.response.data)),
+    },
+
+    Character: {
+      // Resolver for the episode field on the Character type
+      episode: (parent) =>
+        Promise.all(
+          parent.episode.map((url) => axios.get(url).then((res) => res.data))
+        ),
+    },
+  };
+
+  // Create Apollo server
+  const server = new ApolloServer({ typeDefs, resolvers });
+
+  // Start server on port 4000
+  server.listen(4000).then(({ url }) => {
+    console.log(`🚀 Server ready at ${url}`);
+  });

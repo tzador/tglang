@@ -1,0 +1,270 @@
+/*
+This is a sample class in Scala that implements a binary search tree data structure.
+It includes methods for insertion, deletion, searching, and traversal.
+*/
+
+class BinaryTree[T: Ordering]() {
+
+  // Inner representation of binary search tree
+  private var root: Option[Node[T]] = None
+
+  // Method to insert a new element into the tree
+  def insert(elem: T): Unit = {
+
+    // Create new node with the given element
+    val newNode = new Node[T](elem)
+
+    // If tree is empty, set new node as root
+    if (root.isEmpty) {
+      root = Some(newNode)
+    }
+
+    // If root already exists, insert new node at appropriate position
+    else {
+
+      // Start at root and traverse tree until appropriate position is found
+      var currNode = root
+      var parent = currNode
+      while (currNode.isDefined) {
+        // Use ordering to determine if new node should go to left or right of parent node
+        val comparison = implicitly [Ordering[T]].compare(elem, currNode.get.elem)
+
+        // If new node's element is less than current node's element, go left
+        if (comparison < 0) {
+          parent = currNode
+          currNode = currNode.get.left
+        }
+
+        // If new node's element is greater than current node's element, go right
+        else if (comparison > 0) {
+          parent = currNode
+          currNode = currNode.get.right
+        }
+      }
+
+      // Set new node as child of parent at appropriate position
+      if (implicitly [Ordering[T]].compare(elem, parent.get.elem) < 0) {
+        parent.get.left = Some(newNode)
+      } else {
+        parent.get.right = Some(newNode)
+      }
+    }
+  }
+
+  // Method to delete a specified element from the tree
+  def delete(elem: T): Unit = {
+
+    // Keep track of parent and current nodes
+    var parent: Option[Node[T]] = None
+    var currNode = root
+
+    // Traverse tree until appropriate position is found
+    while (currNode.isDefined && currNode.get.elem != elem) {
+      // Use ordering to determine if element should be in left or right subtree
+      val comparison = implicitly [Ordering[T]].compare(elem, currNode.get.elem)
+
+      // If element is less than current node's element, go left
+      if (comparison < 0) {
+        parent = currNode
+        currNode = currNode.get.left
+      }
+
+      // If element is greater than current node's element, go right
+      else if (comparison > 0) {
+        parent = currNode
+        currNode = currNode.get.right
+      }
+    }
+
+    // If element is not found in tree, return
+    if (currNode.isEmpty) {
+      return
+    }
+
+    // If element has no children, simply remove it from tree
+    if (currNode.get.left.isEmpty && currNode.get.right.isEmpty) {
+      // If deleted node is root, set root to be None
+      if (parent.isEmpty) {
+        root = None
+      }
+
+      // Otherwise, remove node from parent's subtree
+      else {
+        // Determine if current node is to the left or right of its parent
+        val child = currNode.get.elem
+        if (implicitly [Ordering[T]].compare(child, parent.get.elem) < 0) {
+          parent.get.left = None
+        } else {
+          parent.get.right = None
+        }
+      }
+    }
+
+    // If element has one child, replace it with its child in the tree
+    else if (currNode.get.left.isEmpty || currNode.get.right.isEmpty) {
+      // Determine if child is on the left or right
+      val child: Option[Node[T]] = if (currNode.get.left.isEmpty) {
+        currNode.get.right
+      } else {
+        currNode.get.left
+      }
+
+      // If deleted node is root, set child as new root
+      if (parent.isEmpty) {
+        root = child
+      }
+
+      // Otherwise, replace deleted node with child in parent's subtree
+      else {
+        // Determine if current node is to the left or right of its parent
+        val currElem = currNode.get.elem
+        if (implicitly [Ordering[T]].compare(currElem, parent.get.elem) < 0) {
+          parent.get.left = child
+        } else {
+          parent.get.right = child
+        }
+      }
+    }
+
+    // If element has two children, replace it with the successor node in the tree
+    else {
+      // Find the successor node of the current node
+      val successor = findSuccessor(currNode)
+
+      // Set deleted node's element to be the successor's element
+      currNode.get.elem = successor.get.elem
+
+      // Recursively delete successor node from its position
+      delete(successor.get.elem)
+    }
+  }
+
+  // Method to find the successor node of a given node in the tree
+  private def findSuccessor(node: Option[Node[T]]): Option[Node[T]] = {
+
+    // Step right once to find the successor
+    var currNode = node.get.right
+
+    // Keep traversing left until a leaf node is reached
+    while (currNode.get.left.isDefined) {
+      currNode = currNode.get.left
+    }
+
+    // Return the successor node
+    currNode
+  }
+
+  // Method to search for a given element in the tree
+  def search(elem: T): Boolean = {
+
+    // Start at root and traverse tree until appropriate position is found
+    var currNode = root
+    while (currNode.isDefined) {
+      // Use ordering to determine if element is in left or right subtree
+      val comparison = implicitly [Ordering[T]].compare(elem, currNode.get.elem)
+
+      // If element is found, return true
+      if (comparison == 0) {
+        return true
+      }
+
+      // If element is less than current node's element, go left
+      else if (comparison < 0) {
+        currNode = currNode.get.left
+      }
+
+      // If element is greater than current node's element, go right
+      else {
+        currNode = currNode.get.right
+      }
+    }
+
+    // If element is not found, return false
+    false
+  }
+
+  // Method to perform a pre-order traversal of the tree
+  def preOrderTraversal(callback: T => Unit): Unit = {
+
+    // Call pre-order helper method with root as starting point
+    preOrderTraversalHelper(root, callback)
+  }
+
+  // Helper method for pre-order traversal
+  private def preOrderTraversalHelper(node: Option[Node[T]], callback: T => Unit): Unit = {
+    if (node.isDefined) {
+      // Execute callback on current node's element
+      callback(node.get.elem)
+
+      // Recursively traverse left and right subtrees
+      preOrderTraversalHelper(node.get.left, callback)
+      preOrderTraversalHelper(node.get.right, callback)
+    }
+  }
+
+  // Method to perform an in-order traversal of the tree
+  def inOrderTraversal(callback: T => Unit): Unit = {
+
+    // Call in-order helper method with root as starting point
+    inOrderTraversalHelper(root, callback)
+  }
+
+  // Helper method for in-order traversal
+  private def inOrderTraversalHelper(node: Option[Node[T]], callback: T => Unit): Unit = {
+    if (node.isDefined) {
+      // Recursively traverse left subtree
+      inOrderTraversalHelper(node.get.left, callback)
+
+      // Execute callback on current node's element
+      callback(node.get.elem)
+
+      // Recursively traverse right subtree
+      inOrderTraversalHelper(node.get.right, callback)
+    }
+  }
+
+  // Method to perform a post-order traversal of the tree
+  def postOrderTraversal(callback: T => Unit): Unit = {
+
+    // Call post-order helper method with root as starting point
+    postOrderTraversalHelper(root, callback)
+  }
+
+  // Helper method for post-order traversal
+  private def postOrderTraversalHelper(node: Option[Node[T]], callback: T => Unit): Unit = {
+    if (node.isDefined) {
+      // Recursively traverse left and right subtrees
+      postOrderTraversalHelper(node.get.left, callback)
+      postOrderTraversalHelper(node.get.right, callback)
+
+      // Execute callback on current node's element
+      callback(node.get.elem)
+    }
+  }
+
+  // Method to perform a level-order traversal of the tree
+  def levelOrderTraversal(callback: T => Unit): Unit = {
+
+    // Use a queue to keep track of nodes to visit
+    var queue = scala.collection.mutable.Queue[Option[Node[T]]](root)
+
+    // Keep traversing until queue is empty
+    while (queue.nonEmpty) {
+      // Get next node to visit and remove it from the queue
+      val nextNode = queue.dequeue()
+
+      // If node is defined, execute callback on its element
+      if (nextNode.isDefined) {
+        callback(nextNode.get.elem)
+
+        // Add the node's children to the queue if they exist
+        queue.enqueue(nextNode.get.left)
+        queue.enqueue(nextNode.get.right)
+      }
+    }
+  }
+
+  // Class representing a node in the binary search tree
+  private class Node[T](var elem: T, var left: Option[Node[T]] = None,
+    var right: Option[Node[T]] = None)
+}

@@ -1,0 +1,39 @@
+# Create a multi-stage Dockerfile
+
+# Set base image
+FROM node:10-alpine AS build
+
+# Install necessary dependencies
+RUN apk add --update --no-cache \
+    python \
+    build-base \
+    git
+
+# Set working directory
+WORKDIR /app
+
+# Copy source code to working directory
+COPY . .
+
+# Install dependencies
+RUN npm install
+
+# Build application
+RUN npm run build
+
+# Set base image for final build
+FROM node:10-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy dependencies from build stage
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/package.json ./package.json
+
+# Expose port
+EXPOSE 3000
+
+# Run application
+CMD ["npm", "start"]

@@ -1,0 +1,109 @@
+class Weapon extends Inventory;
+
+/**
+ * @brief This class defines a weapon that can be carried and used by the player.
+ */
+cpass Ammo:
+/**
+ * @brief The type of ammo used by this weapon.
+ */
+    var() AmmoType WeaponAmmoType;
+/**
+ * @brief The current amount of ammo available for this weapon.
+ */
+    var int CurrentAmmo;
+/**
+ * @brief The maximum amount of ammo that can be carried for this weapon.
+ */
+    var int MaxAmmo;
+defaultproperties:
+    AmmoType=AT_Rocket;
+    CurrentAmmo=0;
+    MaxAmmo=10;
+    
+class RocketLauncher extends Weapon;
+/**
+ * @brief The amount of damage this weapon does per rocket.
+ */
+    var int DamagePerRocket;
+/**
+ * @brief The range this weapon can fire rockets.
+ */
+    var float RocketRange;
+    
+/**
+ * @brief Fires the weapon and performs all necessary actions.
+ *
+ * @param SocketName The name of the socket to attach the projectile to.
+ * @param AimDir The direction to aim the rocket in.
+ */
+function FireRocket( SocketName SocketName, out vector AimDir )
+{
+    local Projectile NewProjectile;
+
+    // Change the rotation of the character to match the fire animation
+    SetRotation( AimDir );
+    
+    // Play the fire animation
+    PlayAnim( 'fire', 0.7, 0.2, true);
+
+    // Create a new projectile object
+    NewProjectile = spawn(class'RocketProjectile', owner, SocketName, location);
+
+    // Set the velocity of the projectile to match the aim direction
+    NewProjectile.SetVelocity( AimDir.Normalized() * ProjectileSpeed );
+
+    // Apply damage to any actors hit by the rocket
+    foreach RadiusDamage( DamagePerRocket, RocketRange, location, class'Killed', TRACE_RetTarget, location + AimDir.Normalized() * RocketRange * 1.1 );
+
+    // Remove one ammo from the current inventory
+    if (CurrentAmmo > 0)
+    {
+        CurrentAmmo--;
+    }
+}
+
+defaultproperties:
+    DamagePerRocket=50;
+    RocketRange=2000.f;
+    WeaponType=AT_Rocket;
+    
+class RocketProjectile extends Projectile;
+/**
+ * @brief The amount of damage this projectile does.
+ */
+    var int DamageAmount;
+/**
+ * @brief The maximum size of the explosion when this projectile hits something.
+ */
+    var float ExplosionSize;
+
+/**
+ * @brief Causes damage and spawns an explosion upon hitting an actor.
+ *
+ * @param Other The actor hit by the projectile.
+ * @param Impact The location on the actor where the projectile hit.
+ * @param HitNormal The normal vector of the projectile upon impact.
+ */
+protected function ProcessTouch( actor Other, vec3 Impact, vec3 HitNormal )
+{
+    local float DamageDistance;
+
+    DamageDistance = VSize(location - Impact);
+
+    // Apply damage to the actor if they are within the range of the explosion
+    if (DamageDistance < ExplosionSize)
+    {
+        Other.TakeDamage( DamageAmount, Instigator,, location, HitNormal);
+    }
+
+    // Spawn an explosion at the impact location
+    Spawn(class'Explosion', , , Impact);
+
+    // Destroy the projectile upon impact
+    Destroy();
+}
+
+defaultproperties:
+    DamageAmount=100;
+    ExplosionSize=500.f;

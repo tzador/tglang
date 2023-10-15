@@ -1,0 +1,151 @@
+;\************************************************************/
+;/*      PROGRAM: A simple calculator                         */
+;/************************************************************/
+
+section .data
+    prompt1         db      'Enter first number: '     ;prompt for first number
+    prompt2         db      'Enter second number: '    ;prompt for second number
+    prompt3         db      'Enter operator (+,-,*,/): '   ;prompt for operator
+    result          db      'Result: ', 0xA    ;text to display result
+
+    num1            db      0       ;first number
+    num2            db      0       ;second number
+    operator        db      0       ;operator
+    int_buffer      db      10      ;buffer size for int conversion
+
+section .bss
+    result_buffer   resb    10      ;buffer for result
+
+section .text
+    global _start
+
+_start:
+    ;prompt user for first number
+    mov     edx, prompt1     ;move prompt1 to edx
+    mov     ecx, 14          ;length of prompt1
+    mov     ebx, 1           ;file descriptor for stdout
+    mov     eax, 4           ;syscall for write
+    int     0x80             ;call the kernel
+
+    ;accept input for first number
+    mov     ebx, 0           ;set to 0 for standard input
+    mov     eax, 3           ;syscall for read
+    mov     ecx, num1        ;store input in num1 variable
+    mov     edx, int_buffer  ;set buffer size for input
+    int     0x80             ;call the kernel
+
+    ;convert first number to integer
+    push    eax              ;save eax on the stack
+    push    ecx              ;save ecx on the stack
+    mov     eax, [num1]      ;move first number to eax
+    mov     ecx, int_buffer  ;set buffer size for input
+    mov     ebx, 10          ;base 10 for conversion
+    xor     edx, edx         ;clear edx
+    div     ebx              ;divide eax by ebx to get the integer
+    mov     [num1], dx       ;store the integer in the num1 variable
+    pop     ecx              ;restore ecx
+    pop     eax              ;restore eax
+
+    ;prompt user for second number
+    mov     edx, prompt2     ;move prompt2 to edx
+    mov     ecx, 15          ;length of prompt2
+    mov     ebx, 1           ;file descriptor for stdout
+    mov     eax, 4           ;syscall for write
+    int     0x80             ;call the kernel
+
+    ;accept input for second number
+    mov     ebx, 0           ;set to 0 for standard input
+    mov     eax, 3           ;syscall for read
+    mov     ecx, num2        ;store input in num2 variable
+    mov     edx, int_buffer  ;set buffer size for input
+    int     0x80             ;call the kernel
+
+    ;convert second number to integer
+    push    eax              ;save eax on the stack
+    push    ecx              ;save ecx on the stack
+    mov     eax, [num2]      ;move second number to eax
+    mov     ecx, int_buffer  ;set buffer size for input
+    mov     ebx, 10          ;base 10 for conversion
+    xor     edx, edx         ;clear edx
+    div     ebx              ;divide eax by ebx to get the integer
+    mov     [num2], dx       ;store the integer in the num2 variable
+    pop     ecx              ;restore ecx
+    pop     eax              ;restore eax
+
+    ;prompt user for operator
+    mov     edx, prompt3     ;move prompt3 to edx
+    mov     ecx, 24          ;length of prompt3
+    mov     ebx, 1           ;file descriptor for stdout
+    mov     eax, 4           ;syscall for write
+    int     0x80             ;call the kernel
+
+    ;accept input for operator
+    mov     ebx, 0           ;set to 0 for standard input
+    mov     eax, 3           ;syscall for read
+    mov     ecx, operator    ;store input in operator variable
+    mov     edx, 1           ;set buffer size to 1 character
+    int     0x80             ;call the kernel
+
+    ;perform calculation based on operator
+    mov     al, byte [operator]  ;move operator to al register
+    cmp     al, '+'         ;compare to addition operator
+    je      addition        ;if equal, jump to addition
+    cmp     al, '-'         ;compare to subtraction operator
+    je      subtraction     ;if equal, jump to subtraction
+    cmp     al, '*'         ;compare to multiplication operator
+    je      multiplication  ;if equal, jump to multiplication
+    cmp     al, '/'         ;compare to division operator
+    je      division        ;if equal, jump to division
+
+    ;if no matching operator found, exit program
+    mov     eax, 1           ;system call for exit
+    xor     ebx, ebx         ;exit status code
+    int     0x80             ;call the kernel
+
+addition:
+    ;add two numbers and store in result buffer
+    mov     eax, [num1]      ;move first number to eax
+    add     eax, [num2]      ;add second number to eax
+    mov     [result_buffer], eax ;store result in result buffer
+    jmp     print_results   ;jump to print results
+
+subtraction:
+    ;subtract second number from first and store in result buffer
+    mov     eax, [num1]      ;move first number to eax
+    sub     eax, [num2]      ;subtract second number from eax
+    mov     [result_buffer], eax ;store result in result buffer
+    jmp     print_results   ;jump to print results
+
+multiplication:
+    ;multiply two numbers and store in result buffer
+    mov     eax, [num1]      ;move first number to eax
+    mul     dword [num2]     ;multiply by second number (only first 32 bits)
+    mov     [result_buffer], eax ;store result in result buffer
+    jmp     print_results   ;jump to print results
+
+division:
+    ;divide first number by second and store in result buffer
+    mov     eax, [num1]      ;move first number to eax
+    cdq                     ;sign extend eax into edx
+    idiv    dword [num2]     ;divide by second number (only first 32 bits)
+    mov     [result_buffer], eax ;store result in result buffer
+
+print_results:
+    ;print result to console
+    mov     edx, result      ;move result to edx
+    mov     ecx, 8           ;length of result
+    mov     ebx, 1           ;file descriptor for stdout
+    mov     eax, 4           ;syscall for write
+    int     0x80             ;call the kernel
+
+    ;print new line
+    mov     eax, 0xA         ;new line character
+    mov     ebx, 1           ;file descriptor for stdout
+    mov     ecx, eax         ;set ecx to new line character
+    mov     eax, 4           ;syscall for write
+    int     0x80             ;call the kernel
+
+    ;exit program
+    mov     eax, 1           ;system call for exit
+    xor     ebx, ebx         ;exit status code
+    int     0x80             ;call the kernel

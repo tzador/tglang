@@ -1,0 +1,56 @@
+# This script checks for the existence of a given file and its permissions.
+
+# Function to check file existence
+function Check-FileExistence {
+    [CmdletBinding()]
+    param (
+        [Parameter(Position=0, Mandatory=$true)] [ValidateNotNullOrEmpty()]
+        [string]$FilePath
+    )
+    # Check for file existence
+    if(Test-Path $FilePath) {
+        Write-Host "File exists!"
+    }
+    else {
+        Write-Host "File does not exist."
+        return $false
+    }
+}
+
+# Function to check file permissions
+function Check-FilePermissions {
+    [CmdletBinding()]
+    param (
+        [Parameter(Position=0, Mandatory=$true)] [ValidateNotNullOrEmpty()]
+        [string]$FilePath,
+        [Parameter(Position=1, Mandatory=$true)] [ValidateNotNullOrEmpty()]
+        [string]$User
+    )
+    # Check file permissions
+    $acl = Get-Acl $FilePath
+    $permissions = $acl.Access | Where-Object {$_.IdentityReference -like $User}
+    if($permissions) {
+        Write-Host "User $User has permissions for file $FilePath."
+        $permissions | Format-List -property FileSystemRights
+        return $true
+    }
+    else {
+        Write-Host "User $User does not have permissions for file $FilePath."
+        return $false
+    }
+}
+
+# Sample usage
+$file_path = "C:\Users\Bob\Documents\sample_file.txt"
+if(Check-FileExistence $file_path) {
+    # Check permissions for current user
+    $current_user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+    $result = Check-FilePermissions -FilePath $file_path -User $current_user
+    if($result) {
+        # Do something
+        Write-Host "Do something with the file."
+    }
+    else {
+        Write-Host "Current user does not have permissions for the file."
+    }
+}

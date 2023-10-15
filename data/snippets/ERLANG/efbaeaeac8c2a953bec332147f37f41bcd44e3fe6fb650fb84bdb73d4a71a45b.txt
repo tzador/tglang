@@ -1,0 +1,66 @@
+%% Annotated code snippet in ERLANG:
+
+-module(tictactoe).                    %% Creates a new ERLANG module with the name 'tictactoe'.
+
+-export([start/0, play/2]).            %% Specifies the functions that can be exported from the module.
+
+start() ->                             %% Function for starting the tic-tac-toe game.
+    Board = [{1,2,3},                   %% Initializes the game board with numbered positions.
+             {4,5,6},
+             {7,8,9}],
+    print_board(Board),                %% Calls the print_board function to display the game board.
+    play(Board, 1).                     %% Starts the game by calling the play function with the initial board and player 1.
+
+play(Board, Player) ->                 %% Function for playing the game.
+    io:format("Player ~w's turn.~n", [Player]),       %% Prints a message for the current player's turn.
+    io:format("Make a move: ~n"),                     %% Prompts the player to make a move.
+    Move = read_number(),                             %% Reads the player's input as a move.
+    NewBoard = update_board(Board, Move, Player),     %% Calls the update_board function to update the board with the new move.
+    print_board(NewBoard),                            %% Displays the updated game board.
+    Check = check_board(NewBoard, Player),            %% Calls the check_board function to check if the current player has won.
+    case Check of
+        true -> io:format("Player ~w wins!~n", [Player]);      %% Prints a message and ends the game if the player has won.
+        false ->                                                %% Otherwise, switches to the other player and continues the game.
+            NewPlayer = case Player of
+                            1 -> 2;
+                            2 -> 1
+                        end,
+            play(NewBoard, NewPlayer)                          %% Recursive call to the play function with the updated board and new player.
+    end.
+
+print_board(Board) ->                   %% Function for printing the game board.
+    BoardStr = lists:flatten([("%w|%w|%w~n",[A,B,C]) || [A,B,C] <- Board]),   %% Creates a string with the board's current state.
+    io:format("~w~n-----------~n~w~n-----------~n~w~n", BoardStr).            %% Prints the string with the board's state.
+
+update_board(Board, Move, Player) ->    %% Function for updating the game board with the new move.
+    fun (Position, [A,B,C]) ->          %% Defines a function that takes a position and the board's row as parameters.
+        case Position of                %% Checks the current position.
+            1 -> {Player, B, C};         %% If it's the first position, updates it with the player's mark.
+            2 -> {A, Player, C};         %% If it's the second position, updates it with the player's mark.
+            3 -> {A, B, Player}          %% If it's the third position, updates it with the player's mark.
+        end
+    end.                                %% Ends the function definition.
+NewBoard = lists:mapfoldl(              %% Maps the update function to each row of the board.
+                fun(_, Row) -> update(Row, Move, Player) end,
+                Board,
+                Board).                 %% Defines the board as the accumulator.
+NewBoard.                               %% Returns the updated board.
+
+check_board(Board, Player) ->            %% Function for checking if the current player has won.
+    Rows = [[A,B,C] || [A,B,C] <- Board],           %% Extracts the rows from the board.
+    Columns = [[A,B,C] || [A,_,_] <- Board,
+                         [_,B,_] <- Board,
+                         [_,_,C] <- Board],         %% Extracts the columns from the board.
+    Diagonals = [[Board!!0!!0, Board!!1!!1, Board!!2!!2],           %% Extracts the diagonals from the board.
+                 [Board!!0!!2, Board!!1!!1, Board!!2!!0]],
+    Lists = Rows ++ Columns ++ Diagonals,             %% Combines all the possible winning combinations.
+    lists:any(fun(List) -> lists:all(fun(X) -> X =:= Player end, List) end, Lists).   %% Checks if any of the combinations contains all the player's marks.
+
+read_number() ->                                    %% Function for reading and validating user input.
+    case io:fread("", "~d") of                      %% Reads a number from the user.
+        {ok, [Move]} when Move >= 1, Move =< 9 ->   %% Validates that the number is between 1 and 9.
+            Move;                                   %% Returns the move if it's valid.
+        _ ->
+            io:format("Invalid move.~n"),           %% Otherwise, prompts the user to input a valid move.
+            read_number()                           %% Recursive call to the function until a valid move is entered.
+    end.

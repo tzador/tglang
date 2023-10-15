@@ -1,0 +1,143 @@
+// Contract for a decentralized marketplace using Solidity language
+
+// Define a contract with the name "Marketplace"
+contract Marketplace {
+
+    // Define a state variable to keep track of the marketplace's owner (address)
+    address public owner;
+
+    // Define a state variable to store the marketplace's name, set as a constant
+    string public constant name = "Decentralized Marketplace";
+
+    // Define a state variable to store the marketplace's owner's share percentage, set as a constant
+    uint public constant ownerShare = 10;
+
+    // Define a state variable to store the marketplace's commission percentage, set as a constant
+    uint public constant commission = 5;
+
+    // Define a state variable to store the total amount of money earned by the marketplace, set as a constant
+    uint public constant totalFees = 0;
+
+    // Define a mapping to keep track of all the store owners and their corresponding stores
+    mapping(address => Store) public stores;
+
+    // Define a struct to represent a store with its name, owner, and items
+    struct Store {
+        string name;
+        address owner;
+        mapping(uint => Item) items;
+        uint itemCount;
+    }
+
+    // Define a struct to represent an item with its name, description, price, and quantity
+    struct Item {
+        string name;
+        string description;
+        uint price;
+        uint quantity;
+    }
+
+    // Define a function to add a new store to the marketplace
+    function addStore(string _name) public {
+        // Require that the caller is not already a store owner
+        require(stores[msg.sender].owner != msg.sender);
+
+        // Create a new store and add it to the mapping of stores
+        Store newStore = Store(_name, msg.sender, 0);
+        stores[msg.sender] = newStore;
+    }
+
+    // Define a function to add a new item to a store
+    function addItem(uint _price, string _name, string _description, uint _quantity) public {
+        // Require that the caller is a store owner
+        require(stores[msg.sender].owner == msg.sender);
+
+        // Retrieve the store corresponding to the caller
+        Store storage currentStore = stores[msg.sender];
+
+        // Create a new item and add it to the store's mapping of items
+        uint newItemId = currentStore.itemCount++;
+        currentStore.items[newItemId] = Item(_price, _name, _description, _quantity);
+    }
+    
+    // Define a function to remove an item from a store
+    function removeItem(uint _index) public {
+        // Require that the caller is a store owner
+        require(stores[msg.sender].owner == msg.sender);
+
+        // Retrieve the store corresponding to the caller
+        Store storage currentStore = stores[msg.sender];
+
+        // Require that the given index is within the range of the store's items
+        require(_index < currentStore.itemCount);
+
+        // Set the item at the given index to be the last item in the store's items mapping
+        currentStore.items[_index] = currentStore.items[currentStore.itemCount];
+
+        // Reduce the store's item count by 1
+        currentStore.itemCount--;
+    }
+
+    // Define a function to buy an item from a store
+    function buyItem(address _storeOwner, uint _index) public payable {
+        // Retrieve the store corresponding to the store owner's address
+        Store storage currentStore = stores[_storeOwner];
+
+        // Require that the given index is within the range of the store's items
+        require(_index < currentStore.itemCount);
+
+        // Retrieve the item at the given index
+        Item storage item = currentStore.items[_index];
+
+        // Require that the quantity of the item is greater than 0 and that the given value is equal to or greater
+        // than the item's price
+        require(item.quantity > 0 && msg.value >= item.price);
+
+        // Calculate the marketplace's commission from the given value
+        uint commissionAmount = (msg.value * commission) / 100;
+
+        // Calculate the store owner's share from the given value
+        uint storeOwnerShare = (msg.value * (100 - commission - ownerShare)) / 100;
+
+        // Transfer the store owner's share to their address
+        currentStore.owner.transfer(storeOwnerShare);
+
+        // Add the commission amount to the total fees earned by the marketplace
+        totalFees += commissionAmount;
+
+        // Reduce the quantity of the item by 1
+        item.quantity--;
+    }
+    
+    // Define a function to return all of a store's items
+    function getStoreItems(address _storeOwner) public view returns (Item[]) {
+        // Retrieve the store corresponding to the store owner's address
+        Store storage currentStore = stores[_storeOwner];
+
+        // Create a dynamic array to store the store's items
+        Item[] memory items = new Item[](currentStore.itemCount);
+
+        // Loop through each item in the store and add it to the items array
+        for (uint i = 0; i < currentStore.itemCount; i++) {
+            items[i] = currentStore.items[i];
+        }
+
+        // Return the array of Items
+        return items;
+    }
+
+    // Define a function to withdraw the total fees earned by the marketplace by the owner
+    function withdrawFees() public {
+        // Require that the caller is the marketplace's owner
+        require(msg.sender == owner);
+
+        // Transfer the total fees earned to the owner's address
+        owner.transfer(totalFees);
+
+        // Reset the total fees earned to 0
+        totalFees = 0;
+    }
+
+    // Define a fallback function to handle any incoming ether transfers to the contract
+    function() public payable {}
+}

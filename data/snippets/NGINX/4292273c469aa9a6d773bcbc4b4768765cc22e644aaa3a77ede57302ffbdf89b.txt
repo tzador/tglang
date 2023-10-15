@@ -1,0 +1,50 @@
+# nginx configuration file
+server {
+    listen       80; # listens on port 80
+    server_name  example.com; # specifies the server name
+    access_log   /var/log/nginx/example.log; # sets the access log location
+    error_log    /var/log/nginx/example.error.log; # sets the error log location
+
+    location / {
+        root   /var/www/example; # sets the root directory for serving files
+        index  index.html index.htm; # specifies the default index file
+    }
+
+    location /api/ {
+        proxy_pass http://localhost:8000/; # passes requests to the specified backend URL
+        proxy_set_header   X-Real-IP $remote_addr; # sets the real IP header on the request
+        proxy_set_header   Host      $http_host; # sets the host header on the request
+    }
+}
+
+upstream backend {
+    server 127.0.0.1:8000; # specifies the backend server and port
+    server 127.0.0.1:8001; # additional backend servers can be added here
+}
+
+server {
+    listen       443 ssl; # listens on port 443 with SSL
+    server_name  example.com; # specifies the server name
+    ssl_certificate      /etc/nginx/ssl/example.com.crt; # specifies the SSL certificate file location
+    ssl_certificate_key  /etc/nginx/ssl/example.com.key; # specifies the SSL certificate key file location
+
+    location / {
+        proxy_pass http://backend/; # passes requests to the 'backend' upstream group
+        proxy_redirect off; # disables proxy redirects
+        proxy_set_header   X-Real-IP $remote_addr; # sets the real IP header on the request
+        proxy_set_header   Host      $http_host; # sets the host header on the request
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name api.example.com; # specifies a different server name for this server block
+    ssl_certificate      /etc/nginx/ssl/api.example.com.crt;
+    ssl_certificate_key  /etc/nginx/ssl/api.example.com.key;
+
+    location / {
+        proxy_pass http://localhost:8000/;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   Host      $http_host;
+    }
+}

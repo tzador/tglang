@@ -1,0 +1,59 @@
+# NGINX configuration file
+
+# This directive sets the user and group that will run the NGINX worker processes
+user nginx nginx;
+
+# Sets the number of worker processes that will handle requests
+worker_processes auto;
+
+# Defines the maximum number of open connections per worker process
+worker_rlimit_nofile 10000;
+
+# Sets the number of connections that a single worker process can handle simultaneously
+events {
+  worker_connections 4000;
+  multi_accept on;
+}
+
+# Configures properties for the http server
+http {
+  # Configuration for the upstream server, where requests will be forwarded
+  upstream backend {
+    server 127.0.0.1:8080;
+    keepalive 32;
+  }
+
+  # Global configuration for check and test server
+  server {
+    listen 80;
+    server_name example.com;
+
+    # Generates an access log
+    access_log /var/log/nginx/example.access.log;
+    error_log /var/log/nginx/example.error.log;
+
+    location / {
+      # Sets the root directory of the website
+      root /var/www/example;
+
+      # Allows only GET and POST requests
+      if ($request_method !~ ^(GET|POST)$) {
+        return 405;
+      }
+
+      # Forwards the request to the upstream server defined above
+      proxy_pass http://backend;
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # Configuration for handling errors
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html {
+      root /var/www;
+    }
+  }
+}

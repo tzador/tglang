@@ -1,0 +1,73 @@
+contract Example {
+    
+    // State variables
+    address private owner;
+    uint256 private constant MAX_NUM = 100;
+    bool private isPaused;
+    mapping(address => uint256) private balances;
+    
+    // Events
+    event LogDeposit(address indexed from, uint256 amount);
+    event LogWithdrawal(address indexed to, uint256 amount);
+    event LogTransfer(address indexed from, address indexed to, uint256 amount);
+    event LogPaused(address indexed by);
+    event LogUnpaused(address indexed by);
+    
+    // Constructor
+    constructor() public {
+        owner = msg.sender;
+    }
+    
+    // Modifiers
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this function.");
+        _;
+    }
+    
+    modifier isNotPaused() {
+        require(!isPaused, "Contract is currently paused.");
+        _;
+    }
+    
+    // Functions
+    function deposit() public payable isNotPaused {
+        require(msg.value > 0, "Must send a non-zero amount.");
+        require(balances[msg.sender] < MAX_NUM, "Maximum deposit limit reached for this address.");
+        
+        balances[msg.sender] += msg.value;
+        emit LogDeposit(msg.sender, msg.value);
+    }
+    
+    function withdraw() public onlyOwner isNotPaused {
+        require(balances[msg.sender] > 0, "Insufficient balance.");
+        
+        uint256 amount = balances[msg.sender];
+        balances[msg.sender] = 0;
+        
+        msg.sender.transfer(amount);
+        emit LogWithdrawal(msg.sender, amount);
+    }
+    
+    function transfer(address to, uint256 amount) public isNotPaused {
+        require(to != address(0), "Invalid transfer destination.");
+        require(amount > 0, "Must send a non-zero amount.");
+        require(balances[msg.sender] >= amount, "Insufficient balance.");
+        
+        balances[msg.sender] -= amount;
+        balances[to] += amount;
+        
+        emit LogTransfer(msg.sender, to, amount);
+    }
+    
+    function pause() public onlyOwner {
+        require(!isPaused, "Contract is already paused.");
+        isPaused = true;
+        emit LogPaused(msg.sender);
+    }
+    
+    function unpause() public onlyOwner {
+        require(isPaused, "Contract is not currently paused.");
+        isPaused = false;
+        emit LogUnpaused(msg.sender);
+    }
+}

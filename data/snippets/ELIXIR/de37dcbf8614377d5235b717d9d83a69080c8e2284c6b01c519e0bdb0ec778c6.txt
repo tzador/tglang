@@ -1,0 +1,42 @@
+defmodule Logger do
+  @moduledoc false #documentation metadata
+  @meta :metadata, :internal #more metadata
+  use GenServer #using a library
+  require Logger #requiring a module
+
+  #defining a new macro
+  defmacro log(args) do
+    quote do
+      unquote (args) #unquoting arguments
+      Logger.log(__MODULE__, self(), unquote(args))
+    end
+  end
+
+  #defining a new function with pattern matching
+  def handle_call({:log, arg1, arg2}, _from, state) do
+    Logger.info("[Log from #{arg1}]: #{arg2}")
+    {:ok, state}
+  end
+
+  #defining a new function with a guard clause
+  def handle_call({:debug, message}, _from, state) when is_map(state) do
+    Logger.debug(message)
+    {:ok, state}
+  end
+end
+
+defmodule MyApp do
+  use Application
+
+  #defining a worker process
+  def start(_type, _args) do
+    worker(Logger, [])
+  end
+end
+
+def MyApp.main do
+  #creating a child process
+  {:ok, pid} = Logger.start_link
+  #sending a message to the child process
+  GenServer.call(pid, :log, ["User", "Hello world"])
+end

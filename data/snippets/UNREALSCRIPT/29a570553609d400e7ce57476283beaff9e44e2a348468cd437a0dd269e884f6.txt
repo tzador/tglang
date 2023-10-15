@@ -1,0 +1,199 @@
+// -----------------
+// AdvancedObjective.uc
+//
+// This class extends the default Unreal Tournament Objective class to add more functionality and flexibility.
+
+class AdvancedObjective extends Objective;
+
+// Variables for controlling the objective:
+var() bool bAllowFriendlyFire; // If true, players can damage their own team's objective actors
+var() bool bScoreOnCapture; // If true, the capturing team will score points when the objective is captured
+var() int TeamPointValue; // Points awarded to the capturing team if bScoreOnCapture is true
+var() int OtherTeamPointValue; // Points awarded to the opposing team if bScoreOnCapture is true
+
+// Variables for objective completion and status:
+var() bool bIsCompleted; // True if the objective has been completed
+var() bool bIsDisabled; // True if the objective is disabled (cannot be captured)
+var() int InitialSpawnDelay; // Time in seconds before the objective can be captured
+var() int CompletionTime; // Time in seconds it takes to complete the objective
+var() int TimeRemaining; // Current time remaining before the objective is completed
+var() bool bIsUnderAttack; // True if the objective is currently being attacked by an enemy player
+var() bool bIsContested; // True if the objective is currently being contested by both teams
+
+// Variables for updating the HUD and objective info:
+var() class<HUD> ObjectiveHUD; // The custom HUD class to display objective information
+var() Texture2D ObjectiveIcon; // The icon to display on the HUD for this objective
+var() bool bShowOnHUD; // If true, objective will be displayed on the HUD
+
+// Events:
+
+// Called when the objective is initialized
+function InitObjective()
+{
+    // Set the initial state of the objective:
+    bIsCompleted = false;
+    bIsDisabled = false;
+    InitialSpawnDelay = 0;
+    CompletionTime = 0;
+    TimeRemaining = 0;
+    bIsUnderAttack = false;
+    bIsContested = false;
+    bShowOnHUD = false;
+}
+
+// Called when the objective is first spawned into the game world
+function PostBeginPlay()
+{
+    // Call the parent function first:
+    Super.PostBeginPlay();
+
+    // Initialize the objective:
+    InitObjective();
+}
+
+// Called when the objective is being captured by a player
+function OnBeginCapture(PlayerController Controller)
+{
+    // Disable friendly fire if necessary:
+    if(!bAllowFriendlyFire)
+    {
+        Controller.bNoFriendlyFire = true;
+    }
+
+    // Set the objective as under attack:
+    bIsUnderAttack = true;
+
+    // Update the HUD for the player capturing the objective:
+    if(bShowOnHUD && ObjectiveHUD != None)
+    {
+        // First, update the player's HUD with the objective info:
+        Controller.SetHUD(ObjectiveHUD);
+        ObjectiveHUD.DisplayObjectiveInfo(this, ObjectiveIcon);
+    }
+}
+
+// Called when the objective is no longer being captured by a player
+function OnEndCapture(PlayerController Controller)
+{
+    // Reinstate friendly fire if necessary:
+    if(!bAllowFriendlyFire)
+    {
+        Controller.bNoFriendlyFire = false;
+    }
+
+    // Set the objective as no longer under attack:
+    bIsUnderAttack = false;
+
+    // Update the HUD for the player:
+    if(bShowOnHUD && ObjectiveHUD != None)
+    {
+        // First, reset the player's HUD to the default:
+        Controller.SetHUD(class'HudBase');
+    }
+}
+
+// Called when an enemy player starts to contest the objective
+function OnBeginContest()
+{
+    // Set the objective as being contested:
+    bIsContested = true;
+
+    // Update the HUD for the player:
+    if(bShowOnHUD && ObjectiveHUD != None)
+    {
+        // Display the contested objective icon:
+        ObjectiveHUD.DisplayContestedObjectiveIcon(this);
+    }
+}
+
+// Called when an enemy player stops contesting the objective
+function OnEndContest()
+{
+    // Set the objective as no longer being contested:
+    bIsContested = false;
+
+    // Update the HUD for the player:
+    if(bShowOnHUD && ObjectiveHUD != None)
+    {
+        // Hide the contested objective icon:
+        ObjectiveHUD.HideContestedObjectiveIcon();
+    }
+}
+
+// Called when the objective is completed by a player
+function OnCompleteObjective(PlayerController Controller)
+{
+    // If the objective is already completed, don't do anything:
+    if(bIsCompleted)
+        return;
+
+    // Complete the objective:
+    bIsCompleted = true;
+
+    // Update the HUD for the player:
+    if(bShowOnHUD && ObjectiveHUD != None)
+    {
+        // Display the completed objective icon:
+        ObjectiveHUD.DisplayCompletedObjectiveIcon(this);
+
+        // Show the score message if necessary:
+        if(bScoreOnCapture)
+        {
+            if(Controller.Team == Team)
+            {
+                ObjectiveHUD.ShowScoreMessage(TeamPointValue);
+            }
+            else if(Controller.Team == OtherTeam)
+            {
+                ObjectiveHUD.ShowScoreMessage(OtherTeamPointValue, false);
+            }
+        }
+    }
+}
+
+// Called when the objective is no longer completed
+function OnResetObjective()
+{
+    // If the objective is already reset, don't do anything:
+    if(!bIsCompleted)
+        return;
+
+    // Reset the objective:
+    bIsCompleted = false;
+
+    // Update the HUD for the player:
+    if(bShowOnHUD && ObjectiveHUD != None)
+    {
+        // Reset the completed objective icon:
+        ObjectiveHUD.ResetCompletedObjectiveIcon();
+
+        // Remove the score message:
+        ObjectiveHUD.ClearScoreMessage();
+    }
+}
+
+// Called every frame to update the objective state and time remaining
+function Tick(float DeltaTime)
+{
+    // Call the parent function first:
+    Super.Tick(DeltaTime);
+
+    // If the objective is currently completed, nothing else needs to be done:
+    if(bIsCompleted)
+        return;
+
+    // Check if the objective is disabled or if there is still time remaining before it can be captured:
+    if(bIsDisabled || InitialSpawnDelay > 0)
+        return;
+
+    // Update the time remaining:
+    TimeRemaining += DeltaTime;
+
+    // If the objective has been under attack for the full completion time, complete the objective:
+    if(TimeRemaining >= CompletionTime)
+    {
+        OnCompleteObjective(ControllingPawn.Controller);
+    }
+}
+
+// -----------------

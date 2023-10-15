@@ -1,0 +1,50 @@
+server {
+    # Listen on port 80
+    listen 80;
+    
+    # Set the server name to example.com
+    server_name example.com;
+    
+    # Define root directory and default index file
+    root /var/www/html;
+    index index.html;
+    
+    # Enable gzip compression
+    gzip on;
+    # Set minimum file size to compress
+    gzip_min_length 1000;
+    # Set compression level
+    gzip_comp_level 6;
+    # Enable buffering for gzip responses
+    gzip_buffers 16 8K;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/rss+xml image/svg+xml;
+    
+    # Enable caching with max cache size of 10MB
+    # and a max expiry time of 1 day
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=cache:10m inactive=1d;
+    
+    server {
+        # Proxy requests to backend server
+        location / {
+            proxy_pass http://backend;
+            
+            # Enable caching for this location
+            proxy_cache cache;
+            proxy_cache_valid 200 1d;
+            proxy_cache_key "$scheme$request_uri";
+            
+            # Enable load balancing with 2 backend servers
+            proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+
+            # Define which backend servers to use
+            upstream backend {
+                server backend1.example.com;
+                server backend2.example.com;
+            }
+        }
+    }
+    
+    # Define access and error log files
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+}

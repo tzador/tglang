@@ -1,0 +1,94 @@
+(**Implementation of a binary search tree in OCAML**)
+
+(**Define a tree type with either a Leaf or Branch and int value*)
+type tree =
+  | Leaf
+  | Branch of tree * int * tree
+
+(**Inserts a value into a tree in the correct position*)
+let rec insert tree value =
+  match tree with
+  | Leaf -> Branch (Leaf, value, Leaf)
+  | Branch (left, x, right) when value < x -> Branch (insert left value, x, right)
+  | Branch (left, x, right) when value > x -> Branch (left, x, insert right value)
+  | Branch (left, _, right) -> Branch (left, value, right)
+
+(**Creates a new tree with initial value and inserts subsequent values*)
+let create_tree initial_value values =
+  let rec loop tree values =
+    match values with
+    | [] -> tree
+    | hd::tl -> loop (insert tree hd) tl
+  in
+  loop (Branch (Leaf, initial_value, Leaf)) values
+
+(**Finds a value in a tree and returns true if found, false otherwise*)
+let rec find value tree =
+  match tree with
+  | Leaf -> false
+  | Branch (_, x, _) when value = x -> true
+  | Branch (left, x, right) when value < x -> find value left
+  | Branch (left, x, right) when value > x -> find value right
+
+(**Deletes a value from a tree if it exists*)
+let rec delete value tree =
+  let rec get_min_value tree =
+    match tree with
+    | Leaf -> failwith "Tree is empty"
+    | Branch (Leaf, x, _) -> x
+    | Branch (left, _, _) -> get_min_value left
+  in
+  match tree with
+  | Leaf -> Leaf
+  | Branch (left, x, right) when value < x -> Branch (delete value left, x, right)
+  | Branch (left, x, right) when value > x -> Branch (left, x, delete value right)
+  | Branch (Leaf, x, Leaf) when value = x -> Leaf
+  | Branch (left, x, Leaf) when value = x -> left
+  | Branch (Leaf, x, right) when value = x -> right
+  | Branch (left, x, right) when value = x ->
+      let min_value = get_min_value right
+      in
+      let new_right_tree = delete min_value right
+      in
+      Branch (left, min_value, new_right_tree)
+
+(**Returns the size of a tree*)
+let rec size tree =
+  match tree with
+  | Leaf -> 0
+  | Branch (left, _, right) -> 1 + (size left) + (size right)
+
+(**Returns the maximum depth of a tree*)
+let rec max_depth tree =
+  match tree with
+  | Leaf -> 0
+  | Branch (left, _, right) -> 1 + max (max_depth left) (max_depth right)
+
+(**Returns true if a tree is a binary search tree, false otherwise*)
+let rec is_bst tree =
+  let rec is_bst_helper tree min_value max_value =
+    match tree with
+    | Leaf -> true
+    | Branch (left, x, right) ->
+        if x < min_value || x > max_value then false
+        else
+          (is_bst_helper left min_value (x-1)) &&
+          (is_bst_helper right (x+1) max_value)
+  in
+  is_bst_helper tree min_int max_int
+
+(**Test cases*)
+let test_tree = create_tree 5 [3; 8; 1; 4; 6; 9]
+
+let () =
+  assert (find 3 test_tree);
+  assert (not (find 10 test_tree));
+
+  let test_tree_2 = delete 4 test_tree in
+  assert (not (find 4 test_tree_2));
+  assert (size test_tree_2 = 5);
+  assert (max_depth test_tree_2 = 3);
+
+  let not_bst = Branch (Branch (Leaf, 3, Branch (Leaf, 2, Leaf)), 4, Leaf) in
+  assert (is_bst test_tree);
+  assert (not (is_bst not_bst))

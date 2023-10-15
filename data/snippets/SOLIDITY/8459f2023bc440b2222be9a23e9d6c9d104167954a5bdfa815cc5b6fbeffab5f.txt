@@ -1,0 +1,166 @@
+// This is a contract that utilizes all of the SOLID principles
+// S - Single Responsibility Principle, O - Open/Closed Principle, L - Liskov Substitution Principle, I - Interface Segregation Principle, D - Dependency Inversion Principle
+
+// This contract defines the interface for a token
+interface IToken {
+    //All functions that must be implemented by a token
+    function transfer(address _to, uint256 _value) external returns (bool);
+    function transferFrom(address _from, address _to, uint256 _value) external returns (bool);
+    function approve(address _spender, uint256 _value) external returns (bool);
+    function balanceOf(address _owner) external view returns (uint256);
+    function allowance(address _owner, address _spender) external view returns (uint256);
+}
+
+// This contract implements a basic ERC20 token
+contract BasicToken is IToken {
+    // State variables
+    mapping (address => uint256) balances;
+    mapping (address => mapping (address => uint256)) internal allowed;
+    
+    // Event emitted when tokens are transferred
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    
+    // Event emitted when an approval is made
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    
+    // Function to transfer tokens
+    function transfer(address _to, uint256 _value) external override returns (bool) {
+        require(_to != address(0), "Invalid recipient address");
+        require(_value <= balances[msg.sender], "Insufficient balance");
+        
+        // Update balances
+        balances[msg.sender] = balances[msg.sender] - _value;
+        balances[_to] = balances[_to] + _value;
+        
+        // Emit Transfer event
+        emit Transfer(msg.sender, _to, _value);
+        
+        // Return true
+        return true;
+    }
+    
+    // Function to transfer tokens from a specific address
+    function transferFrom(address _from, address _to, uint256 _value) external override returns (bool) {
+        require(_from != address(0), "Invalid sender address");
+        require(_to != address(0), "Invalid recipient address");
+        require(_value <= balances[_from], "Insufficient balance");
+        require(_value <= allowed[_from][msg.sender], "Insufficient allowance");
+        
+        // Update balances
+        balances[_from] = balances[_from] - _value;
+        balances[_to] = balances[_to] + _value;
+        allowed[_from][msg.sender] = allowed[_from][msg.sender] - _value;
+        
+        // Emit Transfer event
+        emit Transfer(_from, _to, _value);
+        
+        // Return true
+        return true;
+    }
+    
+    // Function to approve a specific amount of tokens to be spent by a specific address
+    function approve(address _spender, uint256 _value) external override returns (bool) {
+        require(_spender != address(0), "Invalid spender address");
+        
+        // Update allowed balance
+        allowed[msg.sender][_spender] = _value;
+        
+        // Emit Approval event
+        emit Approval(msg.sender, _spender, _value);
+        
+        // Return true
+        return true;
+    }
+    
+    // Function to get the balance of a specific address
+    function balanceOf(address _owner) external view override returns (uint256) {
+        return balances[_owner];
+    }
+    
+    // Function to get the allowance for a specific address by another address
+    function allowance(address _owner, address _spender) external view override returns (uint256) {
+        return allowed[_owner][_spender];
+    }
+}
+
+
+// This contract extends the BasicToken contract and implements the Liskov Substitution Principle
+contract Token is BasicToken {
+    // State variables
+    string public name;
+    string public symbol;
+    uint256 public decimals;
+    uint256 public totalSupply;
+    
+    // Constructor to set the token parameters
+    constructor(string memory _name, string memory _symbol, uint256 _decimals, uint256 _totalSupply) {
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+        totalSupply = _totalSupply;
+        
+        // Mint the initial supply to the contract creator
+        balances[msg.sender] = _totalSupply;
+    }
+    
+    // Override transfer function to update total supply
+    function transfer(address _to, uint256 _value) external override returns (bool) {
+        require(_value <= totalSupply, "Insufficient total supply");
+        
+        // Call transfer function from BasicToken
+        return BasicToken.transfer(_to, _value);
+    }
+    
+    // Override transferFrom function to update total supply
+    function transferFrom(address _from, address _to, uint256 _value) external override returns (bool) {
+        require(_value <= totalSupply, "Insufficient total supply");
+        
+        // Call transferFrom function from BasicToken
+        return BasicToken.transferFrom(_from, _to, _value);
+    }
+}
+
+// This contract implements the Dependency Inversion Principle by using dependency injection
+contract TokenFactory {
+    // State Variable
+    address public token;
+    
+    // Function to create a new token using dependency injection
+    function createToken(string calldata _name, string calldata _symbol, uint256 _decimals, uint256 _totalSupply) external {
+        // Create a new Token contract and assign it to token
+        token = address(new Token(_name, _symbol, _decimals, _totalSupply));
+    }
+}
+
+// This contract implements the Open/Closed Principle by allowing for extension without modification
+contract ExtendedToken is BasicToken {
+    // State variables
+    bool public untransferable;
+    
+    // Event emitted when the token is made transferable
+    event Untransferable(bool untransferable);
+    
+    // Function to restrict token transfers
+    function restrictTransfers() external {
+        untransferable = true;
+        
+        // Emit Untransferable event
+        emit Untransferable(true);
+    }
+    
+    // Override transfer function to restrict transfers if necessary
+    function transfer(address _to, uint256 _value) external override returns (bool) {
+        require(untransferable == false, "Token transfers have been restricted");
+        
+        // Call transfer function from BasicToken
+        return BasicToken.transfer(_to, _value);
+    }
+    
+    // Override transferFrom function to restrict transfers if necessary
+    function transferFrom(address _from, address _to, uint256 _value) external override returns (bool) {
+        require(untransferable == false, "Token transfers have been restricted");
+        
+        // Call transferFrom function from BasicToken
+        return BasicToken.transferFrom(_from, _to, _value);
+    }
+}

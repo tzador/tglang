@@ -1,0 +1,67 @@
+*----------------------------------------------------------------------*
+* Selection screen for Database Selections
+*----------------------------------------------------------------------*
+* Purpose:
+* This selection screen allows the user to make dynamic database
+* selections using a drop-down menu and optional input criteria.
+*----------------------------------------------------------------------*
+
+SELECTION-SCREEN BEGIN OF BLOCK blk1 WITH FRAME TITLE text-001.
+
+PARAMETERS: p_table TYPE tabname OBLIGATORY,
+            p_field TYPE tabkey1 AS LISTBOX VISIBLE,
+            p_where TYPE where_clause AS CHECKBOX,
+            p_conditions TYPE STANDARD TABLE OF reseltab INITIAL SIZE 0.
+
+DATA: t_fields  TYPE STANDARD TABLE OF selfields,
+      t_options TYPE STANDARD TABLE OF selopt,
+      t_signs   TYPE STANDARD TABLE OF selsign,
+      t_options TYPE STANDARD TABLE OF selopt.
+
+INITIALIZATION.
+FINON.
+CONSTANTS: c_fldcat TYPE SORTED TABLE OF lvc_s_fcat WITH EMPTY KEY,
+
+PARAMETERS: p_fields TYPE reseltab INITIAL SIZE 0.
+
+* Building the field catalog
+LOOP AT t_fields ASSIGNING <fsr>.
+
+  IF p_where = abap_true.                " If p_where was checked
+
+    IF <fsr>-seloption GT spc AND <fsr>-seloperator IN seloperation.
+      APPEND VALUE #( fieldname = <fsr>-seloption operation = <fsr>-seloperator ) TO c_fldcat.
+      <<fsr>-selval>.
+    ELSEIF <fsr>-seloperator IN seloperation.
+      APPEND VALUE #( fieldname = <fsr>-seloption operation = <fsr>-seloperator ) TO c_fldcat.
+    ENDIF.
+
+    IF <fsr>-seldisp EQ abap_false.
+      p_where = abap_true.
+    ENDIF.
+
+  ELSE.                       " If p_where was not checked
+    IF <fsr>-seldisp EQ abap_true.         " Only display if p_where was not checked
+      APPEND VALUE #( fieldname = <fsr>-seloperator spc = c_area) TO c_fldcat.
+    ENDIF.
+    IF <fsr>-opdisp EQ abap_true.
+      APPEND VALUE #( fieldname = <fsr>-operation spc = c_area) TO c_fldcat.
+    ENDIF.
+
+  endif.
+
+  p_where <> abap_true.             " Forced display of p_where for all lines
+  SELECT-OPTIONS:
+    SO_01 FOR c_fldcat-fldname OPTIONAL.
+
+ENDLOOP.
+
+TYPES  : tt_fields TYPE STANDARD TABLE OF selopt INITIAL SIZE 1.
+
+PARAMETERS: p_fields TYPE reseltab INITIAL SIZE 0.
+
+SELECTION-SCREEN END OF BLOCK blk1.
+
+** Gather fields for selection
+AT SELECTION-SCREEN OUTPUT.
+MODULE status_0300 user_command_0300 AT SELECTION-SCREEN.

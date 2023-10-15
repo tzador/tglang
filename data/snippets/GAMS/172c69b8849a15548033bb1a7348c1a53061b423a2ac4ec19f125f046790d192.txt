@@ -1,0 +1,36 @@
+SETS                                                                *
+i 'customers'                                                       / c1*c4 /
+j 'plants'                                                          / p1*p3 /
+k 'products'                                                        / pr1*pr5/;
+
+TABLE d(i,j) 'distance between customers and plants in km'           j1      j2      j3
+c1      10      20      20
+c2      15      10      20
+c3      25      25      10
+c4      30      20      30 ;
+
+TABLE a(j,k) 'available products per plant'                          pr1     pr2     pr3     pr4     pr5
+p1      5       3       0       0       2
+p2      3       0       0       0       5
+p3      0       8       4       6       0 ;
+
+VARIABLES                                                           *
+x(j,k) 'amount of product to be shipped from plant to customer'    ;
+
+x.l(j,k) = a(j,k);   !initial guess
+x.lo(j,k)$(x.l(j,k) = 1) = 0;   !impose lower bound on decision variable
+x.up(j,k)$(a(j,k) > 0) = a(j,k);   !impose upper bound on decision variable
+x.fx(j,k)$(a(j,k) = 0) = 0;   !fix variables with no available products to 0
+
+EQUATIONS                                                           *
+supply(i) 'amount of product available at each plant'                p
+demand(i,k) 'amount of product demanded by each customer'            c
+route(i,j,k) 'flow balance for each route'                           pr;
+
+supply(p)$(sum(i, x(i,p)) > 0) .. sum(i, x(i,p)) =l= a(p);           !supply at least 1 product
+demand(c,k)$(sum(j, x(c,j,k)) > 0) .. sum(j, x(c,j,k)) =g= d(c,k);   !demand must be met
+route(i,j,k)$(a(j,k) > 0) .. x(i,j)*d(i,j) =e= x(j,k);               !flow balance condition
+
+MODEL transport /supply, demand, route/;
+SOLVE transport USING lp MINIMIZING SUM((i,j), d(i,j)*x(i,j));
+DISPLAY d,y.l;

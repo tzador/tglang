@@ -1,0 +1,57 @@
+/* This is a complex data transformation code in SAS */
+
+/* Data set containing information on customer IDs, purchase dates, and purchase amounts */
+data customer_purchases;
+	input customer_id $ purchase_date :mmddyy10. purchase_amount;
+	datalines;
+A001 06/02/2020 50
+A001 08/21/2020 100
+A001 09/15/2020 75
+A002 06/15/2020 200
+A002 08/05/2020 150
+A002 09/25/2020 300
+A003 06/10/2020 75
+A003 08/17/2020 125
+A003 09/22/2020 50
+;
+/* Creating a variable that calculates the total amount spent by each customer */
+data customer_totals;
+	set customer_purchases;
+	by customer_id;
+	/* First, sort the data set by customer ID */
+	if first.customer_id then total_amount = 0; /* Set total amount to 0 when first record for each customer is encountered */
+	total_amount + purchase_amount; /* Add the purchase amount for each record to the total amount */
+	/* Set a flag variable for the most recent purchase date for each customer */
+	if last.customer_id then most_recent_purchase_date = purchase_date;
+	/* Calculate the number of days since the most recent purchase */
+	days_since_last_purchase = intck('day', most_recent_purchase_date, purchase_date);
+run;
+
+/* Selecting data only for customers who made a purchase more than 30 days ago */
+data inactive_customers;
+	set customer_totals;
+	where days_since_last_purchase > 30;
+	/* Label the inactive customers with a flag variable */
+	inactive = 1;
+	/* Drop unnecessary variables */
+	drop most_recent_purchase_date days_since_last_purchase;
+run;
+
+/* Merging the data sets */
+data final_customer_data;
+	merge customer_totals inactive_customers;
+	by customer_id;
+	/* Set a flag variable for customers who made a purchase more than 30 days ago */
+	if inactive = 1 then status = 'Inactive';
+	else status = 'Active';
+	/* Drop unnecessary variables */
+	drop inactive;
+run;
+
+/* Generating a report of inactive customers */
+proc report data = final_customer_data;
+	columns customer_id total_amount status;
+	define customer_id / group;
+	define total_amount / analysis sum format = dollar12.2;
+	define status / display;
+run;

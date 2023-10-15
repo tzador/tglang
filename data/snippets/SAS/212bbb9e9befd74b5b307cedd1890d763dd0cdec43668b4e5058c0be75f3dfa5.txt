@@ -1,0 +1,69 @@
+/* Initialize library and set parameters */ 
+libname mydata 'C:\Users\Documents\Data'; 
+options orientation=landscape nodate nonumber; 
+
+/* Create format for income groups */ 
+proc format; 
+value income_groups
+0-25000 = 'Low Income' 
+25001-50000 = 'Middle Income' 
+50001-100000 = 'High Income' 
+100001-high = 'Very High Income'; 
+run; 
+
+/* Merge datasets and rename variables */ 
+data merged_data; 
+merge mydata.data1 (in=one) mydata.data2 (in=two); 
+by id; 
+
+if one; 
+rename 
+var1 = demographic_1 
+var2 = demographic_2
+var3 = income; 
+
+if two; 
+rename
+var4 = purchase_amount 
+var5 = purchase_date; 
+
+run; 
+
+/* Calculate total purchase amount for each individual */ 
+proc sql;
+create table total_purchases as 
+select id, sum(purchase_amount) as total_purchase_amount 
+from merged_data 
+group by id; 
+quit; 
+
+/* Generate a summary report */ 
+proc report data=merged_data nowindows headline headskip; 
+column demographic_1 demographic_2 income purchase_amount purchase_date; 
+
+define demographic_1 / display; 
+define demographic_2 / display; 
+define income / format=income_groups. flow; 
+define purchase_amount / sum format=dollar10.; 
+define purchase_date / group; 
+
+break after demographic_2 / summarize; 
+
+compute after; 
+line 'Total purchases for this demographic group:' purchase_amount;
+endcomp; 
+
+run; 
+
+/* Export data to a CSV file */ 
+proc export data=total_purchases 
+outfile='C:\Users\Documents\Total_Purchases.csv' 
+dbms=csv replace; 
+run; 
+
+/* Print the final results */ 
+proc print data=total_purchases; 
+title 'Total Purchases for Each Individual'; 
+run; 
+
+/* End of code snippet */

@@ -1,0 +1,78 @@
+// This program finds the shortest path in a directed graph
+
+import std.algorithm : min, swap;
+import std.array : appender;
+import std.functional : flip;
+import std.range : iota;
+import std.container : Array, HashMap;
+
+void dijkstra(T : Numeric, R : Range)(T start, R edges, void delegate(T) visit) {
+    // Initialize the distance array and marked map
+    T[] dist;
+    HashMap!(T, bool) marked;
+
+    // Set initial distance for start node to zero and mark as visited
+    dist[start] = T.init;
+    marked[start] = true;
+
+    // Find minimum distance node
+    T minDistNode = edges
+        .filter!(a => !marked.exists(a[0]) && marked.exists(a[1]))
+        .map!(a => a[0])
+        .min;
+
+    // Loop until all nodes are visited
+    while (minDistNode !is null) {
+        // Mark current node as visited
+        marked[minDistNode] = true;
+
+        // Update distances of neighboring nodes
+        edges
+            .filter!(a => a[0] == minDistNode || a[1] == minDistNode)
+            .each!(a => {
+                auto otherNode = a[0] == minDistNode ? a[1] : a[0];
+                auto newDist = dist[minDistNode] + a[2];
+
+                // If distance to neighboring node is shorter, update distance
+                if (dist[otherNode] == T.init || dist[otherNode] > newDist) {
+                    dist[otherNode] = newDist;
+                }
+            });
+
+        // Find next minimum distance node
+        minDistNode = edges
+            .filter!(a => !marked.exists(a[0]) && marked.exists(a[1]))
+            .map!(a => a[0])
+            .min;
+    }
+
+    // Invoke visit delegate for each node with its shortest distance
+    foreach (node; dist.keys) {
+        visit(node, dist[node]);
+    }
+}
+
+void main() {
+    // Create directed graph represented as an adjacency list
+    auto edges = [
+        ["A", "B", 5],
+        ["A", "C", 3],
+        ["A", "D", 9],
+        ["B", "C", 2],
+        ["B", "E", 7],
+        ["C", "D", 6],
+        ["C", "E", 4],
+        ["D", "E", 1]
+    ];
+
+    // Initialize variables and visit delegate
+    T[] shortestPath;
+    auto append = appender!T(shortestPath);
+    void delegate(T node, T dist) visit = (node, dist) => append(node);
+
+    // Find shortest paths from node A
+    dijkstra("A", edges, visit);
+
+    // Print shortest path and its distance
+    writeln("Shortest path from A to each node: ", shortestPath);
+}

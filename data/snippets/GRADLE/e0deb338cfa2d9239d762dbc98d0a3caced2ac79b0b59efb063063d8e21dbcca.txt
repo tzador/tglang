@@ -1,0 +1,78 @@
+plugins {
+    id 'com.android.application' version '7.0.2'
+    id 'kotlin-android' version '1.4.31'
+    id 'com.google.gms.google-services' version '4.3.5'
+}
+
+android {
+    compileSdk 31
+    defaultConfig {
+        applicationId "com.example.myapp"
+        minSdk 23
+        targetSdk 31
+        versionCode 1
+        versionName "1.0"
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            debuggable true
+            applicationIdSuffix ".debug"
+        }
+    }
+    // Add custom logic for build process
+    applicationVariants.all { variant ->
+        // Get build type
+        def buildType = variant.buildType.name
+        // Create task name
+        def assemblyTaskName = "assemble${buildType.capitalize()}Artifact"
+
+        // Create task
+        def assemblyTask = project.tasks.create(assemblyTaskName, Copy) {
+            dependsOn variant.assemble
+            from("${buildDir}/outputs/apk/${variant.name}") {
+                // Filter debug build
+                if (variant.buildType.name == 'debug') {
+                    exclude "**/*"
+                }
+            }
+            into("${buildDir}/output/artifacts/${variant.name}") {
+                mkdirs()
+                exclude "apk"
+            }
+        }
+        // Add task to clean
+        clean.dependsOn assemblyTask
+
+        // Add task to assemble
+        assemble.dependsOn assemblyTask
+    }
+
+    // Generate artifact list
+    task artifactList {
+        doFirst {
+            println("-----------------------")
+            // Get artifacts
+            def outputDirectory = file("${buildDir}/output/artifacts")
+            def artifacts = outputDirectory.listFiles()
+            // Print artifact list
+            artifacts.each { artifact ->
+                println("${artifact.getName()}")
+            }
+            println("-----------------------")
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.6.0'
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.4.31"
+    implementation 'com.google.firebase:firebase-analytics:17.5.0'
+}

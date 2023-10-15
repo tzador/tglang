@@ -1,0 +1,79 @@
+// Contract to represent a crowdfunding campaign
+contract Crowdfunding {
+    // Variables to store information about the campaign
+    address public owner;
+    uint public goalAmount;
+    uint public deadline;
+    mapping(address => uint) public contributors;
+    uint public contributionsTotal;
+    
+    // Events to emit during certain actions
+    event NewContribution(address indexed contributor, uint amount);
+    event Refund(address indexed contributor, uint amount);
+    event CampaignSuccessful();
+    event CampaignFailed();
+    
+    // Constructor to set the owner and goal amount
+    constructor(address _owner, uint _goalAmount, uint _durationInDays) {
+        owner = _owner;
+        goalAmount = _goalAmount;
+        deadline = block.timestamp + (_durationInDays * 1 days);
+    }
+    
+    // Modifier to restrict access to certain functions only to the owner
+    modifier onlyOwner() {
+        require(msg.sender == owner);
+        _;
+    }
+    
+    // Function to allow contributors to send Ether as contribution
+    function contribute() public payable {
+        require(block.timestamp <= deadline);
+        contributors[msg.sender] += msg.value;
+        contributionsTotal += msg.value;
+        emit NewContribution(msg.sender, msg.value);
+    }
+    
+    // Function to check if the goal amount has been reached
+    function checkGoalReached() public {
+        require(block.timestamp >= deadline);
+        // If the goal amount is reached, transfer the funds to the owner
+        if(contributionsTotal >= goalAmount) {
+            owner.transfer(contributionsTotal);
+            emit CampaignSuccessful();
+        } else {
+            // If the goal amount is not reached, refund all contributors
+            uint refundAmount = contributors[msg.sender];
+            require(refundAmount > 0);
+            msg.sender.transfer(refundAmount);
+            emit Refund(msg.sender, refundAmount);
+        }
+    }
+    
+    // Function to allow the owner to withdraw funds
+    function withdrawFunds() public onlyOwner {
+        require(contributionsTotal >= goalAmount);
+        
+        // Transfer the funds to the owner
+        owner.transfer(contributionsTotal);
+    }
+    
+    // Function to allow the owner to end the campaign early and refund all contributions
+    function endCampaignEarly() public onlyOwner {
+        require(block.timestamp < deadline);
+        
+        // Refund all contributions
+        for (uint i = 0; i < contributors.length; i++) {
+            uint refundAmount = contributors[i];
+            contributors[i] = 0;
+            refundAmount(msg.sender, refundAmount);
+            if(!msg.sender.send(refundAmount)) {
+                contributors[i] = refundAmount;
+            }
+        }
+        
+        // Emit event and set contributions total to 0
+        emit CampaignFailed();
+        contributionsTotal = 0;
+    }
+}

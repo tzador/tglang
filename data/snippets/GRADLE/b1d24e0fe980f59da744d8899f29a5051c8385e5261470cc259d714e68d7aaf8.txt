@@ -1,0 +1,89 @@
+apply plugin: 'java'
+
+// Creates a new custom task called "buildJar" which will take in a parameter 'compression'
+task buildJar(type: Jar, dependsOn: classes) {
+    archiveName 'myApp.jar'
+    destinationDir file('build/libs')
+
+    // Configures the compression level based on input parameter
+    inputs.property('compression', 'none')
+    doFirst {
+        if (compression == 'medium') {
+            inputs.property('compression', 'medium')
+            archiveExtension = 'zip'
+            logger.info 'Using medium compression level'
+        } else if (compression == 'high') {
+            inputs.property('compression', 'high')
+            destinationDir file('build/compressed-libs')
+            logger.info 'Using high compression level'
+        } else {
+            logger.info 'No compression'
+        }
+    }
+
+    // Includes all necessary files in the JAR based on compression level
+    from {
+        if (compression == 'none' || compression == 'medium') {
+            fileTree(dir: 'src/main/java')
+            fileTree(dir: 'config')
+            fileTree(dir: 'libs', exclude: 'testlibs/*')
+        } else {
+            fileTree(dir: 'src/main/java')
+            fileTree(dir: 'config')
+        }
+    }
+
+    // Executes additional tasks before building the JAR
+    doLast {
+        compressFiles()
+        generateManifest()
+        logger.info 'Finished building JAR'
+    }
+}
+
+// Creates a new task called "compressFiles" which will compress all necessary files
+task compressFiles {
+    inputs.files fileTree(dir: 'src')
+    inputs.property('compression', 'high')
+    outputs.files fileTree(dir: 'build/compressed-libs')
+
+    doFirst {
+        logger.info 'Compressing files using ${compression} level'
+    }
+
+    doLast {
+        archiveName 'compressed-files.zip'
+        archivePath file('build/compressed-libs')
+        from {
+            fileTree(dir: 'src', exclude: 'test/*')
+            fileTree(dir: 'config', exclude: '*/dev/*')
+        }
+        eachFile { file ->
+            logger.info "Compressing ${file.name}"
+        }
+    }
+}
+
+// Creates a new task called "generateManifest" which will generate a manifest for the JAR
+task generateManifest {
+    inputs.file fileTree(dir: 'src')
+    outputs.file file('build/META-INF/manifest.mf')
+
+    doFirst {
+        logger.info 'Generating manifest file'
+        file('build/META-INF').mkdir()
+    }
+
+    doLast {
+        generateManifestFile()
+        logger.info 'Generated manifest file'
+    }
+}
+
+// Registers a dependency between the buildJar task and the compressFiles and generateManifest tasks
+buildJar.dependsOn compressFiles, generateManifest
+
+// Configures the build task to run the buildJar task
+build {
+    dependsOn buildJar
+}

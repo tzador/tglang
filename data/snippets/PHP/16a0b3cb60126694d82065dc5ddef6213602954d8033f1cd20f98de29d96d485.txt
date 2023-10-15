@@ -1,0 +1,85 @@
+<?php
+// Define a class called User
+class User {
+
+    // Define private properties
+    private $firstName;
+    private $lastName;
+    private $email;
+    private $username;
+    private $password;
+
+    // Define a constructor method
+    public function __construct($firstName, $lastName, $email, $username, $password) {
+        
+        // Set values for properties when object is created
+        $this->firstName = $firstName;
+        $this->lastName = $lastName;
+        $this->email = $email;
+        $this->username = $username;
+        $this->password = $password;
+    }
+
+    // Define a method to print user's full name
+    public function printFullName() {
+        echo $this->firstName . " " . $this->lastName;
+    }
+
+    // Define a method to check if user's email is valid
+    public function validateEmail() {
+        
+        // Use filter_var function to check for valid email format
+        if (filter_var($this->email, FILTER_VALIDATE_EMAIL)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    // Define a method to check if user's username is available
+    public function checkUsernameAvailability() {
+
+        // Connect to database and query for existing usernames
+        $conn = new mysqli("localhost", "username", "password", "database_name");
+        $stmt = $conn->prepare("SELECT username FROM users WHERE username = ?");
+        $stmt->bind_param("s", $this->username);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        // If there is a match, return false for unavailable username
+        if ($result->num_rows > 0) {
+            return false;
+        } else {
+            return true;
+        }
+    }
+
+    // Define a method to encrypt user's password
+    public function encryptPassword() {
+        
+        // Use sha256 encryption
+        $encrypted = hash("sha256", $this->password);
+        $this->password = $encrypted;
+    }
+}
+
+// Create a new user object with provided values
+$user = new User("John", "Doe", "johndoe@example.com", "johndoe123", "password123");
+
+// Print user's full name
+$user->printFullName();
+
+// Validate email and check username availability
+if ($user->validateEmail() && $user->checkUsernameAvailability()) {
+    // If valid, encrypt password and add user to database 
+    $user->encryptPassword();
+    $conn = new mysqli("localhost", "username", "password", "database_name");
+    $stmt = $conn->prepare("INSERT INTO users (first_name, last_name, email, username, password) VALUES (?, ?, ?, ?, ?)");
+    $stmt->bind_param("sssss", $user->firstName, $user->lastName, $user->email, $user->username, $user->password);
+    $stmt->execute();
+    echo "User successfully added to database!";
+} else {
+    echo "Invalid email or username already taken.";
+}
+
+?>

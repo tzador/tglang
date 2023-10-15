@@ -1,0 +1,71 @@
+% This is a Prolog program that finds the shortest path in a maze using Dijkstra's algorithm
+
+% Define the maze as a graph with nodes and edges
+graph([
+	node(a, [b,c]),
+	node(b, [a,d]),
+	node(c, [a,e]),
+	node(d, [b,f]),
+	node(e, [c,g]),
+	node(f, [d,g]),
+	node(g, [e,f])
+]).
+
+% Define predicates for getting the weight of an edge and updating the distance and parent of a node
+weight(Node1, Node2, Weight) :-
+	graph(Graph),
+	member(node(Node1, Edges), Graph),
+	member(edge(Node2, Weight), Edges).
+
+update_distance(Node, Distance, Parent) :-
+	node(Node, _, Dist, Parent),
+	Distance < Dist,
+	retract(node(Node, Edges, Dist, Parent)),
+	assert(node(Node, Edges, Distance, Parent)).
+
+update_parent(Node, Parent) :-
+	retract(node(Node, Edges, Dist, _)),
+	assert(node(Node, Edges, Dist, Parent)).
+
+% Implementation of Dijkstra's algorithm using breadth-first search
+dijkstra(Start, End, Path, Distance) :-
+	node(Start), % Make sure the start and end nodes exist in the graph
+	node(End),
+	findall(node(Dest, _, Dist, Parent), node(Dest, _, Dist, Parent), Nodes),
+	update_distance(Start, 0, nil), % Set distance of start node to 0 and parent to nil
+	dijkstra_helper(Nodes, [Start], [], End, Path, Distance).
+
+% Helper predicate for Dijkstra algorithm
+dijkstra_helper([], _, Visited, End, Path, Distance) :-
+	reverse(Visited, Path),
+	node(End, _, Distance, _).
+dijkstra_helper(Nodes, Queue, Visited, End, Path, Distance) :-
+	member(Current, Queue),
+	node(Current),
+	findall(node(Child, _, _, Current), weight(Current, Child, _), Children), % Get list of child nodes for current node
+	update_queue(Children, End, Queue, NewQueue), % Update queue using new list of child nodes
+	select(Current, Nodes, NewNodes), % Remove current node from list of unvisited nodes
+	dijkstra_helper(NewNodes, NewQueue, [Current|Visited], End, Path, Distance).
+
+% Update queue with new child nodes
+update_queue([], _, Queue, Queue).
+update_queue([node(Child, Dist, Parent, _) | Rest], End, Queue, NewQueue) :-
+	member(node(Child, _, CurrentDist, _), Queue), % Check if child node is already in queue
+	CurrentDist =< Dist, % If the current distance to the child is smaller, don't update the queue
+	update_queue(Rest, End, Queue, NewQueue).
+update_queue([node(Child, Dist, Parent, _) | Rest], End, Queue, NewQueue) :-
+	\+member(node(Child, _, _, _), Queue), % Check if child node is not already in queue
+	update_parent(Child, Parent), % Update the parent of the child node
+	insert_sorted(node(Child, Dist, Parent), Queue, UpdatedQueue), % Insert the child node into the queue in sorted order
+	update_queue(Rest, End, UpdatedQueue, NewQueue).
+
+% Helper predicate for inserting node into queue in sorted order
+insert_sorted(Node, [], [Node]).
+insert_sorted(node(Node, Dist, _, _), [node(Head, HeadDist, _, _) | Rest], [node(Node, Dist, nil, nil), node(Head, HeadDist, nil, nil) | Rest]) :-
+	Dist =< HeadDist.
+insert_sorted(node(Node, Dist, _, _), [node(Head, HeadDist, _, _) | Rest], [node(Head, HeadDist, nil, nil) | NewRest]) :-
+	Dist > HeadDist,
+	insert_sorted(node(Node, Dist, nil, nil), Rest, NewRest).
+
+% Example query: dijkstra(a, g, Path, Distance).
+% Expected output: Path = [a,b,d,f,g], Distance = 3

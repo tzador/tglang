@@ -1,0 +1,60 @@
+-module(tictactoe).
+-export([start/0]).
+
+% Function to initialize and start the game
+start() ->
+    io:format("Welcome to Tic-Tac-Toe!~n"),
+    % Starting board with 9 empty slots
+    Board = [[1,2,3],[4,5,6],[7,8,9]], 
+    play(Board, x).
+
+% Function to take input from players and call the move function
+play(Board, Player) ->
+    io:format("Player ~w's turn. Choose a slot: ", [Player]),
+    % Taking input from player and converting it to an integer
+    Input = read_line(),
+    InputInteger = list_to_integer(Input),
+    % Calling the move function to update the board
+    NewBoard = move(Board, Player, InputInteger),
+    % Checking if the game has been won or if there are any empty slots left
+    case is_win(NewBoard, Player) orelse is_tie(NewBoard) of
+        true ->
+            io:format("Game Over. Final Board: ~n"),
+            print_board(NewBoard);
+        false ->
+            next_player = if Player == x -> o; true -> x end,
+            play(NewBoard, next_player)
+    end.
+
+% Function to update the board with the player's move
+move(Board, Player, Slot) ->
+    % Using nested functions for cleaner code
+    PlaceMove = fun (Row, [Slot|Rows]) -> [Player|Rows];
+                    (Row, [Move|Rows]) -> [Move|PlaceMove(Row, Rows)] end,
+    ReplaceRow = fun (Slot, [Row|RestBoard]) -> [PlaceMove(Slot, Row)|RestBoard];
+                    (Slot, [Row|RestBoard]) -> [Row|ReplaceRow(Slot, RestBoard)] end,
+    ReplaceRow(Slot, Board).
+
+% Function to check if the game has been won by a player
+is_win(Board, Player) ->
+    % Listing all possible winning combinations
+    Combinations = [[1,2,3], [4,5,6], [7,8,9], [1,4,7], [2,5,8], [3,6,9], [1,5,9], [3,5,7]],
+    lists:any(fun(Combination) -> check_win(Board, Player, Combination) end, Combinations).
+
+% Helper function to check if a single combination of slots has been filled by a player
+check_win(Board, Player, Combination) ->
+    Check = fun (NumRow, Row) -> Row == Player end,
+    lists:all(Check, [lists:nth(Slot, lists:nth(Row, Board)) || Slot <- Combination, Row <- [1,2,3]]).
+
+% Function to check if the game has ended in a tie
+is_tie(Board) ->
+    % Converting the board to a list to check for any empty slots
+    BoardList = lists:flatten(Board),
+    lists:all(fun(Slot) -> is_integer(Slot) end, BoardList).
+
+% Function to print out the current state of the board
+print_board(Board) ->
+    % Using the io_lib library to print out a formatted table
+    io:format("~w ~w ~w~n", [lists:nth(1, lists:nth(1, Board)), lists:nth(2, lists:nth(1, Board)), lists:nth(3, lists:nth(1, Board))]),
+    io:format("~w ~w ~w~n", [lists:nth(1, lists:nth(2, Board)), lists:nth(2, lists:nth(2, Board)), lists:nth(3, lists:nth(2, Board))]),
+    io:format("~w ~w ~w~n", [lists:nth(1, lists:nth(3, Board)), lists:nth(2, lists:nth(3, Board)), lists:nth(3, lists:nth(3, Board))]).

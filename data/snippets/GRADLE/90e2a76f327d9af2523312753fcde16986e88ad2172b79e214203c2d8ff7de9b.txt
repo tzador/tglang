@@ -1,0 +1,104 @@
+plugins {
+    // apply the java plugin to add support for Java
+    id 'java'
+
+    // apply the com.github.johnrengelman.shadow plugin for creating executable fat JARs
+    id 'com.github.johnrengelman.shadow' version '5.2.0'
+
+    // apply the com.jfrog.artifactory plugin for managing dependencies and publishing to Artifactory
+    id 'com.jfrog.artifactory' version '4.9.0'
+}
+
+// configure the Java plugin to use Java 11
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+// specify our main class for the executable JAR
+mainClassName = 'com.example.Main'
+
+// configure the shadow plugin to exclude certain dependencies from the fat JAR
+shadowJar {
+    exclude 'org.slf4j:slf4j-api'
+    exclude 'log4j:log4j'
+}
+
+// configure Artifactory for our project
+artifactory {
+    contextUrl = 'https://example.repo.com/artifactory'
+    publish {
+        repository {
+            repoKey = 'libs-release-local'
+            username = project.findProperty('artifactory_user')
+            password = project.findProperty('artifactory_password')
+        }
+    }
+}
+
+// configure dependencies for our project
+dependencies {
+    // for the Java plugin, we need to specify which JDK we want to use
+    // this dependency will ensure that Java 11 is installed on the system before running the build
+    implementation 'com.vanniktech:gradle-android-jdk11:3.7.0'
+
+    // for our application, we need to include the logback dependencies
+    // this will allow us to log messages in our application
+    implementation 'ch.qos.logback:logback-classic:1.2.3'
+
+    // for testing, we will use JUnit 5
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.6.1'
+
+    // for mocking, we will use Mockito
+    testImplementation 'org.mockito:mockito-core:3.3.3'
+}
+
+// configure tasks for our project
+tasks {
+    // specify a task to clean our project
+    clean {
+        delete buildDir
+    }
+
+    // specify a task for running tests
+    test {
+        // specify where to find the JUnit 5 libraries for testing
+        useJUnitPlatform()
+        // exclude any tests that are annotated with @Disabled
+        exclude '**/@Disabled'
+    }
+
+    // specify a task for building our executable JAR
+    jar {
+        // specify dependencies to include in the JAR
+        // this will include all of the JAR files from our dependencies
+        from {
+            configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+        }
+        // exclude any dependencies that we don't want in our JAR
+        exclude 'META-INF/*.RSA', 'META-INF/*.SF', 'META-INF/*.DSA'
+    }
+
+    // specify a task for publishing our artifacts to Artifactory
+    publish {
+        // configure publishing options for our JAR
+        publications {
+            shadow(MavenPublication) {
+                // specify the group ID, artifact ID, and version for our JAR
+                groupId = 'com.example'
+                artifactId = 'example'
+                version = '1.0.0'
+                // specify the file to be published (our executable JAR)
+                artifact jar
+
+                // configure the POM file for our artifact
+                // this will set the name, description, and URL for our project
+                pom {
+                    name = 'Example Project'
+                    description = 'An example project for demonstrating Gradle functionalities'
+                    url = 'https://github.com/example/example-project'
+                }
+            }
+        }
+    }
+}

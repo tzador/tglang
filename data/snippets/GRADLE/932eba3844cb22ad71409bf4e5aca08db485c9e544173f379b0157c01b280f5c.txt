@@ -1,0 +1,67 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '2.6.0'
+    id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+    id 'com.google.protobuf' version '0.8.13'
+    id 'org.jetbrains.kotlin.jvm' version '1.6.0'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(16)
+    }
+}
+
+dependencies {
+    implementation platform('org.springframework.boot:spring-boot-dependencies')
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8'
+    implementation 'com.google.protobuf:protobuf-java:3.15.8'
+    implementation 'io.netty:netty-all:4.1.65.Final'
+}
+
+// Define protobuf task
+protobuf {
+    generatedFilesBaseDir = "${generatedSourcesDir}/java"
+    protoc {
+        artifact = "com.google.protobuf:protoc:3.13.0"
+    }
+    plugins {
+        grpc {
+            artifact = 'io.grpc:protoc-gen-grpc-java:1.37.1'
+        }
+    }
+    generateProtoTasks {
+        all().configureEach {
+            // Mark generated files as {@code "main"} sources
+            outputs
+                    .dir(outputDirectory)
+                    .builtBy(this)
+            // Ensure Java output directory exists for our generated code
+            javaOutputDir.mkdirs()
+            // Output option tells protoc to generate java classes in {@code javaOutputDir}
+            option 'java_out', javaOutputDir
+        }
+    }
+    sourceSets {
+        main {
+            java {
+                srcDir "${generatedSourcesDir}/java"
+            }
+        }
+    }
+}
+
+// Define grpc service task
+task generateGrpcService {
+    dependsOn 'generateProto'
+    doLast {
+        sourceSets {
+            main {
+                java {
+                    srcDirs "${buildDir}/generated/source/proto"
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,79 @@
+*&---------------------------------------------------------------------*
+*& Report ZUSE_CONTROL_TABLE
+*&---------------------------------------------------------------------*
+
+REPORT ZUSE_CONTROL_TABLE.
+
+TABLES: EKKO, EKPO, BSEG.
+
+TYPES: BEGIN OF ty_ekko,
+        ebeln TYPE ebeln,
+        bukrs TYPE bukrs,
+        lifnr TYPE lifnr,
+        waers TYPE waers,
+  END OF ty_ekko.
+
+TYPES: BEGIN OF ty_ekko_t,
+        ebeln TYPE ebeln,
+        bukrs TYPE bukrs,
+        lifnr TYPE lifnr,
+        waers TYPE waers,
+  END OF ty_ekko_t.
+
+DATA: gt_ekko    TYPE STANDARD TABLE OF ty_ekko,
+      gt_ekko_t  TYPE STANDARD TABLE OF ty_ekko_t,
+      gs_ekko    TYPE ty_ekko,
+      gs_ekko_t  TYPE ty_ekko_t.
+
+SELECT
+  ebeln
+  bukrs
+  lifnr
+  waers
+FROM ekko
+INTO TABLE gt_ekko.
+
+LOOP AT gt_ekko INTO gs_ekko.
+
+  SELECT bukrs
+  FROM ekpo
+  INTO gs_ekko_t-bukrs
+  WHERE ebeln = gs_ekko-ebeln
+  AND lifnr = gs_ekko-lifnr.
+
+  gs_ekko_t-ebeln = gs_ekko-ebeln.
+  gs_ekko_t-lifnr = gs_ekko-lifnr.
+  gs_ekko_t-waers = gs_ekko-waers.
+
+  APPEND gs_ekko_t TO gt_ekko_t.
+ENDLOOP.
+
+* Insert new entries into BSEG based on data from gt_ekko_t
+LOOP AT gt_ekko_t INTO gs_ekko_t.
+  INSERT INTO bseg VALUES
+  ( bukrs = gs_ekko_t-bukrs
+    ebeln = gs_ekko_t-ebeln
+    lifnr = gs_ekko_t-lifnr
+    waers = gs_ekko_t-waers ).
+ENDLOOP.
+
+* Delete entries from BSEG that are not in gt_ekko_t
+DELETE FROM bseg WHERE NOT ebeln IN gt_ekko_t-ebeln.
+
+* Mark all entries in gt_ekko_t for processing
+LOOP AT gt_ekko_t ASSIGNING FIELD-SYMBOL(<fs_ekko_t>).
+  <fs_ekko_t>-processed = 'X'.
+ENDLOOP.
+
+* Process gt_ekko_t and modify records in BSEG
+LOOP AT gt_ekko_t INTO gs_ekko_t.
+  MODIFY bseg
+  FROM TABLE gt_ekko_t
+  WHERE ebeln = gs_ekko_t-ebeln
+  AND lifnr = gs_ekko_t-lifnr.
+ENDLOOP.
+
+* Fill report output
+LOOP AT gt_ekko_t INTO gs_ekko_t.
+  WRITE: / gs_ekko_t-bukrs, gs_ekko_t-ebeln, gs_ekko_t-lifnr, gs_ekko_t-waers.
+ENDLOOP.

@@ -1,0 +1,82 @@
+// This contract implements a decentralized exchange
+// using the Solidity programming language
+
+contract DecentralizedExchange {
+
+    // Define global variables
+    address private owner; // Address of the exchange owner
+    uint private exchangeFee; // Fee charged for transactions
+    mapping(address => uint) private balances; // Used to track user balances
+
+    // Events for logging
+    event Deposit(address indexed _user, uint _amount);
+    event Withdraw(address indexed _user, uint _amount);
+    event Trade(address indexed _seller, address indexed _buyer, uint _amount, uint _price);
+
+    // Constructor function - sets the owner and exchange fee
+    constructor() public {
+        owner = msg.sender;
+        exchangeFee = 1; // 1% fee for transactions
+    }
+
+    // Fallback function - called when ether is sent to the contract
+    function() public payable {
+        revert(); // Reject incoming ether
+    }
+
+    // Function to deposit ether into the exchange
+    function deposit() public payable {
+        require(msg.value > 0); // Check that a positive amount has been sent
+        balances[msg.sender] += msg.value; // Update user balance
+        emit Deposit(msg.sender, msg.value); // Log event
+    }
+
+    // Function to withdraw ether from the exchange
+    function withdraw(uint _amount) public {
+        require(balances[msg.sender] >= _amount); // Check that user has enough balance
+        balances[msg.sender] -= _amount; // Update user balance
+        msg.sender.transfer(_amount); // Transfer ether to user's address
+        emit Withdraw(msg.sender, _amount); // Log event
+    }
+
+    // Function to buy ether from the exchange
+    function buy() public payable {
+        require(msg.value > 0); // Check that a positive amount has been sent
+        uint fee = msg.value / 100 * exchangeFee; // Calculate fee
+        uint amount = msg.value - fee; // Calculate amount of ether to be bought
+        require(balances[owner] >= amount); // Check that exchange has enough ether
+        balances[msg.sender] += amount; // Update buyer's balance
+        balances[owner] -= amount; // Update exchange's balance
+        owner.transfer(fee); // Transfer fee to exchange owner
+        emit Trade(owner, msg.sender, amount, msg.value); // Log event
+    }
+
+    // Function to sell ether to the exchange
+    function sell(uint _amount) public {
+        require(_amount > 0); // Check that a positive amount is being sold
+        require(balances[msg.sender] >= _amount); // Check that user has enough balance
+        uint fee = _amount / 100 * exchangeFee; // Calculate fee
+        balances[msg.sender] -= _amount; // Update seller's balance
+        balances[owner] += _amount - fee; // Update exchange's balance
+        msg.sender.transfer(_amount - fee); // Transfer ether to user's address
+        emit Trade(msg.sender, owner, _amount, _amount - fee); // Log event
+    }
+
+    // Function to get user's balance
+    function getBalance() public view returns (uint) {
+        return balances[msg.sender]; // Return user's balance
+    }
+
+    // Function to get exchange fee
+    function getExchangeFee() public view returns (uint) {
+        return exchangeFee; // Return exchange fee
+    }
+
+    // Function to change exchange fee (only owner can call)
+    function changeExchangeFee(uint _fee) public {
+        require(msg.sender == owner); // Check that caller is the owner
+        require(_fee > 0 && _fee <= 10); // Check that fee is between 0 and 10%
+        exchangeFee = _fee; // Update exchange fee
+    }
+
+}

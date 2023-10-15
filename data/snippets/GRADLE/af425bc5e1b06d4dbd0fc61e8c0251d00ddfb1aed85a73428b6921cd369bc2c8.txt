@@ -1,0 +1,47 @@
+plugins {
+    id 'java'
+    id 'com.google.cloud.tools.jib' version '2.6.0'
+}
+
+jib {
+    from {
+        image = 'openjdk:8-jdk'
+    }
+
+    to {
+        image = 'gcr.io/my-project/my-app'
+        auth {
+            username = localProperty('gcrUsername')
+            password = localProperty('gcrPassword')
+        }
+    }
+
+    container {
+        jvmFlags = ['-Dsettings.generatePreview=true']
+        mainClass = 'com.example.MyApplication'
+        ports = [8080]
+        format = 'Docker'
+        useCurrentTimestamp = true
+        tags = ['latest', 'v1.0', 'my-app']
+        environment = [MY_ENV_VAR: 'my-value']
+    }
+}
+
+task publishToGcr(type: Exec) {
+    dependsOn assemble
+
+    // set GCR credentials before executing the jib task
+    doFirst {
+        environment 'GCR_USER', "$gcrUsername"
+        environment 'GCR_PASSWORD', "$gcrPassword"
+    }
+
+    // use Gradle properties to pass in GCR credentials
+    def gcrUsername = project.property("gcrUsername")
+    def gcrPassword = project.property("gcrPassword")
+
+    commandLine 'docker', 'login', '-u', "$gcrUsername", '-p', "$gcrPassword", 'https://gcr.io'
+
+    // run jib task to build and push Docker image to Google Container Registry
+    commandLine 'gradle', 'jib'
+}

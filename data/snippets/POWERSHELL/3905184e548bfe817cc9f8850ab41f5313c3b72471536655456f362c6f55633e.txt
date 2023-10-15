@@ -1,0 +1,74 @@
+# The following snippet uses PowerShell to create an Azure virtual machine
+
+# Login to Azure using Azure CLI
+az login
+
+# Set the subscription you want to work with
+az account set -s "Subscription ID"
+
+# Create a resource group to hold the virtual machine
+New-AzResourceGroup -Name "myResourceGroup" -Location "East US"
+
+# Create a virtual network with a default subnet
+New-AzVirtualNetwork `
+    -ResourceGroupName "myResourceGroup" `
+    -Name "myVirtualNetwork" `
+    -AddressPrefix "10.0.0.0/16" `
+    -Location "East US"
+
+# Create a subnet to be used by the virtual machine
+Add-AzVirtualNetworkSubnetConfig `
+    -Name "WebServerSubnet" `
+    -AddressPrefix "10.0.1.0/24" `
+    -VirtualNetworkName "myVirtualNetwork"
+
+# Create a public IP address for the virtual machine
+$publicip = New-AzPublicIpAddress `
+    -Name "myPublicIP" `
+    -ResourceGroupName "myResourceGroup" `
+    -DomainNameLabel "mydomainprefix"
+
+# Create a network interface for the virtual machine
+$nic = New-AzNetworkInterface `
+    -Name "myNIC" `
+    -ResourceGroupName "myResourceGroup" `
+    -Location "East US" `
+    -SubnetId $vnet.subnets[0].id `
+    -PublicIpAddressId $publicip.Id
+
+# Create a virtual machine configuration
+$cred = Get-Credential
+$vmconfig = New-AzVMConfig `
+    -VMName "myVM" `
+    -VMSize "Standard_B2s" `
+    -Location "East US" |
+    # Set the virtual machine administrator username and password
+    Set-AzVMOperatingSystem `
+        -Windows `
+        -ComputerName "myVM" `
+        -ProvisionVMAgent `
+        -EnableAutoUpdate `
+        -Credential $cred |
+    # Specify the disks that will be attached to the virtual machine
+    Add-AzVMDataDisk `
+        -Name "myDataDisk1" `
+        -CreateOption "Empty" `
+        -ManagedDiskType "Premium_LRS" |
+    Add-AzVMDataDisk `
+        -Name "myDataDisk2" `
+        -CreateOption "Attach" `
+        -SourceDiskId $datadisks[0].Id |
+    # Specify the network interface for the virtual machine
+    Set-AzVMSourceImage `
+        -PublisherName "MicrosoftWindowsServer" `
+        -Offer "WindowsServer" `
+        -Skus "2016-Datacenter" `
+        -Version "latest" |
+    Add-AzVMNetworkInterface `
+        -Id $nic.Id
+
+# Create the virtual machine
+New-AzVM `
+    -ResourceGroupName "myResourceGroup" `
+    -Location "East US" `
+    -VM $vmconfig

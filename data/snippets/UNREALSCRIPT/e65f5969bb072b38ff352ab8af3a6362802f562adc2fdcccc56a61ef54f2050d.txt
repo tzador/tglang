@@ -1,0 +1,87 @@
+/**A class used to create a weapon that can be equipped and fired by players*/
+class Weapon extends Inventory
+	perobject config class ParticleSystem MuzzleFlashSystem;
+	var() int Damage;
+	var() int Ammo;
+	var() float FireRate;
+	var() name MuzzleFlashSocket;
+	var() name FireSound;
+	var() name WeaponName;
+	var name MuzzleFlashEffect;
+	var ()name FireAnimation;
+	var WeaponFireMode FireModes[5];
+	var()=>Weapon OwnerWeapon;
+
+	/**Spawn a projectile from the player's viewport and deal damage to the target actor*/
+	function FireWeapon()
+	{
+		if (Ammo > 0)
+		{
+			if ( OwnerWeapon.isA('UTPlayercontroller') )
+			{
+				local Viewport playerViewport;
+				playerViewport = OwnerWeapon.Viewport.focusedViewport;
+				local vector ViewLocation;
+				local rotator ViewRotation;
+				playerViewport.getActorEyes(Viewlocation, ViewRotation);
+				
+				local actor newProjectile;
+				newProjectile = spawn(class'Projectile',self,,,Viewlocation + ViewRotation.Vector * 100);
+				Ammo -= 1;
+				setTimer(FireWeapon,FireRate,false);
+				
+				if (WorldInfo.NetMode != NM_DedicatedServer)
+				{
+					PlaySound(FireSound,Slot4);
+					if (MuzzleFlashSocket != 'None')
+						MuzzleFlashSystem = newParticleSystem(self,MuzzleFlashEffect, MuzzleFlashSocket,'None',True,True);
+				}
+			}
+		}
+	}
+
+	/**Adjust the current fire mode according to the player's input*/
+	function AdjustFireMode(PlayerController playerController)
+	{
+		local UTPlayerController UTController;
+		UTController = UTPlayerController(playerController);
+		if (UTController != none)
+		{
+			if (UTController.bFireMode)
+				FireModes[UTController.CurrentFireMode].bActive = True;
+			else
+				FireModes[UTController.CurrentFireMode].bActive = False;
+		}
+	}
+
+	/**Equip the weapon on the player's character*/
+	function Equip(UTCharacter ownerChar)
+	{
+		ownerChar.EquippedWeapons[1] = self;
+		self.Owner = ownerChar;
+		self.bNeedReplace = False;
+		for (local int i= 0; i < FireModes.length; i++)
+		{
+			if (i == 0)
+				FireModes[i].bActive = true;
+			else
+				FireModes[i].bActive = false;
+		}
+	}
+}
+
+/**A structure used to define different fire modes for a weapon*/
+struct WeaponFireMode
+{
+	var() name FireAnimation;
+	var() int AmmoPerShot;
+	var() float DamageScale;
+	var() float FireRateScale;
+	var() float Recoil;
+	var() class Projectile ProjectileClass;
+	var() name FireModeName;
+	var() ParticleSystem FireParticleSystem;
+	var() name MuzzleFlashEffect;
+	var() name FireSound;
+	var() bool bActive;
+}

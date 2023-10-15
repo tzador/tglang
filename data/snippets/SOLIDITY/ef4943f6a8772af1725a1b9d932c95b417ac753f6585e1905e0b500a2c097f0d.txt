@@ -1,0 +1,67 @@
+pragma solidity ^0.8.0;
+
+contract Token {
+    //Declaring variables
+    //private variables cannot be accessed from other contracts
+    //internal variables can be accessed from this contract and contracts deriving from it
+    //public variables can be accessed from anywhere
+    address private owner;
+    uint internal totalSupply;
+    mapping(address => uint) public balances; //keeps track of balances of different addresses
+    mapping(address => mapping(address => uint)) public allowed; //allows for approved transfers between addresses
+
+    //Events are used to log important information that can be accessed through a blockchain explorer
+    event Transfer(address indexed from, address indexed to, uint value);
+    event Approval(address indexed owner, address indexed spender, uint value);
+
+    //Constructor function that sets the initial owner and supply
+    constructor(uint initialSupply) public {
+        owner = msg.sender;
+        totalSupply = initialSupply;
+        balances[msg.sender] = initialSupply;
+    }
+    
+    //Modifiers are used to add a condition before executing a function
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the owner can call this function.");
+        _; //placeholder to execute the code inside the function
+    }
+    
+    //Functions allow for interactions with the contract
+    //This function allows for the transfer of tokens from one address to another
+    function transfer(address to, uint value) public {
+        require(balances[msg.sender] >= value, "Insufficient balance.");
+        balances[msg.sender] -= value;
+        balances[to] += value;
+        emit Transfer(msg.sender, to, value); //trigger the Transfer event
+    }
+    
+    //This function allows for the approval of a certain amount of tokens to be transferred on behalf of the owner
+    function approve(address spender, uint value) public {
+        allowed[msg.sender][spender] = value;
+        emit Approval(msg.sender, spender, value); //trigger the Approval event
+    }
+    
+    //This function allows for the transfer of approved tokens from one address to another
+    function transferFrom(address from, address to, uint value) public {
+        require(balances[from] >= value, "Insufficient balance.");
+        require(allowed[from][msg.sender] >= value, "You are not approved to transfer this amount.");
+        balances[from] -= value;
+        balances[to] += value;
+        allowed[from][msg.sender] -= value;
+        emit Transfer(from, to, value); //trigger the Transfer event
+    }
+    
+    //This function allows the owner to mint (create) more tokens
+    function mint(uint value) public onlyOwner {
+        totalSupply += value;
+        balances[msg.sender] += value;
+    }
+    
+    //This function allows the owner to burn (delete) tokens
+    function burn(uint value) public onlyOwner {
+        require(balances[msg.sender] >= value, "Insufficient balance.");
+        totalSupply -= value;
+        balances[msg.sender] -= value;
+    }
+}

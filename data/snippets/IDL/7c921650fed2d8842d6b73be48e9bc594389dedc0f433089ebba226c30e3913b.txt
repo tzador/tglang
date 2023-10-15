@@ -1,0 +1,43 @@
+PRO fit_model, x, y, beta, chi_sqr, n_params
+
+	; Polynomial regression model using 2nd degree polynomial
+	
+	; Define function to evaluate the model
+	FUNCTION model_func, x, beta
+		RETURN, beta[0] + beta[1] * x + beta[2] * x^2
+	END
+
+	; Define coefficients for initial guess
+	beta_guess = (1.0, 1.0, 1.0)
+
+	; Define fit parameters
+	n_params = 3
+	chi_sqr = 0.0
+
+	; Perform minimization using Levenberg-Marquardt algorithm
+	MINIMIZE, x, y, beta_guess, MINUIT_CHISQR_FUNC=model_func, XSCALE=0.0, &
+		EDGE_LIMITS=[-1.0d+30, 1.0d+30], CHISQR=chi_sqr, CHISQR_DERIVATIVES=chi_sqr_deriv
+	
+	; Check for optimal fit results
+	IF chi_sqr LT 0.0 THEN BEGIN
+		PRINT, 'Fit failed - chi_sqr is <= 0.0'
+		RETURN
+	ENDIF
+	
+	; Retrieve optimized coefficients
+	beta = beta_guess
+	
+	; Calculate uncertainty values for the optimized coefficients
+	beta_unc = SQRT(chi_sqr_deriv) * SQRT(chi_sqr / (N_ELEMENTS(x) - n_params))
+	
+	; Output results
+	PRINT, 'Optimized coefficients:'
+	PRINT, 'beta[0]: '+STRNTRIM(beta[0], 2)
+	PRINT, 'beta[1]: '+STRNTRIM(beta[1], 2)
+	PRINT, 'beta[2]: '+STRNTRIM(beta[2], 2)
+	
+	PRINT, 'Uncertainty values:'
+	PRINT, 'beta_unc[0]: '+STRNTRIM(beta_unc[0], 2)
+	PRINT, 'beta_unc[1]: '+STRNTRIM(beta_unc[1], 2)
+	PRINT, 'beta_unc[2]: '+STRNTRIM(beta_unc[2], 2)
+END

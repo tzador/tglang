@@ -1,0 +1,229 @@
+/*********************************************/
+/***This code snippet is written in UNREALSCRIPT***/
+/***It creates a weapon class for a first person shooter game***/
+/***and includes various properties and functions for the weapon***/
+/***Created by John Smith, 2020***/
+/*********************************************/
+
+class Weapon extends Inventory;
+
+var float Damage
+var int MaxAmmo
+var int CurrentAmmo
+var float FireRate
+
+var Sound FireSound
+var Texture CrosshairTexture
+var Actor MuzzleFlash
+var ParticleEmitter MuzzleSmoke
+
+var name FireAnim
+
+/*Constants*/
+const WeaponMaxFOV = 90;
+const WeaponMinFOV = 60;
+
+// temporary variables
+var Rotator AimRotation;
+var float AimPitch;
+var float AimYaw;
+var float AimZoom;
+var float AimFOV;
+var float AimKickback;
+
+//physics properties
+var vector Kickback;
+var float RecoilTime;
+var float WeaponMass;
+var vector WeaponShift;
+
+//post fire timer
+var timer PostFireTimer;
+
+//Variables for reloading
+var bool bNeedToReload;
+var bool bReloading;
+var bool bGenerateAmmo;
+
+//Sword Variables
+var rotator WeaponRotation;
+var vector WeaponPosition;
+var vector SwordRange;
+
+//Fire Modes
+var name EquippedFireMode;
+var enum FireModes {Single, Burst, Auto};
+var FireModes CurrentFireMode;
+
+var desc(string) MagazineDetails;
+
+/***Function to initialize the weapon class***/
+function InitialiseWeapon()
+{
+    Super.InitialiseWeapon();
+    
+    //set default values
+    Damage = 25.0;
+    MaxAmmo = 50;
+    CurrentAmmo = MaxAmmo;
+    FireRate = 0.2;
+    
+    FireSound = Sound'WeaponSounds.WeapPistolFire';
+    CrosshairTexture = Texture'WeaponTextures.CrosshairPistol';
+    MuzzleFlash = Spawn(class'SpawnedActor', self, '', location, rotator);
+    MuzzleSmoke = new class'ExplosionLight';
+    
+    FireAnim = 'Fire';
+    
+    AimRotation = rot(0,0,0);
+    AimPitch = 0.0;
+    AimYaw = 0.0;
+    AimZoom = 1.0;
+    AimFOV = 1.0;
+    AimKickback = 0.0;
+    
+    Kickback = vect(0,0,0);
+    RecoilTime = 0.0;
+    WeaponMass = 5.0;
+    WeaponShift = vect(0,0,0);
+    
+    PostFireTimer = spawn(class'Timer', self, 'post_fire_timer');
+    
+    bNeedToReload = true;
+    bReloading = false;
+    bGenerateAmmo = true;
+    
+    WeaponRotation = rot(0,0,0);
+    WeaponPosition = vect(0,0,0);
+    SwordRange = vect(100,50,10);
+    
+    EquippedFireMode = 'Single';
+    CurrentFireMode = FireModes.Single;
+    
+    MagazineDetails = "This magazine holds MaxAmmo rounds.";
+}
+
+/*Function to calculate the aim rotation based on player input*/
+function CalcAimRotation()
+{
+    local vector InvertAX;
+    
+    //Calculate AimPitch
+    AimPitch -= InvertAX(AimPitch) * AimPitch * Owner.PitchRate;
+    
+    //Calculate AimYaw
+    AimYaw = InvertAX(AimYaw) * AimYaw * Owner.YawRate;
+    
+    //Calculate AimZoom
+    AimZoom -= Input.Pressed(WeaponZoomOut) * Owner.ZoomOutRate;
+    AimZoom += Input.Pressed(WeaponZoomIn) * Owner.ZoomInRate;
+    AimZoom = min(max(AimZoom,0.45), 1.0);
+}
+
+//Function to handle firing of the weapon
+function Fire(bool bButtonPressed)
+{
+    //TODO: Add check for ammo and reloading
+    
+    if (bButtonPressed)
+    {
+        spawn(class'MuzzleFlash', self, weaponSocket(self, 'MuzzleFlash'));
+        DoFire();
+        
+        bReloading = false;
+        bNeedToReload = true;
+        
+        if (bGenerateAmmo)
+            CurrentAmmo--; //subtract from ammo count
+        
+        PostFireTimer.timer = 0.12;
+        PostFireTimer.triggerTag = 1;
+        PostFireTimer.Trigger = class'TriggerClient';
+        PostFireTimer.triggered = false;
+        
+        PlayAnim(FireAnim);
+        
+        PlaySound(FireSound);
+        
+        Trigger(1, self);
+        
+        /*TODO: Implement proper weapon kickback and recoil handling*/
+        //Kickback += InvertAX(Kickback) * Kickback * Owner.KickKickback;
+        //WeaponShift += InvertAX(WeaponShift) * WeaponShift * Owner.KickShift;
+    }
+}
+
+//Function to handle reloading of the weapon
+function Reload()
+{
+    if (bNeedToReload)
+        bReloading = true;
+        
+    //TODO: Add logic for executing the reload animation and spawning ammo objects
+    if (bReloading)
+    {
+        /*TODO: Implement logic for reloading animation and spawning of ammo objects*/
+    }
+}
+
+//Function to handle switching of fire modes
+function SwitchFireMode()
+{
+    switch (CurrentFireMode)
+    {
+        case FireModes.Single:
+            EquippedFireMode = 'Burst';
+            CurrentFireMode = FireModes.Burst;
+            break;
+        case FireModes.Burst:
+            EquippedFireMode = 'Auto';
+            CurrentFireMode = FireModes.Auto;
+            break;
+        case FireModes.Auto:
+            EquippedFireMode = 'Single';
+            CurrentFireMode = FireModes.Single;
+            break;
+    }
+}
+
+//Function to execute the firing of the weapon
+function DoFire()
+{
+    WorldInfo(Game).AddProjectiles(vect(100,100,100), AimRotation, RotationVector(AimRotation));
+}
+
+function Tick(float DeltaTime)
+{
+    //Calculate AimRotation
+    CalcAimRotation();
+    
+    //Handle post fire timer
+    if (PostFireTimer.triggered && PostFireTimer.triggerTag == 1)
+    {
+        //Reset the timer
+        PostFireTimer.timer = 0.0;
+        PostFireTimer.triggered = false;
+    }
+    
+    Super.Tick(DeltaTime);
+}
+
+// Function to handle aim zoom
+function TickWeapons(float DeltaTime)
+ {
+       local float AdjustedFOV;
+       local float DesiredFOV, CurrentFOV;
+       local float AddedFOV, NewFOV;
+       local float AimPercent, LaunchCamera;
+      
+       if (ViewItem.bTakeCameraTargetViewPitch == false)
+       {
+             AimPercent = (AimZoom - 0.45) / (1.0 - 0.45);
+             NewFOV = WeaponMinFOV + ( (1.0 - AimPercent) * (WeaponMaxFOV - WeaponMinFOV) );
+             AddedFOV = (AdjustedFOV - CurrentFOV) * DeltaTime * 2.0;
+             AddCameraYaw(AddedFOV * 0.5);
+             AddCameraPitch(AddedFOV * 0.5);
+       }
+        
+       AdjustedFOV = NewFOV;
+ }

@@ -1,0 +1,75 @@
+class ExtendedPlayer extends UTGame; //creating a class that inherits from UTGame
+
+var(vector) CurrentWeaponPosition; //declaring a vector variable to store current weapon position
+
+/*This function overrides the default TakeDamage function and adds knockback on hit*/
+function TakeDamage(int Damage, Pawn EventInstigator, vector HitLocation, vector Momentum, class<DamageType> damageType) 
+{
+    SetWeaponPosition(Default.WeaponPosition, false) //calling the SetWeaponPosition function with default position
+    CurrentWeaponPosition = ClientInitiatedWeaponPosition(); //setting the current weapon position by calling ClientInitiatedWeaponPosition
+    
+    Super.TakeDamage(Damage, EventInstigator, HitLocation, Momentum, damageType); //calling the overridden function from the parent class
+    
+    if (StateName == 'Falling') //checking if the player is in the falling state
+    {
+        Momentum.Z += Damage * 0.1f; //adding knockback to the Z axis based on damage
+        SetWeaponPosition(Falling.WeaponPosition, true); //calling the SetWeaponPosition function with falling state position
+        CurrentWeaponPosition = ClientInitiatedWeaponPosition(); //updating current weapon position
+    }
+    
+    return 1; //returning successful damage taken
+}
+
+/*This function overrides the default movement function and adds velocity based on player input*/
+function PlayerMove(float DeltaTime) extends UTGame.PlayerMove(DeltaTime) 
+{
+    if(Input.Throttle < 0.0f) //checking if player is moving backwards
+    {
+        Velocity -= VSize(Velocity) * RotationYaw.Vect; //applying additional velocity in the opposite direction of player's rotation
+    }
+    else if(facingDirection == FacingDirection.Backward) //checking if player is facing backwards
+    {
+        Velocity += VSize(Velocity) * RotationYaw.Vect; //applying additional velocity in the same direction as player's rotation
+    }
+    
+    Super.PlayerMove(DeltaTime); //calling the overridden function from the parent class
+}
+
+/*This function overrides the default weapon switching and handles the logic for switching between primary and secondary weapons*/
+function SwitchWeapon(seq actSwitch) extends UTGame.SwitchWeapon(actSwitch) 
+{
+    if (primaryWeapon != None && secondaryWeapon != None) //checking if both primary and secondary weapons exist
+    {
+        if (primaryWeapon == CurrentWeapon && secondaryWeapon != CurrentWeapon) //checking if primary weapon is currently equipped
+        {
+            CurrentWeapon = secondaryWeapon; //switching to the secondary weapon
+        }
+        else //if secondary weapon is currently equipped
+        {
+            CurrentWeapon = primaryWeapon; //switching to the primary weapon
+        }
+    }
+    
+    Super.SwitchWeapon(actSwitch); //calling the overridden function from the parent class
+}
+
+/*This function overrides the default fire function and implements a cooldown mechanic for weapon firing*/
+function StartFire(byte firemodeNum) 
+{
+    if (WeaponCooldown > 0) //checking if weapon is still on cooldown
+    {
+        return; //exiting the function without firing
+    }
+    
+    Super.StartFire(firemodeNum); //calling the overridden function from the parent class
+    
+    if(CurrentWeapon.IsA(class'<UNREALSCRIPT>')) //checking if current weapon is of type <UNREALSCRIPT>
+    {
+        WeaponCooldown = 0.5f; //setting weapon cooldown to 0.5 seconds
+    }
+}
+
+defaultproperties 
+{
+    WeaponCooldown= 0.0f //setting initial weapon cooldown to 0 seconds
+}

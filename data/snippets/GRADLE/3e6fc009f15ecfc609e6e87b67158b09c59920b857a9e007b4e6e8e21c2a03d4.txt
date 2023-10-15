@@ -1,0 +1,73 @@
+/*
+    Define a task named 'clean' in the 'build.gradle' script
+    that deletes the 'build' directory and all its contents.
+*/
+
+task clean(type: Delete) {
+    delete "build"
+}
+
+// Define a custom 'compileJava' task that depends on the 'clean' task
+// and compiles all Java source files in the 'src' directory.
+task compileJava(dependsOn: 'clean', type: JavaCompile) {
+    sourceDir 'src'
+    destinationDir 'build/classes'
+    classpath configurations.compile
+    options.compilerArgs << "-Xlint"
+}
+
+// Define a task that generates a JAR file of all compiled classes
+// and includes the 'README.md' file as a manifest entry.
+task jar(type: Jar, dependsOn: 'compileJava') {
+    baseName 'my-project'
+    from 'build/classes'
+    include 'README.md'
+    
+    // Exclude test files from the JAR
+    exclude 'test/**'
+    
+    // Define a manifest entry for the JAR
+    manifest {
+        attributes 'Main-Class': 'com.example.Main'
+    }
+}
+
+// Define a task that runs the JAR file
+task run(type: JavaExec, dependsOn: 'jar') {
+    main = 'com.example.Main'
+    classpath configurations.runtime
+    
+    // Pass in command line arguments for the main class
+    args 'arg1', 'arg2', 'arg3'
+}
+
+// Define a task that performs code analysis using Checkstyle
+task checkstyle(type: Checkstyle) {
+    source 'src'
+    // Define path to Checkstyle configuration file
+    configFile 'config/checkstyle.xml'
+    // Define path to output report
+    reports {
+        xml.required = true
+        html.destination file("$buildDir/reports/checkstyle.html")
+        xml.destination file("$buildDir/reports/checkstyle.xml")
+    }
+}
+
+// Define a task that runs all tests in the 'src/test' directory
+task test(type: Test) {
+    testClassesDir = file("$buildDir/classes")
+    classpath = sourceSets.test.runtimeClasspath
+    // Define output reports
+    reports {
+        junitXml.enabled = true
+        reports.html.destination = file("$buildDir/reports/tests.html")
+        reports.junitXml.destination = file("$buildDir/reports/junit.xml")
+    }
+}
+
+// Define a 'build' task that depends on the 'test' and 'checkstyle' tasks
+task build(dependsOn: ['test', 'checkstyle'])
+
+// Set 'build' as the default task
+defaultTasks 'build'

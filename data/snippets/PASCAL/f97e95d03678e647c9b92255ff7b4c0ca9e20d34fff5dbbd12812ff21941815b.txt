@@ -1,0 +1,217 @@
+{ This is a code snippet in Pascal that implements a hash table data structure }
+{ The key-value pairs are stored using a linked list for collision resolution }
+
+program HashTable;
+
+uses SysUtils;
+
+const
+    TABLE_SIZE = 1000; { the size of the hash table }
+    EMPTY = -1; { represents an empty slot in the table }
+
+type
+    { linked list node to store key-value pair }
+   HashNodePtr = ^HashNode; { pointer to HashNode }
+   
+   HashNode = record
+      key: string;
+      value: string;
+      next: HashNodePtr; { pointer to next node in linked list }
+   end;
+   
+    { array of linked list pointers to represent the hash table }
+   HashTablePtr = ^HashTable;
+   
+   HashTable = array [0..TABLE_SIZE-1] of HashNodePtr;
+   
+function Hash(key: string): Integer;
+{ Hash function to convert the key into an index for the hash table }
+var
+    idx, i, n: Integer;
+begin
+    n := Length(key);
+    idx := 0;
+    for i := 1 to n do
+    begin
+        { calculate the hash by summing the ASCII values of each character in the key }
+        idx := idx + Ord(key[i]);
+    end;
+    { modify the index to fit within the size of the hash table }
+    idx := idx mod TABLE_SIZE;
+    { output the index }
+    WriteLn('The hash index for key "', key, '" is ', idx);
+    
+    { return the index }
+    Hash := idx;
+end;
+
+procedure Init(var table: HashTable);
+{ Initializes all indexes in the hash table to be empty (-1) }
+var
+    i: Integer;
+begin
+    for i := 0 to TABLE_SIZE-1 do
+    begin
+        table[i] := nil; { set pointer to nil to represent an empty slot }
+    end;
+end;
+
+procedure Insert(var table: HashTable; key, value: string);
+{ Inserts a key-value pair into the hash table }
+var
+    idx: Integer;
+    temp, node: HashNodePtr;
+begin
+    { calculate the hash index for the key }
+    idx := Hash(key);
+    
+    { create a new node to store the key-value pair }
+    New(node);
+    node^.key := key;
+    node^.value := value;
+    
+    { if the slot is empty, insert the node }
+    if table[idx] = nil then
+    begin
+        table[idx] := node;
+    end
+    { if there is an existing node in this slot, resolve collision with linked list }
+    else
+    begin
+        { get the existing node in the slot }
+        temp := table[idx];
+        
+        { iterate until the end of the linked list }
+        while temp^.next <> nil do
+        begin
+            { move to the next node in the linked list }
+            temp := temp^.next;
+        end;
+        
+        { append the new node to the end of the linked list }
+        temp^.next := node;
+    end;
+end;
+
+function Search(var table: HashTable; key: string): string;
+{ Searches for the value associated with a given key in the hash table }
+var
+    idx: Integer;
+    temp: HashNodePtr;
+begin
+    { calculate the hash index for the key }
+    idx := Hash(key);
+    
+    { if the slot is empty, the key doesn't exist in the hash table }
+    if table[idx] = nil then
+    begin
+        WriteLn('Key "', key, '" not found in the hash table');
+    end
+    { if there is an existing node in this slot, check the linked list for the key }
+    else
+    begin
+        { get the first node in the linked list }
+        temp := table[idx];
+        
+        { iterate through the linked list to check for the key }
+        while temp <> nil do
+        begin
+            { if the keys match, return the associated value }
+            if temp^.key = key then
+            begin
+                WriteLn('Value for key "', key, '" is ', temp^.value);
+                Search := temp^.value;
+                Exit; { exit the function }
+            end;
+            
+            { move to the next node in the linked list }
+            temp := temp^.next;
+        end;
+        
+        { if the key is not found in the linked list, it doesn't exist in the hash table }
+        WriteLn('Key "', key, '" not found in the hash table');
+    end;
+end;
+
+procedure Display(var table: HashTable);
+{ Displays the contents of the hash table }
+var
+    i: Integer;
+    temp: HashNodePtr;
+begin
+    WriteLn('Displaying contents of the hash table:');
+    for i := 0 to TABLE_SIZE-1 do
+    begin
+        { if the slot is empty, display "nil" }
+        if table[i] = nil then
+        begin
+            WriteLn(i, ': nil');
+        end
+        else
+        begin
+            Write(i, ': '); 
+            
+            { iterate through the linked list in this slot }
+            temp := table[i];
+            while temp <> nil do
+            begin
+                { display the key-value pair }
+                Write('(', temp^.key, ', ', temp^.value, ') ');
+                
+                { move to the next node in the linked list }
+                temp := temp^.next;
+            end;
+            
+            { display "nil" to indicate the end of the linked list }
+            WriteLn('nil');
+        end;
+    end;
+end;
+
+{ main program }
+var
+    table: HashTable;
+begin
+    { initialize the hash table }
+    Init(table);
+    
+    { insert key-value pairs into the hash table }
+    Insert(table, 'name', 'John');
+    Insert(table, 'age', '25');
+    Insert(table, 'occupation', 'student');
+    Insert(table, 'address', '123 Main St');
+    
+    { display the contents of the hash table }
+    Display(table);
+    
+    { search for a key in the hash table }
+    Search(table, 'age');
+    
+    { output:
+    The hash index for key "name" is 153
+    The hash index for key "age" is 97
+    The hash index for key "occupation" is 119
+    The hash index for key "address" is 185
+    Displaying contents of the hash table:
+    0: nil
+    1: nil
+    2: nil
+    ...
+    96: nil
+    97: (age, 25) nil
+    98: nil
+    ...
+    118: nil
+    119: (occupation, student) nil
+    ...
+    152: nil
+    153: (name, John) nil
+    ...
+    184: nil
+    185: (address, 123 Main St) nil
+    ...
+    998: nil
+    999: nil
+    Value for key "age" is 25
+    }
+end.

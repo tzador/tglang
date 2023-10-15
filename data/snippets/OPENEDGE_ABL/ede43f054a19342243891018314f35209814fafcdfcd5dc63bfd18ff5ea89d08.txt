@@ -1,0 +1,57 @@
+DEFINE VARIABLE num AS INTEGER NO-UNDO.
+DEFINE VARIABLE str AS CHARACTER NO-UNDO.
+DEFINE VARIABLE dec AS DECIMAL NO-UNDO.
+DEFINE VARIABLE date1 AS DATE NO-UNDO.
+DEFINE VARIABLE date2 AS DATE NO-UNDO.
+
+CREATE TEMP-TABLE tt_example
+    FIELD num AS INTEGER
+    FIELD str AS CHARACTER
+    FIELD dec AS DECIMAL
+    FIELD date1 AS DATE
+    FIELD date2 AS DATE
+    INDEX idx_num IS PRIMARY num.
+
+DO TRANSACTION:
+    CREATE tt_example.
+    ASSIGN
+        num = 152,
+        str = "Hello World",
+        dec = 3.14,
+        date1 = TODAY,
+        date2 = TODAY + 7.
+
+    IF ERROR-STATUS:ERROR THEN
+        UNDO, THROW ERROR-STATUS:GET-MESSAGE(1).
+
+    DO 10 TIMES:
+        ADD 1 TO num.
+        IF num MOD 2 = 0 THEN
+            ASSIGN str = "Even Number".
+        ELSE
+            ASSIGN str = "Odd Number".
+        ASSIGN
+            dec = dec * num,
+            date2 = date2 + 1.
+
+        IF ERROR-STATUS:ERROR THEN
+            UNDO, THROW ERROR-STATUS:GET-MESSAGE(1).
+
+    END.
+
+    FOR EACH tt_example:
+        DISPLAY num str dec date1 date2.
+    END.
+
+    DELETE tt_example WHERE num > 160.
+
+    FOR EACH tt_example:
+        DISPLAY num str dec date1 date2.
+    END.
+
+    IF COMMIT WORK THEN
+        MESSAGE "Transaction committed successfully".
+    ELSE
+        UNDO, THROW "Transaction failed".
+
+END TRANSACTION.

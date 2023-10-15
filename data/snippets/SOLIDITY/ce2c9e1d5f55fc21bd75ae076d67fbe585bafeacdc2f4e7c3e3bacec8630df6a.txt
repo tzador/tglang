@@ -1,0 +1,111 @@
+/**
+ * @title MyContract
+ * @dev A contract that allows users to trade tokens
+ */
+ 
+contract MyContract {
+    // Define the struct for creating token trades
+    struct Trade {
+        uint256 tokenId; // ID of the token being traded
+        address seller; // Address of the seller
+        address buyer; // Address of the buyer
+        uint256 price; // Price in Wei of the token
+        bool isCompleted; // Flag to indicate if the trade is completed
+    }
+    
+    // Define a mapping to keep track of all the trades
+    mapping (uint256 => Trade) public trades;
+    
+    // Define an event for when a new trade is created
+    event TradeCreated(uint256 tokenId, address seller, address buyer, uint256 price);
+    
+    // Define an event for when a trade is completed
+    event TradeCompleted(uint256 tokenId, address seller, address buyer, uint256 price);
+    
+    // Function to create a new trade for a token
+    function createTrade(uint256 _tokenId, address _seller, address _buyer, uint256 _price) public {
+        // Make sure the trade doesn't already exist
+        require(!trades[_tokenId].isCompleted, "Trade already exists");
+        
+        // Create the new trade and add it to the mapping
+        Trade storage newTrade = Trade(_tokenId, _seller, _buyer, _price, false);
+        trades[_tokenId] = newTrade;
+        
+        // Emit the event 
+        emit TradeCreated(_tokenId, _seller, _buyer, _price);
+    }
+    
+    // Function to complete a trade
+    function completeTrade(uint256 _tokenId) public payable {
+        // Make sure the trade exists
+        require(trades[_tokenId].isCompleted, "Trade doesn't exist");
+        
+        // Make sure the proper amount of Ether is sent by the buyer
+        require(msg.value == trades[_tokenId].price, "Incorrect amount of Ether sent");
+        
+        // Transfer the token from the seller to the buyer
+        _transferToken(trades[_tokenId].seller, trades[_tokenId].buyer, trades[_tokenId].tokenId);
+        
+        // Update the trade status
+        trades[_tokenId].isCompleted = true;
+        
+        // Emit the event
+        emit TradeCompleted(_tokenId, trades[_tokenId].seller, trades[_tokenId].buyer, trades[_tokenId].price);
+    }
+    
+    // Internal function to transfer a token between addresses
+    function _transferToken(address _from, address _to, uint256 _tokenId) internal {
+        // Remove the token from the seller's ownership
+        _removeTokenFromOwner(_from, _tokenId);
+        
+        // Add the token to the buyer's ownership
+        _addTokenToOwner(_to, _tokenId);
+    }
+    
+    // Internal function to remove a token from an owner's collection
+    function _removeTokenFromOwner(address _owner, uint256 _tokenId) internal {
+        // Make sure the owner has the token
+        require(ownerOf(_tokenId) == _owner, "Owner doesn't have token");
+        
+        // Get the index of the token being removed
+        uint256 index = ownedTokensIndex[_tokenId];
+        
+        // Get the length of the owner's token collection
+        uint256 length = ownedTokens[_owner].length;
+        
+        // Get the last token in the collection
+        uint256 lastToken = ownedTokens[_owner][length-1];
+        
+        // Move the last token to the index being removed
+        ownedTokens[_owner][index] = lastToken;
+        
+        // Update the index of the last token
+        ownedTokensIndex[lastToken] = index;
+        
+        // Remove the last token from the collection
+        ownedTokens[_owner].length--;
+        
+        // Update the owner's balance
+        balanceOf[_owner]--;
+        
+        // Clear the approval for the token being removed
+        if(allowed[_tokenId] != address(0)) {
+            allowed[_tokenId] = address(0);
+        }
+    }
+    
+    // Internal function to add a token to an owner's collection
+    function _addTokenToOwner(address _owner, uint256 _tokenId) internal {
+        // Add the token to the owner's collection
+        ownedTokens[_owner].push(_tokenId);
+        
+        // Update the index of the added token
+        ownedTokensIndex[_tokenId] = ownedTokens[_owner].length - 1;
+        
+        // Update the owner's balance
+        balanceOf[_owner]++;
+        
+        // Set the approval for the token being added
+        allowed[_tokenId] = _owner;
+    }
+}

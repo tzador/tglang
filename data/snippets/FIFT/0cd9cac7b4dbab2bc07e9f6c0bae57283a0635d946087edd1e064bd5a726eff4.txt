@@ -1,0 +1,37 @@
+#!/usr/bin/fift -I .
+\include lib/keyset_const.fif
+
+\ This program creates an encrypted wallet using a randomly generated private key and a user-provided password.
+
+\ Define contract and variables
+{ "name" "FIFT_Encrypted_Wallet" 'Contract ~ named-constant }
+VAR: key_name       800 constant
+VAR: private_key    32 constant
+VAR: password       32 constant
+VAR: encrypted_key  1200 variable
+
+CONSTANT: system_lib -11 constant
+CONSTANT: kdf_lib -12 constant
+
+\ Set up key manager with system and KDF libraries
+system_lib kdf_lib
+create_contract
+\now system_lib get_now
+
+\ Generate a secure random number for the private key
+key_name dup generate_random_system ignore
+password key_name $less_or_equal if
+    "Password must be at least 32 characters long" throw
+endif
+
+\ Encrypt the private key using the user-provided password
+encrypted_key private_key password
+'kdf.derive_key print key_name encrypted_key put
+key_name encrypted_key tuck prepend dup d. encrypt_anonymous to_random tl.
+encrypted_key now swap set_cc
+
+\ Store the encrypted key in a file for later use
+<to_tmpdir encrypted_key "encrypted_key.txt" write_file
+
+\ Print success message
+"I am a encrypted wallet" print

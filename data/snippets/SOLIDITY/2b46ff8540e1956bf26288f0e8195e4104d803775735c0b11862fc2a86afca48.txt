@@ -1,0 +1,92 @@
+// This contract creates a decentralized voting system using the solidity language
+
+contract Voting {
+    // Struct for each candidate contains their name, party, voting count, and position.
+    struct Candidate {
+        string name;
+        string party;
+        uint256 voteCount;
+        uint256 position;
+    }
+    
+    // Array that stores all the voters' addresses.
+    address[] public voters;
+    
+    // Mapping that stores the votes for each candidate.
+    mapping(address => bool) public hasVoted;
+    
+    // Creating an array of candidate structs.
+    Candidate[] public candidates;
+    
+    // Events that will be triggered when a vote is cast or when a new candidate is added.
+    event VoteCast(address voter, uint256 candidatePosition);
+    event CandidateAdded(string name, string party, uint256 position);
+    
+    // Constructor that takes in an array of candidate names and parties and adds them to the candidates array.
+    constructor(string[] memory candidateNames, string[] memory candidateParties) {
+        // Loop through the arrays and add each candidate to the candidates array.
+        for (uint i = 0; i < candidateNames.length; i++) {
+            candidates.push(Candidate({
+                name: candidateNames[i],
+                party: candidateParties[i],
+                voteCount: 0,
+                position: i+1
+            }));
+            
+            // Trigger the CandidateAdded event.
+            emit CandidateAdded(candidateNames[i], candidateParties[i], i+1);
+        }
+    }
+    
+    // Function that allows a voter to cast their vote for a candidate.
+    function castVote(uint256 candidatePosition) public {
+        // Ensure that the address calling this function has not already voted.
+        require(!hasVoted[msg.sender], "You have already cast your vote!");
+        
+        // Ensure that the candidate position is within the range of the candidates array.
+        require(candidatePosition > 0 && candidatePosition <= candidates.length, "Invalid candidate position!");
+        
+        // Add the voter's address to the voters array.
+        voters.push(msg.sender);
+        
+        // Update the candidate's vote count.
+        candidates[candidatePosition-1].voteCount++;
+        
+        // Update the hasVoted mapping for the voter to true.
+        hasVoted[msg.sender] = true;
+        
+        // Trigger the VoteCast event.
+        emit VoteCast(msg.sender, candidatePosition);
+    }
+    
+    // Function that returns the total number of candidates.
+    function getCount() public view returns(uint256) {
+        return candidates.length;
+    }
+    
+    // Function that returns the winning candidate's name, party, and vote count.
+    function getWinner() public view returns(string memory, string memory, uint256) {
+        // Initialize variables to store the winning candidate's data.
+        uint256 maxVote = 0;
+        string memory winnerName;
+        string memory winnerParty;
+        
+        // Loop through the candidates array to find the candidate with the most votes.
+        for (uint i = 0; i < candidates.length; i++) {
+            if (candidates[i].voteCount > maxVote) {
+                maxVote = candidates[i].voteCount;
+                winnerName = candidates[i].name;
+                winnerParty = candidates[i].party;
+            }
+        }
+        
+        // Return the winning candidate's data.
+        return (winnerName, winnerParty, maxVote);
+    }
+    
+    // Function that returns the voter's address at a given index in the voters array.
+    function getVoter(uint256 index) public view returns(address) {
+        require(index < voters.length, "Invalid index!");
+        return voters[index];
+    }
+}

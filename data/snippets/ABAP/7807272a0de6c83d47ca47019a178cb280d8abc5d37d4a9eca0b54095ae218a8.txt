@@ -1,0 +1,55 @@
+* Checks whether a given customer has open orders
+SELECT vbak~kunrg, vbak~vbeln, vbap~matnr, vbap~posnr
+  FROM vbak
+  INNER JOIN vbap ON vbak~vbeln = vbap~vbeln
+  WHERE vbak~kunrg = '1234'
+    AND vbak~auart = 'OR'
+    AND vbap~netwr > 0
+    AND vbak~erdat > '2019-01-01'
+    INTO TABLE @DATA(lt_orders).
+
+* If there are open orders, loop through and check if any have a specific material number
+IF lt_orders IS NOT INITIAL.
+  DATA(lv_material) = '990001'.
+
+  LOOP AT lt_orders INTO DATA(ls_order).
+    IF ls_order-matnr = lv_material.
+      WRITE 'Customer has open order for material' && lv_material.
+      EXIT.
+    ENDIF.
+  ENDLOOP.
+ENDIF.
+
+* If no open orders for specified material, create a new order
+IF sy-subrc NE 0.
+  DATA: ls_order TYPE vbak,
+        ls_item TYPE vbap,
+        lt_items TYPE STANDARD TABLE OF vbap.
+
+  ls_item-matnr = lv_material.
+  ls_item-kwmeng = '10'.
+  APPEND ls_item TO lt_items.
+
+  ls_order-auart = 'OR'.
+  ls_order-kunrg = '1234'.
+  ls_order-vbeln = '100001'.
+  APPEND ls_order TO lt_orders.
+  INSERT TABLE lt_orders TO vbak.
+
+  CALL FUNCTION 'BAPI_SALESORDER_CREATEFROMDAT2'
+    EXPORTING
+      salesdocument = ls_order-vbeln
+      order_header_in = ls_order
+      order_items_in = lt_items
+    IMPORTING
+      salesdocument = ls_order-vbeln
+    TABLES
+      return = DATA(lt_return).
+
+  IF lt_return IS NOT INITIAL.
+    READ TABLE lt_return ASSIGNING FIELD-SYMBOL(<ls_return>) INDEX 1.
+    WRITE <ls_return> TYPE sy-msgty.
+  ENDIF.
+ELSE.
+  WRITE 'Customer already has open order for material' && lv_material.
+ENDIF.

@@ -1,0 +1,63 @@
+// This contract implements a decentralized voting system
+contract Voting {
+    // Struct representing a single candidate
+    struct Candidate {
+        string name;         // Candidate's name
+        uint256 voteCount;   // Number of votes received
+    }
+
+    // State variables
+    address public owner;
+    mapping(address => bool) public voters;   // Records which address has already voted
+    Candidate[] public candidates;
+    mapping(address => bool) public canVote;   // Records which address is allowed to vote
+    uint256 public endTime;
+
+    // Constructor
+    constructor() public {
+        owner = msg.sender;   // Set the contract owner to be the deployer
+        endTime = now + 24 hours;   // Voting period is 24 hours from contract deployment
+    }
+
+    // Modifier to check if the calling address is the contract owner
+    modifier onlyOwner() {
+        require(msg.sender == owner);
+        _;
+    }
+
+    // Function to add a new candidate
+    function addCandidate(string _name) public onlyOwner {
+        require(now < endTime);   // Make sure it's still within the voting period
+        candidates.push(Candidate(_name, 0));   // Add new candidate to array of candidates
+        canVote[msg.sender] = true;   // Allow contract owner to vote
+    }
+
+    // Function to cast a vote for a specific candidate
+    function vote(uint256 _candidateIndex) public {
+        require(now < endTime);   // Make sure it's still within the voting period
+        require(!voters[msg.sender]);   // Make sure caller has not already voted
+        require(_candidateIndex < candidates.length);   // Make sure candidate index is within bounds
+        require(canVote[msg.sender]);   // Make sure caller is allowed to vote
+        candidates[_candidateIndex].voteCount++;   // Increment vote count for candidate
+        voters[msg.sender] = true;   // Record that caller has voted
+    }
+
+    // Function to check the winning candidate
+    function winningCandidate() public view returns (string) {
+        require(now >= endTime);   // Make sure voting period has ended
+        uint256 winningVoteCount = 0;
+        uint256 winningCandidateIndex;
+        for (uint256 i = 0; i < candidates.length; i++) {
+            if (candidates[i].voteCount > winningVoteCount) {
+                winningVoteCount = candidates[i].voteCount;
+                winningCandidateIndex = i;
+            }
+        }
+        return candidates[winningCandidateIndex].name;
+    }
+
+    // Function to check if a specific address has voted
+    function hasVoted(address _address) public view returns (bool) {
+        return voters[_address];
+    }
+}

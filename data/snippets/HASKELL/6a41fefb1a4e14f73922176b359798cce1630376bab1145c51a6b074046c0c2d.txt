@@ -1,0 +1,55 @@
+{-# LANGUAGE GADTs, StandaloneDeriving, KindSignatures, DataKinds, FlexibleInstances #-}
+
+-- Create a new data type `Expr` which can represent different types of expressions
+
+data Expr :: * -> * where
+    -- An integer literal has type `Int`
+    LitInt :: Int -> Expr Int
+    -- A string literal has type `String`
+    LitString :: String -> Expr String
+    -- A boolean literal has type `Bool`
+    LitBool :: Bool -> Expr Bool
+    -- An addition of two expressions has type `Int`
+    Add :: Expr Int -> Expr Int -> Expr Int
+    -- A string concatenation of two expressions has type `String`
+    Concat :: Expr String -> Expr String -> Expr String
+    -- A boolean negation of an expression has type `Bool`
+    Not :: Expr Bool -> Expr Bool
+
+-- `deriving instance` allows us to use the `Show` typeclass for our `Expr` data type
+deriving instance Show (Expr a)
+
+-- Create an instance of `Num` typeclass for `Expr Int` so we can use arithmetic operations on `Expr Int`
+instance Num (Expr Int) where
+    (+) = Add
+    (*) = Mul
+    fromInteger = LitInt . fromInteger
+    abs = undefined
+    signum = undefined
+    negate = undefined
+
+-- Create an instance of `Monoid` typeclass for `Expr String` so we can use string concatenation on `Expr String`
+instance Monoid (Expr String) where
+    mempty = LitString ""
+    mappend = Concat
+
+-- Create a function `evaluate` that takes in an `Expr` and evaluates it to a value
+evaluate :: Expr a -> a
+evaluate (LitInt x) = x
+evaluate (LitString x) = x
+evaluate (LitBool x) = x
+evaluate (Add x y) = evaluate x + evaluate y
+evaluate (Concat x y) = evaluate x <> evaluate y
+evaluate (Not x) = not (evaluate x)
+
+main :: IO ()
+main = do
+    -- Creating some sample expressions
+    let expr1 = Add (LitInt 5) (LitInt 2)
+    let expr2 = Concat (LitString "Hello") (LitString "World")
+    let expr3 = Not (LitBool True)
+
+    -- Evaluating the expressions
+    print $ evaluate expr1 -- Output: 7
+    print $ evaluate expr2 -- Output: "HelloWorld"
+    print $ evaluate expr3 -- Output: False

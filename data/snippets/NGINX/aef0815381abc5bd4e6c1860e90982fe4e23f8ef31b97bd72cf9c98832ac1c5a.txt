@@ -1,0 +1,39 @@
+server {
+    # direct requests with specific method and location to a specific upstream server
+    location /api/ {
+        proxy_pass http://api_servers;
+        proxy_set_header Host $host;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        # enable caching for API responses
+        proxy_cache api_cache;
+        proxy_cache_valid 200 10m;
+        proxy_cache_valid 404 1m;
+        # use a zone for storing cached data
+        proxy_cache_lock on;
+        proxy_cache_lock_timeout 5s;
+        # add additional headers for caching
+        #Cache-Control: max-age=600; # uncomment this line if you want to set a specific cache-control header
+        proxy_cache_bypass $http_pragma;
+        proxy_cache_revalidate on;
+    }
+    # direct all other requests to another upstream server
+    location / {
+        proxy_pass http://web_servers;
+        proxy_set_header Host $host;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        # enable gzip compression for responses
+        gzip on;
+        gzip_proxied any;
+        gzip_types *
+        gzip_min_length 1000;
+        # enable caching for HTML responses
+        proxy_cache html_cache;
+        proxy_cache_valid 200 1s;
+        # use a zone for storing cached data
+        proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=html_cache:10m inactive=60m;
+    }
+}

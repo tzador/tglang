@@ -1,0 +1,40 @@
+<?php
+// Generate a secure and unique token
+$token = bin2hex(openssl_random_pseudo_bytes(32));
+// Validate user input
+if(isset($_POST['username']) && isset($_POST['password'])){
+  $username = $_POST['username'];
+  $password = $_POST['password'];
+  // Sanitize user input
+  $username = filter_var($username, FILTER_SANITIZE_STRING);
+  // Connect to database
+  $conn = mysqli_connect('localhost', 'username', 'password', 'database');
+  // Check connection
+  if(mysqli_connect_errno()){
+    exit('Failed to connect to database');
+  }
+  // Create prepared statement
+  $stmt = $conn->prepare('SELECT * FROM users WHERE username = ? AND password = ?');
+  // Bind parameters
+  $stmt->bind_param('ss', $username, $password);
+  // Execute query
+  $stmt->execute();
+  // Store result
+  $result = $stmt->get_result();
+  // Check if user exists
+  if($result->num_rows === 0){
+    exit('Invalid username or password');
+  } else{
+    // Generate a new session id
+    $sessionID = bin2hex(openssl_random_pseudo_bytes(16));
+    // Insert session id and user id into database
+    $stmt = $conn->prepare('INSERT INTO sessions (session_id, user_id) VALUES (?, ?)');
+    $stmt->bind_param('ss', $sessionID, $result['id']);
+    $stmt->execute();
+    // Set session cookie
+    setcookie('session_id', $sessionID, time()+86400, '/', 'example.com', true, true);
+  }
+}
+// Close database connection
+$conn->close();
+?>

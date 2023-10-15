@@ -1,0 +1,88 @@
+plugins {
+    id 'java'
+    id 'com.github.johnrengelman.shadow' version '7.0.0'
+    id 'jacoco'
+    id 'base'
+}
+
+apply plugin: 'war'
+
+group 'com.example'
+version '1.0-SNAPSHOT'
+
+sourceCompatibility = 1.8
+
+configurations {
+    deployerJars
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.gradle:gradle-api:7.2'
+    implementation 'javax.servlet:javax.servlet-api:3.1.0'
+    testImplementation 'junit:junit:4.13.2'
+}
+
+task buildWar(type: War) {
+    archiveName = "${rootProject.name}.war"
+    from sourceSets.main.output
+    webInf { from 'src/main/webapp/WEB-INF' }
+}
+
+test {
+    useJUnitPlatform()
+    jacoco {
+        append = false
+        toolVersion = '0.8.7'
+    }
+}
+
+/* Custom plugin that generates a properties file with project information */
+static class ProjectInfoGeneratorTask extends DefaultTask {
+    String propertiesPath = "${buildDir}/project-info.properties"
+
+    @OutputFile
+    File getPropertiesFile() {
+        return project.file(propertiesPath)
+    }
+
+    @TaskAction
+    void generateProperties() {
+        Properties props = new Properties()
+        props.setProperty('projectName', project.name)
+        props.setProperty('projectVersion', project.version)
+
+        getPropertiesFile().withWriter {
+            props.store(it, null)
+        }
+    }
+}
+
+// Task to publish project artifacts to a local Maven repository
+task deployToLocalMaven(type: Deployer) {
+    configurations = [project.configurations.deployerJars]
+    deployerJars project.configurations.deployerJars
+    repository = 'file://' + repositoryDir.toURI().toString()
+    includes = ['**/*.war']
+    snapshotRepository = 'file://' + snapshotRepositoryDir.toURI().toString()
+}
+
+war.dependsOn buildWar
+
+// Task to publish project artifacts to a remote Maven repository
+task deployToRemoteMaven(type: Deployer) {
+    includeBuild 'com.example:common'
+    includeBuild('com.example:library', 'classpath.*) {
+      at rootProject.dir.absolutePath + '/library/build/libs'
+    }
+    group org.gradle.docs.samples.serversystem
+    repository url: 'http://repo.example.com/maven2', credentials: credentials
+}
+
+// Task to verify if project artifacts have been published successfully
+task verifyArtifactsPublishedToRemoteMaven(type: VerifyArtifactsPublishedTask) {
+    repositoryUrl = 'http://repo.example.com/maven2'
+}

@@ -1,0 +1,75 @@
+/*
+* This contract creates a simple voting system where users can vote on a proposal.
+* It enforces the principles of SOLIDITY, particularly the Single Responsibility and Open-Closed principles.
+*/
+
+contract VotingSystem {
+    
+    // State variables
+    address public owner; // Stores the contract owner's address
+    uint public proposalCount; // Stores the current total number of proposals
+    uint public voterCount; // Stores the current total number of voters
+    
+    Proposal[] public proposals; // An array to store all the proposals
+    mapping (address => Voter) public voters; // A mapping to store all the voters
+    
+    // Events
+    event newProposalAdded(string _name, uint _id);
+    event newVoteCasted(address _voter, uint _proposalId);
+    event proposalClosed(uint _proposalId, uint _totalVotes);
+    
+    // Structs
+    struct Voter {
+        bool hasVoted; // Flag to check if the voter has already voted
+        address votedFor; // Stores the address of the proposal voted for
+    }
+    
+    struct Proposal {
+        string name; // Name of the proposal
+        uint voteCount; // Total number of votes for the proposal
+        bool open; // Flag to check if the voting is still open
+    }
+    
+    // Constructor function
+    constructor() public {
+        owner = msg.sender; // Sets the contract owner as the creator
+    }
+    
+    // Function to add a new proposal
+    function addProposal(string memory _name) public onlyOwner {
+        require(_name.length > 0, "Proposal name should not be empty"); // Checks if the proposal name is not empty
+        
+        proposals.push(Proposal(_name, 0, true)); // Adds the new proposal to the proposals array
+        proposalCount++; // Updates the total number of proposals
+        emit newProposalAdded(_name, proposalCount); // Emits the newProposalAdded event
+    }
+    
+    // Function to cast a vote for a proposal
+    function castVote(uint _proposalId) public {
+        require(voters[msg.sender].hasVoted == false, "You have already voted"); // Checks if the voter has not already voted for another proposal
+        require(proposals[_proposalId].open == true, "Voting for this proposal is closed"); // Checks if the chosen proposal is still open for voting
+        
+        voters[msg.sender].hasVoted = true; // Sets the hasVoted flag to true
+        voters[msg.sender].votedFor = proposals[_proposalId].address; // Sets the votedFor address to the chosen proposal
+        proposals[_proposalId].voteCount++; // Increments the total number of votes for the chosen proposal
+        voterCount++; // Updates the total number of voters
+        emit newVoteCasted(msg.sender, _proposalId); // Emits the newVoteCast event
+        
+        // Checks if the current number of votes is equal to half of the total number of voters
+        if (proposals[_proposalId].voteCount == voterCount / 2) {
+            closeProposal(_proposalId); // Closes the proposal
+        }
+    }
+    
+    // Function to close a proposal
+    function closeProposal(uint _proposalId) private {
+        proposals[_proposalId].open = false; // Sets the open flag to false
+        emit proposalClosed(_proposalId, proposals[_proposalId].voteCount); // Emits the proposalClosed event
+    }
+    
+    // Modifier to only allow the contract owner to add proposals
+    modifier onlyOwner {
+        require(msg.sender == owner, "Only contract owner can call this function");
+        _;
+    }
+}

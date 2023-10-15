@@ -1,0 +1,88 @@
+/* This contract implements a decentralized crowdfunding platform */
+
+/* This contract defines the minimum viable version of Solidity to be used */
+pragma solidity ^0.8.0; 
+
+contract Crowdfunding {
+    // Variables
+    address public creator;
+    uint public deadline;
+    uint public goal;
+    uint public totalFundsRaised;
+    mapping(address => uint) public contributions;
+    mapping(address => bool) public backers;
+    mapping(address => bool) public claimed;
+    address[] public campaignBackers;
+    uint constant public FUNDING_PERIOD = 30 days;
+
+    // Events
+    event FundingSuccessful(address creator, uint totalFundsRaised, uint goal);
+    event FundingUnsuccessful(address creator, uint totalFundsRaised, uint goal);
+    event ContributionReceived(address contributor, uint amount);
+
+    /* Checks if the sender is the creator of the contract */
+    modifier onlyCreator() {
+        require(msg.sender == creator, "Only the creator can call this function");
+        _;
+    }
+
+    /* Checks if the deadline has passed */
+    modifier afterDeadline() {
+        require(block.timestamp >= deadline, "Deadline has not yet passed");
+        _;
+    }
+
+    /* Checks if the deadline has not passed */
+    modifier beforeDeadline() {
+        require(block.timestamp < deadline, "Deadline has passed");
+        _;
+    }
+
+    constructor(address _creator, uint _goal) {
+        creator = _creator;
+        goal = _goal;
+        deadline = block.timestamp + FUNDING_PERIOD;
+    }
+
+    /* Allows a backer to contribute to the campaign */
+    function contribute() public payable beforeDeadline {
+        contributions[msg.sender] += msg.value;
+        totalFundsRaised += msg.value;
+        // Add backer to list if not already present
+        if (!backers[msg.sender]) {
+            campaignBackers.push(msg.sender);
+            backers[msg.sender] = true;
+        }
+        emit ContributionReceived(msg.sender, msg.value);
+    }
+
+    /* Allows the creator to claim the funds raised if the goal is met */
+    function claimFunds() public onlyCreator afterDeadline {
+        require(totalFundsRaised >= goal, "The goal has not been reached yet");
+        payable(creator).transfer(address(this).balance);
+        for (uint i=0; i<campaignBackers.length; i++) {
+            if (!claimed[campaignBackers[i]]) {
+                claimed[campaignBackers[i]] = true;
+            }
+        }
+        emit FundingSuccessful(creator, totalFundsRaised, goal);
+    }
+
+    /* Allows a backer to claim a refund if the goal is not met */
+    function claimRefund() public afterDeadline {
+        require(totalFundsRaised < goal, "The goal has been reached");
+        require(contributions[msg.sender] > 0, "You have not contributed to this campaign");
+        require(!claimed[msg.sender], "You have already claimed your refund");
+        payable(msg.sender).transfer(contributions[msg.sender]);
+        // Reset backer contribution and claimed status
+        totalFundsRaised -= contributions[msg.sender];
+        contributions[msg.sender] = 0;
+        claimed[msg.sender] = true;
+        emit FundingUnsuccessful(creator, totalFundsRaised, goal);
+    }
+
+    /* Returns the current time */
+    function getTime() public view returns (uint) {
+        return block.timestamp;
+    }
+}

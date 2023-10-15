@@ -1,0 +1,60 @@
+.set text "Hello, World!"; # stores "Hello, World!" in the .text segment
+
+# function definition for printing a character to the screen
+.func print_char:
+    .param char; # parameter for character to print
+    .seti $sp, $sp - 4; # decrements stack pointer by 4 bytes
+    .store char, $sp; # stores character on stack
+    .int $txtout, $sp; # sets interrupt for printing character
+    .int 0x10, $sp; # executes the interrupt
+    .int $intout, $sp; # clears the interrupt
+    .seti $sp, $sp + 4; # increments stack pointer by 4 bytes
+.endfunc; # ends function definition
+
+# function definition for printing a string to the screen
+# uses print_char function to print each character in the string
+.func print_string:
+    .param string; # parameter for string to print
+    .set $loop 0; # stores index for string loop
+    .set $end strlen(string); # stores length of string
+    .loop: # loop through string
+        .if $loop < $end: # checks if index is less than length of string
+            .call print_char(string[$loop]); # calls print_char with current character in the string
+            .set $loop $loop + 1; # increments index
+            .jump .loop; # jumps back to beginning of loop
+        .endif; # end of if statement
+    .endloop; # ends loop
+.endfunc; # ends function definition
+
+# function definition for printing a number to the screen
+# converts number to string and uses print_string function to print it
+.func print_number:
+    .param number; # parameter for number to print
+    .set $string ""; # empty string to hold number
+    .set $base 10; # sets base for conversion
+    .set $temp 0; # temporary variable for storing remainder
+    .do: # loop to convert number to string
+        .set $temp $number % $base; # calculates remainder
+        .push $temp; # pushes remainder onto stack
+        .set $number $number / $base; # updates number by dividing by base
+    .push $number; # pushes final number onto stack
+    .pop $number; # pops it off to get the correct order
+    .while $number != 0; # loops until number is equal to 0
+    .set $size stos($sp); # stores size of stack (number of digits)
+    .while $size != 0; # loops through stack to build string
+        .pop $temp; # pops off top of stack
+        .set $char $temp + '0'; # converts integer to character
+        .append $string $char; # appends character to string
+        .set $size $size - 1; # decrements size
+    .endwhile; # ends loop
+    .call print_string($string); # calls print_string with string
+.endfunc; # ends function definition
+
+# main function
+.func main:
+    .store $ret, $sp; # stores return address on stack
+    .call print_string($text); # calls print_string with text stored in .text segment
+    .set $num 12345; # sets number to print
+    .call print_number($num); # calls print_number with number
+    .load $ret, $sp; # pops return address off stack
+.endfunc; # ends function definition

@@ -1,0 +1,39 @@
+# Imports necessary libraries
+using Pkg, CSV, DataFrames
+
+# Loads data from csv file
+data = CSV.read("data.csv")
+
+# Preprocesses data by converting categorical columns to numerical
+function preprocessing(data)
+    # Gets all categorical columns
+    cat_cols = DataFrames.select(data, :Category)
+    # Converts categories to numerical values
+    categories = DataFrames.GroupedDataFrame(collect(DataFrames.groupby(cat_cols))) do sub_data
+        DataFrames.transform(sub_data) do df
+            count = 1:length(unique(df[!, :Category]))
+            Dict(unique(df[!, :Category]) .=> count)
+        end
+    end
+    # Adds numerical column to dataframe
+    categorical_columns = unique(DataFrames.transform!(categories, cat_cols))
+    DataFrames.insertcols!(data, :Category_id, categorical_columns)
+end
+
+# Splits data into training and testing sets
+train_data, test_data = DataFrames.partition(data, at = 0.7)
+
+# Creates random forest classifier model
+model = @sk_rand_forest Species ~ SepalLengthCm + SepalWidthCm + PetalLengthCm + PetalWidthCm, n_trees=100
+
+# Fits model to training data
+fit!(model, train_data)
+
+# Predicts on test data
+predictions = MLJ.predict(model, test_data)
+
+# Calculates accuracy of model
+accuracy = sum(predictions .== test_data[:, :Species])/length(predictions)
+
+# Prints out accuracy
+println("Accuracy of random forest classifier model: $accuracy")

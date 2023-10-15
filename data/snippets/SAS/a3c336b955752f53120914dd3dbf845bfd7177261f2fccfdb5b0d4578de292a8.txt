@@ -1,0 +1,40 @@
+/* Define macro variable with value of current date */
+%let current_date = %sysfunc(today());
+
+/* Get list of filenames in a directory */
+filename dir "&path./*";
+data filenames;
+    length filename $256;
+    infile dir filename = filename;
+    input filename $;
+run;
+/* Define macro variable for file count */
+%let num_files = sysfunc(dnum(&dir));
+
+/* Loop through filenames and print out file information */
+%do i = 1 %to &num_files.;
+    /* Open each file using the filename variable */
+    data _null_;
+        set filenames;
+        if _n_ = &i then call symputx('filename',filename);
+    %put &filename;
+
+    /* Get file metadata */
+    %if &filename. = %then %do;
+        %let filesize = .;
+        %let filedate = .;
+    %end;
+    %else %do;
+        /* Get file size */
+        filename fs "&path./&filename.";
+        %let filesize = %sysfunc(fileexist(&fs.));
+        /* Get file date */
+        %let filedate = %sysfunc(filedate(&fs.));
+    %end;
+
+    /* Print file information */
+    %if &filesize. = 1 %then %do;
+        %put File size for &filename.: &filesize.;
+        %put File date for &filename.: &filedate.;
+    %end;
+%end;

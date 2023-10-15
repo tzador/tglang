@@ -1,0 +1,138 @@
+//This code snippet contains a custom class called "MyCharacter" with various properties and functions
+
+class MyCharacter extends Pawn;
+
+//Properties for character movement
+var float moveSpeed;
+var float jumpHeight;
+var bool isGrounded;
+
+//Properties for health and damage
+var int maxHealth;
+var int currentHealth;
+var int damage;
+
+//Function to move character in given direction
+function MoveCharacter(Vector direction)
+{
+    //Use character's move speed to calculate new location
+    local Vector newLocation;
+    newLocation = self.Location + direction * moveSpeed;
+    
+    //Set the new location
+    self.SetLocation(newLocation);
+}
+
+//Function to make character jump
+function Jump()
+{
+    //Check if character is currently grounded
+    if(isGrounded)
+    {
+        //Calculate new velocity for jump
+        local Vector newVelocity;
+        newVelocity.Z = jumpHeight;
+        
+        //Apply new velocity
+        self.SetPhysics(newVelocity, Vector(0,0,0));
+        
+        //Update isGrounded property
+        isGrounded = false;
+    }
+}
+
+//Function to handle taking damage
+function TakeDamage(int damageTaken)
+{
+    //Reduce current health by the damage taken
+    currentHealth -= damageTaken;
+    
+    //Check if current health is less than or equal to 0
+    if(currentHealth <= 0)
+    {
+        //Call function to handle character death
+        self.Die();
+    }
+}
+
+//Function to handle character death
+function Die()
+{
+    //Display death animation and play death sound
+    self.PlayAnim('death');
+    self.PlaySound('death_sound');
+    
+    //Disable character movement
+    moveSpeed = 0;
+    jumpHeight = 0;
+    
+    //Set isGrounded to true so character does not fall through floor
+    isGrounded = true;
+    
+    //Remove character from game world after 3 seconds
+    self.Destroy(3);
+}
+
+//Function to handle collision with ground
+event bool HitWall(Vector HitNormal, Actor Wall)
+{
+    //Check if HitNormal is pointing upwards, indicating collision with ground
+    if(HitNormal.Z > 0)
+    {
+        //Update isGrounded property
+        isGrounded = true;
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+//Function to handle collision with other objects
+event bool ProjHitTarget(HUD HitHUD, Actor HitActor)
+{
+    //Check if HitActor is a character
+    if(HitActor.IsA(MyCharacter))
+    {
+        //Call function to deal damage to character based on damage property
+        HitActor.TakeDamage(damage);
+    }
+    
+    return true;
+}
+
+//Function to initialize character properties
+function InitCharacter()
+{
+    //Set initial values for properties
+    moveSpeed = 500;
+    jumpHeight = 600;
+    isGrounded = true;
+    maxHealth = 100;
+    currentHealth = maxHealth;
+    damage = 25;
+    
+    //Set character's physics and collision settings
+    self.SetPhysics(PHYS_Walking);
+    self.SetCollision(true, true, true);
+}
+
+DefaultProperties
+{
+    //Set default mesh for character
+    Begin Object Class=SkeletalMeshComponent Name=MeshComponent
+        SkeletalMesh=SkeletalMesh'PathToMyCharacterMesh'
+    End Object
+    MeshComponent=MeshComponent;
+    
+    //Activate character's physics and collision
+    PhysicsVolume=PV_Walkable;
+    bCollideActors=True;
+    bBounce=False;
+    bCanClimb=True;
+    bCanBeBaseForPawn=True;
+    
+    //Call function to initialize character properties
+    InitCharacter();
+}

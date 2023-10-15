@@ -1,0 +1,64 @@
+%% Define a timer module that handles countdown
+
+-module(timer).
+
+%% Exports the functions that can be called by other modules
+-export([start/1, set_timer/1, cancel_timer/0, tick/0]).
+
+%% Internal state variable
+-define(TIMER_ACTIVE, 1).
+-define(TIMER_INACTIVE, 0).
+
+%% Starts the timer with a given countdown value (in seconds)
+start(Countdown) ->
+    %% Spawn a new process to manage the timer
+    spawn(fun() ->
+        %% Wait for countdown to finish or be canceled
+        receive
+            {tick, self()} -> countdown(Countdown)
+        end
+    end).
+
+%% Sends a tick message to the timer process to update the countdown
+tick() ->
+    fun(PID) -> PID ! {tick, self()} end.
+
+%% Sets a new countdown value for the timer
+set_timer(NewCountdown) ->
+    fun(PID) -> PID ! {set_timer, NewCountdown, self()} end.
+
+%% Cancels the timer by sending a message to stop the countdown process
+cancel_timer() ->
+    fun(PID) ->  PID ! {cancel, self()} end.
+
+%% Helper function that handles the countdown process
+countdown(Countdown) ->
+    %% Store the current process ID to send messages back to the caller
+    Caller = self(),
+    %% Set initial state
+    State = #state{
+        timer = countdown,
+        countdown = Countdown,
+        pid = Caller
+    },
+    %% Loop until countdown reaches 0
+    countdown_loop(State).
+
+%% Helper function that handles the logic of the countdown process
+countdown_loop(#state{countdown = 0}) ->
+    %% Countdown reached 0, send a message to the caller
+    pid ! {timer_finished},
+    countdown_loop(#state{pid = pid, timer = inactive}).
+
+countdown_loop(#state{timer = countdown, pid = pid, countdown = Countdown}) ->
+    %% Countdown still active, send a tick message to the caller
+    pid ! {tick},
+    %% Decrement the countdown
+    countdown_loop(#state{pid = pid, countdown = Countdown - 1}).
+
+%% Internal state record to keep track of timer information
+-record(state, {
+    timer :: timer,
+    countdown :: integer(),
+    pid :: pid()
+}).

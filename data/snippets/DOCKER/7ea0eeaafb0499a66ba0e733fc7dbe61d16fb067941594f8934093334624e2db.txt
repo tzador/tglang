@@ -1,0 +1,50 @@
+# Dockerfile for Node.js application with MongoDB database
+
+# Set the base image for the app
+FROM node:alpine
+
+# Create app directory
+WORKDIR /usr/src/app
+
+# Install app dependencies
+COPY package*.json ./
+RUN npm install
+
+# Bundle app source
+COPY . .
+
+#Expose port for web server and database
+EXPOSE 3000 27017
+
+#Run the app
+CMD [ "node", "app.js" ]
+
+# Set the base image for the database
+FROM mongo:latest
+
+# Expose the database port
+EXPOSE 27017
+
+# Copy the initial data
+COPY db.js /docker-entrypoint-initdb.d/
+
+# Set the environment variable for database connection
+ENV MONGO_INITDB_DATABASE=myappdb
+
+# Build and run the docker image
+# Tag the images to identify them
+# -d flag to run the container in background
+# -p flag to map ports from the host to the container
+# --name flag to give a name to the container
+# --link flag to link the database container to the app container
+docker build -t myapp .
+docker run -d -p 3000:3000 -p 27017:27017 --name myapp-container --link mongodb-container myapp
+
+# To stop the containers
+docker stop myapp-container mongodb-container
+
+# To remove the containers
+docker rm myapp-container mongodb-container
+
+# To remove the images
+docker image rm myapp mongodb

@@ -1,0 +1,112 @@
+# This is a module that creates a SpellChecker in Elixir
+
+defmodule SpellChecker do
+  # This function takes in a list of words and returns a map of the word and its frequency count
+
+  @doc """
+  Provides a map of words and their frequency counts based on a given list of words
+  """
+  def create_map(words) do
+    Enum.reduce(words, %{}, fn(word, acc) ->
+      Map.update(acc, word, 1, &(&1 + 1))
+    end)
+  end
+
+  # This function takes in a sentence and returns a list of misspelled words based on the given map
+
+  @doc """
+  Takes in a sentence and checks for any misspelled words based on a given map of words and their frequency counts
+  """
+  def check_spelling(sentence, map) do
+    # Split the sentence into individual words
+    words = String.split(sentence, " ")
+
+    # Create a list of misspelled words
+    Enum.filter(words, fn(word) ->
+      # Check if the word is in the map and its frequency count is less than 1
+      Map.get(map, word, 0) < 1
+    end)
+  end
+
+  # This function takes in a sentence and suggests corrected spellings based on the given map
+
+  @doc """
+  Takes in a sentence and suggests corrected spellings based on a given map of words and their frequency counts
+  """
+  def suggest_correction(sentence, map) do
+    # Split the sentence into individual words
+    words = String.split(sentence)
+
+    # Map each word to a list of possible corrections
+    Enum.map(words, fn(word) ->
+      # If the word is in the map, return the word itself
+      # Otherwise, return a list of possible corrections based on Levenshtein distance algorithm
+      if Map.get(map, word, nil) do
+        word
+      else
+        possible_corrections(word, map)
+      end
+    end)
+  end
+
+  # This function calculates the Levenshtein distance between two strings
+
+  @doc """
+  Calculates the Levenshtein distance between two strings
+  """
+  def levenshtein_distance(source, target) do
+    source_length = String.length(source)
+    target_length = String.length(target)
+
+    # Create a table to store the distances
+    distances = :erlang.phash2(Keyword, 2, source_length + 1, target_length + 1)
+
+    # Fill the first row and column of the table with incremental numbers
+    0..source_length |> Enum.each(fn(i) -> Map.put(distances, {i, 0}, i) end)
+    0..target_length |> Enum.each(fn(i) -> Map.put(distances, {0, i}, i) end)
+
+    # Calculate the distance for each position in the table
+    for i <- 1..source_length, j <- 1..target_length do
+      left   = Map.get(distances, {i - 1, j}) + 1
+      up     = Map.get(distances, {i, j - 1}) + 1
+      corner = Map.get(distances, {i - 1, j - 1})
+
+      # If the current characters are not equal, add 1 to the corner value
+      if String.at(source, i - 1) != String.at(target, j - 1) do
+        corner = corner + 1
+      end
+
+      # Update the minimum distance for the current position
+      Map.put(distances, {i, j}, Enum.min([left, up, corner]))
+    end
+
+    # Return the final distance
+    Map.get(distances, {source_length, target_length})
+  end
+
+  # This function suggests possible corrections for a given word based on the Levenshtein distance algorithm
+
+  @doc """
+  Suggests possible corrections for a given word based on the Levenshtein distance algorithm
+  """
+  defp possible_corrections(word, map) do
+    .sort_by(fn(word, correction) ->
+      # Calculate the Levenshtein distance between the word and a possible correction
+      levenshtein_distance(word, correction)
+    end)
+    # Take the first 3 closest corrections and return them as a list
+    |> Enum.take(3)
+  end
+end
+
+# Example usage
+words = ["hello", "world", "computer", "programming", "language"]
+map = SpellChecker.create_map(words)
+
+sentence = "Hello, my name is wolrd and I enjoy progrming in languaje"
+misspelled_words = SpellChecker.check_spelling(sentence, map)
+suggested_corrections = SpellChecker.suggest_correction(sentence, map)
+
+IO.inspect(misspelled_words) # Output: ["wolrd", "progrming", "languaje"]
+IO.inspect(suggested_corrections) # Output: ["world", "programming", "language"]
+``

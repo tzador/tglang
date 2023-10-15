@@ -1,0 +1,88 @@
+#!/bin/bash
+
+# Author: John Smith
+# Description: This script will collect information about users on the system
+
+# Checking if the script is executed with root privileges
+if [[ $EUID -ne 0 ]]; then
+  echo "This script must be run as root!" 
+  exit 1 
+fi
+
+# Declaring variables to store user information
+user_list=()
+group_list=()
+user_count=0
+group_count=0
+
+# Looping through /etc/passwd file to get usernames and login shells
+while IFS=: read -r username password uid gid gecos home shell; do
+  # Skipping system and root users
+  if [ $uid -ge 1000 ] && [ $username != "root" ]; then
+    user_list[$user_count]=$username # adding username to user_list array
+    ((user_count++)) # incrementing user_count
+    # Printing user information to stdout
+    echo "User Information:"
+    echo "Username: $username"
+    echo "UID: $uid"
+    echo "Login Shell: $shell"
+    echo " " # adding empty line for clearer output
+  fi
+done < /etc/passwd
+
+# Looping through /etc/group file to get group names and member usernames
+while IFS=: read -r groupname password gid members; do
+  # Skipping system groups
+  if [ $gid -ge 1000 ]; then
+    group_list[$group_count]=$groupname # adding groupname to group_list array
+    ((group_count++)) # incrementing group_count
+    # Printing group information to stdout
+    echo "Group Information:"
+    echo "Group Name: $groupname"
+    echo "Group ID: $gid"
+    echo "Group Members: ${members//,/ }" # replacing commas with spaces for clearer output
+    echo " " # adding empty line for clearer output
+  fi
+done < /etc/group
+
+# Printing total number of users and groups
+echo "Total number of users: $user_count"
+echo "Total number of groups: $group_count"
+
+# Prompting user to choose an option
+echo "What would you like to do? (Enter the corresponding number)"
+echo "1. View user information"
+echo "2. View group information"
+read option
+
+# Checking user's input and executing corresponding command
+if [[ $option -eq 1 ]]; then
+  # Prompting user to enter username
+  echo "Enter the username you want to view information for:"
+  read username
+  # Checking if username exists in user_list array
+  if [[ " ${user_list[@]} " =~ " ${username} " ]]; then
+    # Printing user information to stdout
+    echo "User information for $username:"
+    id $username
+    groups $username
+  else
+    echo "User does not exist!"
+  fi
+elif [[ $option -eq 2 ]]; then
+  # Prompting user to enter group name
+  echo "Enter the group name you want to view information for:"
+  read groupname
+  # Checking if groupname exists in group_list array
+  if [[ " ${group_list[@]} " =~ " ${groupname} " ]]; then
+    # Printing group information to stdout
+    echo "Group information for $groupname:"
+    members=$(grep "^$groupname:" /etc/group | cut -d: -f4 | sed 's/,/ /g') # getting group members
+    id $groupname
+    echo "Group members: $members"
+  else
+    echo "Group does not exist!"
+  fi
+else
+  echo "Invalid option!"
+fi

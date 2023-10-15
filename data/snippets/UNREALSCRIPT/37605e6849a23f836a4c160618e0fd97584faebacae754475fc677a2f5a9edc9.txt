@@ -1,0 +1,104 @@
+class AE_GameMode extends GameMode;
+
+exec function Tick(float DeltaTime)
+{
+    local Actor Owner;
+    local Pawn PlayerPawn;
+    
+    //Get all player controllers
+    local Controller PlayerController;
+    foreach WorldInfo.GamePlayers
+    {
+        PlayerController = Controller(WorldInfo.GamePlayers[i]);
+        
+        //Check if player is active
+        if (PlayerController != none && PlayerController.bPlayerActive)
+        {
+            //Get player pawn and ensure it is a pawn
+            PlayerPawn = Pawn(PlayerController.Pawn);
+            
+            if (PlayerPawn != none)
+            {
+                //Get player owner
+                Owner = PlayerPawn.Owner;
+
+                if (Owner != none)
+                {
+                    //Check if owner is in one of the game sides
+                    if (Game.PlayerSides.Find(Owner.PlayerReplicationInfo) != INDEX_NONE)
+                    {
+                        //Perform actions based on player's game side
+                        switch(Game.PlayerSides.Find(Owner.PlayerReplicationInfo))
+                        {
+                            case 0:
+                                //Player is on the red team, execute function specific to red team
+                                PlayerRedSideAction();
+                                break;
+                            case 1:
+                                //Player is on the blue team, execute function specific to blue team
+                                PlayerBlueSideAction();
+                                break;
+                            default:
+                                //Player is not on any team, execute default function
+                                PlayerDefaultAction();
+                                break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+//Function to execute for players on the red side
+function PlayerRedSideAction()
+    {
+        //Player will gain health based on the current game time
+        local float HealthToAdd = WorldInfo.TimeSeconds / 2;
+        
+        //Get all nearby actors
+        local array<Actor> NearbyActors;
+        NearbyActors = ActorFilterByRadius(Owner.Location, 5000, class'Actor');
+        
+        //Loop through nearby actors
+        foreach (Actor NearbyActor in NearbyActors)
+            {
+                //Check if actor is an enemy
+                if (Game.PlayerSides.Find(NearbyActor.Owner.PlayerReplicationInfo) == 1)
+                {
+                    //Subtract health from enemy based on game time
+                    local float EnemyHealth = NearbyActor.Health - WorldInfo.TimeSeconds * 0.5;
+                    //Set actor health to new value
+                    NearbyActor.SetHealth(EnemyHealth);
+                }
+            }
+            
+        //Add health to player
+        PlayerPawn.Health += HealthToAdd;
+    }
+    
+//Function to execute for players on the blue side
+function PlayerBlueSideAction()
+    {
+        //Player will gain energy based on the current game time
+        local float EnergyToAdd = WorldInfo.TimeSeconds / 4;
+        
+        //Check if player is on the ground
+        if (PlayerPawn.bCollideActors)
+            {
+                //Add energy to player
+                PlayerPawn.Energy += EnergyToAdd;
+            }
+    }
+    
+//Default function to execute for players not on any side
+function PlayerDefaultAction()
+    {
+        //Player will lose health and energy over time
+        local float HealthToLose = WorldInfo.TimeSeconds * 0.1;
+        local float EnergyToLose = WorldInfo.TimeSeconds * 0.2;
+        
+        //Subtract health and energy from player
+        PlayerPawn.Health -= HealthToLose;
+        PlayerPawn.Energy -= EnergyToLose;
+    }

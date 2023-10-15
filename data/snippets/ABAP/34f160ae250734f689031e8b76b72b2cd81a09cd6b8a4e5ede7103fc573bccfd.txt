@@ -1,0 +1,54 @@
+METHOD create_email.
+    DATA: lv_sender TYPE ad_smtpadr,
+        lv_recipient TYPE ad_smtpadr,
+        lv_subject TYPE so_obj_desm,
+        lv_body TYPE  solix_tab,
+        lv_message TYPE solix_tab,
+        lv_length TYPE i,
+        lv_temp_body TYPE so_obj_len,
+        lt_objadm TYPE so_objadm,
+        lt_objcont TYPE so_objcont,
+        ls_objadm LIKE LINE OF lt_objadm,
+        ls_objcont LIKE LINE OF lt_objcont.
+
+    lv_sender = cl_cam_address_bcs=>create_internet_address( 'sender@company.com' ).
+    "Set sender email address
+
+    lv_recipient = cl_cam_address_bcs=>create_internet_address( 'recipient@company.com' ).
+    "Set recipient email address
+
+    lv_subject = 'New Email'.
+    "Set email subject
+
+    lv_body = CONV solix_tab( |Hello, sending email from ABAP!| ).
+    "Convert string to binary format
+
+    CALL FUNCTION 'SO_NEW_DOCUMENT_ATT_SEND_API1'
+        EXPORTING
+            document_data = ls_objadm
+            put_in_outbox = abap_true
+        TABLES
+            packno = lv_length
+            contents_obj = lt_objcont
+        EXCEPTIONS
+            too_many_parameters = 1
+            document_not_sent = 2
+            document_type_not_exist = 3
+            operation_no_authorization = 4
+            parameter_error = 5
+            x_error = 6
+            enqueue_error = 8
+            OTHERS = 9.
+
+    IF sy-subrc = 0.
+        COMMIT WORK.
+        "Commit changes to database
+
+        WRITE: 'Email Sent Successfully!'.
+    ELSE.
+        ROLLBACK WORK.
+        "Rollback changes if email sending fails
+
+        WRITE: 'Failed to Send Email.'.
+    ENDIF.
+ENDMETHOD.

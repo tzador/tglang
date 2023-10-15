@@ -1,0 +1,67 @@
+server {
+    # listen on port 80
+    listen 80;
+    # server name
+    server_name example.com;
+
+    # set max upload file size to 10 MB
+    client_max_body_size 10M;
+
+    # proxy requests to backend server
+    location / {
+        # set proxy pass to backend server
+        proxy_pass http://backend-server;
+        # set headers for request
+        proxy_set_header Host $host;
+        # set client IP address in the X-Forwarded-For header
+        proxy_set_header X-Forwarded-For $remote_addr;
+        # set client port in the X-Forwarded-Port header
+        proxy_set_header X-Forwarded-Port $remote_port;
+        # enable proxy buffering to improve performance
+        proxy_buffering on;
+        # set proxy buffer size to 4k bytes
+        proxy_buffer_size 4k;
+        # set proxy buffer limit to 64k bytes
+        proxy_buffers 64 4k;
+    }
+
+    # serve static files from desired directory
+    location /static/ {
+        # set root directory for static files
+        root /var/www/example.com;
+        # enable caching for static files
+        expires 1d;
+    }
+
+    # redirect all requests to a specific URL
+    location /old-url/ {
+        # set the redirect code to 301 (permanent)
+        return 301 https://example.com/new-url/;
+    }
+
+    # block access to a specific directory
+    location /private/ {
+        # set a 403 (forbidden) error
+        return 403;
+    }
+
+    # enable server-side caching
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=example_cache:10m inactive=60m;
+    # set caching rules for specific file types
+    proxy_cache_key "$scheme$request_method$host$request_uri";
+    proxy_cache_valid 200 302 60m; # cache successful responses for 60 minutes
+    proxy_cache_valid 404 1m; # cache 404 errors for 1 minute
+
+    # enable gzip compression for improved performance
+    gzip on;
+    # set compression level to 6 (balanced compression and speed)
+    gzip_comp_level 6;
+    # set minimum size for files to be compressed
+    gzip_min_length 1000;
+    # set types of files to be compressed
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    # log access and error information
+    access_log /var/log/nginx/example.access.log;
+    error_log /var/log/nginx/example.error.log;
+}

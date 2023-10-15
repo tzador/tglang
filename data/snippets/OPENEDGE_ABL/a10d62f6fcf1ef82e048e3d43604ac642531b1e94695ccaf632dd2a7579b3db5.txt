@@ -1,0 +1,61 @@
+/* This is a complex code snippet in OPENEDGE_ABL, used for manipulating data in a database */ 
+
+/* Define temp-tables for storing data */ 
+DEFINE TEMP-TABLE tt_customer NO-UNDO 
+    FIELD custnum AS INTEGER
+    INDEX custnum-idx IS UNIQUE custnum 
+    FIELD country AS CHARACTER  
+    INDEX country-idx IS country  
+
+DEFINE TEMP-TABLE tt_order NO-UNDO
+    FIELD ordernum AS INTEGER  
+    INDEX ordernum-idx IS UNIQUE ordernum  
+    FIELD ordertype AS CHARACTER  
+
+DEFINE TEMP-TABLE tt_orderline NO-UNDO
+    FIELD ordernum AS INTEGER  
+    INDEX ordernum-idx IS UNIQUE ordernum  
+    FIELD itemnum AS INTEGER  
+    FIELD quantity AS DECIMAL 
+    FIELD price AS DECIMAL 
+    FIELD total AS DECIMAL  
+    FIELD shipdate AS DATE  
+
+/* Create a cursor for retrieving and updating data from the database */ 
+DEFINE QUERY q-customer FOR tt_customer, tt_order, tt_orderline
+    PRESELECT EACH tt_customer  
+    EACH tt_order OF tt_customer JOIN EACH tt_orderline OF tt_order  
+
+/* Open the cursor to retrieve data */ 
+OPEN QUERY q-customer  
+
+/* Loop through the data */ 
+REPEAT: 
+    FETCH NEXT q-customer.  
+    /* Perform operations on the data */ 
+    IF tt_order.ordertype = "online" THEN DO: 
+        /* Calculate and update the total for the order line */ 
+        tt_orderline.total = tt_orderline.quantity * tt_orderline.price.  
+        UPDATE tt_orderline. 
+    END. 
+
+    /* Get the country of the customer and count the number of orders */ 
+    FIND FIRST tt_customer WHERE tt_customer.custnum = q-customer.custnum NO-LOCK.  
+    FOR EACH tt_order OF tt_customer:  
+        cnt = 0  
+        cnt = cnt + 1.  
+    END. 
+
+    /* Perform other operations as needed */ 
+END.  
+
+/* Close the cursor */ 
+CLOSE q-customer.  
+
+/* Delete all orders with a total less than $100 */ 
+DELETE EACH tt_orderline WHERE tt_orderline.total < 100.  
+
+/* Check if changes have been made and commit to the database */ 
+IF CHANGES(tt_orderline) THEN DO: 
+    APPLY "COMMIT" TO TABLE tt_orderline.  
+END.

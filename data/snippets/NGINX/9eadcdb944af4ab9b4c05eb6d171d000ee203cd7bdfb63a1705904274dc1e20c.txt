@@ -1,0 +1,43 @@
+upstream backend {
+  server 127.0.0.1:8000 fail_timeout=0;
+}
+
+server {
+  listen 80;
+  server_name example.com;
+
+  access_log /var/log/nginx/example.com-access.log;
+  error_log /var/log/nginx/example.com-error.log;
+
+  location / {
+    return 301 https://$server_name$request_uri;
+  }
+
+  location /static/ {
+    alias /var/www/example.com/staticfiles/;
+    expires 7d;
+  }
+
+  location /media/ {
+    alias /var/www/example.com/media/;
+  }
+
+  location / {
+    proxy_pass http://backend;
+    include /etc/nginx/proxy_params;
+    proxy_redirect off;
+  }
+
+  location /ws/ {
+    proxy_pass http://backend;
+    include /etc/nginx/proxy_params;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+  }
+
+  error_page 500 502 503 504 /500.html;
+  location = /500.html {
+    root /var/www/example.com/errorpages/;
+  }
+}

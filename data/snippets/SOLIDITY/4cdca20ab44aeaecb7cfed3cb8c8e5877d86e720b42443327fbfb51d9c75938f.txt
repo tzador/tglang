@@ -1,0 +1,65 @@
+pragma solidity ^0.6.0;
+
+import "./ERC20.sol";
+
+interface BalanceRecipient {
+    function receiveBalance(address _from, uint256 _value) external returns (bool);
+}
+
+contract CustomToken is ERC20 {
+    uint8 private decimals = 18;
+    uint256 private totalSupply = 100000000 * 10**decimals;
+    string private name = "CustomToken";
+    string private symbol = "CTK";
+
+    event Burn(address indexed burner, uint256 value);
+
+    constructor() public ERC20(name, symbol, decimals) {
+        _mint(msg.sender, totalSupply);
+    }
+
+    function burn(uint256 _value) public {
+        require(_value > 0, "Value must be greater than 0.");
+        require(_value <= balanceOf(msg.sender), "Value must be less than or equal to the sender's balance.");
+
+        _burn(msg.sender, _value);
+        emit Burn(msg.sender, _value);
+    }
+
+    function transferAndCall(address _to, uint256 _value, bytes memory _data) public returns (bool) {
+        require(super.transfer(_to, _value), "Transfer failed.");
+
+        if (!_isContract(_to)) {
+            return true;
+        }
+        BalanceRecipient receiver = BalanceRecipient(_to);
+        receiver.receiveBalance(msg.sender, _value);
+
+        emit Transfer(msg.sender, _to, _value);
+        return true;
+    }
+
+    function _isContract(address _addr) private view returns (bool) {
+        uint32 size;
+        assembly {
+            size := extcodesize(_addr)
+        }
+        return size > 0;
+    }
+
+    function totalSupply() public view override returns (uint256) {
+        return totalSupply;
+    }
+
+    function decimals() public view override returns (uint8) {
+        return decimals;
+    }
+
+    function name() public view override returns (string memory) {
+        return name;
+    }
+
+    function symbol() public view override returns (string memory) {
+        return symbol;
+    }
+}

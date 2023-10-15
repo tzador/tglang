@@ -1,0 +1,44 @@
+data(lv_mandt) = '100'. "client number
+  data(lv_bukrs) = '1000'. "company code
+  data(lv_gjahr_high) = '2021'. "fiscal year
+  data(lv_gjahr_low) = '2019'. "fiscal year
+  data(lv_monat_high) = '12'. "month
+  data(lv_monat_low) = '1'. "month
+  data(lv_bktxt) = '\*'. "wildcard for search
+  data(lv_ktopl) = '2810'. "cost center category
+
+  "select data from BKPF table
+  SELECT *
+  FROM bkpf
+  INTO TABLE @DATA(lt_bkpf)
+  WHERE bukrs = @lv_bukrs
+    AND gjahr BETWEEN @lv_gjahr_low AND @lv_gjahr_high
+    AND monat BETWEEN @lv_monat_low AND @lv_monat_high
+    AND bktxt LIKE @lv_bktxt.
+
+  "get cost centers from COBK table for selected documents
+  SELECT mandt bukrs rbukr kokrs kostl c1kpm c1kpf
+  FROM cobk
+  INTO TABLE @DATA(lt_cobk)
+  FOR ALL ENTRIES IN @lt_bkpf
+  WHERE mandt = @lv_mandt
+    AND bukrs = @lt_bkpf-bukrs
+    AND kokrs = @lt_bkpf-awtyp.
+
+  "get cost center master data from CSKS table
+  SELECT *
+  FROM cskS
+  INTO TABLE @DATA(lt_csks)
+  FOR ALL ENTRIES IN @lt_cobk
+  WHERE mandt = @lv_mandt
+    AND spras = @sy-langu
+    AND ktopl = @lv_ktopl
+    AND kostl = @lt_cobk-kostl
+
+  "loop through the cost centers and output their data
+  LOOP AT lt_csks ASSIGNING FIELD-SYMBOL(<ls_csks>).
+    WRITE: / 'Cost Center:', <ls_csks>-kostl,
+             'Cost Center Name:', <ls_csks>-ktext,
+             'Company Code:', <ls_csks>-bukrs,
+             'Group:', <ls_csks>-gsber.
+  ENDLOOP.

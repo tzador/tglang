@@ -1,0 +1,108 @@
+// This is a code snippet in the GRADLE programming language
+plugins {
+    id 'java'
+    id 'jacoco'
+    id 'com.github.johnrengelman.shadow' version '6.0.0'
+    id 'io.spring.dependency-management' version '1.0.10.RELEASE'
+}
+group 'com.example'
+version '1.0-SNAPSHOT'
+
+// Defining project dependencies
+dependencies {
+    compile 'org.apache.httpcomponents:httpclient:4.5.12'
+    testCompile 'junit:junit:4.12'
+    testCompile 'org.assertj:assertj-core:3.19.0'
+
+    // Dependency for Spring Boot
+    implementation 'org.springframework.boot:spring-boot-starter-web:2.2.6.RELEASE'
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf:2.2.6.RELEASE'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa:2.2.6.RELEASE'
+    implementation 'org.springframework.boot:spring-boot-starter-security:2.2.6.RELEASE'
+    implementation 'org.springframework.boot:spring-boot-starter-test:2.2.6.RELEASE'
+
+    // Excluding different dependencies
+    implementation ('org.springframework.boot:spring-boot-starter-security') {
+        exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+    }
+}
+
+// Configuring code coverage using Jacoco plugin
+jacoco {
+    toolVersion = "0.8.5"
+    reportsDir = file("$buildDir/customJacocoReportDir")
+}
+
+jacocoTestReport {
+    reports {
+        html.enabled true
+        xml.enabled true
+        csv.enabled false
+    }
+
+    // Configuring which classes to include/exclude in code coverage report
+    def excludedClasses = ['**/ExampleDao.class', '**/ExampleModel.class']
+    def includedClasses = ['**/ExampleService.class', '**/ExampleController.class']
+    afterEvaluate {
+        classDirectories {
+            files = fileTree(dir: 'build/classes/java/main').asList().filter { file ->
+                includedClasses.any { includedClass ->
+                    file.path.contains(includedClass)
+                } && !excludedClasses.any { excludedClass ->
+                    file.path.contains(excludedClass)
+                }
+            }
+        }
+    }
+}
+
+// Configuring shadowJar plugin for creating executable JAR file
+shadowJar {
+    archiveBaseName = "my-app"
+    archiveClassifier = null
+    archiveVersion = null
+
+    // Excluding files from the final JAR
+    exclude 'META-INF/**'
+    exclude 'META-INF/schema/**'
+    exclude 'META-INF/spring.*'
+    exclude 'META-INF/*.txt'
+
+    dependencies {
+        exclude(dependency('io.netty:netty-codec-http2'))
+        exclude(dependencies('io.projectreactor:reactor-core:*'))
+    }
+}
+
+// Defining custom tasks
+task customTask(type: Copy) {
+    from 'src/myResources'
+    into 'build/myResources'
+}
+
+task clean(type: Delete) {
+    delete 'build'
+}
+
+// Defining custom properties
+ext {
+    greeting = 'Hello'
+    message = 'World'
+}
+
+// Creating a custom task that prints a message
+task hello {
+    println "${greeting} ${message}"
+}
+
+// Creating a custom task that increments a number and prints it
+task counter {
+    ext.currentNumber = 1
+    doLast {
+        currentNumber++
+        println "The current number is: ${currentNumber}"
+    }
+}
+
+// Setting up a task dependency
+hello.dependsOn counter

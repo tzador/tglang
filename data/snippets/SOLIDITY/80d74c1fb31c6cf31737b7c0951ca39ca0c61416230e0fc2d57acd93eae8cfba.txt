@@ -1,0 +1,48 @@
+// Contract that implements a simple bank
+// This contract follows the SOLID (Single Responsibility, Open-Closed, Liskov Substitution, Interface Segregation, Dependency Inversion) principles
+
+pragma solidity ^0.8.0; // specifies the version of Solidity to use
+
+contract Bank { // start of contract
+    address private owner; // variable to store the address of the owner of the bank
+    mapping (address => uint) private balances; // mapping to store the balances of each account
+    
+    event Deposit(address account, uint amount); // event to notify when a deposit is made
+    event Withdrawal(address account, uint amount); // event to notify when a withdrawal is made
+    
+    constructor() { // constructor function to set the owner of the bank
+        owner = msg.sender; // sets the owner to the address of the person deploying the contract
+    }
+    
+    function deposit() public payable { // function to deposit funds into the account, payable as it requires a value to be sent
+        require(msg.value > 0, "Invalid amount."); // requires the amount to be greater than 0
+        balances[msg.sender] += msg.value; // updates the balance of the account
+        emit Deposit(msg.sender, msg.value); // emits the deposit event
+    }
+    
+    function withdraw(uint amount) public { // function to withdraw funds from the account
+        require(amount > 0, "Invalid amount."); // requires the amount to be greater than 0
+        require(balances[msg.sender] >= amount, "Not enough funds."); // requires the account to have enough funds
+        balances[msg.sender] -= amount; // updates the balance of the account
+        msg.sender.transfer(amount); // sends the requested amount to the sender's address
+        emit Withdrawal(msg.sender, amount); // emits the withdrawal event
+    }
+    
+    function getBalance() public view returns (uint) { // function to get the balance of the account
+        return balances[msg.sender]; // returns the balance of the sender's address
+    }
+    
+    modifier onlyOwner { // modifier that restricts a function to only be called by the owner
+        require(msg.sender == owner, "Only the owner can call this function."); // requires the sender to be the owner
+        _; // continues with the code of the function
+    }
+    
+    function updateOwner(address newOwner) public onlyOwner { // function to update the owner of the bank, restricted to the owner
+        require(newOwner != address(0), "Invalid address."); // requires the new owner's address to be valid
+        owner = newOwner; // updates the owner to the new address
+    }
+    
+    function destroy() public onlyOwner { // function to destroy the contract, restricted to the owner
+        selfdestruct(payable(owner)); // sends any remaining funds to the owner's address and destroys the contract
+    }
+} // end of contract

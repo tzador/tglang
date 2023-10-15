@@ -1,0 +1,143 @@
+; This script creates a dynamic GUI for managing shortcuts
+
+#SingleInstance force ; Ensures only one instance of script is running
+#NoTrayIcon ; Hides tray icon
+#Persistent ; Keeps script running until explicitly terminated
+
+; ----------------------
+; VARIABLE DECLARATIONS
+; ----------------------
+global numShortcuts := 0 ; Number of shortcuts currently displayed
+global keybinds := ["F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12"] ; Default keybinds
+global shortcuts := [] ; Array to store user-defined shortcuts
+global keys := "" ; String to hold keybinds for current shortcut
+global names := "" ; String to hold names for current shortcut
+global win := "" ; String to hold window title for current shortcut
+
+; ----------------------
+; CREATE MENU BAR
+; ----------------------
+menu mainMenu, MenuBar ; Creates menu bar
+menu, mainMenu, add, File, :file
+menu, mainMenu, add, Edit, :edit
+
+; ------------
+; FILE MENU
+; ------------
+file:
+menu, mainMenu, add, Settings, :settings
+menu, mainMenu, add, Exit, :exit
+return
+
+; ------------
+; EDIT MENU
+; ------------
+edit:
+menu, mainMenu, add, Add Shortcut, :addShortcut
+menu, mainMenu, add, Edit Shortcuts, :editShortcuts
+return
+
+; ------------
+; SETTINGS
+; ------------
+settings:
+msgbox, 64, Settings, Would you like to reset to default keybinds?
+if ErrorLevel {
+    for i,%index% in keybinds {
+        menu, mainMenu, add, %index%, :changeKeybind
+    }
+}
+return
+
+; ------------
+; ADD SHORTCUT MENU
+; ------------
+addShortcut:
+if (numShortcuts <= 12) {
+    ; Adds a new row for user input
+    Gui, add, text,, Shortcut Name:
+    Gui, add, edit, vName%numShortcuts%
+    Gui, add, dropdown, gGetKeyName vKey%numShortcuts%, %keys%
+    Gui, add, edit, vWindowTitle%numShortcuts%, %win%
+    Gui, submit
+    ; Pad strings with default values to ensure they are the right length
+    names := names . Name%numShortcuts% . " || "
+    keys := keys . Key%numShortcuts% . " || "
+    win := win . WindowTitle%numShortcuts% . " || "
+    ; Increment numShortcuts to prevent overwriting old values
+    numShortcuts++
+} else {
+    msgbox, 48, Error, Maximum number of shortcuts reached!
+}
+return
+
+; ------------
+; EDIT SHORTCUTS MENU
+; ------------
+editShortcuts:
+if (numShortcuts > 0) {
+    Gui, add, ListView, r10 grid, Shortcut Name|Keybind|Window Title|mDelete
+    Gui, Add, Button, gDelete, Delete Selected
+    Gui, Add, Button, gDelete, Edit Selected
+    Loop, %numShortcuts% {
+        Gui, ListView, add, %Name%A_Index%|%Key%A_Index%|%WindowMA_Title%A_Index%|%A_Index%
+    }
+    Gui, ListView, Show
+} else {
+    msgbox 48, Error, No shortcuts found!
+}
+return
+
+; ------------
+; DELETE SELECTED SHORTCUT
+; ------------
+delete:
+GuiSubmit
+stringSplit, mdelete, radioList, |
+;Update global variables, with new values
+tempKeybinds := []
+tempNames := []
+tempWindowTitles := []
+Loop, %numShortcuts% {
+    if (((A_Index - 1) != mdelete) || (mdelete == -1)) {
+        tempKeybinds.push(key%A_Index%)
+        tempNames.push(Name%A_Index%)
+        tempWindowTitles.push(WindowTitle%A_Index%)
+    }
+}
+;Reset global keybind arrays with trimmed data
+keys := ""
+names := ""
+win := ""
+Loop, % ((tempKeybinds.Length() / 2)) {
+    keys := keys . tempKeybinds%A_Index% . " || "
+    names := names . tempNames%A_Index% . " || "
+    win := win . tempWindowTitles%A_Index% . " || "
+}
+numShortcuts := tempNames.Length()
+; Resets array to ensure proper indexing for future shortcuts
+keys := StrReplace(keys, " ||", "")
+names := StrReplace(names, " ||", "")
+win := StrReplace(win, " ||", "")
+Gui, Submit
+GuiClose:
+ oldPoint := WinExist("ahk_class AutoHotkeyGUI")
+ Control, ChooseString, %rowNumber%1, ahk_id %oldPoint%, %keybinds%
+ if ErrorLevel
+ keyBind:=error
+ msgBox %keyBind%
+GetKeyName:
+Gui, Submit, NoHide
+; If Keybind is being changed, check for conflicts
+if (ErrorLevel && Reflection) {
+    msgBox, Warning, Hotkey Conflict!, This shortcut is already mapped!
+    return
+}
+Return
+
+; -------------
+; ON EXIT
+; -------------
+exit:
+menu, mainMenu, deleteAll
+ExitApp

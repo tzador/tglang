@@ -1,0 +1,98 @@
+# This is a complex code snippet for NGINX
+# It is used to configure the server and set up proxy settings
+
+# The 'http' block is the starting point for the NGINX configuration
+# It is used to specify global settings for the server
+http {
+
+    # The 'server' block is used to configure settings for a specific server
+    server {
+        
+        # Listen on port 80 for HTTP connections
+        listen 80;
+        
+        # Listen on port 443 for HTTPS connections
+        listen 443 ssl;
+        
+        # Set the server name to example.com
+        server_name example.com;
+        
+        # Define the root directory for the server
+        root /var/www/example.com;
+
+        # Enable gzip compression for faster web page delivery
+        gzip on;
+        
+        # Specify the types of files to compress
+        gzip_types text/plain text/css application/json;
+        
+        # Set the location for error log files
+        error_log /var/log/nginx/error.log;
+        
+        # Set the location for access log files
+        access_log /var/log/nginx/access.log;
+        
+        # Configure SSL settings
+        ssl_certificate /etc/nginx/ssl/example.com.crt;
+        ssl_certificate_key /etc/nginx/ssl/example.com.key;
+        
+        # Enable HTTP/2 for improved performance
+        http2_push_preload on;
+        
+        # Set up proxy settings
+        # This allows the server to act as a proxy for other servers
+        location / {
+            
+            # Set the proxy pass address
+            # Requests to the server will be forwarded to this address
+            proxy_pass https://www.example.com;
+            
+            # Set the proxy headers
+            # This ensures proper communication between the server and the proxy
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $remote_addr;
+            
+            # Enable HTTP/2 for improved performance
+            proxy_http_version 1.1;
+            proxy_set_header Connection "upgrade";
+            
+            # Set proxy cache settings
+            # This will cache responses from the proxy server for faster delivery
+            proxy_cache_key "$scheme$request_method$host$request_uri";
+            proxy_cache_bypass $http_pragma;
+            proxy_cache_revalidate on;
+            proxy_cache_min_uses 3;
+            proxy_cache_use_stale error timeout invalid_header updating http_500 http_502 http_503 http_504;
+            proxy_cache_valid 200 10m;
+            
+            # Set up logging for proxy requests
+            access_log /var/log/nginx/proxy.access.log;
+            error_log /var/log/nginx/proxy.error.log;
+        }
+        
+        # Set up location for static content
+        # This will serve any files located in the 'static' directory
+        location /static {
+            alias /var/www/example.com/static/;
+            
+            # Allow only read access to static files
+            # This is more secure than allowing all access
+            # and prevents potential attacks
+            allow all;
+            autoindex off;
+        }
+        
+        # Set up location for fastcgi
+        location ~ \.php$ {
+            # Enable PHP processing using fastcgi
+            fastcgi_pass unix:/var/run/php/php7.0-fpm.sock;
+            
+            # Set the root directory for PHP files
+            fastcgi_param SCRIPT_FILENAME /var/www/example.com$fastcgi_script_name;
+            
+            # Allow only internal connections to use this location
+            internal;
+        }
+    }
+}

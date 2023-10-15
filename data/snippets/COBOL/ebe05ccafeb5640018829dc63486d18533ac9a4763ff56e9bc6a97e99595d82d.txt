@@ -1,0 +1,75 @@
+IDENTIFICATION DIVISION.
+       PROGRAM-ID. SORT-FILES.
+
+       ENVIRONMENT DIVISION.
+       INPUT-OUTPUT SECTION.
+       FILE-CONTROL.
+           SELECT DATA-FILE-IN
+               ASSIGN TO "INPUT.DAT"
+               ORGANIZATION IS LINE SEQUENTIAL.
+           SELECT DATA-FILE-OUT
+               ASSIGN TO "OUTPUT.DAT"
+               ORGANIZATION IS LINE SEQUENTIAL.
+
+       DATA DIVISION.
+       FILE SECTION.
+       FD  DATA-FILE-IN.
+       01  DATA-RECORD-IN.
+           05  NAME-IN             PIC X(30).
+           05  AGE-IN              PIC 99.
+           05  SALARY-IN           PIC 9(7)V99.
+       FD  DATA-FILE-OUT.
+       01  DATA-RECORD-OUT            PIC X(40).
+
+       WORKING-STORAGE SECTION.
+       01  RECORD-COUNT                PIC 9(5).
+       01  TOTAL-SALARY                PIC 9(9)V99.
+           88  END-OF-FILE             VALUE HIGH-VALUES.
+       01  SORT-TABLE.
+           05  SORT-KEY                 PIC X(30).
+           05  SORT-KEY-NUM             PIC 9(9)V99.
+
+       01  SORTED-RECORDS.
+           05  SORTED-RECORD OCCURS 50 TIMES
+               ASCENDING KEY SORT-KEY
+               INDEXED BY SORT-INDEX.
+               10  SORTED-NAME              PIC X(30).
+               10  SORTED-AGE               PIC 99.
+               10  SORTED-SALARY            PIC 9(7)V99.
+
+       PROCEDURE DIVISION.
+       MAIN-PROCEDURE.
+           OPEN INPUT DATA-FILE-IN
+               OUTPUT DATA-FILE-OUT.
+           PERFORM READ-RECORD
+               UNTIL END-OF-FILE
+           CLOSE DATA-FILE-IN
+               DATA-FILE-OUT.
+           PERFORM SORT-RECORDS
+           PERFORM WRITE-RECORD
+               UNTIL SORT-INDEX > RECORD-COUNT
+           STOP RUN.
+
+       READ-RECORD.
+           READ DATA-FILE-IN
+               AT END
+                   SET END-OF-FILE TO TRUE
+               NOT AT END
+                   ADD 1 TO RECORD-COUNT
+                   ADD SALARY-IN TO TOTAL-SALARY
+                   MOVE NAME-IN TO SORT-KEY
+                   MOVE SALARY-IN TO SORT-KEY-NUM
+                   MOVE NAME-IN TO SORTED-NAME(SORT-INDEX)
+                   MOVE AGE-IN TO SORTED-AGE(SORT-INDEX)
+                   MOVE SALARY-IN TO SORTED-SALARY(SORT-INDEX).
+           SORT-INDEX = SORT-INDEX + 1.
+
+       SORT-RECORDS.
+           PERFORM SORT-TABLE VARYING I FROM 1 BY 1
+               UNTIL I > RECORD-COUNT
+                   PERFORM SORTED-RECORD(I) = SORT-TABLE(I)
+               END-PERFORM.
+
+       WRITE-RECORD.
+           MOVE SORTED-NAME(SORT-INDEX) TO DATA-RECORD-OUT
+           WRITE DATA-RECORD-OUT.

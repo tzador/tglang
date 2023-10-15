@@ -1,0 +1,87 @@
+FUNCTION cz_contract_enquiry.
+*"----------------------------------------------------------------------
+*"*"Local Interface:
+*"----------------------------------------------------------------------
+
+*"  TABLES
+*"      int_contract_structure
+*"      int_contract_conditions
+*"      int_contract_billing
+
+*"  CHANGING
+*"      C_TYPE                         TYPE CZ_CONTRACT_TYPE
+*"      C_NUMBER                       TYPE CZ_CONTRACT_NUMBER
+*"      C_COMMENT                      TYPE CZ_CONTRACT_COMMENT
+
+*"  EXCEPTIONS
+*"      CZ_CONDITION_NOT_FOUND
+*"      CZ_BILLING_NOT_FOUND
+*"      SYSTEM_ERROR
+
+DATA: lv_contract_header TYPE z_contract_header,
+      lt_condition_data TYPE STANDARD TABLE OF z_condition_data,
+      lt_billing_data TYPE STANDARD TABLE OF z_billing_data,
+      ls_condition_data TYPE z_condition_data,
+      ls_billing_data TYPE z_billing_data,
+      lv_index TYPE i.
+
+TRY.
+    SELECT SINGLE * FROM z_contract_header INTO lv_contract_header
+      WHERE contract_type = c_type
+        AND contract_number = c_number.
+  CATCH cx_sy_open_sql_db. "if unable to connect to database
+    RAISE SYSTEM_ERROR.
+  CATCH cx_sy_single_record. "if no record found
+    RAISE cz_condition_not_found.
+ENDTRY.
+
+CASE c_type.
+  WHEN 'P'. "if contract type is 'P', check conditions
+    TRY.
+        SELECT * FROM z_condition_data INTO CORRESPONDING FIELDS OF TABLE lt_condition_data
+          WHERE contract_type = c_type
+            AND contract_number = c_number.
+      CATCH cx_sy_open_sql_db. "if unable to connect to database
+        RAISE SYSTEM_ERROR.
+      CATCH cx_sy_no_records "if no records found
+        RAISE cz_condition_not_found.
+    ENDTRY.
+
+    "annotate check statement
+    CHECK lt_condition_data IS NOT INITIAL.
+
+    "loop through conditions and check for validity
+    LOOP AT lt_condition_data INTO ls_condition_data.
+      IF ls_condition_data-valid_from GT lv_contract_header-contract_date OR
+         ls_condition_data-valid_to LT lv_contract_header-contract_date.
+        RAISE cz_condition_not_found.
+      ENDIF.
+    ENDLOOP.
+
+    "annotate comment
+    c_comment = 'Conditions found.'.
+  WHEN 'B'. "if contract type is 'B', check billing
+    TRY.
+        SELECT * FROM z_billing_data INTO CORRESPONDING FIELDS OF TABLE lt_billing_data
+          WHERE contract_type = c_type
+            AND contract_number = c_number.
+      CATCH cx_sy_open_sql_db. "if unable to connect to database
+        RAISE SYSTEM_ERROR.
+      CATCH cx_sy_no_records. "if no records found
+        RAISE cz_billing_not_found.
+    ENDTRY.
+
+    "annotate check statement
+    CHECK lt_billing_data IS NOT INITIAL.
+
+    "loop through billing data and check for validity
+    LOOP AT lt_billing_data INTO ls_billing_data.
+      IF ls_billing_data-billing_date GT lv_contract_header-contract_date.
+        RAISE cz_billing_not_found.
+      ENDIF.
+    ENDLOOP.
+
+    "annotate comment
+    c_comment = 'Billing data found.'.
+ENDCASE.
+ENDFUNCTION.

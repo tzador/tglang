@@ -1,0 +1,141 @@
+/**
+ * @title ERC721 Non-Fungible Token Implementation
+ * @dev This contract implements the ERC721 standard for non-fungible tokens.
+ */
+
+// Import necessary libraries and interfaces
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
+
+contract MyNFT is ERC721, Ownable {
+    
+    using SafeMath for uint256; // Use safemath library for mathematical operations
+    
+    // Declare and initialize necessary variables
+    uint256 private tokenCount = 0;
+    mapping(uint256 => bool) private mintedTokens;
+    mapping(address => uint256[]) private ownerTokens;
+    mapping(uint256 => address) private tokenOwners;
+    mapping (uint256 => string) private tokenURIs;
+    string private baseURI;
+    
+    // Declare events
+    event NewTokenMinted(uint256 tokenId);
+    event TokenTransferred(address from, address to, uint256 tokenId);
+    
+    /**
+     * @dev Constructor function to set the name and symbol of the token
+     */
+    constructor(string memory _name, string memory _symbol) ERC721(_name, _symbol) public {
+        
+    }
+    
+    /**
+     * @dev Function to mint a new token
+     * @param _to The address to which the token will be minted
+     * @param _tokenId The id of the token to be minted
+     * @param _uri URI for the token metadata
+     */
+    function mint(address _to, uint256 _tokenId, string calldata _uri) external onlyOwner {
+        require(!_exists(_tokenId), "A token with this id already exists");
+        require(_to != address(0), "Invalid address");
+        
+        // Update mappings and emit event
+        mintedTokens[_tokenId] = true;
+        ownerTokens[_to].push(_tokenId);
+        tokenOwners[_tokenId] = _to;
+        tokenURIs[_tokenId] = _uri;
+        
+        // Increase token count
+        tokenCount = tokenCount.add(1);
+        
+        // Emit event
+        emit NewTokenMinted(_tokenId);
+    }
+    
+    /**
+     * @dev Function to burn a token
+     * @param _tokenId The id of the token to be burned
+     */
+    function burn(uint256 _tokenId) external onlyOwner {
+        require(_exists(_tokenId), "Invalid token id");
+        
+        // Delete token from mappings and update token count
+        delete mintedTokens[_tokenId];
+        delete tokenURIs[_tokenId];
+        delete ownerTokens[tokenOwners[_tokenId]][_getTokenIndex(tokenOwners[_tokenId], _tokenId)];
+        tokenOwners[_tokenId] = address(0);
+        tokenCount = tokenCount.sub(1);
+    }
+    
+    /**
+     * @dev Function to update the baseURI for token metadata
+     * @param _newBaseURI The new baseURI to be set
+     */
+    function setBaseURI(string calldata _newBaseURI) external onlyOwner {
+        baseURI = _newBaseURI;
+    }
+    
+    /**
+     * @dev Function to get the tokenURI for a given token
+     * @param _tokenId The id of the token
+     */
+    function tokenURI(uint256 _tokenId) public view returns(string memory) {
+        require(_exists(_tokenId), "Invalid token id");
+        
+        return string(abi.encodePacked(baseURI, tokenURIs[_tokenId]));
+    }
+    
+    /**
+     * @dev Function to transfer ownership of a token
+     * @param _from The address from which the token is being transferred
+     * @param _to The address to which the token is being transferred
+     * @param _tokenId The id of the token to be transferred
+     */
+    function transferToken(address _from, address _to, uint256 _tokenId) external {
+        require(_exists(_tokenId), "Invalid token id");
+        require(tokenOwners[_tokenId] == _from, "Token does not belong to this address");
+        require(_to != address(0), "Invalid address");
+        
+        // Update mappings and emit event
+        tokenOwners[_tokenId] = _to;
+        delete ownerTokens[_from][_getTokenIndex(_from, _tokenId)];
+        ownerTokens[_to].push(_tokenId);
+        
+        // Emit event
+        emit TokenTransferred(_from, _to, _tokenId);
+    }
+    
+    /**
+     * @dev Function to get all tokens owned by a particular address
+     * @param _owner The address of the owner
+     */
+    function getTokensByOwner(address _owner) external view returns(uint256[] memory) {
+        return ownerTokens[_owner];
+    }
+    
+    /**
+     * @dev Function to check if a token with a given id exists
+     * @param _tokenId The id of the token to check
+     */
+    function _exists(uint256 _tokenId) internal view returns(bool) {
+        return mintedTokens[_tokenId];
+    }
+    
+    /**
+     * @dev Function to get the index of a token in the array of tokens owned by a particular address
+     * @param _owner The address of the owner
+     * @param _tokenId The id of the token
+     */
+    function _getTokenIndex(address _owner, uint256 _tokenId) internal view returns(uint256) {
+        uint256[] storage allTokens = ownerTokens[_owner];
+        for(uint256 i = 0; i < allTokens.length; i++) {
+            if(allTokens[i] == _tokenId) {
+                return i;
+            }
+        }
+        
+        return 0;
+    }
+}

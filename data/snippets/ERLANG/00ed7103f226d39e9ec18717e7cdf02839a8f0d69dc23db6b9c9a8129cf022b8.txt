@@ -1,0 +1,158 @@
+-module(snake_game).
+-export([start/0, move/2, update/1, check_input/0, game_loop/1]).
+
+%% Define the game state record
+-record(game_state, {board, snake, food}).
+
+%% Game state initialization function
+start() ->
+    %% Create initial game state
+    Board = create_board(10, 10),
+    Snake = [{5, 5}],
+    Food = generate_food(Board, Snake),
+    GameState = #game_state{board=Board, snake=Snake, food=Food},
+    %% Start the game loop
+    game_loop(GameState).
+
+
+%% Main game loop
+game_loop(GameState) ->
+    %% Display current game state
+    print_board(GameState#game_state.board),
+    %% Update board and snake based on user input
+    {NewBoard, NewSnake} = update(GameState),
+    %% Check for game over conditions
+    GameOver = check_game_over(NewBoard, NewSnake),
+    case GameOver of
+        true ->
+            %% Game over, display final state and end game
+            print_game_over(NewBoard, NewSnake);
+        false ->
+            %% Continue game loop with updated game state
+            game_loop(#game_state{board=NewBoard, snake=NewSnake, food=GameState#game_state.food})
+    end.
+
+%% Function to handle user input
+check_input() ->
+    %% Get user input
+    Input = io:get_line("> "),
+    %% Parse input into movement direction
+    case Input of
+        "w\n" -> {0, 1};  %% Up
+        "a\n" -> {-1, 0}; %% Left
+        "s\n" -> {0, -1}; %% Down
+        "d\n" -> {1, 0};  %% Right
+        _ -> {0, 0}       %% Invalid input
+    end.
+
+%% Function to update game state based on user input
+update(GameState) ->
+    %% Get user input
+    {DeltaX, DeltaY} = check_input(),
+    %% Update snake position based on input
+    {NewSnake, NewFood} = move(GameState#game_state.snake, {DeltaX, DeltaY}),
+    %% Update board with new snake and food positions
+    NewBoard = update_board(GameState#game_state.board, NewSnake, NewFood),
+    %% Return updated board and snake
+    {NewBoard, NewSnake}.
+
+%% Function to move snake based on user input
+move(Snake, {DeltaX, DeltaY}) ->
+    %% Get current head position
+    Head = hd(Snake),
+    %% Calculate new head position based on input
+    NewHead = {Head#1 + DeltaX, Head#2 + DeltaY},
+    %% Add new head to snake and remove tail
+    NewSnake = [NewHead | lists:sublist(Snake, length(Snake) - 1)],
+    %% Return new snake and updated food position (if snake ate food)
+    {NewSnake, NewHead}.
+
+%% Function to generate food on the board in a random position
+generate_food(Board, Snake) ->
+    %% Get board size
+    {Height, Width} = size(Board),
+    %% Generate random x and y coordinates within board boundaries
+    RandX = random:uniform(Width),
+    RandY = random:uniform(Height),
+    %% Check if generated position is not on the snake
+    case lists:any(fun({X, Y}) -> X == RandX andalso Y == RandY end, Snake) of
+        true ->
+            %% If position is on snake, generate new position
+            generate_food(Board, Snake);
+        false ->
+            %% Return valid food position
+            {RandX, RandY}
+    end.
+
+%% Function to create initial game board
+create_board(Width, Height) ->
+    %% Create empty board with given dimensions
+    EmptyBoard = lists:duplicate(Height, lists:duplicate(Width, 0)),
+    %% Populate board with walls around edges
+    Board = populate_walls(EmptyBoard),
+    %% Return final board
+    Board.
+
+%% Function to populate walls on the game board
+populate_walls(Board) ->
+    %% Get board width and height
+    {Height, Width} = size(Board),
+    %% Add walls on edges of board
+    TopWall = lists:sublist(lists:concat(lists:duplicate(Width, [-1])), Width),
+    BottomWall = TopWall,
+    LeftWall = lists:concat(lists:duplicate(Height, [-1])),
+    RightWall = LeftWall,
+    %% Insert walls into board
+    NewBoard = [TopWall | lists:sublist(Board, Height - 2)] ++ [BottomWall],
+    FinalBoard = [[LeftWall | lists:sublist(Row, Width - 2) ++ [RightWall]] || Row <- NewBoard],
+    %% Return final board with walls
+    FinalBoard.
+
+%% Function to update board with new snake and food positions
+update_board(Board, Snake, Food) ->
+    %% Set snake head position on board
+    NewBoard = lists:replace(Board, Food, hd(Snake)),
+    %% Set rest of snake position on board
+    FinalBoard = lists:foldl(fun(Position, AccBoard) -> lists:replace(AccBoard, -1, Position) end, NewBoard, Snake),
+    %% Return final board
+    FinalBoard.
+
+%% Function to check for game over conditions
+check_game_over(Board, Snake) ->
+    %% Get board size
+    {Height, Width} = size(Board),
+    %% Check if snake has collided with wall
+    case lists:any(fun({X, Y}) -> X == 0 orelse X == Width + 1 orelse Y == 0 orelse Y == Height + 1 end, Snake) of
+        true -> true;   %% Snake collided with wall, game over
+        false ->
+            %% Check if snake has collided with itself
+            case lists:sublist(Snake, 1, length(Snake) - 1) of
+                [Head | Rest] -> lists:member(Head, Rest);  %% Check if head position is in rest of snake positions
+                _ -> false   %% Single length snake, no collision
+            end
+    end.
+
+%% Function to print game over message and final state
+print_game_over(Board, Snake) ->
+    io:fwrite("Game Over! \nFinal Score: ~p \n", [length(Snake)]),
+    print_board(Board).
+
+%% Function to print the game board
+print_board(Board) ->
+    %% Print top wall (upper border)
+    io:format("╔═~s═╗ \n", [lists:concat(lists:duplicate(size(Board), "══"))]),
+    %% Loop through each row in board
+    [io:format("║ ~s ║ \n", [lists:concat(["  " | [space(Position) || Position <- Row]])]) || Row <- Board],
+    %% Print bottom wall (lower border)
+    io:format("╚═~s═╝ \n", [lists:concat(lists:duplicate(size(Board), "══"))]).
+
+%% Helper function to convert -1 to obstacle character and 0 to blank space 
+space(-1) -> "██";
+space(0) -> "  ";
+space(_) -> "██".
+
+%% Helper function to get size of board
+size(Board) ->
+    Height = length(Board),
+    Width = length(hd(Board)),
+    {Height, Width}.

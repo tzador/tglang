@@ -1,0 +1,130 @@
+! This program uses the SIMPLE algorithm to solve the Navier-Stokes equations
+! for a given fluid flow problem
+program SIMPLE
+implicit none
+integer :: n, i, j, k, iter, nmax ! declaring variables
+real :: dx, dy, dt      ! declaring constants
+real, dimension(100,100) :: press, u, v, p, uold, vold, newp   ! declaring arrays
+real, parameter :: PI = 3.14159   ! defining constants
+
+! Setting initial values for grid size and time step
+n = 50
+dx = 0.01
+dy = 0.01
+dt = 0.001
+
+! Setting initial values for velocity and pressure arrays
+do i = 2, n-1
+  do j = 2, n-1
+    u(i,j) = 0.0     ! initializing u velocity to 0.0
+    v(i,j) = 0.0     ! initializing v velocity to 0.0
+    p(i,j) = 0.0     ! initializing pressure to 0.0
+  end do
+end do
+
+! Setting boundaries for velocity arrays
+do j = 1, n
+    u(1,j) = 0.0     ! bottom boundary
+    v(1,j) = 0.0     ! bottom boundary
+    u(n,j) = 0.0     ! top boundary
+    v(n,j) = 0.0     ! top boundary
+end do
+do i = 1, n
+    u(i,1) = 0.0     ! left boundary
+    v(i,1) = 0.0     ! left boundary
+    u(i,n) = 1.0     ! right boundary
+    v(i,n) = 0.0     ! right boundary
+end do
+
+! Setting initial values for pressure array at iteration 0
+do i = 1, n
+  do j = 1, n
+    press(i,j) = 0.0
+  end do
+end do
+
+! Beginning main loop for SIMPLE algorithm
+nmax = 500     ! maximum number of iterations
+do iter = 1, nmax
+  ! store current values of velocity arrays
+  do i = 1, n
+    do j = 1, n
+      uold(i,j) = u(i,j)
+      vold(i,j) = v(i,j)
+    end do
+  end do
+
+  ! solve for pressure using Poisson equation
+  do i = 2, n-1
+    do j = 2, n-1
+      ! calculating values for coefficient matrix coefficients
+      a_e = (u(i,j) + u(i+1,j)) / 2.0
+      a_w = (u(i-1,j) + u(i,j)) / 2.0
+      a_n = (v(i,j) + v(i,j+1)) / 2.0
+      a_s = (v(i,j-1) + v(i,j)) / 2.0
+
+      ! setting up equations for pressure at cell (i,j)
+      p(i,j) = (p(i+1,j) * a_e + p(i-1,j) * a_w + p(i,j+1) * a_n + p(i,j-1) * a_s -
+                dx * dy * ( (a_e - a_w) * (u(i+1,j) - u(i,j)) + (a_n - a_s) * (v(i,j+1) - v(i,j)) ) ) /
+                (2.0 * (a_e + a_w + a_n + a_s))
+    end do
+  end do
+
+  ! correct velocity values using pressure correction
+  do i = 2, n-1
+    do j = 2, n-1
+      ! calculating pressure gradients
+      dpdx = (p(i+1,j) - p(i-1,j)) / (2.0 * dx)
+      dpdy = (p(i,j+1) - p(i,j-1)) / (2.0 * dy)
+
+      ! updating velocity values
+      u(i,j) = u(i,j) - dt * dpdx
+      v(i,j) = v(i,j) - dt * dpdy
+    end do
+  end do
+
+  ! enforce boundary conditions for pressure
+  do j = 1, n
+    press(1,j) = press(2,j)    ! left boundary
+    press(n,j) = press(n-1,j)  ! right boundary
+  end do
+  do i = 1, n
+    press(i,1) = press(i,2)    ! bottom boundary
+    press(i,n) = press(i,n-1)  ! top boundary
+  end do
+
+  ! check for convergence
+  if (iter > 1) then
+    ! calculate convergence metric
+    resid = 0.0
+    do i = 1, n
+      do j = 1, n
+        resid = resid + abs(p(i,j) - newp(i,j))
+      end do
+    end do
+
+    ! check if convergence is achieved
+    if (resid < 1.0E-6) then
+      write(*,*) "Convergence achieved after", iter, "iterations."
+      exit   ! end program
+    end if
+  end if
+
+  ! update pressure array for next iteration
+  do i = 1, n
+    do j = 1, n
+      newp(i,j) = p(i,j)
+    end do
+  end do
+end do
+
+! print final values of velocity and pressure arrays
+do i = 1, n
+  do j = 1, n
+    write(*,*) "u(", i, ",", j, ") =", u(i,j)
+    write(*,*) "v(", i, ",", j, ") =", v(i,j)
+    write(*,*) "p(", i, ",", j, ") =", p(i,j)
+  end do
+end do
+
+end program SIMPLE

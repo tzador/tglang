@@ -1,0 +1,42 @@
+/* Sample program to read, clean, and summarize a dataset */
+
+/* Set options and define macros */
+
+options nosource nonumber nocenter missing=0;
+
+%macro numvar(var);
+  %global &var.;
+  %local cnt;
+  %let cnt=1;
+  data _null_;
+    set dataset;
+    array vars(*) &var.;
+    do while(cnt<=dim(vars));
+      if vars(cnt)<0 then vars(cnt)=vars(cnt)*-1;
+      cnt+1;
+    end;
+    call symputx("&var.",vars(1));
+    stop;
+  run;
+%mend;
+
+/* Read and clean dataset */
+
+data dataset2;
+  set dataset(rename=(variable=var)); /* rename variable to var for convenience */
+  if var not in (., $ERROR., $SYSMIS.); /* remove missing values */
+run;
+
+/* Summarize data by grouping variable */
+
+proc means data=dataset2;
+  class group_var;
+  var var;
+run;
+
+/* Calculate frequencies and percentages for categorical variable */
+
+proc freq data=dataset2;
+  tables cat_var / nopercent nocum;
+  weight weight_var; /* apply weights to account for unequal sample sizes */
+run;

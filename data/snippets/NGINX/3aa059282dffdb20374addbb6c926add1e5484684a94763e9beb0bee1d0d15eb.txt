@@ -1,0 +1,72 @@
+# Server block for example.com
+server {
+    listen 80; # Listen on port 80
+
+    server_name example.com; # Server name
+
+    root /var/www/example.com/public_html; # Root directory for website
+
+    # Redirect all HTTP requests to HTTPS
+    # This ensures all traffic is secure
+    return 301 https://$server_name$request_uri;
+
+    # SSL configuration
+    listen 443 ssl;
+    ssl_certificate /etc/nginx/ssl/example.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/example.com.key;
+
+    # Enable HTTP/2; improves website performance
+    http2_push_preload on;
+
+    # Enable secure headers to protect against common attacks
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Content-Security-Policy "default-src 'self'" always;
+    add_header Referrer-Policy "same-origin" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+
+    # Location block for all website requests
+    # Allows for custom configurations for specific website paths
+    location / {
+        try_files $uri $uri/ /index.php?$query_string; # PHP support
+        index index.php index.html index.htm; # Default index files
+    }
+
+    # Location block for static files
+    location ~* \.(jpg|jpeg|gif|png|css|js|ico)$ {
+        expires max; # Set caching period for files
+        log_not_found off; # Hide log errors if file not found
+    }
+
+    # Location block for PHP requests
+    location ~ \.php$ {
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+
+        # Ensure PHP scripts are executed via PHP-FPM
+        fastcgi_pass unix:/run/php/php7.4-fpm.sock;
+        fastcgi_index index.php;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+    }
+
+    # Enable GZIP compression for website files
+    gzip on;
+    gzip_types text/plain text/css application/javascript application/json text/xml application/xml application/xml+rss text/javascript;
+
+    # Deny access to hidden files and directories
+    location ~ /\. {
+        deny all;
+    }
+
+    # Custom error page for 404 errors
+    error_page 404 /error/404.html;
+    location = /error/404.html {
+        internal;
+    }
+
+    # Disable access to server files
+    location ~* /(?:uploads|files)/.*\.php$ {
+        deny all;
+    }
+}

@@ -1,0 +1,59 @@
+pragma solidity ^0.8.0; // Setting the version of Solidity to use
+
+contract Bank { // Defining a contract called Bank
+
+    address payable private owner; // Declaring owner variable with an address that can receive and send funds
+    mapping(address => uint) private balances; // Declaring a map for storing address and balance information
+
+
+    //Constructor function to set the owner as the address that deployed the contract
+    constructor() {
+        owner = payable(msg.sender);
+    }
+
+    // Events to keep track of all the deposits and withdrawals made
+    event Deposit(address depositor, uint amount);
+    event Withdrawal(address withdrawer, uint amount);
+
+    // Modifier to restrict certain functions to the owner only
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the contract owner can call this function.");
+        _;
+    }
+
+    // Function to deposit funds into the account
+    function deposit() public payable {
+        require(msg.value > 0, "Please specify an amount to deposit.");
+        balances[msg.sender] += msg.value;
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    // Function to withdraw funds from the account
+    function withdraw(uint amount) public {
+        require(amount > 0, "Please specify an amount to withdraw.");
+        require(amount <= balances[msg.sender], "Insufficient balance.");
+        msg.sender.transfer(amount);
+        balances[msg.sender] -= amount;
+        emit Withdrawal(msg.sender, amount);
+    }
+
+    // Function to check the current balance of the account
+    function checkBalance() public view returns (uint) {
+        return balances[msg.sender];
+    }
+
+    // Function to transfer funds from one account to another
+    function transfer(address recipient, uint amount) public {
+        require(recipient != address(0), "Please provide a valid address to transfer to.");
+        require(amount > 0, 'Please specify an amount to transfer.');
+        require(amount <= balances[msg.sender], "Insufficient balance.");
+        balances[msg.sender] -= amount;
+        balances[recipient] += amount;
+    }
+
+    // Function to close the contract and transfer the remaining balance to the owner
+    function closeContract() public onlyOwner {
+        require(address(this).balance > 0, "There are no funds in the contract to transfer.");
+        owner.transfer(address(this).balance);
+    }
+}

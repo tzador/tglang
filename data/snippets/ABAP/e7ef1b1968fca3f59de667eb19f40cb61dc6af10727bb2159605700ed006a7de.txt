@@ -1,0 +1,56 @@
+DATA: lt_customer TYPE STANDARD TABLE OF kna1 WITH HEADER LINE,
+      lt_fw_updates TYPE STANDARD TABLE OF fw_updates WITH HEADER LINE,
+      ls_customer TYPE kna1,
+      lv_vtext TYPE i,
+      lv_counter TYPE i,
+      lv_bool TYPE abap_bool,
+      lv_current_date TYPE d.
+
+* Select all customers with a specific sales organization
+SELECT * FROM kna1
+  INTO TABLE lt_customer
+  WHERE vkorg = '1000'.
+
+* Iterate through the customer table
+LOOP AT lt_customer INTO ls_customer.
+
+  * Get the current date
+  GET TIME FIELD lv_current_date.
+
+  * Check if the customer belongs to sales organization 1000
+  IF ls_customer-vkorg = '1000'.
+
+    * Get the number of warranty updates for the customer
+    SELECT COUNT( * ) AS update_count
+      FROM fw_updates
+      WHERE customer_number = ls_customer-kunnr
+        AND update_date <= lv_current_date
+      INTO lv_vtext.
+
+    * If update count is greater than 5, set the boolean flag to true
+    IF lv_vtext > 5.
+      lv_bool = abap_true.
+
+    ELSE.
+      lv_bool = abap_false.
+    ENDIF.
+
+    * Append the boolean flag to the result table
+    INSERT lv_bool INTO TABLE lt_fw_updates.
+
+  * If the customer does not belong to sales organization 1000, set the boolean flag to false and append it to the result table
+  ELSE.
+    lv_counter = lv_counter + 1.
+    lv_bool = abap_false.
+    INSERT lv_bool INTO TABLE lt_fw_updates.
+  ENDIF.
+
+  * Check if counter reaches 50, exit the loop
+  IF lv_counter = 50.
+    EXIT.
+  ENDIF.
+
+ENDLOOP.
+
+* Output the result table
+WRITE: / 'Boolean flags for all customers:', lt_fw_updates.

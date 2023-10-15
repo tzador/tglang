@@ -1,0 +1,129 @@
+const { ApolloServer, gql } = require('apollo-server');
+
+// Define schema using GraphQL
+const typeDefs = gql`
+  type User {
+    id: ID!
+    name: String!
+    age: Int
+    email: String
+    friends: [User!]!
+    posts: [Post!]!
+  }
+
+  type Post {
+    id: ID!
+    title: String!
+    body: String!
+    author: User!
+    comments: [Comment!]!
+  }
+
+  type Comment {
+    id: ID!
+    text: String!
+    author: User!
+  }
+
+  type Query {
+    users: [User]!
+    posts: [Post]!
+    comments: [Comment]!
+  }
+
+  type Mutation {
+    createUser(name: String!, age: Int, email: String): User!
+    createPost(title: String!, body: String!, authorId: ID!): Post!
+    createComment(text: String!, postId: ID!, authorId: ID!): Comment!
+  }
+`;
+
+// Define resolvers
+const resolvers = {
+  Query: {
+    users: () => users,
+    posts: () => posts,
+    comments: () => comments
+  },
+  Mutation: {
+    createUser: (parent, args) => {
+      const user = {
+        id: users.length + 1,
+        name: args.name,
+        age: args.age,
+        email: args.email
+      };
+
+      users.push(user);
+      return user;
+    },
+    createPost: (parent, args) => {
+      const post = {
+        id: posts.length + 1,
+        title: args.title,
+        body: args.body,
+        authorId: args.authorId
+      };
+
+      posts.push(post);
+      return post;
+    },
+    createComment: (parent, args) => {
+      const comment = {
+        id: comments.length + 1,
+        text: args.text,
+        postId: args.postId,
+        authorId: args.authorId
+      };
+
+      comments.push(comment);
+      return comment;
+    }
+  },
+  User: {
+    friends: (parent) => users.filter(user => parent.friends.includes(user.id)),
+    posts: (parent) => posts.filter(post => post.authorId === parent.id)
+  },
+  Post: {
+    author: (parent) => users.find(user => user.id === parent.authorId),
+    comments: (parent) => comments.filter(comment => comment.postId === parent.id)
+  },
+  Comment: {
+    author: (parent) => users.find(user => user.id === parent.authorId)
+  }
+};
+
+// Create Apollo server and define context
+const server = new ApolloServer({
+  typeDefs,
+  resolvers,
+  context: {
+    users,
+    posts,
+    comments
+  }
+});
+
+// Start server on port 4000
+server.listen(4000).then(({ url }) => {
+  console.log(`Server ready at ${url}`);
+});
+
+// Sample data
+const users = [
+  { id: "1", name: "John", age: 25, email: "john@example.com", friends: ["2", "3"], posts: ["1"] },
+  { id: "2", name: "Lisa", age: 30, email: "lisa@example.com", friends: ["1"], posts: ["2", "4"] },
+  { id: "3", name: "Mike", age: 28, email: "mike@example.com", friends: ["1"], posts: ["3"] }
+];
+
+const posts = [
+  { id: "1", title: "Post 1", body: "This is the first post", authorId: "1", comments: ["1"] },
+  { id: "2", title: "Post 2", body: "This is the second post", authorId: "2", comments: ["2"] },
+  { id: "3", title: "Post 3", body: "This is the third post", authorId: "3", comments: [] },
+  { id: "4", title: "Post 4", body: "This is the fourth post", authorId: "2", comments: [] }
+];
+
+const comments = [
+  { id: "1", text: "Great post!", postId: "1", authorId: "2" },
+  { id: "2", text: "Amazing!", postId: "2", authorId: "3" }
+];

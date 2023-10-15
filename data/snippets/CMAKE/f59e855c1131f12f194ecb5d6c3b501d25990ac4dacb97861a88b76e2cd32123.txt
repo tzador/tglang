@@ -1,0 +1,80 @@
+# Set minimum required version of CMake
+cmake_minimum_required(VERSION 3.10)
+
+# Set project name
+project(my_project)
+
+# Create a variable to store all source files
+set(SOURCES 
+    "src/main.cpp"
+    "src/utils.cpp"
+    "src/parser.cpp"
+    )
+
+# Add a library target
+add_library(utils ${SOURCES})
+
+# Set C++ standard to use
+set(CMAKE_CXX_STANDARD 17)
+
+# Add an executable target and link it with the library
+add_executable(my_app "src/app.cpp")
+target_link_libraries(my_app PRIVATE utils)
+
+# Set output directory for built binaries
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+# Set compiler flags
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    # Enable warning flags
+    target_compile_options(utils PRIVATE -Wall -Wextra -Wpedantic)
+
+    # Enable debug symbols
+    target_compile_options(utils PRIVATE -g)
+
+    # Set optimization level for release builds
+    target_compile_options(utils PUBLIC "$<$<CONFIG:RELEASE>:-O3>")
+
+    # Enable link time optimization for release builds
+    target_link_options(utils PUBLIC "$<$<CONFIG:RELEASE>:-flto>")
+endif()
+
+# Add custom command to generate documentation using Doxygen
+find_package(Doxygen REQUIRED)
+add_custom_command(TARGET utils POST_BUILD
+    COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/doc
+    COMMENT "Generating documentation with Doxygen"
+    VERBATIM
+)
+
+# Specify the location of header files for the library
+target_include_directories(utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+# Set a preprocessor definition
+target_compile_definitions(utils PRIVATE MY_PROJECT_VERSION="1.0.0")
+
+# Add an install target
+install(TARGETS utils
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    RUNTIME DESTINATION bin
+)
+
+# Add a custom test target
+enable_testing()
+add_test(NAME utils_tests COMMAND utils_tests)
+add_executable(utils_tests "test/utils_test.cpp")
+target_link_libraries(utils_tests PRIVATE utils)
+add_test(NAME parser_tests COMMAND parser_tests)
+add_executable(parser_tests "test/parser_test.cpp")
+target_link_libraries(parser_tests PRIVATE utils)
+
+# Add a custom target to format all source files using clang-format
+find_program(CLANG_FORMAT_EXECUTABLE NAMES clang-format)
+add_custom_target(format
+    COMMAND ${CLANG_FORMAT_EXECUTABLE} -i ${SOURCES} ${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp ${CMAKE_CURRENT_SOURCE_DIR}/test/*.cpp
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Running clang-format"
+    VERBATIM
+)

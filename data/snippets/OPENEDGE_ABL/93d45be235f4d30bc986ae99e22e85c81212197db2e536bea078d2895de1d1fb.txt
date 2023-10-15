@@ -1,0 +1,39 @@
+/* This is a code snippet in OPENEDGE_ABL */
+ 
+DEFINE VARIABLE i AS INTEGER NO-UNDO.
+
+/* Creating an internal table for storing customer data */
+DEFINE TEMP-TABLE ttCustomer
+  FIELD CustNum AS INTEGER FORMAT "zzz,zzz,zz9"
+  FIELD Name AS CHARACTER FORMAT "x(20)"
+  FIELD City AS CHARACTER FORMAT "x(20)"
+INDEX CustNum IS PRIMARY UNIQUE Name.
+
+DEFINE QUERY qCustomer FOR ttCustomer, ttOrders.
+
+/* Defining a procedure to insert data into the internal table */
+PROCEDURE InsertCustomer:
+  INPUT PARAMETER piName AS CHARACTER,
+               piCity AS CHARACTER,
+         piCustNum AS INTEGER  /* Using aquire-name function to generate unique customer number */
+  ASSIGN piCustNum = ACQUIRE-NEXT-VALUE("SeqCustNum").
+  CREATE ttCustomer.
+  ASSIGN
+     ttCustomer.CustNum = piCustNum
+     ttCustomer.Name = piName
+     ttCustomer.City = piCity.
+END PROCEDURE.
+
+/* Looping through a data source and calling the InsertCustomer procedure to insert data into the internal table */
+FOR EACH Customer OF qCustomer WHERE Customer.City = "New York":
+
+  RUN InsertCustomer (INPUT Customer.Name, Customer.City, 0).
+
+END.
+
+/* Displaying the customer data in the internal table */
+FIND FIRST ttCustomer NO-LOCK.
+DISPLAY
+  ttCustomer.CustNum FORMAT "zzz,zzz,zz9"
+  ttCustomer.Name
+  ttCustomer.City.

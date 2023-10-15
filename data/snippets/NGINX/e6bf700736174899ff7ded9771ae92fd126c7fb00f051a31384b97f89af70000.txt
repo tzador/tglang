@@ -1,0 +1,73 @@
+# This is a basic NGINX configuration file
+# The following lines define the server block
+server {
+    listen 80;  # Listen on port 80 for incoming requests
+    server_name example.com;  # Set the server name to example.com
+    
+    # Define the location block for the root directory
+    location / {
+        root /var/www/html;  # Set the location of the root directory
+        index index.html;    # Set the default file to be served
+    }
+    
+    # Define the location block for the /images directory
+    location /images {
+        root /var/www;  # Set the location of the root directory
+        autoindex on;   # Enable directory listing
+        try_files $uri /index.html;  # Serve index.html if file not found
+    }
+    
+    # Define the error page for HTTP 404 errors
+    error_page 404 /404.html;
+    location = /404.html {
+        root /var/www/errors;  # Set the location of the error page
+        internal;   # Restrict access to the error page only from within NGINX
+    }
+    
+    # Enable gzip compression for improved performance
+    gzip on;
+    gzip_types text/plain text/css application/json;  # Set the file types to be compressed
+    
+    # Enable caching for static files
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+        expires 1d; # Set the caching duration to 1 day
+    }
+}
+
+# Define upstream servers for load balancing
+upstream backend {
+    server 10.0.0.1:8080;   # Add a backend server with IP 10.0.0.1 and port 8080
+    server 10.0.0.2:8080;   # Add another backend server
+    server 10.0.0.3:8080;   # Add a third backend server
+}
+
+# Configure a virtual host for example.com on HTTPS
+server {
+    listen 443 ssl;
+    server_name example.com;
+    
+    # Specify the SSL certificate and key
+    ssl_certificate /etc/nginx/ssl/example.crt;
+    ssl_certificate_key /etc/nginx/ssl/example.key;
+    
+    # Enable HTTP/2 for improved performance
+    http2 on;
+    
+    # Configure the location block for the root directory
+    location / {
+        root /var/www/html;
+        index index.html;
+    }
+    
+    # Pass all requests to the upstream servers for load balancing
+    location /backend/ {
+        proxy_pass http://backend/;
+    }
+    
+    # Configure caching and gzip compression for static files
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+        expires 1d;
+        gzip on;
+        gzip_types text/plain text/css application/json;
+    }
+}

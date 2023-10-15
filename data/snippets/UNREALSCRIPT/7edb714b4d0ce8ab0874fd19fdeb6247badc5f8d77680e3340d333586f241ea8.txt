@@ -1,0 +1,123 @@
+//Creating a customized character class
+Class CustomCharacter extends Character
+  dependson(Sprite, Decal)
+
+  var() enum ETeam
+    TEAM_Red,
+    TEAM_Blue,
+    TEAM_Green,
+    TEAM_Yellow;
+
+  var() bool bJumping;
+  
+  //Event called when character jumps
+  event OnJump()
+  {
+    //Do something when character jumps
+    bJumping = true;
+    PlayAnim("jump");
+    PlaySound(jumpSound);
+  }
+
+  //Function to handle character movement
+  function MoveCharacter(float DeltaTime)
+  {
+    //Calculate character movement based on input
+    local Vector MoveDir = Vector(Input.x, Input.y, 0) * DeltaTime * Speed;
+    Move(MoveDir);
+
+    if (Input.x != 0 || Input.y != 0)
+    {
+      //Set character rotation to face direction of movement
+      local Quaternion NewRotation = Rotation;
+      NewRotation.Yaw = ArcTan2(Input.x, Input.y) * RadToDeg;
+      SetRotation(NewRotation);
+    }
+
+    if (bJumping)
+    {
+      //Apply upward force for jumping
+      local Vector JumpForce = Vector(0, 0, 1) * JumpHeight;
+      AddImpulse(JumpForce);
+      bJumping = false;
+    }
+  }
+
+  //Function to handle character collisions
+  function HandleCollision()
+  {
+    //Check for collisions with walls and other objects
+    if (TouchingWall() || TouchingActor())
+    {
+      //Play sound and set jump animation to stop when colliding
+      PlaySound(collisionSound);
+      StopAnim("jump");
+    }
+
+    if (TouchingGround())
+    {
+      //Play sound when character lands on the ground
+      PlaySound(landSound);
+    }
+  }
+
+  //Function to handle character damage
+  function TakeDamage(int DamageAmount)
+  {
+    //Decrease health and check if character is still alive
+    Health -= DamageAmount;
+
+    if (Health <= 0)
+    {
+      //Character is dead, play death animation and destroy actor
+      PlayAnim("death");
+      Destroy();
+    }
+  }
+
+  //Function called when character uses a power-up
+  function UsePowerUp(PowerUpType Type)
+  {
+    //Activate different power-up effects based on type
+    switch(Type)
+    {
+      case PowerUpType.Health:
+        //Increase health
+        Health += 25;
+        break;
+      case PowerUpType.Speed:
+        //Increase movement speed
+        Speed += 25;
+        break;
+      case PowerUpType.Invisibility:
+        //Make character invisible
+        SetActorHidden(true);
+        break;
+    }
+  }
+
+  defaultproperties
+  {
+    Mesh=StaticMesh'UnrealLogoMesh'
+    bStopAtTimeZero=True
+    bShouldCrouch=False
+    bCanBeUsedAsSolid=True
+    CanCrouch=True
+    Team=TEAM_Red
+    JumpHeight=750.0
+    Health=100
+    Speed=500.0
+    PowerUpTypes=PowerUpType[3](Health, Speed, Invisibility)
+    collisionSound=SoundCue'CollisionSound'
+    jumpSound=SoundCue'JumpSound'
+    landSound=SoundCue'LandSound'
+  }
+  
+  //Enum for different types of power-ups
+  enum PowerUpType
+  {
+    Health,
+    Speed,
+    Invisibility
+  }
+}

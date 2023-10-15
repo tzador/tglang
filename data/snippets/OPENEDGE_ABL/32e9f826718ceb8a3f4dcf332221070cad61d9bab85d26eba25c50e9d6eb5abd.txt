@@ -1,0 +1,60 @@
+RUN store.p
+   (INPUT char-name, char-age, char-class, OUTPUT char-id, char-stats).
+
+/* Runs the store procedure with input parameters for the character's name, age, and class,
+and outputs the generated character ID and stats. */
+
+ASSIGN char-weapon = LOOKUP(weapon-table,
+           WHERE weapon-class = char-class,
+           FIRST name).
+
+/* Assigns the character's weapon based on their chosen class, using data from the weapon table. */
+
+IF char-age <= 18 THEN
+   DO:
+      char-stats.strength = char-stats.strength - 5.
+      char-stats.dexterity = char-stats.dexterity + 10.
+   END.
+ELSE
+   DO:
+      char-stats.wisdom = char-stats.wisdom + 15.
+      char-stats.intelligence = char-stats.intelligence + 5.
+   END.
+
+/* Modifies the character's stats based on their age, with different effects for
+those younger than or equal to 18 and those older than 18. */
+
+OUTPUT TO char-log.txt.
+
+/* Sends output to the designated log file. */
+
+FOR EACH purchased-item NO-LOCK:
+   FIND item WHERE item.id = purchased-item.id
+       AND item.price < char-gold.
+
+/* Loops through all purchased items and finds any items that are cheaper than the
+character's current gold amount. */
+
+IF AVAILABLE item THEN
+   DO:
+      ASSIGN char-gold = char-gold - item.price.
+      DISPLAY "Purchased " + item.name + " for " + STRING(item.price) + " gold.".
+   END.
+ELSE
+   DISPLAY "Insufficient gold to purchase " + purchased-item.name + ".".
+   
+/* If the desired item is available, the character's gold is reduced by the item price
+and a message is displayed with the item name and price. If the item is not available,
+a message is displayed stating there is not enough gold to purchase it. */
+
+OUTPUT CLOSE.
+
+/* Closes the output file. */
+
+UPDATE character SET
+   weapon-id = char-weapon
+   stats = char-stats
+   WHERE id = char-id.
+
+/* Updates the character's weapon and stats in the database based on the assigned values.
+Only updates for the specific character ID used as input. */

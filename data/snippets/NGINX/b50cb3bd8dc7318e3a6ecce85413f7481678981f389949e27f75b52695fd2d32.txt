@@ -1,0 +1,89 @@
+# NGINX Configuration File
+user nginx;        # set user for server processes
+worker_processes 4; # specify number of worker processes
+error_log /var/log/nginx/error.log; # specify location of error log file
+
+events {            # define the type of events that can occur
+    worker_connections 1024;        # specify the maximum number of connections for each worker process
+}
+
+http {              # define HTTP settings
+    include /etc/nginx/mime.types; # specify the location of MIME types file
+    
+    #set default MIME type
+    default_type application/octet-stream;
+    
+    #configure buffer sizes
+    client_body_buffer_size 10m;    # set the buffer size for client request bodies
+    client_max_body_size 8m;        # set the maximum size of a client request body
+    
+    #set timeouts
+    send_timeout 2m;                # set the timeout for sending a response to a client request
+    
+    server {                       # define server settings
+        listen       80;
+        server_name  localhost;       # set server name
+        
+        root   /usr/share/nginx/html; # specify root directory for server
+        
+        # set default page
+        index index.html index.htm;
+        
+        # set error pages
+        error_page 500 502 503 504 /50x.html;
+        location = /50x.html {
+            root /usr/share/nginx/html;
+        }
+        
+        # configure gzip compression
+        gzip on;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
+        
+        # define locations for different server requests
+        location / {
+            # enable caching for static assets
+            expires 1M;
+            add_header Cache-Control "public";
+        }
+        
+        location ~* \.(css|js)$ {
+            # enable gzip compression for CSS and JS files
+            gzip_static on;
+            expires 1d;
+            add_header Cache-Control "public, no-transform";
+        }
+        
+        location ~* \.(jpg|jpeg|png|gif|ico)$ {
+            # enable caching for image files
+            expires 30d;
+            add_header Cache-Control "public, no-transform";
+        }
+        
+        location ~* \.(pdf|doc|docx|xls|xlsx|ppt|pptx)$ {
+            # enable caching for document files
+            expires 30d;
+            add_header Cache-Control "public, no-transform";
+        }
+
+        # redirect all requests to HTTPS
+        if ($scheme != "https") {
+            rewrite ^ https://$host$request_uri permanent;
+        }
+        
+        # configure SSL settings
+        ssl on;
+        ssl_certificate /etc/ssl/certs/nginx-selfsigned.crt;
+        ssl_certificate_key /etc/ssl/private/nginx-selfsigned.key;
+        
+        # restrict access to secret files
+        location ~ /\. {
+            deny all;
+        }
+        
+        location = /favicon.ico {
+            # serve favicon
+            access_log off;
+            log_not_found off;
+        }
+    }
+}

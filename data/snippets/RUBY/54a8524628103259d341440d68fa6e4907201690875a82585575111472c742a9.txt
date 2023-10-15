@@ -1,0 +1,76 @@
+require 'net/http'
+
+# Define custom exception to handle errors
+class CustomException < StandardError
+    def initialize(msg="Something went wrong.")
+        super
+    end
+end
+
+# Create a class to handle API requests
+class ApiHandler
+    # Initialize class with API key
+    def initialize(api_key)
+        # Make sure API key is properly formatted
+        if api_key =~ /\A[0-9A-F]{32}\z/i
+            @api_key = api_key
+        else
+            raise CustomException, "Invalid API key format."
+        end
+    end
+
+    # Method to make GET requests to API
+    def make_get_request(url)
+        # Check if URL is valid
+        if url =~ /\A#{URI::regexp}\z/
+            # Create a new HTTP object
+            http = Net::HTTP.new(URI(url).host, URI(url).port)
+            # Set up SSL if necessary
+            http.use_ssl = (url =~ /\Ahttps:\/\//) ? true : false
+            # Make GET request
+            response = http.request(Net::HTTP::Get.new(URI(url).request_uri))
+            # Check response code
+            case response.code
+            when "200"
+                return response.body if response.body
+            when "401"
+                raise CustomException, "Unauthorized request."
+            else
+                raise CustomException, "Something went wrong."
+            end
+        else
+            raise CustomException, "Invalid URL format."
+        end
+    end
+
+    # Method to make POST requests to API
+    def make_post_request(url, body)
+        # Check if URL is valid
+        if url =~ /\A#{URI::regexp}\z/
+            # Create a new HTTP object
+            http = Net::HTTP.new(URI(url).host, URI(url).port)
+            # Set up SSL if necessary
+            http.use_ssl = (url =~ /\Ahttps:\/\//) ? true : false
+            # Make POST request
+            response = http.request(Net::HTTP::Post.new(URI(url).request_uri, body))
+            # Check response code
+            case response.code
+            when "200"
+                return response.body if response.body
+            when "401"
+                raise CustomException, "Unauthorized request."
+            else
+                raise CustomException, "Something went wrong."
+            end
+        else
+            raise CustomException, "Invalid URL format."
+        end
+    end
+end
+
+# Example usage
+api_key = "ab12cd34ef56gh78ij90kl12mn34op56"
+api_handler = ApiHandler.new(api_key)
+url = "https://example-api.com"
+post_data = { name: "John Doe", email: "johndoe@example.com" }
+api_handler.make_post_request(url, post_data)

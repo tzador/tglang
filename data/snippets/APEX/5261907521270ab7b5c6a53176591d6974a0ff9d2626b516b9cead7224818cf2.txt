@@ -1,0 +1,86 @@
+// This code snippet creates a custom object with fields and triggers in Salesforce Apex
+
+/* Create custom object called "Product" */
+// Product__c - API name for the custom object
+Object__c Product__c = new Object__c(
+    Label = 'Product', // Display label for the custom object
+    PluralLabel = 'Products' // Plural display label for the custom object
+);
+
+/* Create custom fields for the product object */
+// Field 1 - Name field with text data type
+Field__c Name__c = new Field__c(
+    APIName = 'Name', // API name for the field
+    DataType = 'Text', // Data type for the field
+    Label = 'Name' // Display label for the field
+);
+// Field 2 - Description field with long text data type
+Field__c Description__c = new Field__c(
+    APIName = 'Description', // API name for the field
+    DataType = 'Long Text', // Data type for the field
+    Label = 'Description' // Display label for the field
+);
+// Field 3 - Price field with currency data type
+Field__c Price__c = new Field__c(
+    APIName = 'Price', // API name for the field
+    DataType = 'Currency', // Data type for the field
+    Label = 'Price' // Display label for the field
+);
+// Field 4 - Quantity field with number data type
+Field__c Quantity__c = new Field__c(
+    APIName = 'Quantity', // API name for the field
+    DataType = 'Number', // Data type for the field
+    Label = 'Quantity' // Display label for the field
+);
+
+/* Create triggers for the product object */
+// Trigger 1 - Before insert trigger that sets price to 0 if not provided
+Trigger BeforeInsertProducts on Product__c (before insert) {
+    for(Product__c p : Trigger.new) {
+        if(p.Price__c == null) {
+            p.Price__c = 0; // set price to 0
+        }
+    }
+}
+// Trigger 2 - After insert trigger that sends an email notification to user when a new product is added
+Trigger AfterInsertProducts on Product__c (after insert) {
+    List<Id> userIds = new List<Id>(); // list to store user IDs
+    for(Product__c p : Trigger.new) {
+        userIds.add(p.CreatedById); // add user ID who created the product to the list
+    }
+    List<User> users = [SELECT Name, Email FROM User WHERE Id IN :userIds]; // query for users using the list of user IDs
+    for(User u : users) {
+        Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
+        /* The email message will be sent to the user who created the product */
+        mail.setToAddresses(new List<String>{u.Email});
+        mail.setSubject('New Product Added');
+        mail.setPlainTextBody('Dear ' + u.Name + ',\nA new product has been added to the database.\nPlease review and make any necessary updates.\n\nBest regards,\nThe Product Team');
+        Messaging.sendEmail(new List<Messaging.SingleEmailMessage>{mail});
+    }
+}
+// Trigger 3 - Before update trigger that prevents the quantity from being set to a negative value
+Trigger BeforeUpdateProducts on Product__c (before update) {
+    for(Product__c p : Trigger.new) {
+        if(p.Quantity__c < 0) {
+            p.Quantity__c = 0; // set quantity to 0
+        }
+    }
+}
+
+/* Add the custom fields to the product object */
+Database.SaveResult[] results = Database.Insert(new List<Object__c>{Product__c}); // insert the custom object and get the results
+if(results[0].isSuccess()) {
+    // insert the custom fields and get the results
+    Database.SaveResult[] fieldResults = Database.Insert(new List<Field__c>{Name__c, Description__c, Price__c, Quantity__c});
+    for(Database.SaveResult sr : fieldResults) {
+        if(sr.isSuccess()) {
+            System.debug('Field successfully created'); // print success message
+        }
+        else {
+            System.debug('Error creating field: ' + sr.getErrors()[0].getMessage()); // print error message
+        }
+    }
+}
+else {
+    System.debug('Error creating object: ' + results[0].getErrors()[0].getMessage()); // print error message
+}

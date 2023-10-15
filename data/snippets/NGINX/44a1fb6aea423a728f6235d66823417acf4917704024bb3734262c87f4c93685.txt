@@ -1,0 +1,67 @@
+# Define a server block
+server {
+    # Listen on port 80 for HTTP requests
+    listen 80;
+    # Define a server_name for the block
+    server_name example.com;
+
+    # Define a location block for requests to "/users"
+    location /users {
+        # Set proxy_pass to redirect requests to a different server
+        proxy_pass http://127.0.0.1:3000;
+        # Set proxy_set_header to forward the HTTP host header
+        proxy_set_header Host $host;
+    }
+
+    # Define a location block for requests to "/api"
+    location /api {
+        # Set proxy_pass to redirect requests to a different server
+        proxy_pass http://127.0.0.1:8080;
+        # Set proxy_set_header to forward the HTTP host header
+        proxy_set_header Host $host;
+        # Enable caching for these requests
+        proxy_cache_key "$scheme://$host$request_uri";
+        proxy_cache_valid any 1m;
+        proxy_cache_bypass $http_pragma;
+        proxy_no_cache $http_pragma;
+    }
+
+    # Set up gzip compression for responses larger than 1KB
+    gzip on;
+    gzip_types text/plain text/css application/json;
+
+    # Set up basic HTTP authentication for requests to "/admin"
+    location /admin {
+        auth_basic "Restricted";
+        auth_basic_user_file /usr/local/nginx/conf/.htpasswd;
+    }
+
+    # Set up server side includes for files with ".shtml" extension
+    ssi on;
+    ssi_types text/html;
+
+    # Set up caching for static resources
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+        # Enable caching for these requests
+        expires 1d;
+        access_log off;
+        add_header Cache-Control "public";
+    }
+
+    # Set up redirects for specific URLs
+    location = /about {
+        return 301 http://www.example.com/about-us;
+    }
+    location = /contact {
+        return 301 https://www.example.com/contact-us;
+    }
+
+    # Set up custom error pages
+    error_page 404 /404.html;
+    error_page 500 /500.html;
+
+    # Set up server-side redirects from HTTP to HTTPS
+    if ($scheme != "https") {
+        rewrite ^/(.*)$ https://$host/$1 permanent;
+    }
+}

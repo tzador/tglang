@@ -1,0 +1,68 @@
+defmodule User do
+  @moduledoc """
+  This module defines the User struct and functions for user management.
+  """
+
+  defstruct name: nil, email: nil, age: nil, country: nil
+
+  @type t :: %User{
+    name: String.t() | nil,
+    email: String.t() | nil,
+    age: integer | nil,
+    country: String.t() | nil
+  }
+
+  @spec create_user( map() ) :: :ok | :error
+  def create_user(params) do
+    with
+      name <- Map.fetch(params, :name),
+      email <- Map.fetch(params, :email),
+      {:ok, age} when is_number(age) <- Map.fetch(params, :age),
+      country <- Map.fetch(params, :country),
+      do: %User{name: name, email: email, age: age, country: country}
+    else
+      _ -> :error
+    end
+  end
+
+  @spec update_user( string(), map() ) :: :ok | :error
+  def update_user(id, params) do
+    case get_user(id) do
+      {:ok, user} ->
+        updated_user_params = Map.merge(user, params)
+        {:ok, user} = create_user(updated_user_params)
+        {:ok, user}
+      :error ->
+        :error
+    end
+  end
+
+  @spec delete_user( string() ) :: :ok | :error
+  def delete_user(id) do
+    case get_user(id) do
+      {:ok, _} ->
+        :ok
+      :error ->
+        :error
+    end
+  end
+
+  @doc """
+  Retrieves a user from the database based on the given id.
+  """
+  @spec get_user( string() ) :: :ok | :error
+  def get_user(id) do
+    case Database.get_user(id) do
+      {:ok, user_map} ->
+        with
+          name <- Map.fetch(user_map, :name),
+          email <- Map.fetch(user_map, :email),
+          age <- Map.fetch(user_map, :age),
+          country <- Map.fetch(user_map, :country),
+          age = String.to_integer(age),
+          do: {:ok, %User{name: name, email: email, age: age, country: country}}
+      :error ->
+        :error
+    end
+  end
+end

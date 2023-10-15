@@ -1,0 +1,99 @@
+//This is a sample contract that implements the ERC20 token standard
+
+pragma solidity ^0.8.0;
+
+// Import the necessary interfaces and libraries
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/math/SafeMath.sol";
+
+// Create a contract called "MyToken" that implements the ERC20 interface
+contract MyToken is IERC20, IERC20Metadata {
+    using SafeMath for uint256; //use SafeMath library for safe arithmetic operations
+
+    // Variables and mappings
+    string private _name; //token name
+    string private _symbol; //token symbol
+    uint8 private _decimals; //token decimals
+    uint256 private _totalSupply; //total supply of the token
+    address private _owner; //owner of the contract
+    mapping(address => uint256) private _balances; //mapping to keep track of balances
+    mapping(address => mapping(address => uint256)) private _allowances; //mapping to keep track of allowances
+
+    // Create an event for transfer of tokens
+    event Transfer(address indexed from, address indexed to, uint256 amount);
+
+    // Create an event for approval of allowances
+    event Approval(address indexed owner, address indexed spender, uint256 amount);
+
+    // Constructor to initialize the token
+    constructor(string memory name_, string memory symbol_, uint8 decimals_, uint256 totalSupply_) {
+        _name = name_; //set name of the token
+        _symbol = symbol_; //set symbol of the token
+        _decimals = decimals_; //set decimals of the token
+        _totalSupply = totalSupply_; //set total supply of the token
+        _owner = msg.sender; //set owner of the contract
+        _balances[msg.sender] = totalSupply_; //assign all tokens to owner's balance
+    }
+
+    // Implement the ERC20 functions
+
+    // Returns the name of the token
+    function name() public view override returns (string memory) {
+        return _name;
+    }
+
+    // Returns the symbol of the token
+    function symbol() public view override returns (string memory) {
+        return _symbol;
+    }
+
+    // Returns the number of decimals for the token
+    function decimals() public view override returns (uint8) {
+        return _decimals;
+    }
+
+    // Returns the total supply of the token
+    function totalSupply() public view override returns (uint256) {
+        return _totalSupply;
+    }
+
+    // Returns the balance of the specified address
+    function balanceOf(address account) public view override returns (uint256) {
+        return _balances[account];
+    }
+
+    // Transfers tokens from sender to receiver
+    function transfer(address recipient, uint256 amount) public override returns (bool) {
+        require(_balances[msg.sender] >= amount, "Insufficient balance"); //require sender to have enough balance
+        require(recipient != address(0), "Invalid recipient"); //require recipient to be a valid address
+        _balances[msg.sender] = _balances[msg.sender].sub(amount); //deduct amount from sender's balance
+        _balances[recipient] = _balances[recipient].add(amount); //add amount to recipient's balance
+        emit Transfer(msg.sender, recipient, amount); //emit transfer event
+        return true;
+    }
+
+    // Approves allowance for the spender to spend specified amount from owner's balance
+    function approve(address spender, uint256 amount) public override returns (bool) {
+        _allowances[msg.sender][spender] = amount; //set allowance
+        emit Approval(msg.sender, spender, amount); //emit approval event
+        return true;
+    }
+
+    // Returns the current allowance allowed by "owner" for "spender"
+    function allowance(address owner, address spender) public view override returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    // Transfers tokens from sender to receiver using approved allowance
+    function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
+        require(_balances[sender] >= amount, "Insufficient balance"); //require sender to have enough balance
+        require(_allowances[sender][msg.sender] >= amount, "Insufficient allowance"); //require sender to have enough allowance
+        require(recipient != address(0), "Invalid recipient"); //require recipient to be a valid address
+        _balances[sender] = _balances[sender].sub(amount); //deduct amount from sender's balance
+        _balances[recipient] = _balances[recipient].add(amount); //add amount to recipient's balance
+        _allowances[sender][msg.sender] = _allowances[sender][msg.sender].sub(amount); //deduct amount from sender's allowance
+        emit Transfer(sender, recipient, amount); //emit transfer event
+        return true;
+    }
+}

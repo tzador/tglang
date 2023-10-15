@@ -1,0 +1,29 @@
+{-# LANGUAGE FlexibleContexts #-}
+module Main where
+
+import Data.Typeable
+import Control.Monad.ST
+import Control.Monad.State
+import Control.Monad.Reader
+import Control.Concurrent
+import Text.Printf
+
+data MyDataType = ConstructorA Int | ConstructorB String
+  deriving (Show,Typeable,Eq)
+
+type MyMonad = ReaderT Int (StateT Int (ST RealWorld))
+
+myFunction :: Int -> MyMonad String
+myFunction x = do
+  y :: Int <- ask
+  modify (+ y)
+  z <- liftST $ printf "The value of x is %d" x
+  return z
+
+main :: IO ()
+main = do
+  mvar <- newMVar 0
+  x <- takeMVar mvar
+  y <- forkIO $ runReaderT (runStateT (runST (myFunction x)) 0) 10
+  z <- forkIO $ modifyMVar_ mvar (\_ -> return $ x + y)
+  takeMVar z

@@ -1,0 +1,77 @@
+# Set variable for server name
+server_name localhost;
+
+# Set port number
+listen 80;
+
+# Set root directory
+root /var/www/example;
+
+# Set access log location
+access_log /var/log/nginx/access.log;
+
+# Set error log location
+error_log /var/log/nginx/error.log;
+
+# Enable gzip compression
+gzip on;
+gzip_types text/plain text/css application/json; # Set which file types to compress
+
+# Configure caching
+location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+    expires 7d; # Set the caching time to 7 days
+    add_header Cache-Control "public, must-revalidate, proxy-revalidate"; # Set caching headers for browsers and proxies
+}
+
+# Configure reverse proxy
+location / {
+    proxy_pass http://backend; # Set the backend server to proxy requests to
+    proxy_redirect off; # Disable automatic redirects
+    proxy_set_header X-Real-IP $remote_addr; # Set the X-Real-IP header to the client's IP address
+    proxy_set_header Host $http_host; # Set the Host header to the original request's Host value
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # Set the X-Forwarded-For header to include the client's IP address
+}
+
+# Create virtual server block
+server {
+    listen 80; # Set the listening port
+    server_name example.com; # Set the server name
+
+    location / {
+        root /var/www/example; # Set the root directory for this server block
+        index index.html index.php; # Set the default index files
+        try_files $uri $uri/ /index.php?$args; # Set the file search order, used for handling clean URLs
+    }
+
+    location ~ \.php$ {
+        root /var/www/example;
+        include fastcgi_params; # Include the default fastcgi parameters
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; # Set the fastcgi script path to the requested file
+        fastcgi_pass unix:/var/run/php-fpm.sock; # Set the fastcgi backend socket
+    }
+}
+
+# Create another virtual server block
+server {
+    listen 80;
+    server_name subdomain.example.com;
+
+    # Set up SSL/TLS
+    listen 443 ssl;
+
+    ssl_certificate /etc/ssl/certs/example.crt; # Set the path to the SSL/TLS certificate
+    ssl_certificate_key /etc/ssl/private/example.key; # Set the path to the SSL/TLS private key
+
+    root /var/www/example;
+    index index.html index.php;
+
+    location / {
+        try_files $uri $uri/ /index.php?$args;
+    }
+
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_pass unix:/var/run/php-fpm.sock;
+    }
+}

@@ -1,0 +1,29 @@
+$server = "ExampleServer"
+$username = "ExampleUser"
+$password = "ExamplePassword"
+$session = New-PSSession -ComputerName $server -Credential $username
+
+Invoke-Command -Session $session -ScriptBlock {
+    # Install and configure IIS server
+    Install-WindowsFeature -Name Web-Server -IncludeManagementTools
+    Set-WebConfigurationProperty -Filter '//connectionStrings/add[@name="DefaultConnection"]' -Name connectionString -Value "Data Source=ExampleDB;Initial Catalog=ExampleCatalog;Integrated Security=True"
+
+    # Create a new website
+    New-Website -Name "ExampleSite" -Port 80 -PhysicalPath "C:\inetpub\ExampleSite" -ApplicationPool "ExampleSitePool"
+
+    # Create a new app pool
+    New-WebAppPool -Name "ExampleSitePool"
+
+    # Configure website and app pool to use .NET Framework 4.5
+    Set-ItemProperty "IIS:\Sites\ExampleSite" -Name "applicationDefaults.applicationPool" -Value "ExampleSitePool"
+    Set-ItemProperty "IIS:\AppPools\ExampleSitePool" -Name "managedRuntimeVersion" -Value "v4.0"
+
+    # Start website and app pool
+    Start-Website "ExampleSite"
+    Start-WebAppPool "ExampleSitePool"
+
+    # Create a new virtual directory under the website
+    New-WebVirtualDirectory -Site "ExampleSite" -Name "ExampleVD" -PhysicalPath "C:\inetpub\ExampleSiteVD" -ApplicationPool "ExampleSitePool"
+}
+
+Remove-PSSession $session

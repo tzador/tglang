@@ -1,0 +1,90 @@
+/* This is a comment in BISON */
+
+/* Define a struct named Person with two fields: name (string) and age (integer) */
+%{
+typedef struct {
+    char* name;
+    int age;
+} Person;
+%}
+
+/* Define tokens for name and age */
+%token NAME
+%token AGE
+
+/* Define grammar rules for a sentence describing a person, including a recursive rule for adding additional adjectives */
+Sentence: "This person is" Adjective "and their name is" NAME "and they are" AGE "years old.";
+Adjective: Adjective "and" "fun";
+Adjective: "fun";
+
+/* Define actions to store the name and age in a Person struct */
+%start Sentence
+%action {
+    Person person;
+    person.name = yytext;
+}
+%action {
+    int age = atoi(yytext);
+    person.age = age;
+}
+
+/* Run the parser on a sample sentence and print out the person's name and age */
+%lex-param {void* person_ptr}
+%{
+#include <stdio.h>
+int yylex(void* person_ptr);
+#define YY_INPUT(buf,result,max_size) \
+    result = getinput(buf, max_size);
+%}
+
+%%
+{Adjective} {
+    /* Call the parser with the person struct as a parameter */
+    yyparse(*((Person*)person_ptr));
+    return 1;
+}
+"and" { /* do nothing */ }
+{NAME} {
+    person.name = yytext;
+    return NAME;
+}
+{AGE} {
+    int age = atoi(yytext);
+    person.age = age;
+    return AGE;
+}
+%%
+ 
+/* Input function that reads from a user input and stores it in a buffer */
+int getinput(char *buffer, int maxlen) {
+    char *p;
+    p = fgets(buffer, maxlen, stdin);
+    if (p) {
+        /* remove trailing newline */
+        int length = strlen(buffer);
+        if (buffer[length - 1] == '\n') {
+            buffer[length - 1] = '\0';
+        }
+        return strlen(buffer);
+    } else {
+        return 0;
+    }
+}
+
+/* Main function that creates a Person struct and calls the parser on a sample sentence */
+int main() {
+    /* Create a Person struct */
+    Person person;
+    person.name = NULL;
+    person.age = 0;
+    /* Call the parser with the person struct as a parameter */
+    yyparse(&person);
+    /* Print out the person's name and age */
+    printf("%s is %d years old.", person.name, person.age);
+    return 0;
+}
+
+/* Output:
+This person is fun and fun and their name is John and they are 25 years old.
+John is 25 years old.
+*/

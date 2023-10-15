@@ -1,0 +1,23 @@
+-- This code snippet creates a procedure in PL/SQL to update the quantity of a product in the database
+CREATE OR REPLACE PROCEDURE UPDATE_PRODUCT_QUANTITY(
+    p_product_id IN NUMBER,
+    p_new_quantity IN NUMBER)
+    IS
+    l_old_quantity NUMBER;
+BEGIN
+    -- Retrieve current quantity of product
+    SELECT quantity INTO l_old_quantity FROM products WHERE product_id = p_product_id;
+
+    -- Update product quantity
+    UPDATE products SET quantity = p_new_quantity WHERE product_id = p_product_id;
+
+    -- Log the quantity update in the audit log table
+    INSERT INTO audit_log (product_id, action, modified_date)
+    VALUES (p_product_id, 'Quantity updated to ' || p_new_quantity, SYSDATE);
+
+    -- If the new quantity is less than the old quantity, send a notification email
+    IF p_new_quantity < l_old_quantity THEN
+        SEND_EMAIL(product_id, 'Product Quantity Decreased', 'The quantity for product ' || p_product_id || ' has been decreased to ' || p_new_quantity);
+    END IF;
+END;
+/

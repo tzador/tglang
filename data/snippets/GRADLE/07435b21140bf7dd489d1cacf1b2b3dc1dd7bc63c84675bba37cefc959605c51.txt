@@ -1,0 +1,37 @@
+task unzip(type: Copy) {
+    dependsOn tasks.withType(Zip)
+    from { zipTree(tasks.withType(Zip).findAll { zipTask ->
+        zipTask.description == 'Unzips the library'
+    }) }
+    exclude 'META-INF/.SF', 'META-INF/.RSA', 'META-INF/'
+    into buildDir
+    includeEmptyDirs = false
+}
+
+// This task depends on the unzip task and creates a directory structure for the extracted files
+task createDirectories(type: Copy, dependsOn: unzip) {
+    include 'library/'
+    into libraryDir
+}
+
+// This task depends on the createDirectories task and copies the extracted files to their respective directories
+task copyFiles(type: Copy, dependsOn: createDirectories) {
+    include 'library/**/*.jar'
+    from libraryDir
+    into appDir
+}
+
+// This task configures the classpath to include the copied files
+task configureClasspath {
+    doLast {
+        classpath << files(appDir.listFiles())
+    }
+}
+
+// This task is the main task that executes all the previous tasks in the correct order
+// It can be executed by running "gradle build" in the command line
+task build(dependsOn: copyFiles, configureClasspath) {
+    doLast {
+        println "Build successful!"
+    }
+}

@@ -1,0 +1,143 @@
+// SPDX-License-Identifier: MIT
+
+pragma solidity ^0.8.0;
+
+import "./IERC20.sol";
+import "./SafeMath.sol";
+
+/* ========== Helpful interfaces ========== */
+abstract contract XPNET {
+    function increaseApproval(address spender, uint256 addedValue) external virtual returns (bool);
+    function decreaseApproval(address spender, uint256 subtractedValue) external virtual returns (bool);
+}
+
+abstract contract ERC20Basic {
+    function totalSupply() public virtual view returns (uint256);
+    function balanceOf(address who) public virtual view returns (uint256);
+    function allowance(address owner, address spender) public virtual view returns (uint256);
+    function transfer(address to, uint256 value) public virtual returns (bool);
+    function approve(address spender, uint256 value) public virtual returns (bool);
+    function transferFrom(address from, address to, uint256 value) public virtual returns (bool);
+}
+
+/* ========== Main contract ========== */
+contract TokenSwap {
+
+    using SafeMath for uint256;
+
+    // ========== Storage ==========
+    /*
+    Addresses are replaced with interfaces as certain functions were used only in the context
+    of this contract and type casting proved difficult.
+    */
+    ERC20Basic public tokenA;
+    ERC20Basic public tokenB;
+    XPNET public xpnetToken;
+
+    address public owner;
+    uint256 public swapRatio;
+    uint256 public totalSupplyTokenA;
+    uint256 public totalSupplyTokenB;
+    uint256 public totalSupplyXPNET;
+    uint256 public liquidity;
+    mapping (address => uint256) public balances;
+    mapping (address => mapping (address => uint256)) public allowances;
+
+    // ========== Events ==========
+    event Swap(address indexed user, uint256 value, uint256 xpnetValue, bytes32 swapId);
+
+    // ========== Constructor ==========
+    constructor (
+        address _tokenA,
+        address _tokenB,
+        address _xpnetToken,
+        uint256 _swapRatio
+    )
+    public
+    {
+        require(_tokenA != address(0) && _tokenB != address(0) && _xpnetToken != address(0) && _swapRatio > 0, "Invalid input");
+        tokenA = ERC20Basic(_tokenA);
+        tokenB = ERC20Basic(_tokenB);
+        xpnetToken = XPNET(_xpnetToken);
+        owner = msg.sender;
+        swapRatio = _swapRatio;
+    }
+
+    // ========== External functions ==========
+    /*
+    This function when called approves token transfer to another user on behalf of the contract.
+    Called when the user transfers swap tokens in order to do a swap.
+    */
+    function approveTokens(address _token, uint256 _value)
+    external
+    returns (bool)
+    {
+        require(msg.sender == address(this), "Not allowed");
+        require(_token != address(0) && _value > 0, "Invalid input");
+        return ERC20Basic(_token).approve(msg.sender, _value);
+    }
+
+    /*
+    This function creates the swap transaction between user and contract.
+    It takes the total supply of both tokens and calculates the amount of swap tokens to be transfered to the user.
+    Values are calculated using SafeMath.
+    */
+    function swapTokens(uint256 _value, bytes32 _swapId)
+    external
+    {
+        require(_value > 0, "Zero value");
+        // Calculates the amount of XPNET tokens the user will receive
+        uint256 xpnetValue = _value.mul(swapRatio);
+
+        // Transfers token A from user to contract
+        require(tokenA.transferFrom(msg.sender, address(this), _value), "Token A transfer failed");
+        // Transfers token B from contract to user
+        require(tokenB.transfer(msg.sender, _value), "Token B transfer failed");
+        // Transfers XPNET tokens from contract to user
+        require(xpnetToken.increaseApproval(msg.sender, xpnetValue), "XPNET transfer failed");
+
+        // Update storage
+        balances[msg.sender] = balances[msg.sender].add(_value);
+        totalSupplyTokenA = totalSupplyTokenA.add(_value);
+        totalSupplyTokenB = totalSupplyTokenB.add(_value);
+        totalSupplyXPNET = totalSupplyXPNET.add(xpnetValue);
+        liquidity = liquidity.add(_value);
+
+        // Emit event
+        emit Swap(msg.sender, _value, xpnetValue, _swapId);
+    }
+
+    // ========== Owner only functions ==========
+    /*
+    This function allows the owner to withdraw liquidity from the contract.
+    */
+    function withdrawLiquidity(uint256 _value)
+    external
+    {
+        require(msg.sender == owner, "Not allowed");
+        require(_value > 0, "Invalid input");
+        require(_value <= liquidity, "Not enough liquidity");
+
+        // Withdraws tokens A and B from contract to owner
+        require(tokenA.transfer(owner, _value), "Token A transfer failed");
+        require(tokenB.transfer(owner, _value), "Token B transfer failed");
+
+        // Update storage
+        balances[owner] = balances[owner].sub(_value);
+        totalSupplyTokenA = totalSupplyTokenA.sub(_value);
+        totalSupplyTokenB = totalSupplyTokenB.sub(_value);
+        liquidity = liquidity.sub(_value);
+    }
+
+    /*
+    This function allows the owner to change the swap ratio.
+    */
+    function changeSwapRatio(uint256 _newRatio)
+    external
+    {
+        require(msg.sender == owner, "Not allowed");
+        require(_newRatio > 0 && _newRatio != swapRatio, "Invalid input");
+
+        swapRatio = _newRatio;
+    }
+}

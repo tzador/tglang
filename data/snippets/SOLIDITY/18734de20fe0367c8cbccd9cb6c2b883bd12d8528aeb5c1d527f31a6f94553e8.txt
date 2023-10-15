@@ -1,0 +1,207 @@
+pragma solidity ^0.8.4;
+
+// Inheritance
+contract Owned {
+    address owner;
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    modifier onlyOwner {
+        require(msg.sender == owner, "You are not the owner");
+        _;
+    }
+
+    function changeOwner(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "Invalid address");
+        owner = newOwner;
+    }
+}
+
+// Interface
+interface Token {
+    function transfer(address _to, uint _value) external returns (bool);
+    function transferFrom(address _from, address _to, uint _value) external returns (bool);
+}
+
+// ERC20 Token
+contract ERC20 is Owned {
+    string public name;
+    string public symbol;
+    uint8 public decimals;
+    mapping (address => uint256) public balanceOf;
+    mapping (address => mapping (address => uint256)) public allowance;
+    uint256 public totalSupply;
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+
+    constructor(string memory _name, string memory _symbol, uint8 _decimals, uint256 _initialSupply) {
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+        totalSupply = _initialSupply * 10 ** uint256(decimals);
+        balanceOf[msg.sender] = totalSupply;
+    }
+
+    function transfer(address _to, uint _value) external returns (bool) {
+        require(_value <= balanceOf[msg.sender], "Not enough funds");
+        require(_to != address(0), "Invalid address");
+
+        balanceOf[msg.sender] -= _value;
+        balanceOf[_to] += _value;
+        emit Transfer(msg.sender, _to, _value);
+        return true;
+    }
+
+    function approve(address _spender, uint _value) external returns (bool) {
+        require(_spender != address(0), "Invalid address");
+        allowance[msg.sender][_spender] = _value;
+        emit Approval(msg.sender, _spender, _value);
+        return true;
+    }
+
+    function transferFrom(address _from, address _to, uint _value) external returns (bool) {
+        require(_value <= balanceOf[_from], "Not enough funds");
+        require(_value <= allowance[_from][msg.sender], "Not enough allowance");
+        require(_to != address(0), "Invalid address");
+
+        balanceOf[_from] -= _value;
+        balanceOf[_to] += _value;
+        allowance[_from][msg.sender] -= _value;
+        emit Transfer(_from, _to, _value);
+        return true;
+    }
+
+    function mint(address _recipient, uint256 _amount) external onlyOwner {
+        require(_recipient != address(0), "Invalid recipient address");
+        totalSupply += _amount;
+        balanceOf[_recipient] += _amount;
+    }
+
+    function burn(address _owner, uint256 _amount) external onlyOwner {
+        require(_amount <= balanceOf[_owner], "Not enough funds");
+        require(_owner != address(0), "Invalid owner address");
+
+        totalSupply -= _amount;
+        balanceOf[_owner] -= _amount;
+    }
+}
+
+// ERC721 Token
+contract ERC721 is Owned {
+    string public name;
+    string public symbol;
+    uint8 public decimals;
+    mapping (address => uint256[]) public ownedTokens;
+    mapping (uint256 => address) public tokenOwners;
+    mapping (uint256 => address) public tokenApprovals;
+    mapping (address => mapping (address => bool)) public operatorApprovals;
+    uint256 public currentTokenId;
+
+    event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
+    event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId);
+    event ApprovalForAll(address indexed owner, address indexed operator, bool approved);
+
+    constructor(string memory _name, string memory _symbol, uint8 _decimals) {
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+    }
+
+    function mint(address _to, uint256 _tokenId) external onlyOwner {
+        require(_to != address(0), "Invalid recipient address");
+        require(!_exists(_tokenId), "Token already exists");
+
+        tokenOwners[_tokenId] = _to;
+        ownedTokens[_to].push(_tokenId);
+        currentTokenId++;
+        emit Transfer(address(0), _to, _tokenId);
+    }
+
+    function burn(uint256 _tokenId) external onlyOwner {
+        require(_exists(_tokenId), "Token does not exist");
+
+        address owner = tokenOwners[_tokenId];
+        uint256[] storage tokenList = ownedTokens[owner];
+        for (uint256 i = 0; i < tokenList.length; i++) {
+            if (tokenList[i] == _tokenId) {
+                tokenList[i] = tokenList[tokenList.length - 1];
+                tokenList.pop();
+                break;
+            }
+        }
+        delete tokenOwners[_tokenId];
+        emit Transfer(owner, address(0), _tokenId);
+    }
+
+    function transfer(address _to, uint256 _tokenId) external {
+        require(ownerOf(_tokenId) == msg.sender || isApprovedOrOwner(msg.sender, _tokenId), "Not authorized");
+        require(_to != address(0), "Invalid recipient address");
+
+        tokenApprovals[_tokenId] = address(0);
+        _transfer(msg.sender, _to, _tokenId);
+    }
+
+    function approve(address _to, uint256 _tokenId) external {
+        require(ownerOf(_tokenId) == msg.sender || isApprovedOrOwner(msg.sender, _tokenId), "Not authorized");
+        require(_to != ownerOf(_tokenId), "Invalid recipient address");
+
+        tokenApprovals[_tokenId] = _to;
+        emit Approval(msg.sender, _to, _tokenId);
+    }
+
+    function setApprovalForAll(address _operator, bool _approved) external {
+        require(_operator != msg.sender, "Cannot set self as operator");
+
+        operatorApprovals[msg.sender][_operator] = _approved;
+        emit ApprovalForAll(msg.sender, _operator, _approved);
+    }
+
+    function transferFrom(address _from, address _to, uint256 _tokenId) external {
+        require(ownerOf(_tokenId) == _from || isApprovedOrOwner(_from, _tokenId), "Not authorized");
+        require(_to != address(0), "Invalid recipient address");
+
+        tokenApprovals[_tokenId] = address(0);
+        _transfer(_from, _to, _tokenId);
+    }
+
+    function ownerOf(uint256 _tokenId) public view returns (address) {
+        require(_exists(_tokenId), "Token does not exist");
+        return tokenOwners[_tokenId];
+    }
+
+    function isApprovedOrOwner(address _spender, uint256 _tokenId) public view returns (bool) {
+        require(_exists(_tokenId), "Token does not exist");
+        return (_spender == ownerOf(_tokenId) || getApproved(_tokenId) == _spender || isApprovedForAll(ownerOf(_tokenId), _spender));
+    }
+
+    function getApproved(uint256 _tokenId) public view returns (address) {
+        require(_exists(_tokenId), "Token does not exist");
+        return tokenApprovals[_tokenId];
+    }
+
+    function isApprovedForAll(address _owner, address _operator) public view returns (bool) {
+        return operatorApprovals[_owner][_operator];
+    }
+
+    function _exists(uint256 _tokenId) internal view returns (bool) {
+        return tokenOwners[_tokenId] != address(0);
+    }
+
+    function _transfer(address _from, address _to, uint256 _tokenId) internal {
+        if (_from != address(0) && _to != address(0)) {
+            for (uint256 i = 0; i < ownedTokens[_from].length; i++) {
+                if (ownedTokens[_from][i] == _tokenId) {
+                    ownedTokens[_from][i] = ownedTokens[_from][ownedTokens[_from].length - 1];
+                    ownedTokens[_from].pop();
+                    break;
+                }
+            }
+            tokenOwners[_tokenId] = _to;
+            ownedTokens[_to].push(_tokenId);
+        }
+        emit Transfer(_from, _to, _tokenId);
+    }
+}

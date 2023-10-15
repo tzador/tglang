@@ -1,0 +1,88 @@
+-- An abstract data type for a binary search tree
+type BST k v
+  = Empty
+  | Node (k, v) (BST k v) (BST k v)
+
+-- A function to add a new key-value pair to the tree
+insert : comparable -> v -> BST comparable v -> BST comparable v
+insert key value tree =
+  case tree of
+    Empty ->
+      -- if the tree is empty, create a new node with the key and value
+      Node (key, value) Empty Empty
+    Node (k, v) left right ->
+      if key == k then
+        -- if the key already exists in the tree, update the value
+        Node (key, value) left right
+      else if key < k then
+        -- if the key is smaller, insert it into the left subtree
+        Node (k, v) (insert key value left) right
+      else
+        -- if the key is larger, insert it into the right subtree
+        Node (k, v) left (insert key value right)
+
+-- A function to perform a search on the tree
+search : comparable -> BST comparable v -> Maybe v
+search key tree =
+  case tree of
+    Empty ->
+      -- if the tree is empty, return Nothing
+      Nothing
+    Node (k, v) left right ->
+      if key == k then
+        -- if the key is found, return the corresponding value
+        Just v
+      else if key < k then
+        -- if the key is smaller, search the left subtree
+        search key left
+      else
+        -- if the key is larger, search the right subtree
+        search key right
+
+-- A function to delete a key from the tree
+delete : comparable -> BST comparable v -> BST comparable v
+delete key tree =
+  case tree of
+    Empty ->
+      -- if the tree is empty, return an empty tree
+      Empty
+    Node (k, v) left right ->
+      if key == k then
+        -- if the key is found, delete the node
+        case (left, right) of
+          (Empty, Empty) ->
+            -- if the node has no children, delete it
+            Empty
+          (Node (lk, lv) lleft lright, Empty) ->
+            -- if the node only has a left subtree, set it as the new root
+            Node (lk, lv) lleft lright
+          (Empty, Node (rk, rv) rleft rright) ->
+            -- if the node only has a right subtree, set it as the new root
+            Node (rk, rv) rleft rright
+          (Node (lk, lv) lleft lright, Node (rk, rv) rleft rright) ->
+            -- if the node has both left and right subtrees, find the
+            -- minimum value in the right subtree and replace it with the
+            -- current node, then delete the replaced node
+            let
+              (minRight, newRight) = getMin rleft
+            in
+              Node minRight lleft newRight
+      else if key < k then
+        -- if the key is smaller, delete from the left subtree
+        Node (k, v) (delete key left) right
+      else
+        -- if the key is larger, delete from the right subtree
+        Node (k, v) left (delete key right)
+
+-- A helper function to find the minimum value in a tree
+getMin : BST comparable v -> (comparable, BST comparable v)
+getMin tree =
+  case tree of
+    Empty ->
+      -- if the tree is empty, return an empty tree
+      (Empty, Empty)
+    Node (k, v) left right ->
+      case getMin left of
+        (min, newLeft) ->
+          -- recursively find the minimum value in the left subtree
+          (min, Node (k, v) newLeft right)

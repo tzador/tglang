@@ -1,0 +1,71 @@
+# Define a server block in NGINX
+server {
+    # Set the listen port and server name
+    listen 80;
+    server_name example.com;
+
+    # Set the location of the root directory
+    root /var/www/example;
+
+    # Define the index file
+    index index.html;
+
+    # Set up error logging
+    error_log /var/log/nginx/error.log;
+
+    # Set up cache control headers
+    expires 1d;
+    add_header Cache-Control "public, no-transform";
+
+    # Enable gzip compression
+    gzip on;
+    gzip_comp_level 5;
+
+    # Define routing for specific URLs
+    location /api {
+        # Set up proxy pass to backend server
+        proxy_pass http://backend.example.com;
+    }
+
+    # Define routing for static assets
+    location ~* ^/(images|javascript|css|fonts)/(.*)$ {
+        # Set up caching for static assets
+        expires 7d;
+
+        # Set up gzip compression for static assets
+        gzip on;
+        gzip_comp_level 5;
+
+        # Serve the requested file
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # Define routing for PHP files
+    location ~* \.php$ {
+        # Set up proxy pass to php-fpm
+        fastcgi_pass unix:/var/run/php5-fpm.sock;
+
+        # Set up caching for dynamic content
+        expires -1;
+
+        # Define fastcgi parameters
+        include fastcgi_params;
+
+        # Define the document root and script filename
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+
+    # Enable SSL/TLS encryption
+    listen 443 ssl;
+
+    # Set the SSL certificate and private key paths
+    ssl_certificate /var/ssl/example.com.crt;
+    ssl_certificate_key /var/ssl/example.com.key;
+
+    # Set up HTTP Strict Transport Security (HSTS)
+    add_header Strict-Transport-Security "max-age=31536000" always;
+
+    # Enable OCSP stapling for better TLS performance
+    ssl_stapling on;
+    ssl_stapling_verify on;
+}

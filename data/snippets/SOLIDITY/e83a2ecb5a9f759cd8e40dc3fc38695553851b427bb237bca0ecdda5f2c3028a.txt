@@ -1,0 +1,85 @@
+contract DiceGame {
+    address owner; // variable to hold the address of contract owner
+    uint256 constant private HOUSE_EDGE_PERCENT = 1; // percentage of the bet that goes to the house
+    uint256 constant private JACKPOT_PERCENT = 0.5; // percentage of the bet that goes to the jackpot
+    uint256 constant private MIN_BET = 0.01 ether; // minimum bet amount
+    uint256 constant private MAX_BET = 10 ether; // maximum bet amount
+
+    event LogHouseEdgeChanged(address sender, uint houseEdge);
+
+    // constructor function to set the contract owner
+    constructor() public {
+        owner = msg.sender;
+    }
+
+    // function modifier to restrict access to only owner
+    modifier onlyOwner {
+        require(msg.sender == owner, "This function can only be called by the contract owner.");
+        _;
+    }
+
+    // fallback function to receive ether
+    function() external payable {}
+
+    // function to get the current house edge, only callable by owner
+    function getHouseEdge() public view onlyOwner returns (uint) {
+        return HOUSE_EDGE_PERCENT;
+    }
+
+    // function to set the house edge, only callable by owner
+    function setHouseEdge(uint newHouseEdge) public onlyOwner {
+        require(newHouseEdge <= 5, "House edge cannot be higher than 5%.");
+        require(newHouseEdge >= 0, "House edge cannot be negative.");
+        HOUSE_EDGE_PERCENT = newHouseEdge;
+        emit LogHouseEdgeChanged(msg.sender, newHouseEdge);
+    }
+
+    // function to get the minimum bet amount
+    function getMinBet() public pure returns (uint) {
+        return MIN_BET;
+    }
+
+    // function to get the maximum bet amount
+    function getMaxBet() public pure returns (uint) {
+        return MAX_BET;
+    }
+
+    // function to calculate the jackpot amount
+    function calculateJackpot(uint betAmount) private pure returns (uint) {
+        return (betAmount * JACKPOT_PERCENT) / 100;
+    }
+
+    // function to check if the bet amount is within the range of minimum and maximum bet amounts
+    function checkBetAmount(uint betAmount) private view returns (bool) {
+        if (betAmount >= MIN_BET && betAmount <= MAX_BET) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    // function to generate a random number
+    function generateRandomNumber(address sender) private view returns (uint) {
+        uint rand = uint(keccak256(abi.encodePacked(block.timestamp, sender, block.difficulty)));
+        return rand % 6 + 1;
+    }
+
+    // function to play the game and determine the outcome
+    function playGame() public payable {
+        require(checkBetAmount(msg.value), "Bet amount must be between the minimum and maximum bet amounts.");
+        
+        uint betAmount = msg.value;
+        uint jackpotAmount = calculateJackpot(betAmount);
+        uint randomNumber = generateRandomNumber(msg.sender);
+        
+        if (randomNumber == 6) {
+            // player wins the bet amount and the jackpot amount
+            uint payout = betAmount + jackpotAmount;
+            msg.sender.transfer(payout);
+        } else {
+            // player loses the bet amount and it goes to the house
+            uint houseEdge = (betAmount * HOUSE_EDGE_PERCENT) / 100;
+            msg.sender.transfer(betAmount - houseEdge);
+        }
+    }
+}

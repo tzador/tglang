@@ -1,0 +1,71 @@
+/* This code snippet generates a dataset with simulated data */
+
+/* Create a seed number to ensure reproducibility */
+data _null_;
+   x = 12345;  /* Change value to any integer */
+   call symput('seed', x);
+run;
+
+/* Set initial options for simulation */
+%let n = 1000; /* Number of observations */
+%let k = 5; /* Number of variables */
+%let seed = &seed; /* Seed number for random number generation */
+%let mu = 50; /* Mean value for simulation */
+%let sd = 10; /* Standard deviation for simulation */
+
+/* Set up random number generator */
+call streaminit(&seed);
+  
+/* Create empty dataset to store simulated data */
+data simulated_data;
+  /* Generate variables with normal distribution */
+  do i = 1 to &n;
+    /* Assign variable names and calculate values */
+    x1 = rand('normal', &mu, &sd);
+    x2 = rand('normal', &mu, &sd);
+    x3 = rand('normal', &mu, &sd);
+    x4 = rand('normal', &mu, &sd);
+    x5 = rand('normal', &mu, &sd);
+    /* Generate unique identifier for each observation */
+    id = i;
+    /* Output variable values to dataset */
+    output;
+  end;
+run;
+
+/* Print the first 10 observations */
+proc print data=simulated_data (obs=10); 
+run;
+
+/* Calculate summary statistics for each variable */
+proc means data=simulated_data;
+  /* Set which variables to include in summary */
+  var x1-x5;
+  /* Calculate mean and standard deviation */
+  output out=summary_stats mean= mean sd=std;
+run;
+
+/* Merge summary statistics with original dataset */
+data final_data;
+  merge simulated_data summary_stats;
+  by id;
+run;
+
+/* Create HTML output with tables and graphs to visualize data */
+ods html style=statistical;
+proc tabulate data=final_data;
+  /* Set variables to display in table */
+  var x1-x5;
+  /* Create subtotals for each variable */
+  class id /subtotal;
+  /* Create row and column totals */
+  table id, x1-x5*mean*x*std;
+run;
+ods graphics on;
+proc univariate data=final_data;
+  /* Set variables to display on histogram */
+  var x1-x5;
+  /* Create histograms for each variable */
+  histogram x1-x5 / vaxis=axis;
+run;
+ods html close;

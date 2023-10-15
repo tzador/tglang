@@ -1,0 +1,178 @@
+# Set up Nginx server block
+server {
+    # Configure server name
+    server_name example.com;
+    
+    # Configure root directory
+    root /var/www/example.com;
+    
+    # Enable gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
+    
+    # Set up location block for static files
+    location /static/ {
+        # Set cache expiry to 1 week
+        expires 7d;
+        
+        # Set cache control header
+        add_header Cache-Control "public";
+    }
+    
+    # Set up location block for serving media files
+    location /media/ {
+        # Set cache expiry to 1 month
+        expires 30d;
+        
+        # Disable access to all hidden files
+        location ~ /\. {
+            deny all;
+        }
+    }
+    
+    # Set up location block for handling requests to rest APIs
+    location /api/ {
+        # Pass requests to API server
+        proxy_pass http://api.example.com;
+        
+        # Set timeout to 30 seconds
+        proxy_connect_timeout 30s;
+        proxy_read_timeout 30s;
+        
+        # Enable buffering of responses from API server
+        proxy_buffering on;
+        
+        # Set buffer size
+        proxy_buffer_size 4k;
+        proxy_buffers 4 32k;
+        proxy_busy_buffers_size 32k;
+        
+        # Disable caching of responses
+        proxy_cache off;
+        proxy_cache_valid 200 302 5m;
+        proxy_cache_valid 404 1m;
+    }
+    
+    # Set up location block for handling requests to reverse proxy
+    location /app/ {
+        # Set up websocket support
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        # Set timeout to 5 minutes
+        proxy_read_timeout 5m;
+        proxy_send_timeout 5m;
+        
+        # Enable gzip compression
+        gzip on;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
+        
+        # Enable caching of responses
+        proxy_cache_bypass $http_pragma;
+        proxy_cache_revalidate on;
+        proxy_cache_min_uses 1;
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+        
+        # Set cache location and size
+        proxy_cache_path /var/nginx/cache levels=1:2 keys_zone=app_cache:10m inactive=60m;
+    }
+    
+    # Set up error pages
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+    
+    # Set up error page locations
+    location = /404.html {
+        root /usr/share/nginx/html;
+    }
+    location = /50x.html {
+        root /usr/share/nginx/html;
+    }
+}
+
+# Set up Nginx load balancing configuration
+upstream backend_servers {
+    server backend1.example.com;
+    server backend2.example.com;
+    server backend3.example.com;
+}
+
+# Set up load balancing server block
+server {
+    # Configure server name
+    server_name loadbalancer.example.com;
+    
+    # Configure root directory
+    root /var/www/loadbalancer.example.com;
+    
+    # Enable gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
+    
+    # Set up location block for handling load balancing requests
+    location / {
+        # Enable round robin load balancing
+        proxy_pass http://backend_servers;
+        
+        # Set timeout to 10 seconds
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 10s;
+        
+        # Enable caching of responses
+        proxy_cache off;
+        proxy_cache_valid 200 302 5m;
+        proxy_cache_valid 404 1m;
+    }
+    
+    # Set up error pages
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+    
+    # Set up error page locations
+    location = /404.html {
+        root /usr/share/nginx/html;
+    }
+    location = /50x.html {
+        root /usr/share/nginx/html;
+    }
+}
+
+# Set up Nginx stub status configuration
+server {
+    # Configure server name
+    server_name stubstatus.example.com;
+    
+    # Configure root directory
+    root /var/www/stubstatus.example.com;
+    
+    # Enable stub status module
+    stub_status on;
+    
+    # Enable basic authentication
+    auth_basic "Stub Status";
+    auth_basic_user_file /etc/nginx/.htpasswd;
+    
+    # Set up allowed IP addresses
+    allow 127.0.0.1;
+    allow ::1;
+    allow 192.168.1.0/24;
+    deny all;
+    
+    # Set up location block for handling stub status requests
+    location /stub_status {
+        access_log off;
+    }
+    
+    # Set up error pages
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+    
+    # Set up error page locations
+    location = /404.html {
+        root /usr/share/nginx/html;
+    }
+    location = /50x.html {
+        root /usr/share/nginx/html;
+    }
+}

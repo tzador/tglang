@@ -1,0 +1,100 @@
+pragma solidity ^0.8.0; //specify version of Solidity to use
+
+contract Ownable { //create ownable contract
+    address owner; //create owner variable
+    
+    constructor() { //initialize contract
+        owner = msg.sender; //current address is set as owner
+    }
+    
+    modifier onlyOwner() { //modifier function to only allow owner to execute certain functions
+        require(msg.sender == owner, "You are not the owner!");
+        _; //continue with function execution if owner
+    }
+}
+
+contract Token { //create token contract 
+    mapping(address => uint) balances; //mapping to keep track of balances for each address
+    address[] public holders; //dynamic array to store address of token holders
+    
+    event Transfer(address indexed from, address indexed to, uint amount); //transfer event to track transfers
+    
+    function mint() external payable { //function to mint tokens 
+        balances[msg.sender] += msg.value; //increase balance of minting address by value sent
+        holders.push(msg.sender); //add minting address to holders array 
+    }
+    
+    function balanceOf(address tokenOwner) external view returns (uint balance) { //function to return balance of a particular address
+        return balances[tokenOwner];
+    }
+    
+    function transfer(address to, uint amount) external { //function to transfer tokens
+        require(balances[msg.sender] >= amount, "Insufficient funds!"); //check if sender has enough balance
+        balances[msg.sender] -= amount; //decrease balance of sender
+        balances[to] += amount; //increase balance of receiver
+        emit Transfer(msg.sender, to, amount); //emit transfer event
+    }
+}
+
+contract TokenFarm is Ownable{ //create token farm contract 
+    string public name = "Token Farm"; //set name for token farm
+    Token public token; //token contract instance 
+    mapping(address => uint) public stakingBalance; //mapping to keep track of staking balance for each address
+    mapping(address => bool) public hasStaked; //mapping to check if an address has already staked
+    mapping(address => bool) public isStaking; //mapping to check if an address is currently staking
+    address[] public stakers; //dynamic array to store addresses of token stakers
+    uint public minimumStake = 1 ether; //minimum amount required to stake
+    
+    event Stake(address indexed staker, uint amount); //stake event to track deposit of tokens
+    
+    constructor(Token _token) { //initialize token farm contract
+        token = _token; //set token contract instance
+    }
+    
+    function stake() external payable { //function to allow staking 
+        require(msg.sender != address(0), "Address is zero!"); //check if sender address is valid 
+        require(msg.value >= minimumStake, "Minimum stake amount not reached!"); //check if minimum stake amount is reached 
+        if(!hasStaked[msg.sender]) { //check if sender has not already staked
+            hasStaked[msg.sender] = true; //set has staked value to true
+            isStaking[msg.sender] = true; //set is staking value to true
+            stakers.push(msg.sender); //add sender to stakers array
+        }
+        
+        stakingBalance[msg.sender] += msg.value; //increase staking balance of sender 
+        emit Stake(msg.sender, msg.value); //emit stake event
+    }
+    
+    function unstake() external { //function to allow unstaking 
+        require(isStaking[msg.sender], "You are not currently staking!"); //check if sender is currently staking 
+        uint balance = stakingBalance[msg.sender]; //store staking balance of sender 
+        require(balance > 0, "You do not have any staked tokens!"); //check if sender has any staked tokens
+        msg.sender.transfer(balance); //transfer staked tokens back to sender
+        stakingBalance[msg.sender] = 0; //reset staking balance of sender 
+        
+        isStaking[msg.sender] = false; //set is staking value to false
+        for(uint i=0; i<stakers.length; i++) { //loop through stakers array to remove sender from array 
+            if(stakers[i] == msg.sender) {
+                stakers[i] = stakers[stakers.length - 1]; //replace sender address with last address in array 
+                stakers.pop(); //remove last address in array 
+                break;
+            }
+        }
+    }
+    
+    function issueTokens() external onlyOwner { //function to distribute tokens to stakers
+        for(uint i=0; i<stakers.length; i++) { //loop through stakers array 
+            address recipient = stakers[i]; //set recipient address 
+            uint balance = stakingBalance[recipient]; //store staking balance of recipient 
+            if(balance > 0) { //check if recipient has staked tokens 
+                token.mint{value: balance}(); //mint tokens to recipient 
+            }
+        }
+    }
+    
+    function checkReward() external view returns(uint reward) { //function to check current reward for staking 
+        address recipient = msg.sender; //set recipient address 
+        uint balance = stakingBalance[recipient]; //store staking balance of recipient 
+        uint reward = balance * 10 / 100; //calculate reward for staking 
+        return reward; //return reward 
+    }
+}

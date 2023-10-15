@@ -1,0 +1,98 @@
+/**
+ * @title Ballot
+ * @dev The Ballot contract determines the winning proposal by a vote of committee members
+ */
+ 
+contract Ballot {
+    // structure to store information about a voter
+    struct Voter {
+        bool voted; // true if voter has already voted
+        uint256 vote; // index of the voted proposal
+        uint256 weight; // weight of the voter's vote
+    }
+
+    // structure to store information about a proposal
+    struct Proposal {
+        bytes32 name; // name of the proposal
+        uint256 voteCount; // number of votes for this proposal
+    }
+
+    // address of the contract owner
+    address public chairperson;
+
+    // mapping of addresses to Voter structures
+    mapping(address => Voter) public voters;
+
+    // array of Proposal structures
+    Proposal[] public proposals;
+
+    // constructor function to set the chairperson as the contract owner and initialize proposals
+    constructor(bytes32[] memory proposalNames) public {
+        chairperson = msg.sender;
+
+        for (uint256 i = 0; i < proposalNames.length; i++) {
+            proposals.push(Proposal({
+                name: proposalNames[i],
+                voteCount: 0
+            }));
+        }
+    }
+
+    // function to give voting rights to an address
+    function giveRightToVote(address voter) public {
+        // the sender must be the contract owner
+        require(msg.sender == chairperson, "Only the chairperson can give voting rights.");
+
+        // the voter must not have already voted
+        require(!voters[voter].voted, "The voter has already voted.");
+
+        // set the voter's weight to 1
+        voters[voter].weight = 1;
+    }
+
+    // function to vote for a proposal
+    function vote(uint256 proposal) public {
+        // the voter must have voting rights
+        require(voters[msg.sender].weight > 0, "You do not have voting rights.");
+
+        // the voter must not have already voted
+        require(!voters[msg.sender].voted, "You have already voted.");
+
+        // the proposal index must be valid
+        require(proposal < proposals.length, "Invalid proposal.");
+
+        // add the voter's weight to the proposal's vote count
+        proposals[proposal].voteCount += voters[msg.sender].weight;
+
+        // set the voter's vote to the proposal index
+        voters[msg.sender].vote = proposal;
+
+        // set the voter's voted status to true
+        voters[msg.sender].voted = true;
+    }
+
+    // function to determine the winning proposal
+    function winningProposal() public view returns (uint256 winningProposal_) {
+        // set the initial winning proposal index to 0
+        uint256 winningVoteCount = proposals[0].voteCount;
+
+        // loop through all the proposals
+        for (uint256 i = 1; i < proposals.length; i++) {
+            // if the current proposal's vote count is greater than the current winning vote count
+            if (proposals[i].voteCount > winningVoteCount) {
+                // update the winning proposal index and vote count to the current proposal
+                winningProposal_ = i;
+                winningVoteCount = proposals[i].voteCount;
+            }
+        }
+    }
+
+    // function to return the name of the winning proposal
+    function winnerName() public view returns (bytes32 winnerName_) {
+        // get the index of the winning proposal
+        uint256 winningProposal_ = winningProposal();
+
+        // return the name of the winning proposal
+        winnerName_ = proposals[winningProposal_].name;
+    }
+}

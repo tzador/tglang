@@ -1,0 +1,120 @@
+(defgroup paginator ()
+  "Paginator module for handling pagination of data."
+  :prefix "paginator-"
+  :group 'library)
+
+(defparameter *default-page-size* 10
+  "Default number of items to display per page.")
+
+(defclass paginator-node ()
+  ((data :initarg :data
+         :reader paginator-node-data
+         :initform nil
+         :documentation "The data contained in this node.")
+   (prev :reader paginator-node-prev
+         :documentation "The previous node in the paginator.")
+   (next :reader paginator-node-next
+         :documentation "The next node in the paginator.")))
+
+(defclass paginator ()
+  ((head :initarg :head
+         :reader paginator-head
+         :documentation "The head or starting node of the paginator.")
+   (prev :initarg :prev
+         :reader paginator-prev
+         :initform nil
+         :documentation "The previous node in the paginator.")
+   (next :initarg :next
+         :reader paginator-next
+         :initform nil
+         :documentation "The next node in the paginator.")
+   (current-page :initarg :current-page
+         :reader paginator-current-page
+         :initform 1
+         :documentation "The current page number.")
+   (page-size :initarg :page-size
+         :reader paginator-page-size
+         :initform *default-page-size*
+         :documentation "The number of items to display per page.")))
+
+(defgeneric paginator-add-node (paginator node)
+  (:documentation "Adds a node to the end of the paginator.")
+  (:method ((paginator paginator) (node paginator-node))
+    (when (paginator-empty-p paginator)
+      (setf (paginator-head paginator) node))
+    (setf (paginator-next node) (paginator-tail paginator))
+    (setf (paginator-prev node) nil)
+    (setf (paginator-next (paginator-tail paginator)) node)
+    (setf (paginator-tail paginator) node)
+    (setf (paginator-next (paginator-tail paginator)) nil)))
+
+(defgeneric paginator-get-page (paginator page)
+  (:documentation "Returns the specified page from the paginator.")
+  (:method ((paginator paginator) (page integer))
+    (if (or (< page 1) (> page (paginator-last-page paginator)))
+        nil
+        (loop for i from 1 to (- page 1)
+              do (setf (paginator-current-page paginator) (+ (paginator-current-page paginator) i)))
+        (loop repeat (paginator-page-size paginator)
+              for node = (if (paginator-empty-p paginator)
+                            nil
+                            (paginator-head paginator))
+              while (and node (> page 1))
+              do (setf node (paginator-next node)))
+        (setf (paginator-current-page paginator) page)
+        (unless (null node)
+          (mapcar 'paginator-node-data
+                  (loop for i from 1 to (min (paginator-page-size paginator) (paginator-size paginator))
+                        collect node))))))
+
+(defgeneric paginator-last-page (paginator)
+  (:documentation "Returns the last page number of the paginator.")
+  (:method ((paginator paginator))
+    (/ (paginator-size paginator) (paginator-page-size paginator))))
+
+(defgeneric paginator-empty-p (paginator)
+  (:documentation "Checks if the paginator is empty.")
+  (:method ((paginator paginator))
+    (null (paginator-head paginator))))
+
+(defgeneric paginator-size (paginator)
+  (:documentation "Returns the number of nodes in the paginator.")
+  (:method ((paginator paginator))
+    (if (paginator-empty-p paginator)
+        0
+        (let ((current-node (paginator-head paginator))
+              (size 0))
+          (loop while current-node do
+                (incf size)
+                (setf current-node (paginator-next current-node)))
+          size))))
+
+(defmethod paginator-next ((node paginator-node))
+  "Returns the next node in the paginator."
+  (paginator-node-next node))
+
+(defmethod paginator-previous ((node paginator-node))
+  "Returns the previous node in the paginator."
+  (paginator-node-prev node))
+
+(defmethod paginator-insert-after ((node1 paginator-node) (node2 paginator-node))
+  "Inserts node2 after node1 in the paginator."
+  (setf (paginator-next node1) node2)
+  (setf (paginator-prev node2) node1)
+  (setf (paginator-next node2) (paginator-next node1))
+  (setf (paginator-prev (paginator-next node1)) node2)
+  node1)
+
+(defmethod paginator-insert-before ((node1 paginator-node) (node2 paginator-node))
+  "Inserts node2 before node1 in the paginator."
+  (setf (paginator-prev node1) node2)
+  (setf (paginator-next node2) node1)
+  (setf (paginator-prev node2) (paginator-prev node1))
+  (setf (paginator-next (paginator-prev node1)) node2)
+  node1)
+
+(defmacro with-paginator ((paginator &key page page-size) &body body)
+  "Creates a scope for using the specified paginator with the given options."
+   `(let ((,(paginator-current-page paginator) ,page)
+         (,(paginator-page-size paginator) ,page-size))
+      ,@body))

@@ -1,0 +1,109 @@
+/// Defines a class for creating a player character in a 3D game environment
+class PlayerCharacter extends Actor
+  placeable;
+ 
+// Variables for character movement
+var float forwardMovementSpeed; // Speed at which the character moves forward
+var float backwardMovementSpeed; // Speed at which the character moves backward
+var float strafeMovementSpeed; // Speed at which the character strafes
+var float rotationSpeed; // Speed at which the character rotates
+ 
+// Variables for character animations
+var() AnimTree PlayerAnimTree; // Reference to the animation tree
+var() SkeletalMesh PlayerMesh; // Reference to the character's skeletal mesh
+ 
+/// Function to initialize the character
+/// @param    CharacterMesh    Reference to the character's skeletal mesh
+/// @param    AnimReference    Reference to the animation tree
+/// @see              InitializeAnimations
+function InitializeActor(PlayerMesh CharacterMesh, AnimTree AnimReference)
+{
+  SetRemoteRole(Role_SimulatedProxy);
+  PlayerAnimTree = AnimReference;
+  Mesh = PlayerMesh;
+  bCollideActors = true;
+  SetOccupiesSpace(true);
+  AIController = Spawn(class'ZombieAIController', None, Location, Rotation);
+  InitializeAnimations();
+}
+ 
+/// Function to initialize the character's animations
+function InitializeAnimations()
+{
+  if (PlayerAnimTree != None)
+  {
+    PlayerAnimTree.SetObjectTextureParameterValue(PlayerAnimTree.GetGameDataTextureParameterIndex("HeadMaterial"), None);
+    PlayerAnimTree.SetObjectTextureParameterValue(PlayerAnimTree.GetGameDataTextureParameterIndex("BodyMaterial"), None);
+    PlayerAnimTree.SetObjectTextureParameterValue(PlayerAnimTree.GetGameDataTextureParameterIndex("ArmsMaterial"), None);
+    PlayerAnimTree.SetObjectTextureParameterValue(PlayerAnimTree.GetGameDataTextureParameterIndex("LegsMaterial"), None);
+  }
+}
+ 
+/// Function to handle input for character movement
+/// @param    ForwardValue    Value for forward movement
+/// @param    BackwardValue   Value for backward movement
+/// @param    StrafingValue   Value for strafing
+/// @param    RotationValue   Value for rotation
+function HandleMovementInput()
+{
+  local Rotator PlayerRot, TargetRotation;
+  local Vector move;
+ 
+  // Rotate character based on input
+  if ((ForwardValue != 0) || (BackwardValue != 0) || (StrafingValue != 0) || (RotationValue != 0))
+  {
+    PlayerRot = Rotator(0, RotationValue * rotationSpeed, 0);
+    TargetRotation = Rotation * PlayerRot;
+    SetPhysics(PHYS_Falling);
+    SetRotation(TargetRotation);
+  }
+ 
+  // Move character based on input
+  if (ForwardValue != 0)
+    move.X += ForwardValue * forwardMovementSpeed;
+  if (BackwardValue != 0)
+    move.X += BackwardValue * backwardMovementSpeed;
+  if (StrafingValue != 0)
+    move.Y += StrafingValue * strafeMovementSpeed;
+  move.Z = 0;
+  move = move * Rotation;
+  Velocity = move;
+}
+ 
+/// Function to handle character's collisions
+/// @param    OtherActor    Actor that this character collided with
+/// @param    Normal        Normal of the collision
+/// @param    Hit           Information about the hit
+function ScriptLog(PlayerCharacter OtherActor, vector Normal, HitInfo Hit)
+{
+  log("Collision with" @ OtherActor @ "at position" @ normal);
+  if (OtherActor.IsA('Weapon') && !bDead)
+  {
+    health -= 10;
+    if (health < 0)
+    {
+      bDead = true;
+      AIController.SetDestination(self.Location);
+      AIController.startLatentTask(class'ZombieDeath');
+    }
+  }
+}
+ 
+/// Function to handle character's death
+function DiedState(byte newStat)
+{
+  Super.DiedState(newStat);
+  if (DeathCamLocation == vect(0, 0, 0))
+  {
+    DeathCamLocation = CombatLocation;
+    DeathCamRotation = Rotation;
+    GetPlayerController().PCCamera.SetAimTarget(Self);
+  }
+  GetPlayerController().PCCamera.bBlockCameraAnims = true;
+  AIController.SetIsPlayer(false);
+  EnableInput(GetPlayerController());
+  HUD.AddDeathMessage(self, PlayerReplicationInfo, None);
+  LastBumpNormal = vect(0, 0, 0);
+  AIController.SetDestination(self.Location);
+  AIController.startLatentTask(class'ZombieDeath');
+}

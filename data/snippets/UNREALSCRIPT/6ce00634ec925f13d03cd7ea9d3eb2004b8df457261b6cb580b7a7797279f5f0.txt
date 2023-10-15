@@ -1,0 +1,93 @@
+class Nameplate extends HUD
+	//This class represents the player's nameplate that appears above their character in multiplayer games.
+	//It handles displaying the player's name, health, and other information.
+	
+	var PlayerController PlayerOwner; //The player controller that owns this nameplate.
+	var PlayerReplicationInfo PRI; //The player's replication info, used for displaying information like their name and health.
+	
+	//Constants for sizing and positioning of the nameplate:
+	const int NAMEPLATE_WIDTH = 150;
+	const int NAMEPLATE_HEIGHT = 30;
+	const int HEALTHBAR_WIDTH = 100;
+	const int HEALTHBAR_HEIGHT = 10;
+	const int MARGIN = 5;
+	
+	//Variables for storing the name and health of the player:
+	var string PlayerName;
+	var int PlayerHealth;
+	
+	//Function to initialize the nameplate:
+	function Initialize(PlayerController PC)
+	{
+		PlayerOwner = PC;
+		PRI = PlayerOwner.PlayerReplicationInfo;
+		PlayerName = PRI.PlayerName;
+		PlayerHealth = PRI.Health;
+	}
+	
+	//Function to update the nameplate's information:
+	function UpdateNameplate()
+	{
+		//Check if the player is still valid and alive:
+		if(!PRI.Player || PRI.Player.bOnlySpectator)
+		{
+			Destroy();
+			return;
+		}
+
+		PlayerName = PRI.PlayerName;
+		PlayerHealth = PRI.Health;
+	}
+	
+	//Function to draw the nameplate on the screen:
+	function DrawNameplate(Canvas C)
+	{
+		//First, calculate the position of the nameplate based on the player's location:
+		local Vector PlayerLocation;
+		PlayerLocation = PRI.Pawn.Location;
+		PlayerLocation.Z += 80; //Offset the nameplate above the player's head to avoid overlapping with objects.
+		
+		//Next, draw the background box for the nameplate:
+		C.DrawColor = (255,255,255);
+		C.DrawRect(
+			PlayerLocation.X - NAMEPLATE_WIDTH/2.0,
+			PlayerLocation.Y - NAMEPLATE_HEIGHT - MARGIN,
+			NAMEPLATE_WIDTH,
+			NAMEPLATE_HEIGHT);
+		
+		//Draw the player's name:
+		C.DrawColor = (0,0,0);
+		C.DrawText(PlayerName,
+			PlayerLocation.X - C.FontStrLen(PlayerName)/2.0,
+			PlayerLocation.Y - NAMEPLATE_HEIGHT - MARGIN + 5);
+		
+		//Draw the health bar:
+		local float HealthPercentage;
+		HealthPercentage = PlayerHealth * 1.0 / PRI.MaxHealth;
+		C.DrawColor = (255,0,0); //Red for low health.
+		C.DrawRect(
+			PlayerLocation.X - HEALTHBAR_WIDTH/2.0,
+			PlayerLocation.Y - MARGIN,
+			HEALTHBAR_WIDTH * HealthPercentage,
+			HEALTHBAR_HEIGHT);
+		C.DrawColor = (0,255,0); //Green for full health.
+		C.DrawRect(
+			PlayerLocation.X + HEALTHBAR_WIDTH * (HealthPercentage - 0.5),
+			PlayerLocation.Y - MARGIN,
+			HEALTHBAR_WIDTH * (1.0 - HealthPercentage),
+			HEALTHBAR_HEIGHT);
+	}
+	
+	//Override the HUD's DrawHUD() function to also draw the nameplate:
+	function DrawHUD(Canvas C)
+	{
+		super.DrawHUD(C);
+		
+		//Make sure the nameplate is only drawn if the game is in multiplayer mode:
+		if(GameInfo.GameClass.bIsMultiplayer)
+		{
+			UpdateNameplate();
+			DrawNameplate(C);
+		}
+	}
+End;

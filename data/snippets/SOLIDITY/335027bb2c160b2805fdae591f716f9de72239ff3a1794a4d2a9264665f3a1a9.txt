@@ -1,0 +1,43 @@
+// Importing OpenZeppelin's SafeMath library
+import "./SafeMath.sol";
+
+// Creating a contract named ReentrancyGuard
+contract ReentrancyGuard {
+    
+    // Using SafeMath library for uints
+    using SafeMath for uint;
+    
+    // State variables
+    mapping(address => uint) private _balances;
+    uint private _totalBalance;
+    
+    // Modifiers to prevent reentrancy 
+    bool private locked = false;
+    modifier noReentrancy() {
+        require(!locked, "Reentrancy is not allowed");
+        locked = true;
+        _;
+        locked = false;
+    }
+    
+    // Function to deposit funds into the contract 
+    function deposit() external payable {
+        _balances[msg.sender] = _balances[msg.sender].add(msg.value);
+        _totalBalance = _totalBalance.add(msg.value);
+    }
+    
+    // Function to withdraw funds from the contract
+    function withdraw() external noReentrancy {
+        require(_balances[msg.sender] > 0, "Insufficient balance");
+        uint amount = _balances[msg.sender];
+        _balances[msg.sender] = 0;
+        _totalBalance = _totalBalance.sub(amount);
+        (bool success, ) = msg.sender.call.value(amount)("");
+        require(success, "Withdraw failed");
+    }
+    
+    // Function to get total balance 
+    function getTotalBalance() public view returns (uint) {
+        return _totalBalance;
+    }
+}

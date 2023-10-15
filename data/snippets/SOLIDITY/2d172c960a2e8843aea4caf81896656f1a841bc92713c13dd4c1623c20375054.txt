@@ -1,0 +1,119 @@
+// Example contract demonstrating the use of inheritance in Solidity
+
+// Abstract contract for an ERC20 token, to be inherited by specific tokens 
+contract ERC20Token {
+    // State variables inherited by all ERC20 tokens 
+    string public name;
+    string public symbol;
+    uint8 public decimals;
+    uint256 public totalSupply;
+    
+    // Mapping of accounts to balances 
+    mapping (address => uint256) internal balances;
+    // Mapping of accounts to allowances 
+    mapping (address => mapping (address => uint256)) internal allowances;
+    
+    // Event emitted when tokens are transferred 
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    // Event emitted when an allowance is set 
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    
+    // Functions to be implemented by child contracts 
+    function transfer(address _to, uint256 _value) public virtual returns (bool);
+    function transferFrom(address _from, address _to, uint256 _value) public virtual returns (bool);
+    function approve(address _spender, uint256 _value) public virtual returns (bool);
+    function allowance(address _owner, address _spender) public virtual view returns (uint256);
+    
+    // Function to get the balance of an account 
+    function balanceOf(address _owner) public virtual view returns (uint256) {
+        return balances[_owner];
+    }
+    
+    // Internal function to transfer tokens from one account to another 
+    function _transfer(address _from, address _to, uint256 _value) internal virtual {
+        // Check for sufficient balance 
+        require(_value <= balances[_from], "Not enough funds to transfer.");
+        // Check for overflow 
+        require(balances[_to] + _value > balances[_to], "Transfer amount too large.");
+        
+        // Update balances 
+        balances[_from] -= _value;
+        balances[_to] += _value;
+        
+        // Emit transfer event 
+        emit Transfer(_from, _to, _value);
+    }
+    
+    // Function to set the allowance for a spender 
+    function approve(address _spender, uint256 _value) public virtual returns (bool) {
+        allowances[msg.sender][_spender] = _value;
+        emit Approval(msg.sender, _spender, _value);
+        return true;
+    }
+    
+    // Function to transfer tokens from an approved allowance 
+    function transferFrom(address _from, address _to, uint256 _value) public virtual returns (bool) {
+        // Check for sufficient allowance 
+        require(_value <= allowances[_from][msg.sender], "Not enough allowance to transfer.");
+        // Check for sufficient balance 
+        require(_value <= balances[_from], "Not enough funds to transfer.");
+        // Check for overflow 
+        require(balances[_to] + _value > balances[_to], "Transfer amount too large.");
+        
+        // Update balances 
+        balances[_from] -= _value;
+        balances[_to] += _value;
+        
+        // Update allowance 
+        allowances[_from][msg.sender] -= _value;
+        
+        // Emit transfer event 
+        emit Transfer(_from, _to, _value);
+        
+        return true;
+    }
+    
+}
+
+// Example token contract inheriting from ERC20Token 
+contract MyToken is ERC20Token {
+    constructor(uint256 _initialSupply, string memory _name, string memory _symbol, uint8 _decimals) {
+        // Update state variables 
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+        totalSupply = _initialSupply;
+        
+        // Transfer initial supply to contract creator 
+        balances[msg.sender] = _initialSupply;
+    }
+    
+    // Function to mint additional tokens to the contract 
+    function mint(uint256 _amount) public {
+        // Check for overflow 
+        require(totalSupply + _amount > totalSupply, "Mint amount too large.");
+        
+        // Update total supply 
+        totalSupply += _amount;
+        
+        // Transfer tokens to contract creator 
+        _transfer(address(0), msg.sender, _amount);
+    }
+    
+    // Function to burn tokens from a specified account 
+    function burn(address _from, uint256 _amount) public {
+        // Check for sufficient balance 
+        require(_amount <= balances[_from], "Not enough funds to burn.");
+        // Check for underflow 
+        require(totalSupply - _amount < totalSupply, "Burn amount too large.");
+        
+        // Update balances 
+        balances[_from] -= _amount;
+        
+        // Update total supply 
+        totalSupply -= _amount;
+        
+        // Emit transfer event 
+        emit Transfer(_from, address(0), _amount);
+    }
+}

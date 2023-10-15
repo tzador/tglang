@@ -1,0 +1,37 @@
+METHOD get_products.
+  SELECT matnr, ernam, mtart, for_nbr, psize
+    INTO TABLE @DATA(products)
+    FROM zproducts
+    WHERE matnr BETWEEN @p_from AND @p_to
+    AND ernam IN (@p_employees)
+    AND mtart = @p_product_category
+    GROUP BY (matnr)
+      FOR_NBR
+    ORDER BY
+      psize DESCENDING.
+ENDMETHOD.
+
+METHOD display_products.
+  DATA: for_nbr TYPE for_nbr,
+        output_line TYPE string,
+        count TYPE i.
+
+  SELECT for_nbr, COUNT( DISTINCT matnr ) AS count
+    INTO CORRESPONDING FIELDS OF @DATA(for_nbr_table)
+    FROM zproducts
+    WHERE matnr IN @products
+      AND mtart = @p_product_category
+    GROUP BY for_nbr
+    HAVING COUNT( DISTINCT matnr ) > 1.
+
+  IF for_nbr_table IS NOT INITIAL.
+    LOOP AT for_nbr_table ASSIGNING FIELD-SYMBOL(<fs_for_nbr_table>).
+
+      for_nbr = <fs_for_nbr_table>-for_nbr.
+      count = <fs_for_nbr_table>-count.
+
+      CONCATENATE 'FOR NUMBER' for_nbr 'WE HAVE' count 'PRODUCTS' INTO output_line SEPARATED BY space.
+      WRITE output_line TO output.
+    ENDLOOP.
+  ENDIF.
+ENDMETHOD.

@@ -1,0 +1,79 @@
+{DEF VAR order_id AS INT NO-UNDO. /* Define integer variable order_id */
+
+DEFINE FRAME frmOrder
+    WITH SIZE 80 BY 24
+    CENTERED "Order Information":
+
+    /* Define input fields for order information */
+    VIEW ORDERID-LBL AS LABEL POSITION 13 BY 2
+    WITH FRAME frmOrder
+        VALUE "Order ID:".
+
+    VIEW ORDERID AS FIELD POSITION 30 BY 2
+    WITH FRAME frmOrder
+        FORMAT "X(10)"
+        LABEL "orderid"
+        FORMAT-TRIGGER VALUE(1).
+
+    VIEW CUSTID-LBL AS LABEL POSITION 13 BY 4
+    WITH FRAME frmOrder
+        VALUE "Customer ID:".
+
+    VIEW CUSTID AS FIELD POSITION 30 BY 4
+    WITH FRAME frmOrder
+        FORMAT "X(10)"
+        LABEL "custid"
+        FORMAT-TRIGGER VALUE(2).
+
+{&ENABLE FIELDS ORDERID, CUSTID. /* Enable input fields for user input */
+
+FORM frmOrder ON CHOOSE OF VIEW CUSTID DO:
+
+    /* Validate customer ID */
+    IF CUSTID:SCREEN-VALUE = "" THEN DO:
+        MESSAGE "Please enter a customer ID." VIEW-AS ALERT-BOX.
+        RETURN NO-APPLY.
+    END.
+    ELSE IF NOT AVAILABLE(Customer) THEN DO:
+        MESSAGE "Customer does not exist." VIEW-AS ALERT-BOX.
+        RETURN NO-APPLY.
+    END.
+
+    /* Generate an order ID if not provided by user */
+    IF ORDERID:SCREEN-VALUE = "" THEN DO:
+        ASSIGN order_id = NEXT-VALUE("ordid-seq"). /* Generate a unique order ID */
+        ORDERID:SCREEN-VALUE = STRING(order_id).
+    END.
+END.
+
+/* Validate order ID */
+ON CHOOSE OF VIEW ORDERID DO:
+    IF ORDERID:SCREEN-VALUE = "" THEN DO:
+        MESSAGE "Please enter an order ID." VIEW-AS ALERT-BOX.
+        RETURN NO-APPLY.
+    END.
+    ELSE IF NOT AVAILABLE(SalesOrder) THEN DO:
+        MESSAGE "Order does not exist." VIEW-AS ALERT-BOX.
+        RETURN NO-APPLY.
+    END.
+END.
+
+/* Save order information */
+DEFINE BUTTON btnSave
+    LABEL "Save"
+    WITH FRAME frmOrder:
+
+    ON CHOOSE OF BUTTON btnSave DO:
+        DEFINE VARIABLE ord AS HANDLE NO-UNDO.
+        CREATE SalesOrder.
+        ASSIGN
+            ord.OrderID = INTEGER(ORDERID:SCREEN-VALUE)
+            ord.CustomerID = INTEGER(CUSTID:SCREEN-VALUE)
+            ord.DateOrdered = TODAY.
+        ord:CREATE-ORDER.
+        ORDERID:SCREEN-VALUE = "".
+        CUSTID:SCREEN-VALUE = "".
+        MESSAGE "Order information saved." VIEW-AS ALERT-BOX.
+        {&DISABLE FIELDS ORDERID, CUSTID.
+    END.
+END FRAME frmOrder.

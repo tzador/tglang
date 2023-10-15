@@ -1,0 +1,358 @@
+// Contract to create, manage, and transfer ownership of ERC721 tokens
+// Implements the ERC721 standard for non-fungible tokens
+// Includes access control through ERC721Metadata and Pausable
+pragma solidity ^0.8.4;
+
+import "./IERC721.sol";
+import "./IERC721Metadata.sol";
+import "./IERC721Receiver.sol";
+import "./Pausable.sol";
+import "./Address.sol";
+import "./Strings.sol";
+
+contract MyERC721 is IERC721, IERC721Metadata, Pausable {
+    // use safe math for arithmetic operations
+    using SafeMath for uint256;
+    // use address library for address manipulation
+    using Address for address;
+    // use strings library for string manipulation
+    using Strings for uint256;
+
+    // Total number of tokens minted
+    uint256 private _totalSupply;
+    // Mapping to track the owner of each token
+    mapping(uint256 => address) private _tokenOwners;
+    // Mapping to track the current approved spender for each token
+    mapping(uint256 => address) private _tokenApprovals;
+    // Mapping to track the number of tokens owned by each address
+    mapping(address => uint256) private _ownedTokensCount;
+    // Mapping to track the metadata of each token
+    mapping(uint256 => string) private _tokenURIs;
+
+    // Base URI for token metadata
+    string private _baseURI;
+
+    // Token name
+    string private _name;
+    // Token symbol
+    string private _symbol;
+
+    /**
+     * @dev Emitted when `tokenId` token is transferred from `from` to `to`.
+     */
+    event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
+
+    /**
+     * @dev Emitted when `owner` enables `approved` on `tokenId`.
+     */
+    event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId);
+
+    /**
+     * @dev Emitted when the base URI is changed by the owner.
+     */
+    event BaseURIChanged(string baseURI);
+
+    /**
+     * @dev Initializes the contract by setting a `name` and a `symbol` to the token collection.
+     */
+    constructor(string memory name_, string memory symbol_, string memory baseURI_) {
+        _name = name_;
+        _symbol = symbol_;
+        _baseURI = baseURI_;
+    }
+
+    /**
+     * @dev See {IERC165-supportsInterface}.
+     */
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+        return interfaceId == type(IERC721).interfaceId
+            || interfaceId == type(IERC721Metadata).interfaceId
+            || super.supportsInterface(interfaceId);
+    }
+
+    /**
+     * @dev See {IERC721Metadata-name}.
+     */
+    function name() external view virtual override returns (string memory) {
+        return _name;
+    }
+
+    /**
+     * @dev See {IERC721Metadata-symbol}.
+     */
+    function symbol() external view virtual override returns (string memory) {
+        return _symbol;
+    }
+
+    /**
+     * @dev See {IERC721Metadata-tokenURI}.
+     */
+    function tokenURI(uint256 tokenId) external view virtual override returns (string memory) {
+        require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
+        return string(abi.encodePacked(_baseURI, tokenId.toString()));
+    }
+
+    /**
+     * @dev See {IERC721-balanceOf}.
+     */
+    function balanceOf(address owner) external view virtual override returns (uint256) {
+        require(owner != address(0), "ERC721: balance query for the zero address");
+        return _ownedTokensCount[owner];
+    }
+
+    /**
+     * @dev See {IERC721-ownerOf}.
+     */
+    function ownerOf(uint256 tokenId) external view virtual override returns (address) {
+        address owner = _tokenOwners[tokenId];
+        require(owner != address(0), "ERC721: owner query for nonexistent token");
+        return owner;
+    }
+
+    /**
+     * @dev See {IERC721-approve}.
+     */
+    function approve(address to, uint256 tokenId) external virtual override {
+        address owner = ownerOf(tokenId);
+        require(to != owner, "ERC721: approval to current owner");
+
+        require(_msgSender() == owner || isApprovedForAll(owner, _msgSender()),
+            "ERC721: approve caller is not owner nor approved for all"
+        );
+
+        _tokenApprovals[tokenId] = to;
+        emit Approval(owner, to, tokenId);
+    }
+
+    /**
+     * @dev See {IERC721-getApproved}.
+     */
+    function getApproved(uint256 tokenId) external view virtual override returns (address) {
+        require(_exists(tokenId), "ERC721: approved query for nonexistent token");
+        return _tokenApprovals[tokenId];
+    }
+
+    /**
+     * @dev See {IERC721-setApprovalForAll}.
+     */
+    function setApprovalForAll(address operator, bool approved) external virtual override {
+        require(operator != _msgSender(), "ERC721: approve to caller");
+
+        _operatorApprovals[_msgSender()][operator] = approved;
+        emit ApprovalForAll(_msgSender(), operator, approved);
+    }
+
+    /**
+     * @dev See {IERC721-isApprovedForAll}.
+     */
+    function isApprovedForAll(address owner, address operator) public view virtual override returns (bool) {
+        return _operatorApprovals[owner][operator];
+    }
+
+    /**
+     * @dev See {IERC721-transferFrom}.
+     */
+    function transferFrom(address from, address to, uint256 tokenId) external virtual override {
+        require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721: transfer caller is not owner nor approved");
+        require(_isOwnerOrApproved(from, tokenId), "ERC721: transfer from not owner or approved");
+
+        _transfer(from, to, tokenId);
+    }
+
+    /**
+     * @dev See {IERC721-safeTransferFrom}.
+     */
+    function safeTransferFrom(address from, address to, uint256 tokenId) external virtual override {
+        safeTransferFrom(from, to, tokenId, "");
+    }
+
+    /**
+     * @dev See {IERC721-safeTransferFrom}.
+     */
+    function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory _data) public virtual override {
+        require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721: transfer caller is not owner nor approved");
+        require(_isOwnerOrApproved(from, tokenId), "ERC721: transfer from not owner or approved");
+
+        _safeTransfer(from, to, tokenId, _data);
+    }
+
+    /**
+     * @dev Safely transfers `tokenId` token from `from` to `to`, checking first that contract recipients
+     * are aware of the ERC721 protocol to prevent tokens from being forever locked.
+     *
+     * `_data` is additional data, it has no specified format and it is sent in call to `to`.
+     *
+     * This internal function is equivalent to {safeTransfer}, and can be used to e.g.
+     * implement alternative mechanisms to perform token transfer, such as by overloading
+     * {transferFrom}.
+     *
+     * Emits a {Transfer} event.
+     *
+     * Requirements:
+     *
+     * - `from` cannot be the zero address.
+     * - `to` cannot be the zero address.
+     * - `tokenId` token must exist and be owned by `from`.
+     * - If `to` refers to a smart contract, it must implement `onERC721Received`, which is
+     *   called upon a safe transfer, and return the magic value `IERC721Receiver.onERC721Received.selector`.
+     *
+     * This function calls {_transfer}.
+     *
+     * @param from address sending token
+     * @param to address receiving token
+     * @param tokenId uint256 ID of the token to be transferred
+     * @param _data bytes data to send along with a safe transfer check
+     */
+    function _safeTransfer(address from, address to, uint256 tokenId, bytes memory _data) internal virtual {
+        _transfer(from, to, tokenId);
+        require(_checkOnERC721Received(from, to, tokenId, _data), "ERC721: transfer to non ERC721Receiver implementer");
+    }
+
+    /**
+     * @dev Returns whether `tokenId` exists.
+     *
+     * Tokens can be managed safely without knowing the existence of all tokens.
+     * This function checks whether `tokenId` refers to a non-existing token, in which case it returns false.
+     *
+     * @param tokenId uint256 ID of the token to query the existence of
+     * @return bool whether `tokenId` exists
+     */
+    function _exists(uint256 tokenId) internal view virtual returns (bool) {
+        return _tokenOwners[tokenId] != address(0);
+    }
+
+    /**
+     * @dev Returns whether `sender` is allowed to manage `tokenId`.
+     *
+     * Requirements:
+     *
+     * - `tokenId` must exist.
+     *
+     * @param sender address to query from
+     * @param tokenId uint256 ID of the token to query the approval of
+     * @return bool whether `sender` is approved for `tokenId`
+     */
+    function _isApprovedOrOwner(address sender, uint256 tokenId) internal view virtual returns (bool) {
+        require(_exists(tokenId), "ERC721: operator query for nonexistent token");
+        address owner = ownerOf(tokenId);
+        return (sender == owner || getApproved(tokenId) == sender || isApprovedForAll(owner, sender));
+    }
+
+    /**
+     * @dev Returns whether `from` is allowed to manage `tokenId`.
+     *
+     * Requirements:
+     *
+     * - `tokenId` must exist.
+     *
+     * @param from address to query from
+     * @param tokenId uint256 ID of the token to query the approval of
+     * @return bool whether `from` is approved for `tokenId`
+     */
+    function _isOwnerOrApproved(address from, uint256 tokenId) internal view virtual returns (bool) {
+        require(_exists(tokenId), "ERC721: operator query for nonexistent token");
+        address owner = ownerOf(tokenId);
+        return (from == owner || getApproved(tokenId) == from || isApprovedForAll(owner, from));
+    }
+
+    /**
+     * @dev Sets `uri` as the token URI of `tokenId`.
+     *
+     * Requirements:
+     *
+     * - `tokenId` must exist.
+     * - `uri` must not be empty or only contain whitespace.
+     *
+     * @param tokenId uint256 ID of the token to set its URI
+     * @param uri string URI to assign
+     */
+    function _setTokenURI(uint256 tokenId, string memory uri) internal virtual {
+        require(_exists(tokenId), "ERC721: URI set of nonexistent token");
+        require(bytes(uri).length > 0, "ERC721: URI must not be empty");
+        _tokenURIs[tokenId] = uri;
+    }
+
+    /**
+     * @dev Returns the token URI of `tokenId`.
+     *
+     * Requirements:
+     *
+     * - `tokenId` must exist.
+     *
+     * @param tokenId uint256 ID of the token to query
+     * @return string representing the token URI of `tokenId`
+     */
+    function _tokenURI(uint256 tokenId) internal view virtual returns (string memory) {
+        require(_exists(tokenId), "ERC721Metadata: URI query for nonexistent token");
+        return _tokenURIs[tokenId];
+    }
+
+    /**
+     * @dev Transfers a token owner from one address to another.
+     * Used internally to reduce code duplication.
+     *
+     * Requirements:
+     *
+     * - `from` cannot be the zero address.
+     * - `to` cannot be the zero address.
+     * - `tokenId` token must exist and be owned by `from`.
+     *
+     * Emits a {Transfer} event.
+     *
+     * @param from address sending token
+     * @param to address receiving token
+     * @param tokenId uint256 ID of the token to be transferred
+     */
+    function _transfer(address from, address to, uint256 tokenId) internal virtual {
+        require(from != address(0), "ERC721: transfer from the zero address");
+        require(to != address(0), "ERC721: transfer to the zero address");
+        require(_tokenOwners[tokenId] == from, "ERC721: transfer of token that is not own");
+
+        // Clear approvals from the previous owner
+        _approve(address(0), tokenId);
+
+        // Update token counts for sender and receiver
+        _ownedTokensCount[from] = _ownedTokensCount[from].sub(1);
+        _ownedTokensCount[to] = _ownedTokensCount[to].add(1);
+
+        // Transfer ownership of token
+        _tokenOwners[tokenId] = to;
+
+        emit Transfer(from, to, tokenId);
+    }
+
+    /**
+     * @dev Approve `to` to operate on `tokenId`.
+     *
+     * Emits a {Approval} event.
+     *
+     * Requirements:
+     *
+     * - `tokenId` must exist
+     *
+     * @param to address gaining approval to operate on token
+     * @param tokenId uint256 ID of the token to be approved
+     */
+    function _approve(address to, uint256 tokenId) internal virtual {
+        _tokenApprovals[tokenId] = to;
+        emit Approval(ownerOf(tokenId), to, tokenId);
+    }
+
+    /**
+     * @dev Internal function to invoke {IERC721Receiver-onERC721Received} on a target address.
+     * The call is not executed if the target address is not a contract.
+     *
+     * @param from address sending token
+     * @param to address receiving token
+     * @param tokenId uint256 ID of the token to be transferred
+     * @param _data bytes data to send along with a safe transfer check
+     * @return bool whether the call correctly returned the expected magic value
+     */
+    function _checkOnERC721Received(address from, address to, uint256 tokenId, bytes memory _data)
+        internal returns (bool)
+    {
+        if (!to.isContract()) {
+            return true;
+        }
+        bytes memory returndata = to.functionCall(abi.encodeWithSelector(
+            IERC721Receiver(to).onERC

@@ -1,0 +1,122 @@
+// This code snippet creates a convolutional neural network module in Verilog
+
+// Define module for convolutional neural network
+module convolutional_neural_network(
+    input clk, // clock input
+    input reset, // reset input
+    input [8:0] data_in, // input data
+    input start, // start signal for network operation
+    output done, // signal indicating completion of operation
+    output [3:0] prediction // output prediction
+);
+
+// Parameters for network
+parameter WIDTH = 32; // width of input data
+parameter HEIGHT = 32; // height of input data
+parameter KERNEL_SIZE = 3; // size of convolutional kernel
+parameter NUM_CHANNELS = 3; // number of channels in input data
+parameter NUM_FILTERS = 12; // number of filters in convolutional layer
+parameter STRIDE = 2; // stride for convolution operation
+
+// Registers for input data, output prediction and internal values
+reg [WIDTH-1:0][HEIGHT-1:0][NUM_CHANNELS-1:0] input_data;
+reg [NUM_FILTERS-1:0][WIDTH/STRIDE-1:0][HEIGHT/STRIDE-1:0] conv_output;
+reg [NUM_FILTERS-1:0][WIDTH/STRIDE-1:0][HEIGHT/STRIDE-1:0] pool_output;
+reg [NUM_FILTERS-1:0][WIDTH/STRIDE-1:0][HEIGHT/STRIDE-1:0] relu_output;
+reg [3:0] final_prediction;
+reg [NUM_FILTERS-1:0][WIDTH/STRIDE-1:0][HEIGHT/STRIDE-1:0][NUM_CHANNELS-1:0] weights;
+
+// Initialize weights
+initial
+begin
+    for (int i = 0; i < NUM_FILTERS; i = i + 1) begin
+        for (int j = 0; j < KERNEL_SIZE; j = j + 1) begin
+            for (int k = 0; k < KERNEL_SIZE; k = k + 1) begin
+                for (int l = 0; l < NUM_CHANNELS; l = l + 1) begin
+                    weights[i][j][k][l] = $random; // assign random values for weights
+                end
+            end
+        end
+    end
+end
+
+// Combinational logic for convolutional layer
+always @(*) begin
+    for (int i = 0; i < NUM_FILTERS; i = i + 1) begin
+        for (int j = 0; j < WIDTH/STRIDE; j = j + 1) begin
+            for (int k = 0; k < HEIGHT/STRIDE; k = k + 1) begin
+                for (int l = 0; l < NUM_CHANNELS; l = l + 1) begin
+                    conv_output[i][j][k] = conv_output[i][j][k] +
+                    input_data[j*STRIDE + KERNEL_SIZE-1 : j*STRIDE][k*STRIDE + KERNEL_SIZE-1 : k*STRIDE][l] * weights[i][KERNEL_SIZE-1 : 0][KERNEL_SIZE-1 : 0][l];
+                end
+            end
+        end
+    end
+end
+
+// Pooling layer to reduce dimension
+always @(*) begin
+    for (int i = 0; i < NUM_FILTERS; i = i + 1) begin
+        for (int j = 0; j < WIDTH/STRIDE; j = j + 1) begin
+            for (int k = 0; k < HEIGHT/STRIDE; k = k + 1) begin
+                pool_output[i][j][k] = $max(conv_output[i][j*STRIDE + 1][k*STRIDE + 1], conv_output[i][j*STRIDE + 1][k*STRIDE], conv_output[i][j*STRIDE][k*STRIDE + 1], conv_output[i][j*STRIDE][k*STRIDE]);
+            end
+        end
+    end
+end
+
+// ReLU activation function
+always @(*) begin
+    for (int i = 0; i < NUM_FILTERS; i = i + 1) begin
+        for (int j = 0; j < WIDTH/STRIDE; j = j + 1) begin
+            for (int k = 0; k < HEIGHT/STRIDE; k = k + 1) begin
+                if (pool_output[i][j][k] > 0)
+                    relu_output[i][j][k] = pool_output[i][j][k];
+                else
+                    relu_output[i][j][k] = 0;
+            end
+        end
+    end
+end
+
+// Output prediction based on final pooling layer
+assign final_prediction = $max(relu_output[0][WIDTH/STRIDE-1][HEIGHT/STRIDE-1], relu_output[1][WIDTH/STRIDE-1][HEIGHT/STRIDE-1], relu_output[2][WIDTH/STRIDE-1][HEIGHT/STRIDE-1], relu_output[3][WIDTH/STRIDE-1][HEIGHT/STRIDE-1]);
+
+// FSM to control network operations
+reg [2:0] state;
+parameter IDLE = 3'b000;
+parameter INITIALIZE = 3'b001;
+parameter CONVOLUTION = 3'b010;
+parameter POOLING = 3'b011;
+parameter ACTIVATION = 3'b100;
+
+always @(posedge clk) begin
+    if (start) begin
+        if (state == IDLE) begin
+            state <= INITIALIZE;
+        end
+        else if (state == INITIALIZE) begin
+            input_data <= data_in; // load input data
+            state <= CONVOLUTION; // move to convolution state
+        end
+        else if (state == CONVOLUTION) begin
+            state <= POOLING; // move to pooling state
+        end
+        else if (state == POOLING) begin
+            state <= ACTIVATION; // move to activation state
+        end
+        else if (state == ACTIVATION) begin
+            state <= IDLE; // move back to idle state
+            done <= 1; // indicate completion of network operation
+        end
+    end
+    else if (reset) begin
+        state <= IDLE; // reset back to idle state
+        done <= 0; // reset done signal
+    end
+end
+
+// Assign output prediction to module's output
+assign prediction = final_prediction;
+
+endmodule

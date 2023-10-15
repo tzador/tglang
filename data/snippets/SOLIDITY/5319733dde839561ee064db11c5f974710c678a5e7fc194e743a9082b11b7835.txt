@@ -1,0 +1,80 @@
+// Contract representing a token exchange
+contract TokenExchange {
+
+    // Struct to represent each token that can be exchanged
+    struct Token {
+        uint256 id; // ID of the token
+        string name; // Name of the token
+        uint256 price; // Current price of the token
+    }
+
+    // Address of the token exchange owner
+    address owner;
+
+    // Mapping to keep track of all the tokens registered on the exchange
+    mapping(uint256 => Token) public tokens;
+
+    // Modifier to check if the caller is the owner of the contract
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only contract owner can perform this action.");
+        _;
+    }
+
+    // Event to emit when a token is registered on the exchange
+    event TokenRegistered(uint256 id, string name, uint256 price);
+
+    // Constructor function to set the contract owner
+    constructor() public {
+        owner = msg.sender;
+    }
+
+    // Function to register a new token on the exchange
+    function registerToken(uint256 _id, string memory _name, uint256 _price) public onlyOwner {
+        // Creating a new Token struct
+        Token storage token = tokens[_id];
+
+        // Checking if a token with the given ID already exists
+        require(token.id == 0, "Token with this ID already exists.");
+
+        // Setting the values for the new token
+        token.id = _id;
+        token.name = _name;
+        token.price = _price;
+
+        // Emitting an event to notify the token registration
+        emit TokenRegistered(_id, _name, _price);
+    }
+
+    // Function to update the price of a token on the exchange
+    function updateTokenPrice(uint256 _id, uint256 _newPrice) public onlyOwner {
+        // Retrieving the token struct
+        Token storage token = tokens[_id];
+
+        // Checking if the token exists
+        require(token.id != 0, "Token does not exist.");
+
+        // Updating the price of the token
+        token.price = _newPrice;
+    }
+
+    // Function to buy tokens from the exchange
+    function buyToken(uint256 _id) payable public {
+        // Retrieving the token struct
+        Token storage token = tokens[_id];
+
+        // Checking if the token exists
+        require(token.id != 0, "Token does not exist.");
+
+        // Calculating the total cost of the tokens
+        uint256 totalCost = token.price * msg.value;
+
+        // Checking if the caller has sent enough ether to buy the tokens
+        require(msg.value >= totalCost, "Not enough ether sent.");
+
+        // Sending the tokens to the buyer
+        token.transfer(msg.sender, msg.value);
+
+        // Updating the price of the token
+        token.price = token.price * 2;
+    }
+}

@@ -1,0 +1,30 @@
+*&---------------------------------------------------------------------*
+*& Report Z_EXAMPLE_REPORT
+*&---------------------------------------------------------------------*
+REPORT z_example_report.
+
+DATA: lt_customers TYPE TABLE OF kna1.
+* This selects all customers from the KNA1 table that have a balance greater than 5000
+SELECT * FROM kna1 INTO TABLE lt_customers
+       WHERE bal > 5000.
+
+LOOP AT lt_customers ASSIGNING FIELD-SYMBOL(<fs_customer>).
+  DATA(lv_credit_limit) = 0.
+
+  TRY.
+    * Get the current customer's credit limit from the KNC1 table
+    SELECT SINGLE klimt INTO lv_credit_limit
+           FROM knc1
+           WHERE kunnr = <fs_customer>-kunnr.
+
+    * Add 100 to the credit limit
+    lv_credit_limit = lv_credit_limit + 100.
+
+    * Update the credit limit in the KNC1 table
+    UPDATE knc1 SET klimt = lv_credit_limit
+          WHERE kunnr = <fs_customer>-kunnr.
+  CATCH cx_sy_dynamic_osql_error INTO DATA(lx_error).
+    * If an error occurs, log the error message
+    MESSAGE lx_error->get_text( ) TYPE 'I'.
+  ENDTRY.
+ENDLOOP.

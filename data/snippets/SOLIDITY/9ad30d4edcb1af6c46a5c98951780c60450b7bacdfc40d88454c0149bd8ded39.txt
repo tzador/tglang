@@ -1,0 +1,82 @@
+//This code snippet shows a contract that implements a token sale using the ERC20 token standard
+
+pragma solidity ^0.8.0;
+
+//Import the ERC20 token standard
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+//Create a contract named TokenSale that is owned by a specific address
+contract TokenSale {
+    address payable private owner;
+    IERC20 private token;
+
+    //Create a struct to represent a purchaser
+    struct Purchaser {
+        address purchaserAddress;
+        uint256 amountPurchased;
+        bool hasPurchased;
+    }
+
+    //Create a mapping to store purchasers
+    mapping(address => Purchaser) private purchasers;
+
+    //Create a constructor function that sets the contract owner and token address
+    constructor(address payable _owner, address _tokenAddress) {
+        owner = _owner;
+        token = IERC20(_tokenAddress);
+    }
+
+    //Create a function to allow token transfers to the contract
+    function transferTokensToContract(uint256 _amount) external {
+        //Transfer tokens from sender to contract
+        token.transferFrom(msg.sender, address(this), _amount);
+
+        //Update purchaser's information
+        if (purchasers[msg.sender].hasPurchased) {
+            purchasers[msg.sender].amountPurchased += _amount;
+        } else {
+            purchasers[msg.sender].purchaserAddress = msg.sender;
+            purchasers[msg.sender].amountPurchased = _amount;
+            purchasers[msg.sender].hasPurchased = true;
+        }
+    }
+
+    //Create a function to allow the contract owner to withdraw tokens
+    function withdrawTokensToOwner(address _purchaser, uint256 _amount) external {
+        //Require that only the contract owner can call this function
+        require(msg.sender == owner, "Only the contract owner can withdraw tokens.");
+
+        //Transfer tokens from contract to owner
+        token.transfer(_purchaser, _amount);
+
+        //Update purchaser's information
+        if (purchasers[_purchaser].hasPurchased) {
+            purchasers[_purchaser].amountPurchased -= _amount;
+        }
+    }
+
+    //Create a fallback function to revert any accidental transfers
+    fallback() external revert() {}
+
+    //Create a receive function to receive ether payments and distribute tokens
+    receive() external payable {
+        uint256 ethAmount = msg.value;
+        //Calculate token amount based on a fixed rate of 1 ETH = 100 tokens
+        uint256 tokenAmount = ethAmount * 100;
+
+        //Transfer tokens from contract to sender
+        token.transfer(msg.sender, tokenAmount);
+
+        //Update purchaser's information
+        if (purchasers[msg.sender].hasPurchased) {
+            purchasers[msg.sender].amountPurchased += tokenAmount;
+        } else {
+            purchasers[msg.sender].purchaserAddress = msg.sender;
+            purchasers[msg.sender].amountPurchased = tokenAmount;
+            purchasers[msg.sender].hasPurchased = true;
+        }
+
+        //Transfer ETH from sender to contract owner
+        owner.transfer(ethAmount);
+    }
+}

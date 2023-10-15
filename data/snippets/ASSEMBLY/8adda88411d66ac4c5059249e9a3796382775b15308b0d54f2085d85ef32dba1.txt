@@ -1,0 +1,135 @@
+.section .data
+​
+; variable declaration
+variable1 db 10 ; 1-byte variable
+variable2 dw 20 ; 2-byte variable
+variable3 dd 3000 ; 4-byte variable
+variable4 dq 123456789 ; 8-byte variable
+string db 'Hello World', 0Ah, 0Dh ; string variable with line feed and carriage return
+​
+section .text
+​
+global _start
+​
+_start:
+​
+; move 10 into register eax
+mov eax, 10
+​
+; add 20 to eax
+add eax, 20
+​
+; subtract 5 from eax
+sub eax, 5
+​
+; multiply eax by 2
+imul eax, 2
+​
+; divide eax by 4
+idiv eax, 4
+​
+; print variable1
+push dword variable1 ; push variable1 onto the stack
+call print_int ; calls a function to print integer values
+add esp, 4 ; adjust stack pointer
+​
+; print variable2
+push dword variable2 ; push variable2 onto the stack
+call print_int ; calls a function to print integer values
+add esp, 4 ; adjust stack pointer
+​
+; print variable3
+push dword variable3 ; push variable3 onto the stack
+call print_int ; calls a function to print integer values
+add esp, 4 ; adjust stack pointer
+​
+; print variable4
+push dword variable4 ; push variable4 onto the stack
+call print_int ; calls a function to print integer values
+add esp, 8 ; adjust stack pointer for 8-byte variable
+​
+; print string
+push dword string ; push string onto the stack
+call print_string ; calls a function to print strings
+add esp, 6 ; adjust stack pointer for string and line feed/cr
+​
+; exit program
+mov eax, 1 ; syscall number for exit
+xor ebx, ebx ; set ebx to 0 (error code)
+int 0x80 ; call kernel interrupt
+​
+; function to print integer values
+print_int:
+    push ebp ; save base pointer
+    mov ebp, esp ; set base pointer to current stack pointer
+    mov eax, [ebp+8] ; get value from stack
+    call print_int_helper ; call helper function
+    mov esp, ebp ; restore stack pointer
+    pop ebp ; restore base pointer
+    ret ; return from function
+​
+; helper function for print_int
+print_int_helper:
+    pusha ; save all registers
+    mov ecx, 10 ; divisor
+    xor ebx, ebx ; set ebx to 0
+​
+loop:
+    xor edx, edx ; set edx to 0
+    div ecx ; divide eax by divisor
+    add edx, '0' ; convert remainder to ASCII
+    push edx ; push remainder onto stack
+    inc ebx ; increment counter
+    cmp eax, 0 ; check if eax is 0
+    jne loop ; if not, continue looping
+​
+print:
+    pop edx ; pop value from stack
+    mov ecx, dword [esp] ; get original value from stack
+    add ecx, '0' ; convert to ASCII
+    mov dword [esp], ecx ; save back to stack
+    mov eax, 4 ; syscall number for write
+    xor ebx, ebx ; set ebx to 0 (stdout)
+    mov ecx, esp ; get address of string
+    inc esp ; move pointer to next element
+    mov edx, 1 ; length of string
+    int 0x80 ; call kernel interrupt
+    dec ebx ; decrement counter
+    cmp ebx, 0 ; check if counter is 0
+    jg print ; if not, continue printing
+​
+    popa ; restore all registers
+    ret ; return from function
+​
+; function to print strings
+print_string:
+    push ebp ; save base pointer
+    mov ebp, esp ; set base pointer to current stack pointer
+    mov eax, [ebp+8] ; get value from stack (string address)
+    call print_string_helper ; call helper function
+    mov esp, ebp ; restore stack pointer
+    pop ebp ; restore base pointer
+    ret ; return from function
+​
+; helper function for print_string
+print_string_helper:
+    pusha ; save all registers
+    mov edx, 0 ; set edx (string length) to 0
+    mov ecx, eax ; get string address
+​
+loop:
+    cmp byte [eax], 0 ; check if current character is a null terminator
+    je print ; if yes, print string
+    inc eax ; move to next character
+    inc edx ; increment string length counter
+    jmp loop ; loop back
+​
+print:
+    mov eax, 4 ; syscall number for write
+    xor ebx, ebx ; set ebx to 0 (stdout)
+    mov ecx, ecx ; get string address
+    mov edx, edx ; get string length
+    int 0x80 ; call kernel interrupt
+​
+    popa ; restore all registers
+    ret ; return from function

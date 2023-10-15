@@ -1,0 +1,50 @@
+set i 'index set for countries'
+alias(i,j,k);
+
+parameter
+    pop(i) 'population in millions'
+    debt(i) 'national debt in billions'
+    gdp(i) 'gross domestic product in billions'
+    rate(i) 'interest rate on national debt'
+    balance 'global balance of trade in billions'
+    import(i,j) 'imported goods in billions'
+    export(i,j) 'exported goods in billions';
+
+scalar average_rate 'average interest rate on national debt';
+
+average_rate = sum(i, rate(i)) / card(i);      // computing average rate
+
+equation
+    budget(i) 'budget constraint for each country'
+    conserve 'global trade balance equation'
+    debt_limit(i) 'national debt limit'
+    affordability(i) 'affordability constraint';
+
+budget(i).. gdp(i) + debt(i) =e= pop(i) * average_rate;      // budget constraint 
+conserve.. balance =e= sum(i, export(i,j) - import(j,i));    // global trade balance equation
+debt_limit(i).. debt(i) =l= pop(i) * gdp(i);                 // national debt limit 
+affordability(i).. pop(i) * gdp(i) =l= sum(i, export(i,j));  // affordability constraint
+
+model global_economy / all /;
+
+solve global_economy using lp maximizing balance;
+
+display balance, import, export, gdp, debt, rate, affordability;
+
+option optcr = 0.01;  // set convergence requirement
+option sys = minos;   // select solver
+
+$onecho > lp.opt 
+
+set miprc = 0.5;          // set branch-and-cut effort level
+set feasoptrc = robust;   // set robustness level for feasibility optimization
+$offecho
+
+global_economy.optfile = 1;
+global_economy.optcr = 100;  // set convergence requirement (overrides global option)
+global_economy.solprint = yes;  // print solution
+global_economy.workspace = 1000; // set workspace size
+global_economy.iterlim = 10000;  // set maximum number of iterations
+display global_economy.optfile;  // display list of options
+
+global_economy.optfile = 0;  // reset global option

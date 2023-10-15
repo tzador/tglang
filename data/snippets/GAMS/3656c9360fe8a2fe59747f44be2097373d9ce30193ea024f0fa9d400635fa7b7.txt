@@ -1,0 +1,59 @@
+$Title Multi-period Production Planning with Demand Fluctuations
+$Ontext
+
+The following model allocates production and inventory decisions across multiple periods with demand fluctuations and capacity constraints.
+
+$Offtext
+
+Sets
+i    Products / Product1, Product2, Product3, Product4, Product5 /,
+v    Periods  / Period1*Period12 /;
+
+Parameters
+t(v) Time period
+Demand(v) Demand for product v in period t
+Capacity(v) Maximum production capacity for product v in period t
+UnitProdCost(i) Production cost per unit for product i
+UnitInvCost(i) Inventory holding cost per unit for product i
+InitialInventory(i) Starting inventory for product i
+UnitRevenue(i) Revenue per unit for product i
+BigM Upper bound for auxiliary variables
+
+Variable
+Production(i,v) Amount of product i produced in period v
+Inventory(i,v) Amount of product i held in inventory in period v
+Sales(i,v) Amount of product i sold in period v
+Auxiliary(i,v) Auxiliary variable to help linearize multiplication terms
+Delay Common delay for inventory calculations;
+
+Positive Variables Production, Inventory, Sales;
+
+Production.L(i,v) = InitialInventory(i) =e= 0;
+Sales.L(i,v) = 0;
+Auxiliary.L(i,v) = 0;
+
+Equations
+ct(i,v) Production capacity constraints
+dt(i,v) Demand constraints
+it(i,v) Inventory constraints
+Display Objective Function objective Function
+InventoryElemination(i,v);
+
+ct(i,v).. Production(i,v) =l= Capacity(i,v);
+
+dt(i,v).. Sales(i,v) + Inventory(i,v) - Auxilliary(i,v) =e= Demand(i,v);
+
+it(i,v).. Inventory(i,v-1) + Production(i,v) - Sales(i,v) =e= Inventory(i,v);
+
+Display Objective Function.. ObjectiveFunction =e= sum(v$(ord(v) ), (sum(i, UnitProdCost(i) * Production(i,v)) + sum(i, UnitInvCost(i) * Inventory(i,v)) -sum(i, UnitRevenue(i) * Sales(i,v))));
+
+InventoryElemination.. Auxiliary(i,v) =e= BigM * (Inventory(i,v) - Inventory(i,v-1)) - Delay * (Inventory(i,v) - Inventory(i$ (ord(i) ));
+
+Model PeriodicProductSalesOptimization 'Multi Period Production Planning' /
+Display Objective Function, InventoryElemination/
+;
+
+option optCr = 0.0;
+option optCA = 1.5;
+
+solve PeriodicProductSalesOptimization min ObjectiveFunction using lp;

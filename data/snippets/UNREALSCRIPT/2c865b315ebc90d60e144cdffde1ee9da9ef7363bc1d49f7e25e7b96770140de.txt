@@ -1,0 +1,67 @@
+// Example code snippet demonstrating custom player movement in UnrealScript
+
+class CustomPlayerMovement extends DefaultPlayer // inherit from base player class
+	placeable; // can be placed in level via editor
+	// variables for movement
+	var Vector currentVelocity; // player's current velocity
+	var float acceleration; // rate at which player accelerates
+	var float deceleration; // rate at which player decelerates
+	var float maxSpeed; // maximum speed player can move at
+	var float groundFriction; // amount of friction between player and ground
+	var float airFriction; // amount of friction in the air
+
+	defaultproperties
+	{
+		acceleration = 500;
+		deceleration = 750;
+		maxSpeed = 800;
+		groundFriction = 0.8;
+		airFriction = 0.9;
+	}
+
+	// function to handle player movement
+	function HandleMovement(float deltaTime)
+	{
+		// get input from player
+		local Vector movementVector;
+		movementVector.X = GetInputAxis("MoveForward"); // forward/backward input
+		movementVector.Y = GetInputAxis("Strafe"); // left/right input
+
+		// get current movement direction
+		local Vector viewRotation;
+		viewRotation = Rotation;
+
+		// calculate new velocity by adding input to current velocity
+		currentVelocity += viewRotation.Vector() * movementVector.X * acceleration * deltaTime;
+		currentVelocity += viewRotation.RotateVector(Vector(0, 0, 1)) * movementVector.Y * acceleration * deltaTime;
+
+		// limit velocity to maximum speed
+		currentVelocity = clampVector(currentVelocity, -maxSpeed, maxSpeed);
+
+		// apply friction based on whether player is on ground or in air
+		if (Physics == PHYS_Falling) // player is in air
+		{
+			currentVelocity *= airFriction;
+		}
+		else // player is on ground
+		{
+			currentVelocity *= groundFriction;
+		}
+
+		// move the player
+		Move(currentVelocity * deltaTime);
+
+		// decelerate when no input is being received
+		if (movementVector == vect(0, 0, 0))
+		{
+			currentVelocity = LerpVector(currentVelocity, vect(0, 0, 0), deceleration * deltaTime);
+		}
+	}
+	
+	// overrides the default Tick function to handle player movement
+	event Tick(float deltaTime)
+	{
+		Super.Tick(deltaTime); // call base Tick function from DefaultPlayer class
+		HandleMovement(deltaTime); // handle player movement
+	}
+}

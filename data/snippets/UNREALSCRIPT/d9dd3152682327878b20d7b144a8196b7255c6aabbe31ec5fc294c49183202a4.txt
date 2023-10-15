@@ -1,0 +1,139 @@
+/**
+ * @file MyGameClasses.uc
+ * This file contains all the custom classes for my game.
+ */
+ 
+/*
+ * CustomGameClass used to handle game-specific logic.
+ * Extends from the base UnrealGameClass.
+ */
+class CustomGameClass extends UnrealGameClass
+    config(MyGameConfigClass); // Custom config class for game settings
+ 
+    /*
+     * Function used to initialize the game.
+     * Calls parent's init function and then sets custom game settings.
+     */
+    simulated function InitGame() 
+    {
+        super.InitGame();
+		
+        // Set custom game settings
+        WorldInfo.bWeaponStay=false; // Weapons don't stay on ground when dropped
+        WorldInfo.bUseTranslocator=false; // Disable translocator usage
+    }
+ 
+    /*
+     * Function used to spawn a player at a specific location and rotation.
+     * Calls parent's spawn player function and then sets custom properties.
+     */
+    function SpawnPlayer(optional int TeamNumber) 
+    {
+        local PlayerStart PlayerStart;
+        local PlayerPawn NewPawn;
+ 
+        local int NumTries, MaxTries;
+ 
+        if (NumPlayers % 2 != 0)
+        {
+            TeamNumber = (NumPlayers / 2) + 1; // Assign player to team with fewer players
+        }
+ 
+        // Loop until player is successfully spawned, with a maximum of 10 tries
+        MaxTries = 10;
+        for (NumTries = 0; NumTries < MaxTries; NumTries++)
+        {
+            PlayerStart = FindPlayerStart("", TeamNumber); // Find a player start for the specified team
+ 
+            // If no player start is found, increase team number and try again
+            if (PlayerStart == None)
+            {
+                TeamNumber++;
+                TeamNumber = TeamNumber % 4; // There can only be a maximum of 4 teams
+                continue;
+            }
+ 
+            NewPawn = Spawn(PlayerStart.PlayerStartRotation, PlayerStart.Location + 50);
+ 
+            // Set custom pawn properties
+            NewPawn.Health = 1000;
+ 
+            if (NewPawn != None)
+            {
+                break;
+            }
+        }
+ 
+        if (NewPawn == None)
+        {
+            error("Failed to spawn player");
+        }
+ 
+        return NewPawn;
+    }
+ 
+    /*
+     * Function used to check if a player has picked up a custom game item.
+     */
+    function CheckCustomGameItemPickup(PlayerPawn Other)
+    {
+        if (Other.IsA('CustomGameItemType')) // If the player picked up the custom game item
+        {
+            Other.Health += 100; // Increase player's health by 100
+        }
+    }
+ 
+    /*
+     * Function used to check if a player has won the game.
+     * Checks for custom win conditions.
+     */
+    function CheckGameWinner()
+    {
+        local int i;
+        local bool bTeam1Win, bTeam2Win;
+ 
+        // Loop through all players and check their health
+        for (i=0; i < Level.PlayerList.Length; i++)
+        {
+            local Player Pawn;
+ 
+            Pawn = Level.PlayerList[i].Pawn; // Get player's pawn
+ 
+            if (Pawn.Health > 0) // If the player's health is above 0
+            {
+                if (Pawn.TeamNumber == 1) // If the player is on team 1
+                {
+                    bTeam1Win = true; // Mark that team 1 has players alive
+                }
+                else if (Pawn.TeamNumber == 2) // If the player is on team 2
+                {
+                    bTeam2Win = true; // Mark that team 2 has players alive
+                }
+ 
+                if (bTeam1Win && bTeam2Win) // If both teams have players alive
+                {
+                    return; // No winner yet
+                }
+            }
+        }
+ 
+        if (bTeam1Win && !bTeam2Win) // If team 1 has players alive and team 2 doesn't
+        {
+            // Display win message for team 1
+            HUD.ShowGameMessage(class'GameMessage_emit', Team, TeamName[(Team1)], None);
+            Level.EndGame(Team1); // End the game with team 1 as the winner
+        }
+        else if (bTeam2Win && !bTeam1Win) // If team 2 has players alive and team 1 doesn't
+        {
+            // Display win message for team 2
+            HUD.ShowGameMessage(class'GameMessage_emit', Team, TeamName[(Team2)], None);
+            Level.EndGame(Team2); // End the game with team 2 as the winner
+        }
+        else if (!bTeam1Win && !bTeam2Win) // If both teams have no players alive
+        {
+            // Display tie message
+            HUD.ShowGameMessage(class'GameMessage_emit', Tie, None, None);
+            Level.EndGame(Tie); // End the game with no winner
+        }
+    }
+}

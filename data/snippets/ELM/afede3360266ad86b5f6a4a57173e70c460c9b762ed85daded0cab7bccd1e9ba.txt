@@ -1,0 +1,49 @@
+module Test exposing (..)
+
+import Html exposing (..)
+import Http
+import Json.Decode as Json
+import Time
+
+-- Function that returns a Task
+getData : String -> Task Http.Error Json.Value
+getData query =
+    Http.send Json.Decoder.fromString decodeData <| Http.get ( "https://www.example.com/api/" ++ query )
+
+-- Helper function for decoding data
+decodeData : Json.Decoder Json.Value
+decodeData =
+    Json.field "data" <| Json.list Json.string
+
+-- Button component that makes a request on click
+clickButton : String -> Html Msg
+clickButton query =
+    button [ onClick <| getData query ] [ text "Click Me" ]
+
+-- View function that displays the button and the results of the request
+view : Model -> Html Msg
+view model =
+    div []
+        [ clickButton model.query
+        , case model.result of
+            Just data ->
+                ul [] (List.map (\str -> li [] [ text str ]) data)
+
+            Nothing ->
+                text "Waiting for data to load..."
+        ]
+
+-- Update function that handles the result of the request
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    case msg of
+        GetDataSuccess res ->
+            { model | result = res } ! []
+
+        GetDataFailure err ->
+            { model | result = Nothing } ! [ Cmd.none ]
+
+-- Function for tracking elapsed time
+timeFunction : Int
+timeFunction =
+    Time.now |> Time.toMillis

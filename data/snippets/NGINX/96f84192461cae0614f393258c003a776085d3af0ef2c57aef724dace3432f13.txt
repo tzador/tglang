@@ -1,0 +1,101 @@
+# Default server configuration
+server {
+    listen 80 default_server; # listens on port 80, default server
+    listen [::]:80 default_server; # listens on ipv6 address as well
+    server_name _; # server_name set as underscore for default server
+
+    # Root directory for server's files
+    root /var/www/html;
+
+    # Separate access and error logs for each server
+    access_log /var/log/nginx/default.access.log;
+    error_log /var/log/nginx/default.error.log;
+
+    # Set up index file
+    index index.html;
+
+    # Enable gzip compression
+    gzip on;
+
+    # Serve content based on MIME type
+    types {
+        text/html html;
+        text/css css;
+        text/javascript js;
+        application/javascript js;
+        application/json json;
+        image/jpeg jpeg jpg;
+        image/png png;
+    }
+
+    # HTTPS configuration using Let's Encrypt free SSL certificate
+    listen [::]:443 ssl ipv6only=on; # listens on port 443, ipv6 address only
+    listen 443 ssl; # listens on port 443, ipv4 address
+    server_name example.com; # set server name
+
+    ssl_certificate /etc/letsencrypt/live/example.com/fullchain.pem; # location of certificate file
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem; # location of certificate key file
+    include /etc/letsencrypt/options-ssl-nginx.conf; # Enables stronger encryption
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # Sets optimal security parameters
+
+    # Redirect all HTTP traffic to HTTPS
+    if ($scheme != "https") { # If scheme is not https
+        return 301 https://$host$request_uri; # return 301 status code with HTTPS version of URL
+    }
+
+    # Enable HTTP/2 for faster website loading
+    http2_push_preload on;
+
+    # Enable browser caching for optimization
+    location ~* \.(jpg|jpeg|svg|png|gif)$ { # Specifies file types for caching
+        expires 30d; # Set expiration time for cached files
+    }
+
+    # Enable server-side caching with nginx's built-in caching mechanism
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=cache:10m inactive=60m; # Sets caching parameters and location
+    proxy_cache_key "$scheme$request_method$host$request_uri"; # Sets cache key
+    server_tokens off; # Disables NGINX version number from being displayed
+
+    # Reverse proxy configuration for load balancing
+    upstream backend { # Creates a group of servers to balance requests between
+        server 10.10.10.1:80;
+        server 10.10.10.2:80;
+        server 10.10.10.3:80;
+    }
+
+    server {
+        listen 80;
+        server_name api.example.com; # set server name
+
+        location / {
+            proxy_pass http://backend; # requests will be distributed among the servers in the "backend" group
+            proxy_http_version 1.1; # enables HTTP/1.1 for proxy requests
+            proxy_set_header Upgrade $http_upgrade; # sets the "Upgrade" header to the same value sent by the client
+            proxy_set_header Connection 'upgrade'; # sets the value of the "Connection" header to the one sent by the client
+            proxy_set_header Host $host; # ensures the host header is set correctly on the proxied request
+            proxy_cache_bypass $http_upgrade; # bypass caching for upgrade requests
+        }
+    }
+
+    # Block known malicious IP addresses
+    deny 1.2.3.4; # blocks single IP address
+    deny 5.6.7.8/24; # blocks entire IP subnet
+
+    # Prevent hotlinking of images
+    location ~* \.(gif|png|jpe?g)$ {
+        valid_referers none blocked server_names *.example.com;
+        if ($invalid_referer) { # checks if the referer is not in the list of valid referers
+            return 403; # return Forbidden response code
+        }
+    }
+
+    # Configuration for handling PHP files with php-fpm
+    location ~ \.php$ { # Specifies all files with .php extension
+        fastcgi_index index.php;
+        include fastcgi.conf; # Includes configuration for running PHP with php-fpm
+        fastcgi_pass unix:/var/run/php/php7.4-fpm.sock; # Specifies the socket that php-fpm will listen on
+    }
+
+    # Enables server-side includes
+    ssi on;
+}

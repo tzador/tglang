@@ -1,0 +1,75 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+version = '1.0'
+
+mainClassName = 'com.example.Main'
+
+sourceCompatibility = '1.8'
+targetCompatibility = '1.8'
+
+ext {
+    libVersion = '2.1.3'
+}
+
+dependencies {
+    implementation "org.apache.commons:commons-lang3:$libVersion"
+    testImplementation 'junit:junit:4.12'
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'com.example.Main'
+    }
+}
+
+run {
+    args = ['Hello', 'World']
+}
+
+test {
+    useJUnitPlatform()
+}
+
+task runDependantTask {
+    dependsOn jar
+}
+
+task generateFiles(type: Copy) {
+    from 'source'
+    into 'destination'
+    rename { String fileName ->
+        fileName = fileName.substring(0, fileName.lastIndexOf('.') - 1) + '.txt'
+    }
+    include '**/*.java'
+    includeEmptyDirs = false
+    exclude '**/Main.java'
+}
+
+artifactory {
+    contextUrl = "${artifactory_contextUrl}"
+    publish {
+        repository {
+            repoKey = 'libs-release-local'
+            username = "${artifactory_user}"
+            password = "${artifactory_password}"
+        }
+        defaults {
+            publications('mavenJava')
+            publishArtifacts = true
+            publishPOM = true
+        }
+    }
+}
+
+artifactoryPublish {
+    requires = 'build'
+}
+
+gradle.projectsEvaluated {
+    tasks.withType<JavaExec> {
+        classpath += project.files('libs/dependency.jar')
+    }
+}

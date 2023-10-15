@@ -1,0 +1,42 @@
+/* This code creates a macro variable that identifies customers who have made a purchase in the current month */
+%macro purchase_month(data=);
+    %let dsetid = %sysfunc(open(&data));
+
+    /* Filters the dataset based on purchase date */
+    %if %sysfunc(varnum(&dsetid, PURCH_DATE)) > 0 %then %do;
+        data &data;
+            set &data;
+                where year(PURCH_DATE) = year(today()) and month(PURCH_DATE) = month(today());
+    %end;
+    %else %do;
+        %put ERROR: Purchase date variable not found;
+        %goto done;
+    %end;
+
+    /* Creates a summarization table with number of purchases by customer */
+    proc sql noprint;
+        create table purchase_summary as
+            select CUSTOMER_ID,
+                count(*) as NUM_PURCHASES
+                    from &data
+                        group by CUSTOMER_ID;
+    quit;
+
+    /* Creates a macro variable with customer IDs who made at least one purchase this month */
+    %global purchase_customers;
+    data _null_;
+        set purchase_summary;
+            call symput('purchase_customers', CATS(CUSTOMER_ID, '|'));
+    run;
+
+    /* Closes dataset and macro variable */
+    %let rc = %sysfunc(close(&dsetid));
+    %put NOTE: Purchase month macro variable generated.;
+
+    /* Labels the macro variable for easier identification */
+    %label(purchase_customers, 'IDs of customers who made a purchase this month');
+
+    %goto done;
+%done:
+
+%mend purchase_month;

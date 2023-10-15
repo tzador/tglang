@@ -1,0 +1,29 @@
+// This code snippet creates a custom object and a trigger to update its records
+// Custom object named 'Sales Order' with fields 'Order Number', 'Customer Name' and 'Order Total'
+
+Schema.SObjectType salesOrderObj = Schema.getGlobalDescribe().get('Sales_Order__c');
+Schema.DescribeSObjectResult salesOrderDesc = salesOrderObj.getDescribe();
+
+// Define custom fields for 'Sales Order'
+Map<String, Schema.SObjectField> salesOrderFields = salesOrderDesc.fields.getMap();
+Schema.SObjectField orderNumberField = salesOrderFields.get('Order_Number__c');
+Schema.SObjectField customerNameField = salesOrderFields.get('Customer_Name__c');
+Schema.SObjectField orderTotalField = salesOrderFields.get('Order_Total__c');
+
+// Create a new trigger for 'Sales Order'
+trigger SalesOrderTrigger on Sales_Order__c (after insert, after update) {
+    // Get the updated records
+    List<Sales_Order__c> salesOrdersToUpdate = Trigger.new;
+    
+    // Loop through the records and update the 'Order Total' field based on 'Order Number' and 'Customer Name'
+    for (Sales_Order__c so : salesOrdersToUpdate) {
+        if (so.Order_Number__c != null && so.Customer_Name__c != null) {
+            // Query for the corresponding record in 'Sales Order' table
+            List<Sales_Order__c> salesOrderRecord = [SELECT Id, Order_Total__c FROM Sales_Order__c WHERE Order_Number__c = :so.Order_Number__c AND Customer_Name__c = :so.Customer_Name__c LIMIT 1];
+            // Update the 'Order Total' field based on the values in the updated record
+            salesOrderRecord[0].Order_Total__c = so.Order_Total__c;
+            // Update the record in the database
+            update salesOrderRecord[0];
+        }
+    }
+}

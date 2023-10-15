@@ -1,0 +1,50 @@
+// This program uses concurrent channels to sort an array of numbers
+
+// Define the function to sort a portion of the array
+func sort(numArr []int, wg *sync.WaitGroup, ch chan []int) {
+  defer wg.Done() // Mark the end of the function for wait group
+  sort.Slice(numArr, func(i, j int) bool { // Sort the portion of array using predefined function
+    return numArr[i] < numArr[j]
+  })
+  ch <- numArr // Send the sorted portion of array through channel
+}
+
+// Define the function to merge the sorted portions of array
+func merge(ch1, ch2 chan []int) {
+  numArr := make([]int, 0) // Initialize an empty array
+  num1 := <-ch1 // Receive the first sorted portion through channel
+  num2 := <-ch2 // Receive the second sorted portion through channel
+  i, j := 0, 0 // Initialize counters for both portions of array
+  for i < len(num1) && j < len(num2) { // Loop through both portions of array
+    if num1[i] < num2[j] { // Append the smaller number to the merged array
+      numArr = append(numArr, num1[i])
+      i++
+    } else {
+      numArr = append(numArr, num2[j])
+      j++
+    }
+  }
+  numArr = append(numArr, num1[i:]...) // Append any remaining elements to the merged array
+  numArr = append(numArr, num2[j:]...)
+  fmt.Println(numArr) // Print the sorted and merged array
+}
+
+func main() {
+  numArr := []int{5, 2, 7, 1, 8, 4, 3, 9, 6} // Initialize the unsorted array
+  mid := len(numArr) / 2 // Find the midpoint of the array
+  ch1 := make(chan []int) // Initialize channels to send sorted portions
+  ch2 := make(chan []int)
+  var wg sync.WaitGroup // Initialize wait group to synchronize goroutines
+  wg.Add(2)
+
+  go sort(numArr[:mid], &wg, ch1) // Start separate goroutines to sort both portions of array
+  go sort(numArr[mid:], &wg, ch2)
+
+  go merge(ch1, ch2) // Start separate goroutine to merge the sorted portions
+
+  wg.Wait() // Wait for both sorting goroutines to finish
+
+  close(ch1) // Close both channels after receiving both sorted portions
+  close(ch2)
+  fmt.Println("Array sorted!") // Print message indicating the array has been sorted
+}

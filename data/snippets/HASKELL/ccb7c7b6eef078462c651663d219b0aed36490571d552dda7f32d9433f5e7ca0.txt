@@ -1,0 +1,65 @@
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, PolyKinds, TypeApplications #-}
+
+module MyModule where
+
+import Data.Kind (Type)
+import GHC.TypeLits (ErrorMessage (Text), TypeError)
+
+type family Assert (p :: Bool) (err :: ErrorMessage) :: Constraint where
+  Assert 'True err = ()
+  Assert 'False err = TypeError err
+
+type family Contains (x :: k) (xs :: [k]) :: Bool where
+  Contains _ '[] = 'False
+  Contains x (x ': _) = 'True
+  Contains x (_ ': xs) = Contains x xs
+
+data Tagged (s :: k) (a :: Type) = Tagged a
+
+newtype Param (name :: Symbol) (a :: k) = Param a
+
+data ValidParams (params :: [k]) where
+  VPNil :: ValidParams '[]
+  VPCons :: (ValidParam p, ValidParams ps) => ValidParams (p ': ps)
+
+class ValidParam (p :: k) where
+  type ParamName p :: Symbol
+  type ParamType p :: Type
+  checkParam
+    :: forall (ps :: [k]). ValidParams ps
+    => Param (ParamName p) (ParamType p)
+    -> Tagged (ParamName p) (ParamType p)
+
+instance ( KnownSymbol name
+         , Assert (Contains name names ~ 'False)
+                  ('Text "Parameter '" <> name <> "' already exists in list of parameters"))
+      => ValidParam ('Param name a) where
+  type ParamName ('Param name a) = name
+  type ParamType ('Param name a) = a
+  checkParam _ = Tagged @name @a
+
+type family ParamsToArgs (params :: [k]) :: [Type] where
+  ParamsToArgs '[] = '[]
+  ParamsToArgs (p ': ps) = ParamType p ': ParamsToArgs ps
+
+
+-- Example declaration
+validParams :: ValidParams
+   [ 'Param "name" String
+   , 'Param "age" Int
+   ]
+
+-- Example usage
+test :: Tagged "name" String -> Tagged "age" Int -> IO ()
+test (Tagged name) (Tagged age) = putStrLn $ name ++ " is " ++ show age
+
+-- Nested tagged types are allowed
+nestedTest :: Tagged "employee" (Tagged "name" String) -> IO ()
+nestedTest (Tagged (Tagged name)) = putStrLn $ "Employee name: " ++ name
+
+-- Error: Duplicate parameter name
+invalidParams :: ValidParams
+   [  'Param "name" String
+   , 'Param "age" Int
+   , 'Param "name" Bool
+   ]

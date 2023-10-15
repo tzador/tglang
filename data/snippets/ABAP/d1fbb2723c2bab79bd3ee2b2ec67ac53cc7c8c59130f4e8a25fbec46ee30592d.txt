@@ -1,0 +1,82 @@
+*&---------------------------------------------------------------------*
+*& Report  ZTEST_REPORT
+*&---------------------------------------------------------------------*
+*& Report to display and manipulate employee data
+*&---------------------------------------------------------------------*
+REPORT ZTEST_REPORT.
+
+* This program is meant to display and manipulate employee data based on user input *
+* All data is stored and extracted from the EMPLOYEE table in the database *
+
+* Type declarations for the various variables and structures *
+TYPES: BEGIN OF t_employee,
+          emp_id TYPE i,
+          emp_name TYPE string,
+          emp_dept TYPE string,
+          emp_salary TYPE i,
+        END OF t_employee.
+
+TYPES: BEGIN OF t_sort,
+          employee_data TYPE STANDARD TABLE OF t_employee,
+        END OF t_sort.
+
+* Data declarations for the internal tables and work area *
+DATA: lt_employee TYPE t_sort,
+      ls_employee TYPE t_employee.
+
+* Selection screen to prompt user input *
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE text-100.
+PARAMETERS:
+     p_emp_id TYPE i OBLIGATORY,
+     p_emp_name LIKE ls_employee-emp_name DEFAULT '*',
+     p_emp_dept LIKE ls_employee-emp_dept.
+SELECTION-SCREEN END OF BLOCK b1.
+
+* Start of program logic *
+START-OF-SELECTION.
+
+* Check if user inputted employee ID is valid by querying the database *
+SELECT SINGLE * FROM employee INTO ls_employee WHERE emp_id = p_emp_id.
+IF sy-subrc <> 0.
+     WRITE 'Invalid Employee ID. Please enter a valid ID.'.
+ELSE.
+
+* If inputted employee ID is valid, continue with the program logic *
+     WRITE 'Employee Data:'.
+     WRITE '---------------'.
+     WRITE 'Employee ID: ' && ls_employee-emp_id.
+     WRITE 'Employee Name: ' && ls_employee-emp_name.
+     WRITE 'Employee Department: ' && ls_employee-emp_dept.
+     WRITE 'Employee Salary: ' && ls_employee-emp_salary.
+
+* Depending on user input for the department, display different employee data *
+     CASE p_emp_dept.
+          WHEN 'SALES'.
+          WRITE 'Displaying all employees in the Sales department:'.
+          * Use a secondary selection screen to allow user to input additional filters *
+          SELECT * FROM employee INTO TABLE lt_employee WHERE emp_dept = 'SALES'
+                                                  AND emp_salary >= p_emp_salary.
+          * Loop through internal table to display all sales employees that meet the filter *
+          LOOP AT lt_employee INTO ls_employee.
+               WRITE / 'Employee ID: ' && ls_employee-emp_id.
+               WRITE 'Employee Name: ' && ls_employee-emp_name.
+               WRITE 'Employee Salary: ' && ls_employee-emp_salary.
+          ENDLOOP.
+          WHEN 'HR'.
+          WRITE 'Displaying all employees in the HR department:'.
+          * Use another secondary selection screen to allow user to input additional filters *
+          SELECT * FROM employee INTO TABLE lt_employee WHERE emp_dept = 'HR'
+                                                  AND emp_name LIKE p_emp_name.
+          * Loop through internal table to display all HR employees that meet the filter *
+          LOOP AT lt_employee INTO ls_employee.
+               WRITE / 'Employee ID: ' && ls_employee-emp_id.
+               WRITE 'Employee Name: ' && ls_employee-emp_name.
+               WRITE 'Employee Salary: ' && ls_employee-emp_salary.
+          ENDLOOP.
+
+* End of program logic *
+ENDIF.
+
+*---------------------------------------------------------------------*
+* End of program                                                    *
+*---------------------------------------------------------------------*

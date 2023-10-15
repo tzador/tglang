@@ -1,0 +1,64 @@
+REPORT Z_TEST.
+
+* Selection screen
+SELECTION-SCREEN BEGIN OF BLOCK main WITH FRAME TITLE text-001.
+PARAMETERS:
+    p_matnr TYPE mara-matnr,
+    p_werks TYPE t001w-werks,
+    p_waers TYPE tcurr-waers DEFAULT 'USD'.
+SELECTION-SCREEN END OF BLOCK main.
+
+* Data declarations
+DATA:
+    lt_matnr TYPE TABLE OF mara-matnr,
+    lt_makt TYPE STANDARD TABLE OF makt,
+    lt_tcurr TYPE STANDARD TABLE OF tcurr.
+DATA:
+    ls_matnr TYPE mara,
+    ls_makt TYPE makt,
+    ls_tcurr LIKE LINE OF lt_tcurr.
+
+* Initialization
+INITIALIZATION.
+    p_matnr = '000000000100000093'.
+
+* Start-of-selection
+START-OF-SELECTION.
+
+* Read data from tables with select option
+SELECT-OPTIONS:
+    s_matnr FOR ls_matnr-matnr,
+    s_werks FOR ls_matnr-werks.
+SELECT matnr makt* INTO CORRESPONDING FIELDS OF TABLE lt_matnr
+    FROM mara
+    INNER JOIN makt ON makt~matnr = mara~matnr
+    WHERE mara~matnr IN s_matnr
+    AND mara~werks IN s_werks.
+
+* Process data
+LOOP AT lt_matnr INTO ls_matnr.
+    * Fetch data from database
+    SELECT SINGLE * FROM tcurr INTO ls_tcurr
+        WHERE matnr = ls_matnr-matnr
+        AND werks = ls_matnr-werks
+        AND waers = p_waers.
+    * Fetch data from internal table
+    READ TABLE lt_makt WITH KEY matnr = ls_matnr-matnr BINARY SEARCH
+        INTO ls_makt.
+    * Process data
+    IF sy-subrc = 0.
+        ls_makt-maktx = ls_matnr-maktx.
+    ELSE.
+        ls_maktx = 'Maktx not available'.
+    ENDIF.
+    MODIFY lt_matnr FROM ls_matnr TRANSPORTING maktx.
+ENDLOOP.
+
+* End-of-selection
+END-OF-SELECTION.
+
+* Output data
+WRITE: / 'Material', 'Description', 'Currency'.
+LOOP AT lt_matnr INTO ls_matnr.
+    WRITE: / ls_matnr-matnr, ls_matnr-maktx, ls_tcurr-kschl.
+ENDLOOP.

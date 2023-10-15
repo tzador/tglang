@@ -1,0 +1,151 @@
+/* This is a code snippet in SAS */
+
+data newdata;
+  set olddata;
+  /* Creating a new variable "total" */
+  length total 8.;
+  
+  /* Looping through each observation */
+  do i = 1 to nobs;
+    /* Assigning values to variables */
+    if gender = "Male" then total = salary + bonus;
+    else if gender = "Female" then total = salary + allowance;
+    
+    /* Checking for missing values */
+    if missing(salary) then total = .;
+    if missing(bonus) then total = .;
+    if missing(allowance) then total = .;
+    
+    /* Appending the new variable to dataset */
+    output;
+  end;
+  
+  /* Adding a label to the new variable */
+  label total = "Total Income";
+  
+  /* Sorting the dataset by total income in descending order */
+  proc sort data=newdata;
+    by desc total;
+  run;
+  
+  /* Printing the top 10 observations with their total income */
+  proc print data=newdata (obs=10);
+    var employee_id name total;
+    label employee_id = "Employee ID"
+          name = "Name"
+          total = "Total Income"; 
+  run;
+  
+  /* Creating a graphical representation of the total income distribution */
+  proc sgplot data=newdata;
+    histogram total;
+    title "Total Income Distribution";
+    xaxis label="Total Income";
+    yaxis label="Frequency";
+  run;
+  
+  /* Calculating the mean and standard deviation of total income */
+  proc means data=newdata;
+    var total;
+    output out=stats mean=mean std=std;
+  run;
+  
+  /* Printing the mean and standard deviation of total income */
+  proc print data=stats;
+    var mean std;
+    label mean = "Mean"
+          std = "Standard Deviation";
+  run;
+  
+  /* Constructing a contingency table for gender and total income categories */
+  proc freq data=newdata;
+    tables gender * total / chisq;
+    title "Contingency Table: Gender vs Total Income Categories";
+    label gender = "Gender"
+          total = "Total Income Categories";
+  run;
+  
+  /* Creating a new dataset with only male employees and their total income */
+  data male_data;
+    set newdata;
+    where gender = "Male";
+  run;
+  
+  /* Printing male data with total income greater than 10000 */
+  proc print data=male_data;
+    var name total;
+    where total > 10000;
+    label name = "Employee Name"
+          total = "Total Income";
+  run;
+  
+  /* Calculating the average salary for each gender */
+  proc sql;
+    create table avg_salary as
+      select gender, avg(salary) as avg_salary
+      from newdata
+      group by gender;
+    quit;
+  
+  /* Printing the average salary for each gender */
+  proc print data=avg_salary;
+    var gender avg_salary;
+    label gender = "Gender"
+          avg_salary = "Average Salary";
+  run;
+  
+  /* Merging the male_data dataset with the avg_salary dataset */
+  data male_data;
+    merge male_data(in=a)
+          avg_salary(in=b);
+    by gender;
+    if a and b;
+  run;
+  
+  /* Printing the final male_data dataset with total income and average salary */
+  proc print data=male_data;
+    var name total avg_salary;
+    label name = "Employee Name"
+          total = "Total Income"
+          avg_salary = "Average Salary";
+  run;
+  
+  /* Creating a macro variable to store the total number of observations in the male_data dataset */
+  proc sql noprint;
+    select count(*) into :nobs
+    from male_data;
+  quit;
+  
+  /* Printing the total number of observations in the male_data dataset */
+  %put Number of observations in male_data dataset: &nobs.;
+  
+  /* Writing the male_data dataset to an Excel file */
+  libname outdata "C:\output";
+  data outdata.male_data;
+    set male_data;
+    format total dollar12.2;
+  run;
+  libname outdata clear;
+  
+  /* Generating a scatter plot of total income vs average salary for male employees */
+  proc sgplot data=male_data;
+    scatter x=avg_salary y=total;
+    title "Total Income vs Average Salary for Male Employees";
+    xaxis label="Average Salary";
+    yaxis label="Total Income";
+  run;
+  
+  /* Creating a label for the scatter plot */
+  legend1 label = ("Average Salary" "Total Income");
+  
+  /* Exporting the scatter plot to a PNG file */
+  ods graphics on / outputfmt=png;
+  proc sgplot data=male_data;
+    scatter x=avg_salary y=total;
+    title "Total Income vs Average Salary for Male Employees";
+    xaxis label="Average Salary";
+    yaxis label="Total Income";
+    legend display=legend1;
+  run;
+  ods graphics off;
+run;

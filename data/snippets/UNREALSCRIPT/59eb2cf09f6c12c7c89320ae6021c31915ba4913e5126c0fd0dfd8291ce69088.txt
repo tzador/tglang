@@ -1,0 +1,213 @@
+// Example code snippet in UNREALSCRIPT
+ 
+// This class represents a player character with movement, combat, and health
+class Player extends Actor
+    placeable;
+ 
+// The player's health, initialized to 100
+var int Health = 100;
+ 
+// The player's speed, in units per second
+var int Speed = 500;
+ 
+// The amount of damage the player's attacks will do
+var int Damage = 10;
+ 
+// Determines if the player is currently attacking
+var bool bAttacking = false;
+ 
+// The player's currently equipped weapon
+var class<Weapon> CurrentWeapon;
+ 
+// The player's camera for first-person view
+var Camera PlayerCamera;
+ 
+// Called when the player spawns in the world
+// Sets up the player's camera and input bindings
+event PostBeginPlay()
+{
+    // Spawn the player's camera
+    PlayerCamera = Spawn(class'Camera', self);
+ 
+    // Set up input bindings
+    SetInputSwitch(PlayerCamera, 'MouseLeftButton', 'InitiateAttack', true);
+    SetInputSwitch(PlayerCamera, 'W', 'MoveForward', true);
+    SetInputSwitch(PlayerCamera, 'S', 'MoveBackward', true);
+    SetInputSwitch(PlayerCamera, 'A', 'MoveLeft', true);
+    SetInputSwitch(PlayerCamera, 'D', 'MoveRight', true);
+}
+ 
+// Called every frame to update the player's movement and combat
+event Tick(float DeltaTime)
+{
+    local Vector MovementVector;
+ 
+    // If the player is attacking, spawn a weapon trace to check for hits
+    if (bAttacking)
+    {
+        // The location of the trace starts at the player's location
+        local Vector TraceStart = self.Location;
+ 
+        // The direction of the trace is based on the player's rotation
+        local Vector TraceDirection = PlayerCamera.CameraRotation;
+ 
+        // The end location of the trace is calculated by adding the direction vector
+        // to the start location and multiplying it by a distance
+        local Vector TraceEnd = TraceStart + TraceDirection * 1000;
+ 
+        // Perform the trace and store the result
+        local HitResult TraceHit;
+        TraceHit = Trace(TraceStart, TraceEnd, true);
+ 
+        // If the trace hits something, check if it is an actor and if it is an enemy
+        if (TraceHit.Actor != None && TraceHit.Actor.IsA('Enemy'))
+        {
+            // Cast the actor to the Enemy class
+            local Enemy TraceEnemy;
+            TraceEnemy = Enemy(TraceHit.Actor);
+ 
+            // Deal damage to the enemy and print a message
+            TraceEnemy.TakeDamage(Damage);
+            `Log("You hit a " $TraceEnemy $ ".", 'Hit');
+        }
+    }
+ 
+    // Get the player's input to determine movement
+    if (PlayerCamera.Input.KeyTime('W') > 0)
+        MovementVector.X += 1;
+    if (PlayerCamera.Input.KeyTime('S') > 0)
+        MovementVector.X -= 1;
+    if (PlayerCamera.Input.KeyTime('A') > 0)
+        MovementVector.Y -= 1;
+    if (PlayerCamera.Input.KeyTime('D') > 0)
+        MovementVector.Y += 1;
+ 
+    // Normalize the movement vector and multiply it by the speed
+    MovementVector = Normal(MovementVector);
+    MovementVector *= Speed;
+ 
+    // Move the player based on the calculated vector
+    self.Acceleration = MovementVector;
+}
+ 
+// Called when the player presses the left mouse button
+// Sets bAttacking to true to initiate an attack
+event InitiateAttack()
+{
+    bAttacking = true;
+}
+ 
+// Called when the player releases the left mouse button
+// Sets bAttacking to false to end the attack
+event EndAttack()
+{
+    bAttacking = false;
+}
+ 
+// Called when the player takes damage
+// Decreases the player's health and checks for death
+function TakeDamage(int Amt)
+{
+    Health -= Amt;
+    `Log("You took " $Amt $ " damage!", 'Damage');
+ 
+    // If the player's health reaches 0, call the Die function
+    if (Health <= 0)
+        Die();
+}
+ 
+// Called when the player dies
+// Prints a message and destroys the player's actor
+function Die()
+{
+    `Log("You have died.", 'Death');
+    Destroy();
+}
+ 
+// The player's currently equipped weapon
+var class<Weapon> CurrentWeapon;
+ 
+// The player's type of weapon
+var enum EPlayerWeapon
+{
+    Sword,
+    Bow,
+    Magic
+}
+ 
+// Called when the player switches to a new weapon
+function SetWeapon(EPlayerWeapon NewWeapon)
+{
+    // If the new weapon is different from the currently equipped weapon
+    if (NewWeapon != CurrentWeapon.WeaponType)
+    {
+        // Destroy the current weapon
+        if (CurrentWeapon != None)
+        {
+            CurrentWeapon.Destroy();
+        }
+ 
+        // Spawn the new weapon based on the enum type
+        switch (NewWeapon)
+        {
+            case EPlayerWeapon.Sword:
+                CurrentWeapon = Spawn(class'SwordWeapon', self);
+                break;
+            
+            case EPlayerWeapon.Bow:
+                CurrentWeapon = Spawn(class'BowWeapon', self);
+                break;
+ 
+            case EPlayerWeapon.Magic:
+                CurrentWeapon = Spawn(class'MagicWeapon', self);
+                break;
+        }
+ 
+        // Set the bNoDelete flag to true to prevent the weapon from being destroyed on level change
+        CurrentWeapon.bNoDelete = true;
+    }
+}
+ 
+// The player's currently equipped armor
+var class<Armor> CurrentArmor;
+ 
+// The player's type of armor
+var enum EPlayerArmor
+{
+    Leather,
+    Iron,
+    Diamond
+}
+ 
+// Called when the player equips a new armor
+function SetArmor(EPlayerArmor NewArmor)
+{
+    // If the new armor is different from the currently equipped armor
+    if (NewArmor != CurrentArmor.ArmorType)
+    {
+        // Destroy the current armor
+        if (CurrentArmor != None)
+        {
+            CurrentArmor.Destroy();
+        }
+ 
+        // Spawn the new armor based on the enum type
+        switch (NewArmor)
+        {
+            case EPlayerArmor.Leather:
+                CurrentArmor = Spawn(class'LeatherArmor', self);
+                break;
+ 
+            case EPlayerArmor.Iron:
+                CurrentArmor = Spawn(class'IronArmor', self);
+                break;
+ 
+            case EPlayerArmor.Diamond:
+                CurrentArmor = Spawn(class'DiamondArmor', self);
+                break;
+        }
+ 
+        // Set the bNoDelete flag to true to prevent the armor from being destroyed on level change
+        CurrentArmor.bNoDelete = true;
+    }
+}

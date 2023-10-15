@@ -1,0 +1,155 @@
+var
+    // declare variables
+    numPlayers: int = 4
+    playerName: string = "John Doe"
+    playerScores: [int] = [100, 200, 450, 500]
+
+    // declare nim game object
+    nimGame = newNimGame(numPlayers, playerScores)
+
+    // start game loop
+    while !nimGame.gameOver:
+        var
+            pileToTakeFrom: int
+            amountTaken: int
+
+        // get valid inputs from player
+        pileToTakeFrom = getPlayerInput(playerName, nimGame.piles)
+        amountTaken = getPlayerInput(playerName, nimGame.validMoves[pileToTakeFrom])
+
+        // update game object
+        nimGame.takeFromPile(pileToTakeFrom, amountTaken)
+        nimGame.updateScores(pileToTakeFrom, amountTaken)
+
+        // check for game over
+        if nimGame.checkGameOver():
+            // print winner
+            echo "The winner is " & nimGame.winner & " with a score of " & nimGame.highestScore
+        else:
+            // update current player and print game state
+            nimGame.updateCurrentPlayer()
+            printGameState(nimGame)
+
+// nim game object definition
+NimGame = object
+    // define properties
+    currentPlayer: int = 1
+    gameOver: bool = false
+    winner: string = ""
+    highestScore: int = 0
+    lowestScore: int = 99999999
+    piles: [int] // array of piles
+    validMoves: [int]  // array of valid moves for each pile
+    playerScores: [int] // array of player scores
+    numPlayers: int // number of players
+
+    // initialize game
+    method newNimGame(numPlayers: int, playerScores: [int]): NimGame =
+        var
+            nimGame: NimGame
+        // set properties
+        nimGame.numPlayers = numPlayers
+        nimGame.piles = newSeq[int]()
+        nimGame.validMoves = newSeq[int]()
+        nimGame.playerScores = playerScores
+
+        // generate random piles and valid moves
+        for i in 0..(nimGame.numPlayers - 1):
+            nimGame.piles.add(rand(20))
+        for i in 0..(nimGame.piles.len - 1):
+            var
+                validMoves: [int] = newSeq[int]()
+            for j in 1..nimGame.piles[i]:
+                validMoves.add(j)
+            nimGame.validMoves.add(validMoves)
+
+        return nimGame
+
+    // method to take stones from a pile
+    method takeFromPile(pileIndex: int, amount: int) =
+        // update pile
+        piles[pileIndex] -= amount
+
+        // check for empty pile
+        if piles[pileIndex] == 0:
+            gameOver = true
+            winner = "Player " & currentPlayer.string
+
+    // method to update scores
+    method updateScores(pileIndex: int, amount: int) =
+        // update current player's score
+        playerScores[currentPlayer - 1] += amount
+
+        // update highest and lowest scores
+        if highestScore < playerScores[currentPlayer - 1]:
+            highestScore = playerScores[currentPlayer - 1]
+        if lowestScore > playerScores[currentPlayer - 1]:
+            lowestScore = playerScores[currentPlayer - 1]
+
+    // method to check if game is over
+    method checkGameOver(): bool =
+        // check for one player left
+        if numPlayers == 1:
+            return true
+        // check for all players with 0 score
+        for i in 0..(numPlayers - 1):
+            if playerScores[i] == 0:
+                numPlayers -= 1
+        if numPlayers == 1:
+            // game is over
+            gameOver = true
+            // set winner to player with highest score
+            for i in 0..(numPlayers - 1):
+                if playerScores[i] == highestScore:
+                    winner = "Player " & i.string
+                    return true
+        // game is not over
+        return false
+
+    // method to update current player
+    method updateCurrentPlayer() =
+        // increment current player
+        currentPlayer += 1
+        // check for end of player turn
+        if currentPlayer > numPlayers:
+            currentPlayer = 1
+        // check for elimination of player
+        while playerScores[currentPlayer - 1] == 0:
+            currentPlayer += 1
+            if currentPlayer > numPlayers:
+                currentPlayer = 1
+
+// method to get valid player input
+method getPlayerInput(playerName: string, options: [int]): int =
+    // prompt player for input and get integer value
+    echo "Player " & playerName & ", choose an integer from " & options.repr & ": "
+    var
+        userInput: string = ""
+        validInput: bool = false
+        inputInt: int
+    // loop until valid input is given
+    while !validInput:
+        // get user input
+        readLine(userInput)
+        // check for valid input
+        if userInput.isInt():
+            inputInt = userInput.parseInt()
+            for i in 0..(options.len - 1):
+                if options[i] == inputInt:
+                    return inputInt
+        // if input is not valid, prompt player again
+        echo "Please choose a valid integer from " & options.repr & ": "
+        userInput = ""
+
+// method to print game state
+method printGameState(game: NimGame) =
+    // print current player
+    echo "Current player: " & game.currentPlayer.string
+    // print piles
+    echo "Piles: "
+    for i in 0..(game.piles.len - 1):
+        echo "Pile " & (i + 1).string & ": " & game.piles[i].string
+    // print player scores
+    echo "Player Scores: "
+    for i in 0..(game.playerScores.len - 1):
+        echo "Player " & (i + 1).string & ": " & game.playerScores[i].string

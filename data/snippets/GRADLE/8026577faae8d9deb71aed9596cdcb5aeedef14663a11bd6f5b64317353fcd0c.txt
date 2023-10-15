@@ -1,0 +1,47 @@
+plugins {
+    id 'java'
+    id 'com.github.johnrengelman.shadow' //adds shadowJar plugin for packaging
+}
+
+//configures the main class for the application
+application {
+    mainClassName = 'com.example.Main'
+
+    dependencies {
+        //dependency for Main class
+        implementation 'com.example:main-class:1.0'
+        //dependency for supporting a REST API
+        compile group: 'com.squareup.retrofit2', name: 'retrofit', version: '2.7.2'
+        //dependency for testing
+        testImplementation 'junit:junit:4.13.2'
+    }
+}
+
+//task to generate a documentation of the code using javadoc
+task generateDocs(type: Javadoc) {
+    classpath = sourceSets.main.compileClasspath
+    source = sourceSets.main.allJava
+}
+
+//custom task to generate a report of the project's dependencies
+task dependencyReport(type: DependencyReportTask) {
+    //only include dependencies for the main source set
+    sourceSets = ['main']
+    //output file for the report
+    outputFile = new File(buildDir, 'dependencies.txt')
+}
+
+//configuration for the 'shadow' task, used to generate a fat Jar
+shadowJar {
+    configurations = [project.configurations.runtime]
+}
+
+//task to build the project, includes running tests and generating the fat Jar
+task buildProject {
+    dependsOn {
+        tasks.test //runs tests first
+        tasks.shadowJar //generates a fat Jar after tests pass
+        tasks.generateDocs //creates a javadoc documentation after the fat Jar is generated
+        tasks.dependencyReport //creates a report of the project's dependencies
+    }
+}

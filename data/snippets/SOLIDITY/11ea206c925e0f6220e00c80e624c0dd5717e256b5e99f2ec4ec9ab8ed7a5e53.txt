@@ -1,0 +1,93 @@
+/// @title Lottery Contract
+/// @notice A lottery contract with configurable parameters and functionality.
+contract Lottery {
+    
+    // State variables
+    address public owner;                          // The owner of the contract
+    mapping(address => bool) public players;        // Mapping of players and their participation status
+    address[] public playerList;                    // List of current players
+    uint public numPlayers;                         // The number of players currently participating
+    uint public minBet;                             // The minimum amount required to participate
+    uint public maxBet;                             // The maximum amount allowed to participate
+    uint public winnerAmt;                          // The total amount to be awarded to the winner
+    address public winner;                          // The winner of the lottery
+    uint public jackpot;                            // The current jackpot amount
+    bool public lotteryOpen;                        // Flag to indicate if the lottery is open for players to participate
+    
+    // Constructor
+    /// @notice Initializes the contract with the creator as the owner and sets default values for parameters.
+    constructor (uint _minBet, uint _maxBet, uint _winnerAmt) public payable {
+        owner = msg.sender;
+        minBet = _minBet;
+        maxBet = _maxBet;
+        winnerAmt = _winnerAmt;
+        lotteryOpen = true;
+        jackpot = msg.value;
+    }
+    
+    // Events
+    /// @notice Event to notify when a player has been added to the lottery.
+    event PlayerAdded(address player, uint amount);
+    /// @notice Event to notify when a player has been removed from the lottery.
+    event PlayerRemoved(address player);
+    /// @notice Event to notify when the winner has been determined.
+    event WinnerDetermined(address player, uint amount);
+    
+    // Modifiers
+    /// @notice Modifier to restrict access to only the owner of the contract.
+    modifier onlyOwner {
+        require(msg.sender == owner);
+        _;
+    }
+    
+    // Functions
+    /// @notice Function for players to participate in the lottery.
+    /// @dev Requires minimum bet amount and adds player to player list and updates jackpot amount.
+    function participate() public payable {
+        require(msg.value == minBet, "You must bet the minimum amount.");
+        require(lotteryOpen == true, "The lottery is currently closed.");
+        require(players[msg.sender] == false, "You are already participating in the lottery.");
+        
+        players[msg.sender] = true;
+        playerList.push(msg.sender);
+        numPlayers++;
+        jackpot += msg.value;
+        
+        emit PlayerAdded(msg.sender, msg.value);
+    }
+    
+    /// @notice Function for players to withdraw from the lottery.
+    /// @dev Requires player to have participated and refunds their bet amount.
+    function withdraw() public {
+        require(players[msg.sender] == true, "You are not currently participating in the lottery.");
+        
+        players[msg.sender] = false;
+        numPlayers--;
+        jackpot -= minBet;
+        msg.sender.transfer(minBet);
+        
+        emit PlayerRemoved(msg.sender);
+    }
+    
+    /// @notice Function for the owner of the contract to close the lottery and determine the winner.
+    /// @dev Requires lottery to be open and winner to be randomly selected from player list.
+    function closeLottery() public onlyOwner {
+        require(lotteryOpen == true, "The lottery is already closed.");
+        
+        lotteryOpen = false;
+        uint index = random() % numPlayers;
+        winner = playerList[index];
+        winner.transfer(winnerAmt);
+        owner.transfer(jackpot - winnerAmt);
+        
+        emit WinnerDetermined(winner, winnerAmt);
+    }
+    
+    /// @notice Function to generate a random number.
+    /// @dev Uses block number, timestamp, and player list length to generate a pseudorandom number.
+    /// @return The generated random number.
+    function random() private view returns (uint) {
+        uint rand = uint(keccak256(abi.encodePacked(numPlayers, block.timestamp, block.number)));
+        return rand;
+    }
+}

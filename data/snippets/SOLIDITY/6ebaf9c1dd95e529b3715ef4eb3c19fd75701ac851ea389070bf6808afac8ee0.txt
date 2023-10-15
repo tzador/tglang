@@ -1,0 +1,222 @@
+// Contract for a decentralized marketplace
+// By implementing the ERC20 token standard
+
+pragma solidity >=0.5.0 <0.7.0;
+
+import "./IERC20.sol";
+import "./SafeMath.sol";
+
+contract Marketplace is IERC20 {
+    
+    using SafeMath for uint256;
+    
+    // ERC20 token details
+    string public name = "Decentralized Marketplace Token";
+    string public symbol = "DMT";
+    uint256 public decimals = 18;
+    uint256 private _totalSupply;
+    mapping(address => uint256) private _balances;
+    mapping(address => mapping(address => uint256)) private _allowances;
+    
+    // Marketplace details
+    address private _owner;
+    uint256 private _serviceFee;
+    uint256 public constant PERCENTAGE_DIVISOR = 100;
+    mapping(address => bool) private _merchants;
+    mapping(address => bool) private _customers;
+    mapping(address => mapping(uint256 => uint256)) private _merchantInventory;
+    mapping(address => mapping(address => mapping(uint256 => uint256))) private _customerOrders;
+    
+    // Events
+    event MerchantAdded(address indexed merchant);
+    event MerchantRemoved(address indexed merchant);
+    event CustomerAdded(address indexed customer);
+    event CustomerRemoved(address indexed customer);
+    event ServiceFeeUpdated(uint256 newFee);
+    
+    constructor() public {
+        _owner = msg.sender;
+    }
+    
+    // ERC20 token implementation
+    
+    function totalSupply() external view returns (uint256) {
+        return _totalSupply;
+    }
+    
+    function balanceOf(address account) external view returns (uint256) {
+        return _balances[account];
+    }
+    
+    function transfer(address recipient, uint256 amount) external returns (bool) {
+        _transfer(msg.sender, recipient, amount);
+        return true;
+    }
+    
+    function allowance(address owner, address spender) external view returns (uint256) {
+        return _allowances[owner][spender];
+    }
+    
+    function approve(address spender, uint256 amount) external returns (bool) {
+        _approve(msg.sender, spender, amount);
+        return true;
+    }
+    
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool) {
+        _transfer(sender, recipient, amount);
+        _approve(sender, msg.sender, _allowances[sender][msg.sender].sub(amount, "ERC20: transfer amount exceeds allowance"));
+        return true;
+    }
+    
+    function increaseAllowance(address spender, uint256 addedValue) external returns (bool) {
+        _approve(msg.sender, spender, _allowances[msg.sender][spender].add(addedValue));
+        return true;
+    }
+    
+    function decreaseAllowance(address spender, uint256 subtractedValue) external returns (bool) {
+        _approve(msg.sender, spender, _allowances[msg.sender][spender].sub(subtractedValue, "ERC20: decreased allowance below zero"));
+        return true;
+    }
+    
+    function mint(address account, uint256 amount) external onlyOwner {
+        require(account != address(0), "ERC20: mint to the zero address");
+        require(amount > 0, "ERC20: amount must be greater than zero");
+        
+        _totalSupply = _totalSupply.add(amount);
+        _balances[account] = _balances[account].add(amount);
+        emit Transfer(address(0), account, amount);
+    }
+    
+    function burn(address account, uint256 amount) external onlyOwner {
+        require(account != address(0), "ERC20: burn from the zero address");
+        require(amount > 0, "ERC20: amount must be greater than zero");
+        require(_balances[account] >= amount, "ERC20: burn amount exceeds account balance");
+        
+        _balances[account] = _balances[account].sub(amount);
+        _totalSupply = _totalSupply.sub(amount);
+        emit Transfer(account, address(0), amount);
+    }
+    
+    // Additional functions for the marketplace
+    
+    function addMerchant(address merchant) external onlyOwner {
+        require(merchant != address(0), "Marketplace: merchant address cannot be zero");
+        _merchants[merchant] = true;
+        emit MerchantAdded(merchant);
+    }
+    
+    function removeMerchant(address merchant) external onlyOwner {
+        require(_merchants[merchant], "Marketplace: address is not a merchant");
+        _merchants[merchant] = false;
+        emit MerchantRemoved(merchant);
+    }
+    
+    function addCustomer(address customer) external {
+        require(msg.sender == _owner || _merchants[msg.sender], "Marketplace: only owner or merchants can add customers");
+        require(customer != address(0), "Marketplace: customer address cannot be zero");
+        
+        _customers[customer] = true;
+        emit CustomerAdded(customer);
+    }
+    
+    function removeCustomer(address customer) external {
+        require(msg.sender == _owner || _merchants[msg.sender], "Marketplace: only owner or merchants can remove customers");
+        require(_customers[customer], "Marketplace: address is not a customer");
+        
+        _customers[customer] = false;
+        emit CustomerRemoved(customer);
+    }
+    
+    function updateServiceFee(uint256 newFee) external onlyOwner {
+        require(newFee < PERCENTAGE_DIVISOR, "Marketplace: service fee cannot be more than 100%");
+        _serviceFee = newFee;
+        emit ServiceFeeUpdated(newFee);
+    }
+    
+    function addToMerchantInventory(address merchant, uint256 productId, uint256 quantity) external onlyMerchant {
+        require(quantity > 0, "Marketplace: quantity must be greater than zero");
+        
+        _merchantInventory[merchant][productId] = _merchantInventory[merchant][productId].add(quantity);
+    }
+    
+    function removeFromMerchantInventory(address merchant, uint256 productId, uint256 quantity) external onlyMerchant {
+        require(_merchantInventory[merchant][productId] >= quantity, "Marketplace: quantity exceeds inventory");
+        
+        _merchantInventory[merchant][productId] = _merchantInventory[merchant][productId].sub(quantity);
+    }
+    
+    function createOrder(address merchant, uint256 productId, address customer, uint256 quantity) external payable onlyCustomer {
+        require(msg.value == _calculateProductPrice(productId, quantity), "Marketplace: incorrect amount sent");
+        
+        _customerOrders[customer][merchant][productId] = _customerOrders[customer][merchant][productId].add(quantity);
+        _transferTokenToMerchant(merchant, msg.sender, productId, quantity);
+        _distributeServiceFee(msg.value);
+    }
+    
+    function fulfillOrder(address customer, address merchant, uint256 productId, uint256 quantity) external onlyMerchant {
+        require(_customerOrders[customer][merchant][productId] >= quantity, "Marketplace: quantity exceeds order");
+        
+        _customerOrders[customer][merchant][productId] = _customerOrders[customer][merchant][productId].sub(quantity);
+        _transferTokenFromMerchant(customer, msg.sender, productId, quantity);
+    }
+    
+    // Modifiers
+    
+    modifier onlyOwner() {
+        require(msg.sender == _owner, "Marketplace: only owner can call this function");
+        _;
+    }
+    
+    modifier onlyMerchant() {
+        require(_merchants[msg.sender], "Marketplace: only merchants can call this function");
+        _;
+    }
+    
+    modifier onlyCustomer() {
+        require(_customers[msg.sender], "Marketplace: only customers can call this function");
+        _;
+    }
+    
+    // Internal functions
+    
+    function _transfer(address sender, address recipient, uint256 amount) internal {
+        require(sender != address(0), "ERC20: transfer from the zero address");
+        require(recipient != address(0), "ERC20: transfer to the zero address");
+        require(amount > 0, "ERC20: amount must be greater than zero");
+        require(_balances[sender] >= amount, "ERC20: transfer amount exceeds balance");
+        
+        _balances[sender] = _balances[sender].sub(amount);
+        _balances[recipient] = _balances[recipient].add(amount);
+        emit Transfer(sender, recipient, amount);
+    }
+    
+    function _approve(address owner, address spender, uint256 amount) internal {
+        require(owner != address(0), "ERC20: approve from the zero address");
+        require(spender != address(0), "ERC20: approve to the zero address");
+        require(amount > 0, "ERC20: amount must be greater than zero");
+        
+        _allowances[owner][spender] = amount;
+        emit Approval(owner, spender, amount);
+    }
+    
+    function _calculateProductPrice(uint256 productId, uint256 quantity) internal view returns (uint256) {
+        // Some logic to calculate product price
+    }
+    
+    function _transferTokenToMerchant(address merchant, address customer, uint256 productId, uint256 quantity) internal {
+        _balances[customer] = _balances[customer].sub(quantity);
+        uint256 serviceFee = _calculateServiceFee(msg.value);
+        uint256 merchantProfit = msg.value.sub(serviceFee);
+        _balances[merchant] = _balances[merchant].add(merchantProfit);
+    }
+    
+    function _transferTokenFromMerchant(address customer, address merchant, uint256 productId, uint256 quantity) internal {
+        uint256 productPrice = _calculateProductPrice(productId, quantity);
+        _balances[customer] = _balances[customer].add(productPrice);
+        _balances[merchant] = _balances[merchant].sub(productPrice);
+    }
+    
+    function _distributeServiceFee(uint256 serviceFee) internal {
+        // Logic to distribute service fee to token holders
+    } 
+}

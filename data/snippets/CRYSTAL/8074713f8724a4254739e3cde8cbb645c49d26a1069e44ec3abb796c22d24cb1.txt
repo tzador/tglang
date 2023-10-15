@@ -1,0 +1,78 @@
+require "socket"
+
+# A class for creating and manipulating socket connections
+class SocketConnection
+  # Instance variables
+  @host : String 
+  @port : Int32 
+  @connection : Socket
+
+  # Initialize method to set host and port
+  #
+  # * `host` - A string containing the host address
+  # * `port` - A 32-bit integer representing the port number
+  def initialize(host, port)
+    @host = host
+    @port = port
+  end
+
+  # Method for creating a socket connection
+  #
+  # * `timeout` - An optional timeout value for the connection
+  # 
+  # Returns the socket connection object
+  def create_connection(timeout = nil)
+    @connection = Socket.new(Socket::AF_INET, Socket::SOCK_STREAM, 0)
+    @connection.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)
+
+    if timeout
+      @connection.setsockopt(Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, [timeout, 0].pack("l_2"))
+    end
+
+    @connection.connect(Socket::SockAddr.new(@host, @port))
+    return @connection
+  end
+
+  # Method for sending data through the socket connection
+  #
+  # * `data` - A string containing the data to be sent
+  def send_data(data)
+    @connection.send(data, 0)
+  end
+
+  # Method for receiving data through the socket connection
+  #
+  # * `buffer_size` - An integer representing the size of the buffer to use for receiving data
+  #
+  # Returns the received data as a string
+  def receive_data(buffer_size)
+    data = Bytes.new(buffer_size)
+    @connection.recv(data)
+    return data.to_s
+  end
+
+  # Method for closing the socket connection
+  def close_connection
+    @connection.close
+  end
+end
+
+# Example usage
+
+# Create a new socket connection
+socket_connection = SocketConnection.new("www.example.com", 80)
+
+# Set a timeout of 10 seconds
+socket_connection.create_connection(10)
+
+# Send a GET request to the server
+socket_connection.send_data("GET /index.html HTTP/1.0\r\nHost: www.example.com\r\n\r\n")
+
+# Receive the response from the server
+response = socket_connection.receive_data(4096)
+
+# Print the response
+puts response
+
+# Close the connection
+socket_connection.close_connection

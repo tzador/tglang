@@ -1,0 +1,152 @@
+;;Define variables
+.data
+var1 DWORD 1234 ;a 32-bit variable with initial value 1234
+var2 BYTE 69 ;an 8-bit variable with initial value 69
+
+;;Program start
+.code
+main PROC
+    ;;Set up stack frame
+    push ebp ;save old ebp
+    mov ebp, esp ;set ebp to current stack pointer
+
+    ;;Do some calculations
+    mov eax, var1 ;move var1 to eax register
+    add eax, var2 ;add var2 to eax
+    mov var1, eax ;store result in var1
+    mov eax, 0 ;clear eax register
+
+    ;;Print result
+    mov eax, var1 ;move var1 to eax register
+    call WriteInt ;call subroutine to print eax as integer
+    call CRLF ;call subroutine to print new line
+
+    ;;End program
+    mov esp, ebp ;restore stack pointer to saved value
+    pop ebp ;restore old ebp
+    ret ;return to caller
+main ENDP
+
+;;Subroutine to print integer
+WriteInt PROC
+    ;;Set up stack frame
+    push ebp ;save old ebp
+    mov ebp, esp ;set ebp to current stack pointer
+
+    ;;Convert int to string
+    push eax ;save eax register
+    push ebx ;save ebx register
+    push ecx ;save ecx register
+    push edx ;save edx register
+    push esi ;save esi register
+    push edi ;save edi register
+    mov eax, esp ;set eax to top of stack
+    add eax, 18 ;move down 18 bytes (space for saved registers)
+    mov ebx, var1 ;move var1 to ebx register
+    call StrFromInt ;call subroutine to convert integer to string
+    mov esi, eax ;move result address to esi register
+
+    ;;Print string
+    push eax ;save eax register
+    push esi ;push string address
+    call WriteString ;call subroutine to print string
+    pop esi ;restore saved string address
+    pop eax ;restore saved eax register
+
+    ;;Clean up stack
+    pop edi ;restore saved registers
+    pop esi
+    pop edx
+    pop ecx
+    pop ebx
+    pop eax
+
+    ;;End subroutine
+    mov esp, ebp ;restore stack pointer to saved value
+    pop ebp ;restore old ebp
+    ret ;return to caller
+WriteInt ENDP
+
+;;Subroutine to convert integer to string
+StrFromInt PROC
+    ;;Set up stack frame
+    push ebp ;save old ebp
+    mov ebp, esp ;set ebp to current stack pointer
+
+    ;;Initialize variables
+    push eax ;save eax register
+    push ebx ;save ebx register
+    push ecx ;save ecx register
+    push edx ;save edx register
+    push esi ;save esi register
+    push edi ;save edi register
+    mov eax, esp ;set eax to top of stack
+    add eax, 18 ;move down 18 bytes (space for saved registers)
+    mov ebx, 10 ;set ebx to base 10 for decimal conversion
+    mov edi, 0 ;initialize index for string
+
+    ;;Check for negative integer
+    cmp var1, 0 ;compare var1 to 0
+    jnl Unsigned ;if var1 is not negative, jump to Unsigned
+    neg var1 ;if var1 is negative, negate it
+    mov [edi], '-' ;add negative sign to string
+    inc edi ;increment index
+
+    ;;Unsigned conversion
+    Unsigned:
+    div ebx ;divide var1 by 10, remainder in edx, quotient in eax
+    add dl, 48 ;convert remainder to ASCII character
+    mov [edi], dl ;save character in string
+    inc edi ;increment index
+    cmp eax, 0 ;compare quotient to 0
+    jnz Unsigned ;if quotient is not 0, jump to Unsigned
+
+    ;;Reverse string
+    dec edi ;decrement index (to account for extra increment at end of Unsigned loop)
+    mov esi, 0 ;initialize string buffer index
+    mov ecx, edi ;set ecx to number of characters in string
+    mov eax, esp ;set eax to top of stack
+    add eax, 19 ;move down 19 bytes (space for saved registers and extra increment)
+    add ecx, eax ;set ecx to end of string (index counted from top of stack)
+    dec eax ;decrement eax (to account for extra increment)
+    Reverse:
+    mov dl, [eax] ;move character from top of stack to dl
+    mov [esi], dl ;move character to string buffer
+    inc eax ;increment top of stack index
+    inc esi ;increment string buffer index
+    cmp eax, ecx ;compare top of stack index to end of string index
+    jne Reverse ;if not at end of string, jump to Reverse
+    mov [esi], 0 ;add null terminator to end of string
+
+    ;;Clean up stack
+    pop edi ;restore saved registers
+    pop esi
+    pop edx
+    pop ecx
+    pop ebx
+    pop eax
+
+    ;;End subroutine
+    mov esp, ebp ;restore stack pointer to saved value
+    pop ebp ;restore old ebp
+    ret ;return to caller
+StrFromInt ENDP
+
+;;Subroutine to print string
+WriteString PROC
+    ;;Set up stack frame
+    push ebp ;save old ebp
+    mov ebp, esp ;set ebp to current stack pointer
+
+    ;;Print string using Windows API
+    push 0 ;reserved for future use
+    push esi ;push string address
+    call StdOut ;call Windows API to print string
+    add esp, 4 ;clean up stack (removing reserved space)
+
+    ;;End subroutine
+    mov esp, ebp ;restore stack pointer to saved value
+    pop ebp ;restore old ebp
+    ret ;return to caller
+WriteString ENDP
+END main;;End program and link to entry point

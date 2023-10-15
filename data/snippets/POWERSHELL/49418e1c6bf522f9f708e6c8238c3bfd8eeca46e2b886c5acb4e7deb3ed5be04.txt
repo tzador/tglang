@@ -1,0 +1,73 @@
+#This is a script that checks the performance of a computer
+#First, we import the necessary modules
+Import-Module psmsi
+Import-Module pswinuser
+Import-Module psmem
+Import-Module psproc
+
+#Next, we define the function to get CPU usage
+Function Get-CPUUsage {
+    $CPUUsage = Get-WmiObject win32_processor | Measure-Object -Property LoadPercentage -Average
+    $CPUUsage = $CPUUsage.Average
+    return $CPUUsage
+}
+
+#Then, we define the function to get memory usage
+Function Get-MemoryUsage {
+    $MemoryUsage = (Get-WmiObject Win32_OperatingSystem).TotalVisibleMemorySize - (Get-WmiObject Win32_OperatingSystem).FreePhysicalMemory
+    $MemoryUsagePercent = "{0:n2}" -f ($MemoryUsage / (Get-WmiObject Win32_OperatingSystem).TotalVisibleMemorySize * 100) #Calculate the percentage
+    return $MemoryUsagePercent
+}
+
+#Next, we define the function to get the top 5 processes by CPU usage
+Function Get-Top5CPUProcesses {
+    $Processes = Get-Process | Sort-Object -Property CPU -Descending
+    $Top5 = $Processes[0..4] #Get the top 5 processes
+    $Top5Processes = @()
+    $i = 1
+    foreach ($Process in $Top5) {
+        $Top5Processes += [PSCustomObject]@{
+            "Rank" = $i
+            "Name" = $Process.Name
+            "CPU Usage" = $Process.CPU
+        }
+        $i++
+    }
+    return $Top5Processes
+}
+
+#Then, we define the function to get the top 5 processes by memory usage
+Function Get-Top5MemoryProcesses {
+    $Processes = Get-Process | Sort-Object -Property WorkingSet -Descending
+    $Top5 = $Processes[0..4] #Get the top 5 processes
+    $Top5Processes = @()
+    $i = 1
+    foreach ($Process in $Top5) {
+        $Top5Processes += [PSCustomObject]@{
+            "Rank" = $i
+            "Name" = $Process.Name
+            "Memory Usage" = $Process.WorkingSet
+        }
+        $i++
+    }
+    return $Top5Processes
+}
+
+#Now, we get the current date and time
+$CurrentDateTime = Get-Date
+
+#Next, we call the functions and store the results in variables
+$CPUUsage = Get-CPUUsage
+$MemoryUsage = Get-MemoryUsage
+$Top5CPUProcesses = Get-Top5CPUProcesses
+$Top5MemoryProcesses = Get-Top5MemoryProcesses
+
+#Finally, we print out the results in a nice format
+Write-Host "Performance Report for $env:COMPUTERNAME ($CurrentDateTime):"
+Write-Host "-------------------------------"
+Write-Host "CPU Usage: $CPUUsage%"
+Write-Host "Memory Usage: $MemoryUsage%"
+Write-Host "Top 5 Processes by CPU Usage:"
+Write-Host $Top5CPUProcesses | Format-Table -AutoSize
+Write-Host "Top 5 Processes by Memory Usage:"
+Write-Host $Top5MemoryProcesses | Format-Table -AutoSize

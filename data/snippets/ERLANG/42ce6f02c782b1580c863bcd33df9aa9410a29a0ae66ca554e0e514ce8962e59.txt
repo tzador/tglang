@@ -1,0 +1,69 @@
+%% This module implements a parallel quicksort algorithm
+-module(quicksort).
+
+%% Export a public function to sort a list of integers
+-export([sort/1]).
+
+%% Define the sort function using recursion and pattern matching
+sort(List) ->
+    %% If the list is empty or has only one element, it is already sorted
+    %% and we can return the list as is
+    case List of
+        [] -> [];
+        [X] -> [X];
+        %% If the list has more than one element, we need to partition it
+        %% and recursively sort the left and right halves
+        [X|Xs] ->
+            %% Partition the list using the first element as the pivot
+            {Left, Right} = partition(X, Xs),
+            %% Use the spawn function to create two processes, one for
+            %% sorting the left half and one for sorting the right half
+            LeftProcess = spawn( fun() -> sort(Left) end ),
+            RightProcess = spawn( fun() -> sort(Right) end ),
+            %% Wait for both processes to finish executing before merging
+            %% the sorted left and right halves
+            [LeftResult, RightResult] = [LeftProcess ! wait(), RightProcess ! wait()],
+            %% Merge the two sorted lists
+            merge(LeftResult, RightResult)
+    end.
+
+%% Function to partition the list given a pivot
+partition(Pivot, List) ->
+    %% Define the helper function to handle the partitioning
+    partition(Pivot, List, [], []).
+
+%% Base case for the partition function, when the list is empty
+partition(_, [], Left, Right) ->
+    %% Return the left and right halves of the partitioned list
+    {Left, Right};
+
+%% Recursive case for the partition function, when the list is not empty
+partition(Pivot, [X|Xs], Left, Right) ->
+    %% If the current element is less than the pivot, add it to the left
+    %% half of the partition
+    if
+        X < Pivot ->
+            partition(Pivot, Xs, [X|Left], Right);
+        %% If the current element is greater than the pivot, add it to the
+        %% right half of the partition
+        true ->
+            partition(Pivot, Xs, Left, [X|Right])
+    end.
+
+%% Function to merge two sorted lists
+merge([], Right) ->
+    %% If the left list is empty, the result is just the right list
+    Right;
+merge(Left, []) ->
+    %% If the right list is empty, the result is just the left list
+    Left;
+merge([X|Xs], [Y|Ys]) ->
+    %% If both lists are non-empty, compare the first elements of each
+    %% and add the smaller one to the merged list, recursively call merge
+    %% with the remaining elements
+    if
+        X < Y ->
+            [X | merge(Xs, [Y|Ys])];
+        true ->
+            [Y | merge([X|Xs], Ys)]
+    end.

@@ -1,0 +1,43 @@
+{-# LANGUAGE DataKinds, GADTs, KindSignatures, TypeOperators #-}
+
+-- Declare a natural number type
+data Nat = Zero | Succ Nat
+
+-- Declare a type level addition operation
+type family Add (n1 :: Nat) (n2 :: Nat) :: Nat where
+  Add 'Zero n = n
+  Add ('Succ n1) n2 = 'Succ (Add n1 n2)
+
+-- Declare a type level multiplication operation
+type family Mult (n1 :: Nat) (n2 :: Nat) :: Nat where
+  Mult 'Zero _ = 'Zero
+  Mult ('Succ n1) n2 = Add n2 (Mult n1 n2)
+
+-- Define a proof that Add and Mult are commutative
+comm :: (Add n1 n2) ~ (Add n2 n1) => Proxy n1 -> Proxy n2 -> ()
+comm _ _ = ()
+
+-- Define a type level list
+-- The first argument specifies the length of the list
+data List :: Nat -> * -> * where
+  Nil   :: List 'Zero a
+  (:::) :: a -> List n a -> List ('Succ n) a
+
+-- Define a function to get the head of a list
+head :: List ('Succ n) a -> a
+head (x ::: _) = x
+
+-- Define a function to get the tail of a list
+tail :: List ('Succ n) a -> List n a
+tail (_ ::: xs) = xs
+
+-- Define a type level tree
+-- The first argument specifies the height of the tree
+data Tree :: Nat -> * -> * where
+  Leaf  :: a -> Tree 'Zero a
+  Node  :: Tree n a -> Tree n a -> Tree ('Succ n) a
+
+-- Define a function to flatten a tree into a list
+flatten :: Tree n a -> List (Mult n (Succ n)) a
+flatten (Leaf x) = x ::: Nil
+flatten (Node l r) = flatten l ::: flatten r

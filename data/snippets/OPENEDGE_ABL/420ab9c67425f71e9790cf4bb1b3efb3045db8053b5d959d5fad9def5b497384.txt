@@ -1,0 +1,50 @@
+/* This code snippet uses the ProData dataset, which contains information about different types of products */
+
+/* Define dataset */
+DEFINE DATASET dsProData
+
+/* Define data source */
+DEF DATASOURCE dsProData DATA-SOURCE "ProData.db" USER "username" PASSWORD "password"
+
+/* Define query to retrieve product information */
+DEF QUERY qProduct FOR ProData, STREAM-HANDLE shProduct.
+    /* Set available fields */
+    DISPLAY shProduct.PRODUCT_ID shProduct.PRODUCT_NAME shProduct.PRODUCT_PRICE shProduct.PRODUCT_DESCRIPTION NO-ERROR.
+
+    /* Set sorting */
+    BY shProduct.PRODUCT_PRICE DESCENDING.
+
+    /* Set filters */
+    WHERE shProduct.PRODUCT_CATEGORY = "Electronics" AND shProduct.PRODUCT_IN_STOCK = YES.
+
+    /* Set groupings */
+    GROUP BY shProduct.PRODUCT_NAME.
+
+END QUERY.
+
+/* Define data buffer */
+DEF BUFFER bufProduct FOR ProData, STREAM-HANDLE shProduct.
+
+/* Retrieve data from query */
+DO WHILE AVAILABLE bufProduct:
+    /* Display product information */
+    DISPLAY bufProduct.PRODUCT_ID bufProduct.PRODUCT_NAME bufProduct.PRODUCT_PRICE NO-ERROR.
+
+    /* Update data buffer */
+    BUFFER-COPY shProduct TO CURRENT-DATASET.
+
+    /* Move to next record */
+    FIND NEXT bufProduct.
+END.
+
+/* Check for errors */
+IF ERROR-STATUS:ERROR THEN DO:
+    /* Display error message */
+    DISPLAY ERROR-STATUS:GET-MESSAGE(1) VIEW-AS ALERT-BOX.
+
+    /* Rollback the changes */
+    ROLLBACK TRANSACTION.
+
+    /* Close dataset */
+    DELETE DATASET dsProData.
+END.

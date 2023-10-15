@@ -1,0 +1,207 @@
+/*
+This is a UDK script for creating a custom weapon.
+It will have multiple fire modes and reload animations.
+*/
+
+class CustomWeapon extends UDKWeapon;
+
+/* Define vars and arrays for fire modes */
+var int PrimaryFireMode;
+var int SecondaryFireMode;
+var int NumFireModes;
+var array<UDKWeaponFireMode> PrimaryFireModes;
+var array<UDKWeaponFireMode> SecondaryFireModes;
+
+/* Define vars and functions for weapon reloading */
+var bool Reloading;
+var float ReloadTime;
+var float ReloadStartTime;
+var bool bReloadArmed;
+var bool bNoAmmoSoftStop;
+var int CurrentAmmoCount;
+var DeferredFireModeFire PendingFireModeFireOb;
+var float PendingFireModeFireTime;
+
+/* Function to initialize weapon state */
+simulated function InitWeaponState()
+{
+	`log("Weapon Init: " $ Weapon.GetDebugName());
+
+	/* Call parent function to set up weapon state */
+	super.InitWeaponState();
+
+	/* Set up fire modes */
+	NumFireModes = PrimaryFireModes.Length;
+	for (int i = 0; i < NumFireModes; i++)
+	{
+		PrimaryFireModes[i].Initialize(self);
+	}
+	SecondaryFireModes[0].Initialize(self);
+	SecondaryFireModes[1].Initialize(self);
+	PrimaryFireMode = 0;
+	SecondaryFireMode = 0;
+	CurrentFireMode = PrimaryFireModes[PrimaryFireMode];
+
+	/* Set up reloading */
+	ReloadTime = Weapon.ReloadTime;
+	bReloadArmed = true;
+	CurrentAmmoCount = Weapon.AmmoPerClip;
+}
+
+/* Function to update weapon state */
+simulated function UpdateWeaponState()
+{
+	/* Check for reloading */
+	if (Reloading)
+	{
+		if (!bReloadArmed && Controller.Time > ReloadStartTime &&
+			(!bNoAmmoSoftStop || CurrentAmmoCount != 0))
+		{
+			`log("Reloading: " $ Reloading);
+
+			/* Reset weapon state */
+			bDisplayLoadout = false;
+			bPendingReload = false;
+			Reloading = false;
+			UnMagazine();
+			PrimaryFireMode.FireComplete();
+			SecondaryFireMode.FireComplete();
+			CurrentFireMode.FireComplete();
+
+			/* Refill ammo */
+			CurrentAmmoCount = Weapon.AmmoPerClip;
+		}
+		else
+		{
+			SwitchFireMode(this, PendingFireMode);
+			SwitchToBestMode();
+			`log("Reload Finish: " $ ReloadFinish);
+		}
+	}
+}
+
+/* Function to switch between primary and secondary fire modes */
+simulated event bool SwitchFireMode()
+{
+	local int NextFireMode = (PrimaryFireMode + 1) % NumFireModes;
+	local int PreviousFireMode = PrimaryFireMode;
+
+	/* Switch to the next fire mode */
+	PrimaryFireMode = NextFireMode;
+	CurrentFireMode.FireComplete();
+	CurrentFireMode = PrimaryFireModes[PrimaryFireMode];
+	CurrentFireMode.OnFinished(PreviousFireMode);
+
+	/* Play weapon animation based on fire modes */
+	if (NextFireMode == 1)
+	{
+		PlayAnimation(WakaRpgJunkLaserPistolReload);
+	}
+	else if (NextFireMode == 2)
+	{
+		PlayAnimation(PaneraiAnim01_QuickNoteEmpty);
+	}
+
+	/* Check for ammo and start reload if necessary */
+	if (CurrentAmmoCount == 0)
+	{
+		StartReload();
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+/* Function to start weapon reload process */
+function StartReload()
+{
+	Reloading = true;
+	CurrentAmmoCount = 0;
+	bReloadArmed = false;
+	UnequipWeapon();
+	PlayUnequipAnimation(RemoveWide);
+	PlayEquipAnimation(Reload);
+	PlayWeaponAnimation(Reloading);
+	SoundOnAndWait(WeaponReloadedSound);
+
+	/* Check for soft stop */
+	if (PrimaryFireMode == None)
+	{
+		bNoAmmoSoftStop = true;
+		CurrentFireMode = SecondaryFireModes[SecondaryFireMode];
+		CurrentFireMode.SetupFor(this, None);
+	}
+	else
+	{
+		bNoAmmoSoftStop = false;
+		CurrentFireMode = PrimaryFireModes[PrimaryFireMode];
+		CurrentFireMode.SetupFor(this, SecondaryFireModes[SecondaryFireMode]);
+	}
+	PlayAnimation(ReloadHolding);
+	PendingFireModeFire = Swap(SecondaryFireMode, (SecondaryFireMode + 1) % 2);
+	PendingFireModeFireTime = Controller.Time + ((PendingFireModeFire == 2) ? 0.5 : 0.25);
+	bPendingReload = true;
+	AmmoToDrop = 1;
+	MaxAmmoToUse.Target = 0;
+	bDisplayLoadout = false;
+	PerformQuickSwitch();
+}
+
+/* Function to perform a quick switch to a different weapon */
+function PerformQuickSwitch(UDKWeapon OldWeapon = None)
+{
+	local UDKPawn Pawn = UDKPawn(Pawn);
+	if (Pawn != None)
+	{
+		Pawn.InventoryManager.RunStopDelay();
+	}
+	StopFiring();
+	PlayPutDownAnimation(ReloadStatic, TraditionalRifleRelo)
+	PlayPutDownParticleFx(FpSkeetIncrease, C02_Stinger);
+	AmmoToGive = 512;
+	AmmoToGive.A.PlayerPawn = Pawn;
+	AmmoToDrop = PrimaryFireMode;
+	MaxAmmoToUse.Target = 0;
+	FireTarget(UTPlayerPawn(Pawn.AParent));
+	RePutDownDelay = 0.15;
+	StartShutdown();
+	Ignores("Gloves");
+	if (PrimaryFireMode != None)
+	{
+		const Delta1 = 0.5;
+		RemoteSynchronizingPawn p = new RemoteSynchronizingPawn(class'UTPlayerPawn');
+		if (Ammo == InInventory)
+		{
+			SmallBullets.LastActiveInventoryStock = 512;
+		}
+		if (Ammo == Combo)
+		{
+			UseMadmanPistol();
+		}
+		if (Ammo == EntireStock)
+		{
+			GiveFirstPerson();
+		}
+	}
+	native function FireComplete();
+	if (p.bIsPlayer)
+	{
+		PermitSetPlayerCheats();
+	}
+}
+
+/* Function to equip weapon after reloading */
+function EquipAfterReload()
+{
+	`log("Weapon Equip: " $ Weapon.GetDebugName());
+	SetPrefix(1);
+}
+
+/* Function to unequip weapon before reloading */
+function UnequipBeforeReload()
+{
+	`log("Weapon Unequip: " $ Weapon.GetDebugName());
+	SetPrefix(0);
+}

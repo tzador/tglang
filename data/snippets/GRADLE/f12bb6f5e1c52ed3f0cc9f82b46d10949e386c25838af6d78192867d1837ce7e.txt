@@ -1,0 +1,80 @@
+// Customize build logic using Gradle
+
+// Define a custom task that prints a message
+task myTask {
+    doLast {
+        println 'Hello, this is a custom task!'
+    }
+}
+
+// Set up task dependencies,
+// which ensures that myTask is executed after the build task
+build.dependsOn myTask
+
+
+// Specify a project property and check its value
+task myPropCheckTask {
+    doFirst {
+        println "My custom property value is: ${project.property}"
+    }
+}
+
+// Set the value of the custom property when executing gradle
+// Example: "./gradlew myPropCheckTask -Pproperty=customValue"
+project.property = project.hasProperty('property') ? property : 'defaultValue'
+
+
+// Define a custom plugin
+class MyCustomPlugin implements Plugin<Project> {
+
+    void apply(Project project) {
+        // Customize project configuration
+        project.extensions.create('myExtension', MyExtension)
+
+        // Customize tasks
+        project.tasks.create('myCustomTask') {
+            // Define inputs and outputs for caching build operations
+            inputs.file 'myFile.txt'
+            outputs.dir 'buildDirectory'
+            
+            // Use existing tasks as inputs for this custom task
+            inputs.files tasks.findByPath('build').outputs.files
+            inputs.files tasks['myTask'].outputs.files
+            
+            // Specify task actions
+            doLast {
+                println 'Hello from my plugin!'
+            }
+        }
+
+        // Customize source set
+        project.android.sourcesSets.main {
+            // Add custom files to the source set
+            java.srcDirs 'src/myCustomDir'
+        }
+    }
+}
+
+// Create an instance of the custom plugin and register it to the project
+project.getPlugins().apply(MyCustomPlugin)
+
+
+// Create a custom extension with customizable properties
+class MyExtension {
+    String customProperty = 'defaultValue'
+    File customFile = file('defaultFile.txt')
+}
+
+// Access the custom extension properties from a task
+task useExtension {
+    doLast {
+        println "Custom property value from extension: ${project.myExtension.customProperty}"
+        println "Custom file path from extension: ${project.myExtension.customFile}"
+    }
+}
+
+// Configure the custom extension in build.gradle
+myExtension {
+    customProperty = 'customValue'
+    customFile = file('customFile.txt')
+}

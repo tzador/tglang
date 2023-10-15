@@ -1,0 +1,100 @@
+// This contract represents a decentralized marketplace for buying and selling goods
+pragma solidity ^0.6.0;
+
+// Import SafeMath library for secure arithmetic operations
+import "./SafeMath.sol";
+
+// Define contract
+contract Marketplace {
+    using SafeMath for uint256; // Use SafeMath for uint256 variables
+    
+    // Define variables
+    address public owner; // Address of the contract owner
+    uint256 public totalItems; // Total number of items currently listed on the marketplace
+
+    // Define struct to represent the details of an item listed on the marketplace
+    struct Item {
+        address payable seller; // Address of the seller of the item
+        string name; // Name of the item
+        string description; // Description of the item
+        uint256 price; // Price of the item
+        uint256 quantity; // Quantity available for sale
+        uint256 soldQuantity; // Quantity of the item that has already been sold
+        bool active; // Whether the item is currently still available for purchase
+    }
+
+    // Define mapping to store the details of each item listed on the marketplace
+    mapping (uint256 => Item) public items;
+
+    // Define events to emit when an item is listed or sold
+    event ItemListed(address indexed seller, uint256 indexed itemId);
+    event ItemSold(address indexed buyer, uint256 indexed itemId);
+
+    // Define modifiers to restrict access to certain functions to only the contract owner
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the contract owner can call this function");
+        _;
+    }
+
+    // Constructor function to set the owner of the contract when it is deployed
+    constructor() public {
+        owner = msg.sender;
+    }
+    
+    // Function to list a new item on the marketplace
+    // Takes in the required item details and adds the item to the mapping
+    function listItem(string memory _name, string memory _description, uint256 _price, uint256 _quantity) public {
+        require(_price > 0, "Item price must be greater than 0");
+        require(_quantity > 0, "Quantity must be greater than 0");
+
+        Item memory newItem = Item({
+            seller: msg.sender,
+            name: _name,
+            description: _description,
+            price: _price,
+            quantity: _quantity,
+            soldQuantity: 0,
+            active: true
+        });
+
+        items[totalItems] = newItem;
+        totalItems = totalItems.add(1); // Increase totalItems by 1 using SafeMath
+        emit ItemListed(msg.sender, totalItems - 1); // Emit ItemListed event with seller and item ID
+    }
+
+    // Function to purchase an item from the marketplace
+    function purchaseItem(uint256 _itemId, uint256 _quantity) public payable {
+        require(items[_itemId].active == true, "The item is not available for purchase");
+        require(items[_itemId].quantity >= _quantity, "The quantity requested is greater than the available quantity");
+        require(msg.sender != items[_itemId].seller, "You cannot purchase your own item");
+
+        uint256 totalPrice = _quantity.mul(items[_itemId].price); // Calculate total price using SafeMath
+
+        require(msg.value >= totalPrice, "The amount sent is less than the total price of the item(s)");
+
+        items[_itemId].seller.transfer(totalPrice); // Transfer the payment to the seller
+        items[_itemId].quantity = items[_itemId].quantity.sub(_quantity); // Update the quantity of the item available using SafeMath
+        items[_itemId].soldQuantity = items[_itemId].soldQuantity.add(_quantity); // Update the quantity of the item that has been sold using SafeMath
+
+        if (items[_itemId].quantity == 0) {
+            items[_itemId].active = false; // If all the items have been sold, deactivate the item
+        }
+
+        emit ItemSold(msg.sender, _itemId); // Emit ItemSold event with buyer and item ID
+    }
+
+    // Function to change the price of an already listed item
+    function changePrice(uint256 _itemId, uint256 _newPrice) public {
+        require(msg.sender == items[_itemId].seller, "You are not the seller of this item");
+        require(_newPrice > 0, "Price must be greater than 0");
+
+        items[_itemId].price = _newPrice;
+    }
+
+    // Function to withdraw funds from the contract by the owner
+    function withdraw(uint256 _amount) public onlyOwner {
+        require(_amount <= address(this).balance, "The amount requested is greater than the contract balance");
+
+        msg.sender.transfer(_amount);
+    }
+}

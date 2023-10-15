@@ -1,0 +1,121 @@
+%%% pascal_transpiler.pl -- Prolog implementation of a pascal transpiler
+:- module(pascal_transpiler,
+    [
+        transpile_code/2 % transpile_code(+Input_File, +Output_File)
+    ]).
+
+:- use_module(library(pio)).
+:- use_module(library(between)).
+
+transpile_code(Input_File, Output_File) :-
+    open(Input_File, read, Stream),
+    read_lines(Stream, Lines),
+    close(Stream),
+    phrase(program(Program), Lines),
+    open(Output_File, write, Out),
+    maplist(writeQ, Program, Qtokens),
+    maplist(writeNQ, Program, NQtokens),
+    compile(Qtokens, Qcompiled),
+    compile(NQtokens, NQcompiled),
+    format(Out, 'VAR c:LongInt;.~n', []),
+    write_preds(Out, qtoc, Qcompiled),
+    write_preds(Out, nqtoc, NQcompiled),
+    format(Out, '~nbegin~n', []),
+    write_body(Out, Program),
+    format(Out, 'end.~n', []),
+    close(Out).
+
+program([header, arguments, declarations, computations, programTail]) -->
+    header,
+    arguments,
+    declarations,
+    computations,
+    programTail.
+
+header -->
+    [program, identifier(_), parentheses](c_program).
+
+arguments -->
+    [lr_parentheses],
+    argument_list,
+    [rr_parentheses].
+
+declarations -->
+    [var, colon, type]|(declaration_list).
+
+computations -->
+    assignment,
+    [semicolon].
+
+programTail -->
+    [dot].
+    
+argument_list -->
+    [identifier], [comma], argument_list.
+argument_list -->
+    [identifier].
+
+declaration_part -->
+    declaration_list.
+    
+declaration_list -->
+    declaration_c.
+    
+declaration_c -->
+    [arguments]([type,_], declared).
+    
+assignment_list -->
+    assignment.
+    
+assignment_list -->
+    [comma], assignment_list.
+    
+    
+assignment -->
+    [identifier, assignment, expression] | (declaration_list).
+
+declaration_list --> ([type], [identifier]). 
+
+expression -->
+    arithmatic_expression |
+    relation_expression |
+    logical_expression | 
+    expression |
+    text .
+
+arithmatic_expression -->
+    term |
+    arithmatic_expression, arithmatic_operator, term.
+    
+arithmatic_operator -->
+    [plus] |
+    [minus] |
+    [slash] |
+    [asterisk].
+
+relation_expression --> 
+    arithmatic_expression, relation_operator, arithmatic_expression.
+    
+relation_operator -->
+    [equal] |
+    [not_equal] |
+    [greater_than] |
+    [less_than] |
+    [greater_than_equal] |
+    [less_than_equal].
+    
+logical_expression --> 
+    [not], relation_expression | relation_expression, logical_operator, relation_expression.
+    
+logical_operator -->
+    [and] |
+    [or].
+
+text -->
+    string.
+    
+string --> 
+    [quotes], [string], [quotes].
+
+identifier(P) -->
+    [alpha].

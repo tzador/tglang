@@ -1,0 +1,83 @@
+# This is a complex and detailed NGINX code snippet.
+# It includes various server, location, and upstream blocks
+# as well as conditional statements and proxy settings.
+
+http {
+  # basic settings
+  client_max_body_size 100M; # maximum size for client request bodies
+  keepalive_timeout 60; # amount of time to keep idle connections open
+
+  # server blocks
+  server {
+    listen 80; # listen on port 80
+    server_name example.com; # specify server name
+    access_log /var/log/nginx/example.access.log; # set access log path
+    error_log /var/log/nginx/example.error.log; # set error log path
+
+    # location blocks
+    location / {
+      root /var/www/example.com; # set root directory
+      index index.html index.php; # set index files
+    }
+
+    location /api/ {
+      proxy_pass http://localhost:3000; # proxy requests to localhost on port 3000
+      proxy_set_header Host $host; # pass original host header to the proxied server
+      proxy_set_header X-Real-IP $remote_addr; # pass client's IP to the proxied server as X-Real-IP header
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # pass client's IP to the proxied server as X-Forwarded-For header
+    }
+
+    location ~ \.php$ {
+      try_files $uri =404; # try to find and serve PHP files
+      fastcgi_pass unix:/var/run/php/php7.2-fpm.sock; # set PHP handler
+      fastcgi_index index.php; # set index file
+      fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; # set PHP script path
+      include fastcgi_params; # include fastcgi parameters
+    }
+  }
+
+  # upstream block
+  upstream backend {
+    server backend1.example.com; # specify a server for the upstream group
+    server backend2.example.com; # specify another server for the upstream group
+    server backend3.example.com; # specify a third server for the upstream group
+
+    # conditional statement
+    # if a request has a user-agent header containing 'Mobile', 
+    # use the first server in the upstream group
+    if ($http_user_agent ~* (Mobile)) {
+      proxy_pass http://backend1.example.com;
+    }
+
+    # if the request method is POST, use the second server in the upstream group
+    if ($request_method = POST) {
+      proxy_pass http://backend2.example.com;
+    }
+
+    # if none of the above conditions are met, use the third server in the upstream group
+    proxy_pass http://backend3.example.com;
+  }
+
+  # another server block
+  server {
+    listen 443 ssl; # listen on port 443 with ssl
+    server_name secure.example.com; # specify server name
+    access_log /var/log/nginx/secure.access.log; # set access log path
+    error_log /var/log/nginx/secure.error.log; # set error log path
+
+    # ssl settings
+    ssl_certificate /etc/nginx/ssl/server.crt; # set ssl certificate path
+    ssl_certificate_key /etc/nginx/ssl/server.key; # set ssl certificate key path
+    ssl_protocols TLSv1.2 TLSv1.3; # specify ssl protocols
+    ssl_ciphers HIGH:!aNULL:!MD5; # specify ssl ciphers
+    ssl_prefer_server_ciphers on; # enable server-side cipher preference
+
+    # location block
+    location / {
+      proxy_pass http://backend; # proxy requests to the upstream group
+      proxy_set_header Host $host; # pass original host header to the proxied server
+      proxy_set_header X-Real-IP $remote_addr; # pass client's IP to the proxied server as X-Real-IP header
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # pass client's IP to the proxied server as X-Forwarded-For header
+    }
+  }
+}

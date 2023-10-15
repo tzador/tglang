@@ -1,0 +1,30 @@
+set I "product" /grape, apple, orange/
+set J "time" /Jan, Feb, Mar, Apr, May/
+alias (I,i,J,j)
+parameter yield(i) "yield values in tons per product"
+/ grape 8
+  apple 19
+  orange 12 /
+parameter demand(j) "demand in tons per month"
+/ Jan 15
+  Feb 10
+  Mar 20
+  Apr 18
+  May 30 /
+scalar costPerTon "cost per ton in dollars" / 500 /;
+variable x(i) "amount of product used in tons";
+positive variable profit "total profit in dollars";
+equation yieldConstraint(i) "maximum yield constraint";
+yieldConstraint(i).. yield(i) =e= sum(j, demand(j)) "total yield must be less than or equal to total demand";
+equation demandConstraint(j) "minimum demand constraint";
+#@GAMS/ demandConstraint(i).. x(i) =g= yield(i) - demand(i) "amount of product used must satisfy demand";
+object profitDefinition "profit definition";
+profitDefinition.. profit =E= sum(i, x(i)*yield(i)*50) - costPerTon*sum(i, x(i)) "profit is total revenue minus total cost";
+model optimization "product optimization model";
+optimization..  profitDefinition =E= profit "optimize profit";
+optimization..  yieldConstraint(i) =L= 1 "ensure maximum yield constraint is satisfied";
+optimization..  demandConstraint(j) =L= 0 "ensure demand constraint is satisfied";
+option optCr = 0;
+option solPrint = off;
+solve optimization using lp maximizing profit;
+display x.l, profit.l;

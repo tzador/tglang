@@ -1,0 +1,132 @@
+%%% This module defines a simple web server that responds to GET requests. %%%
+-module(my_web_server).
+-compile(export_all).
+
+%%% State record for keeping track of connections and requests. %%%
+-record(state, {connections=[], requests=[]}).
+
+%%% Server options. %%%
+-options([port, ip, timeout]).
+
+%%% Public API for starting the server. %%%
+start(Options) ->
+    %%% Parse and validate options. %%%
+    {Port, IP, Timeout} = parse_options(Options),
+
+    %%% Start the server process. %%%
+    spawn(fun() ->
+        %%% Initialize the server state. %%%
+        State = #state{},
+
+        %%% Start the accept loop. %%%
+        accept_loop(Port, IP, Timeout, State)
+    end).
+
+%%% Function to parse and validate options. %%%
+parse_options(Options) ->
+    case proplists:get_value(port, Options) of
+        undefined ->
+            io:format("Port option is required!~n"),
+            halt();
+        Port ->
+            validate_port(Port)
+    end,
+    case proplists:get_value(ip, Options) of
+        undefined ->
+            IP = {0,0,0,0},
+        IP ->
+            IP
+    end,
+    case proplists:get_value(timeout, Options) of
+        undefined ->
+            Timeout = 5000,
+        Timeout ->
+            validate_timeout(Timeout)
+    end,
+    {Port, IP, Timeout}.
+
+%%% Function to validate the port number. %%%
+validate_port(Port) ->
+    case Port > 0 andalso Port =< 65535 of
+        true ->
+            Port;
+        false ->
+            io:format("Invalid port number!~n"),
+            halt()
+    end.
+
+%%% Function to validate the timeout value. %%%
+validate_timeout(Timeout) ->
+    case Timeout > 0 andalso Timeout =< 60000 of
+        true ->
+            Timeout;
+        false ->
+            io:format("Invalid timeout value!~n"),
+            halt()
+    end.
+
+%%% Accept loop function. %%%
+accept_loop(Port, IP, Timeout, State) ->
+    %%% Wait for a connection. %%%
+    {ok, Socket} = gen_tcp:listen(Port, [ip, {active, false}]),
+
+    %%% Accept a connection and spawn a new process to handle it. %%%
+    case gen_tcp:accept(Socket) of
+        {ok, NewSocket} ->
+            spawn(fun() ->
+                handle_connection(NewSocket, IP, Timeout, State)
+            end),
+            accept_loop(Port, IP, Timeout, State#state{connections=[NewSocket | State#state.connections]});
+
+        {error, Reason} ->
+            io:format("Error accepting connection: ~w~n", [Reason])
+    end.
+
+%%% Function to handle a connection and respond to a GET request. %%%
+handle_connection(Socket, IP, Timeout, State) ->
+    %%% Set socket options. %%%
+    gen_tcp:controlling_process(Socket, self()),
+    inet:setopts(Socket, [{packet, http_bin}, {active, once}]),
+
+    %%% Receive the request data. %%%
+    receive
+        {tcp, Socket, RawData} ->
+            %%% Parse the request data. %%%
+            {ok, Request} = httpd:parse_request(RawData),
+
+            %%% Get the requested path and query parameters. %%%
+            Path = proplists:get_value(path, Request, "/"),
+            QueryParams = proplists:get_value(query, Request),
+
+            %%% Send the response. %%%
+            send_response(Socket, IP, Path, QueryParams, State),
+            handle_connection(Socket, IP, Timeout, State);
+
+        {tcp_closed, Socket} ->
+            %%% Connection closed, update state. %%%
+            State#state{connections=lists:delete(Socket, State#state.connections)},
+            io:format("Connection closed from ~p~n", [Socket]);
+        {tcp_error, Socket, Reason} ->
+            %%% Error receiving data, update state. %%%
+            State#state{connections=lists:delete(Socket, State#state.connections)},
+            io:format("Error receiving data from ~p: ~w~n", [Socket, Reason])
+    end.
+
+%%% Function to send the response. %%%
+send_response(Socket, IP, Path, QueryParams, State) ->
+    %%% Build the response body. %%%
+    Body = <<"Hello World!">>,
+
+    %%% Build the response headers. %%%
+    Headers = lists:flatten(maps:fold(fun (Key, Val, Acc) ->
+        Acc ++ io_lib:format("~p: ~p~r~n", [Key, Val])
+    end, "Content-Type: text/plain~r~n", QueryParams)),
+
+    %%% Build the full response. %%%
+    Response = << "HTTP/1.1 200 OK\r\n", Headers/binary, "\r\n", Body >>,
+
+    %%% Send the response. %%%
+    gen_tcp:send(Socket, Response),
+
+    %%% Update state. %%%
+    State#state{requests=[{ip=IP, path=Path, query_params=QueryParams} | State#state.requests]}.

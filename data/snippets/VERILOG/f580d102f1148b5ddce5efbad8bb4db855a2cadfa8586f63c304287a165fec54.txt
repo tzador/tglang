@@ -1,0 +1,128 @@
+// This code snippet is a combinational circuit implementation of a binary adder with carry output
+
+module binary_adder(
+    input [3:0] a, b, // two 4-bit binary inputs
+    output [3:0] sum, // output of the 4-bit binary sum
+    output carry // carry output
+);
+
+wire [3:0] x; // intermediate wire used for calculations
+    
+// logic for the 4-bit binary sum
+assign sum[0] = a[0] ^ b[0]; // XOR operation for first bit of sum
+assign sum[1] = a[1] ^ b[1] ^ x[0]; // XOR operation for second bit of sum, includes carry from previous bit
+assign sum[2] = a[2] ^ b[2] ^ x[1]; // XOR operation for third bit of sum, includes carry from previous bit
+assign sum[3] = a[3] ^ b[3] ^ x[2]; // XOR operation for fourth bit of sum, includes carry from previous bit
+
+// logic for the carry output
+assign carry = (a[0] & b[0]) | (x[0] & (a[0] ^ b[0])); // OR operation to determine if any of the input bits result in a carry
+
+// internal wires for carry calculations
+wire [3:0] and1, and2, and3; // AND gates used for carry output
+wire or1, or2; // OR gates used for carry output
+
+// AND gates for carry output
+assign and1 = a[0] & b[0]; // AND gate for first bit of carry
+assign and2 = x[0] & (a[0] ^ b[0]); // AND gate for second bit of carry
+assign and3 = x[2] & (a[3] ^ b[3]); // AND gate for fourth bit of carry
+
+// OR gates for carry output
+assign or1 = and1 | and2; // OR gate for first and second bits of carry
+assign or2 = or1 | and3; // final OR gate for carry output
+
+// internal wires for XOR operations on carry calculation
+wire [3:0] xor1, xor2; // XOR gates used for carry output
+
+// XOR gates for carry output
+assign xor1 = x[0] ^ (a[0] ^ b[0]); // XOR gate for first bit of carry
+assign xor2 = x[1] ^ (a[2] ^ b[2]); // XOR gate for third bit of carry
+
+// intermediate wires for carry calculation
+wire [2:0] not; // NOT gate used for final carry calculation
+assign not = ~x[2]; // NOT gate for third bit of carry
+
+// final XOR gate for carry output
+assign x[2] = not ^ xor2; // output of third bit of carry
+
+// internal wires for carry calculation
+wire [3:0] add1, add2, add3, add4; // intermediate wires to hold results of XOR operations for carry calculation
+
+// first AND gate for carry output
+and (
+    add1[0], // first bit of add1
+    a[0], // first bit of a
+    b[0] // first bit of b
+);
+
+// second AND gate for carry output
+and (
+    add1[1], // second bit of add1
+    add1[0], // first bit of add1
+    x[0] // first bit of x
+);
+
+// third AND gate for carry output
+and (
+    add2[2], // first bit of add2
+    a[2], // first bit of a
+    b[2] // first bit of b
+);
+
+// fourth AND gate for carry output
+and (
+    add2[3], // second bit of add2
+    add2[2], // first bit of add2
+    x[1] // first bit of x
+);
+
+// fifth AND gate for carry output
+and (
+    add3[1], // first bit of add3
+    a[1], // first bit of a
+    b[1] // first bit of b
+);
+
+// sixth AND gate for carry output
+and (
+    add4[3], // first bit of add4
+    add3[1], // first bit of add3
+    x[2] // first bit of x
+);
+
+// intermediate wires for carry calculation
+wire and_add; // holds result of AND gate used in final carry calculation
+wire [1:0] and_sub, add_sub; // intermediate wires used for subtraction in final carry calculation
+
+// intermediate AND gate used in final carry calculation
+assign and_add = add4[3] & a[3] & b[3];
+
+// subtract two carry bits and intermediate carry bits to get final carry output
+subtractor (
+    .add(a[0:2]), // input of six bits to be subtracted
+    .sub(add_sub), // output of subtractor, 
+    .sum(and_sub) // sum output of subtractor, to get correct value of carry
+);
+
+// final carry output
+assign x[3] = and_add | (add_sub[1:0] ^ and_sub);
+
+// final XOR gate for carry output
+xor (
+    add3[3], // first bit of add3
+    add4[3], // first bit of add4
+    x[3], // first bit of x
+    a[3], // first bit of a
+    b[3] // first bit of b
+);
+
+// internal wire for sum calculations
+wire and5; // AND gate used in sum calculation
+assign and5 = add1[0] & add2[2] & not & add3[1]; // AND gate to check if sum is an even number
+
+// output sum
+assign x[0] = and5 ^ sum[0]; // output first bit of sum
+assign x[1] = sum[1] ^ add1[1] ^ add2[3]; // output second bit of sum
+assign x[2] = sum[2] ^ add4[0] ^ add2[1]; // output third bit of sum
+assign x[3] = sum[3] ^ add4[2] ^ add3[0] ^ not; // output fourth bit of sum
+
+endmodule

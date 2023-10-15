@@ -1,0 +1,163 @@
+%start expression
+%token NUM
+%%
+
+expression:  /* This rule defines an expression */
+    NUM                     /* expression can start with a number */
+    | expression '+' expression     /* can also have addition operation */
+    | expression '-' expression     /* or subtraction operation */
+    | expression '*' expression     /* or multiplication operation */
+    | expression '/' expression     /* or division operation */
+    | '(' expression ')'       /* can include parentheses for grouping */
+    ;
+
+%%
+
+/* The following %option commands give some options to bison for generating
+   stand-alone parsers or executables. */
+%option bison-bridge
+%option bison-locations
+%option prefix="myparser_"
+
+/* The following %code command tells bison what C code to add
+   to the generated parser header file */
+%code requires {
+    /* These are necessary for generating bison-bridge parsers */
+    #include <stdio.h>
+    #include <stdlib.h>
+
+    /* A structure to be used as the type for the location passed to yylex. */
+    typedef struct
+    {
+        int first_line;
+        int first_column;
+        int last_line;
+        int last_column;
+    } yyscan_t;
+
+    /* A union to represent possible data types for yylval. */
+    typedef union
+    {
+        double dval;
+        char *str;
+    } YYSTYPE;
+
+    /* Global variable to store location data. */
+    yyscan_t scanner_location;
+}
+%code {
+    /* Function to set the location values for a token. */
+    static void set_location(yyscan_t *yyscanner, int line, int column)
+    {
+        yyscanner->first_line = line;
+        yyscanner->first_column = column;
+        yyscanner->last_line = yylineno;
+        yyscanner->last_column = yycolno + yyleng;
+    }
+}
+
+/* The enumeration below defines error tokens. The variable yyparse
+   checks whether a syntax error is signalled or not */
+%enum
+{
+    /* Set error symbol to report and return when syntax errors occur */
+    syntexError = 256
+}
+
+/* The lexer function must first include the scanner definitions in the
+   generated scanner header file */
+%{
+
+#include "myparser_mylexer.h"
+
+%}
+
+/* Define the rules for token matching and returning. */
+%token INT
+%token STRING
+
+%type <(int, int, int, int)> INT
+%type <string> STRING
+
+%%
+
+/* Match an integer and return it as a token value. */
+[0-9]+     { yylval.intval = atoi(yytext); set_location(&scanner_location, yylineno, yycolno); return INT; }
+
+/* Match a string and return it as a token value. */
+\"[^\"]+[^\\\"]\" { yylval.strval = strdup(yytext); set_location(&scanner_location, yylineno, yycolno); return STRING; }
+
+%%
+/* The following code defines the main function for the parser. */
+int main(int argc, char **argv)
+{
+    yyscan_t scanner;
+    /* Create a new scanner object. */
+    yylex_init(&scanner);
+    /* Set the input file stream to the first argument. */
+    yyinput(stdin, scanner);
+    /* Set scanner_location to point to the global variable. */
+    yyset_extra(&scanner_location, scanner);
+    /* Start the parsing process and return success or failure. */
+    if (yyparse(scanner) == 0)
+    {
+        /* No syntax errors occurred, output the parsed result. */
+        printf("Parsing successful!");
+    }
+    else
+    {
+        /* Print an error message and the location of the error. */
+        printf("Syntax error at line %d, column %d.", yyloc.first_line, yyloc.first_column);
+        printf("Last token: %d", yytoken);
+    }
+    /* Destroy the scanner object and free any memory. */
+    yylex_destroy(scanner);
+    return 0;
+}
+
+/* The following code defines a simple lexer for the parser. */
+%{
+
+int myparser_mylexer(YYSTYPE *yylval_param, yyscan_t yyscanner)
+{
+    yyscan_t scanner = yyscanner;
+    YYSTYPE yylval = *yylval_param;
+
+    /* The regular expression to match an integer. */
+    static const char *integer_regex = "[0-9]+";
+
+    /* The regular expression to match a string. */
+    static const char *string_regex = "\"[^\"]+[^\\\"]\"";
+
+    /* Variable to hold the matched token. */
+    char *matched_string;
+
+    /* Start the tokenizing process. */
+    matched_string = yytext;
+
+    if (matched_string == NULL)
+    {
+        /* End of file reached, return EOF token. */
+        yylval.param = -1;
+        return 0;
+    }
+
+    /* Attempt to match an integer. */
+    if (yymatch(integer_regex, matched_string) == 0)
+    {
+        yylval.param = atoi(matched_string);
+        return INT;
+    }
+
+    /* Attempt to match a string. */
+    if (yymatch(string_regex, matched_string) == 0)
+    {
+        yylval.param = strdup(matched_string);
+        return STRING;
+    }
+
+    /* If no token matching is successful, return syntexError. */
+    return syntexError;
+}
+
+%}

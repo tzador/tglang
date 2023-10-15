@@ -1,0 +1,76 @@
+#Set up server block for example.com
+server {
+    server_name example.com;
+    root /var/www/example.com;
+    index index.html;
+
+    #Enable gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/javascript;
+    gzip_comp_level 5;
+    gzip_min_length 256;
+    gzip_proxied any;
+    gzip_vary on;
+
+    #Enable HTTP/2
+    listen 443 ssl http2;
+
+    #Configure SSL
+    ssl_certificate /etc/nginx/ssl/example.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/example.com.key;
+
+    #Enable OCSP stapling for improved SSL performance
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    resolver 8.8.8.8 8.8.4.4;
+    #Set OCSP cache
+    ssl_stapling_cache shared:SSL:10m;
+
+    #Enable HTTP Strict Transport Security
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    #Set up location block for static assets
+    location ~* \.(jpg|jpeg|svg|gif|png|css|js|ico|xml|woff|woff2|ttf|eot)$ {
+        access_log off;
+        expires 7d;
+    }
+
+    #Set up location block for PHP files
+    location ~* \.php$ {
+        fastcgi_pass unix:/var/run/php/php7.0-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include fastcgi_params;
+        fastcgi_buffers 16 16k;
+        fastcgi_buffer_size 32k;
+        fastcgi_connect_timeout 300;
+        fastcgi_send_timeout 300;
+        fastcgi_read_timeout 300;
+    }
+
+    #Enable server-side caching
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=example_cache:10m inactive=60m;
+    proxy_cache_key "$scheme$request_method$host$request_uri";
+    proxy_cache_valid 200 60m;
+    proxy_cache_bypass $http_pragma;
+    proxy_cache_revalidate on;
+    proxy_cache_min_uses 1;
+    proxy_cache_use_stale error timeout invalid_header updating http_500 http_502 http_503 http_504;
+
+    #Set up reverse proxy for dynamic content
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Host $http_host;
+    }
+
+    #Enable rate limiting for requests
+    limit_req_zone $binary_remote_addr zone=example_rate_limit:10m rate=5r/s;
+    limit_req_status 503;
+    limit_req_log_level error;
+
+    #Disable access to .htaccess files
+    location ~ /\.ht {
+        deny all;
+    }
+}

@@ -1,0 +1,68 @@
+-- This code snippet creates a simple TODO app in ELM
+import Html
+import Html.Attributes exposing (class, href, checked)
+import Html.Events exposing (onClick, onClick, targetValue)
+import List exposing (map)
+import Json.Encode exposing (Encode, bool, int, object, string)
+import Browser
+
+type alias Todo = { description : String, completed : Bool }
+
+main =
+    Browser.sandbox
+        { init = init
+        , update = update
+        , view = view
+        }
+
+initialTodos : List Todo
+initialTodos =
+    [ { description = "Buy groceries", completed = False }
+    , { description = "Clean the house", completed = False }
+    ]
+
+type Msg
+    = AddTodo String
+    | ToggleTodo Int Bool
+
+init : () -> ( List Todo, Cmd Msg )
+init _ =
+    ( initialTodos, Cmd.none )
+
+update : Msg -> List Todo -> ( List Todo, Cmd Msg )
+update msg todos =
+    case msg of
+        AddTodo desc ->
+            ( todos ++ [ { description = desc, completed = False } ], Cmd.none )
+
+        ToggleTodo idx isChecked ->
+            let
+                ( firstHalf, secondHalf ) =
+                    List.splitAt idx todos
+
+                toggledTodo =
+                    List.get idx todos
+                    |> Maybe.map (\todo -> { todo | completed = isChecked })
+            in
+                case toggledTodo of
+                    Just todo ->
+                        ( firstHalf ++ todo :: secondHalf, Cmd.none )
+                    
+                    Nothing ->
+                        ( todos, Cmd.none )
+
+view : List Todo -> Html Msg
+view todos =
+    div []
+        [ h1 [] [ text "TODO App" ]
+        , input [ placeholder "Enter new todo", onInput (AddTodo >> targetValue) ] []
+        , ul []
+            (map
+                (\todo ->
+                    li []
+                        [ input [ type_ "checkbox", checked todo.completed, onClick (ToggleTodo ??) ] []
+                        , text todo.description
+                        ]
+                )
+                (List.indexedMap (\idx todo -> { todo | idx = idx }) todos))
+        ]

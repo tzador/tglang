@@ -1,0 +1,46 @@
+;;; Initialize message-balancing
+(require '[com.stuartsierra.component :as component
+           '[com.stuartsierra.lifecycle :as lifecycle]
+           '[clojure.string :as string]])
+
+;;; Message-balancing system protocol
+(defprotocol IMessageBalancing
+  (start [this])
+  (stop [this])
+  (balance-messages [this]))
+
+;;; TCP client component to interact with external message broker
+(defrecord TCPClient [host port]
+  IMessageBalancing
+  (start [this]
+    (try
+      (;; initialize connection to external message broker
+      (balanced-messages this)
+      (catch Exception e
+      (println (str "Error starting TCP client: " e)))))
+  (stop [this]
+    (try
+      (;; close connection to external message broker
+      (catch Exception e
+        (println (str "Error stopping TCP client: " e)))))
+  (balance-messages [this]
+    (do
+      (;; fetch messages from external message broker
+      (balance-processed-messages this)
+      ;; send messages to internal message queue
+      (send-messages-to-internal-queue this)))))
+      
+  ;;; Component system to manage the TCP client
+  (def system (-> (TCPClient. "localhost" 8080)
+                  (lifecycle/start)
+                  (component/system-map tcp-client)))
+
+  ;;; Connect system to external message broker
+  (take-component (-> system (component/start))
+  
+  ;;; Send messages to internal message queue
+  (send-messages-to-internal-queue [component]
+    (do
+      (;; fetch message from broker and add routing info to it
+      ;; send message to internal queue
+      (clojure.core.async/put! internal-queue routing-message)))))

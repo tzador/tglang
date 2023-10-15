@@ -1,0 +1,37 @@
+Function Get-UserReport
+  {
+  [CmdletBinding()]
+  Param
+  (
+    [Parameter(Mandatory=$true)]
+    [string]$UserName
+  )
+  # Gets user information from Active Directory
+  $UserInfo = Get-ADUser -Identity $UserName -Properties *
+  
+  # Converts last logon time to readable format
+  $LastLogon = [DateTime]::FromFileTime($UserInfo.LastLogonTimestamp)
+  $LastLogon = $LastLogon.ToLocalTime()
+  
+  # Gets all user groups from Active Directory
+  $UserGroups = Get-ADUser -Identity $UserName -Properties MemberOf |
+    Select-Object -ExpandProperty MemberOf |
+    Get-ADGroup
+  
+  # Builds report object and adds user information
+  $Report = [PSCustomObject]@{
+    UserName = $UserInfo.SamAccountName
+    Name = $UserInfo.Name
+    Email = $UserInfo.EmailAddress
+    LastLogon = $LastLogon
+  }
+  
+  # Iterates through user's groups and adds them to report
+  foreach($group in $UserGroups)
+  {
+    $Report | Add-Member -MemberType NoteProperty -Name "Group $($group.Name)" -Value $group.SamAccountName
+  }
+  
+  # Outputs report
+  $Report
+}

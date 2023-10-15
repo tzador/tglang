@@ -1,0 +1,30 @@
+server {
+    listen 80; # sets the port to listen for incoming requests on
+    server_name example.com; # sets the domain name associated with the server block
+    location / { # defines a block for URL paths
+        proxy_pass http://localhost:3000; # sets the upstream server to which NGINX will proxy requests
+        proxy_http_version 1.1; # sets the HTTP version to be used in proxy communication
+        proxy_set_header Upgrade $http_upgrade; # sets headers to be sent to the upstream server
+        proxy_set_header Connection 'upgrade'; # sets headers to be sent to the upstream server
+        proxy_set_header Host $host; # sets headers to be sent to the upstream server
+        proxy_cache_bypass $http_upgrade; # sets conditions for whether or not to use caching for particular requests
+    }
+    location /images/ { # defines a location block for requests with a specific path
+        try_files $uri /error.jpg; # sets the file or directory NGINX will try to find to fulfill the request, if not found, will serve error.jpg
+        rewrite ^/images/(.*)\.(jpg|png)$ /images/$1C.$2 permanent; # sets a regular expression to match the request URI and rewrites it to the new URI
+        error_page 404 = /error.jpg; # sets the error page to be served for a particular status code
+    }
+    location ~ \.php$ { # defines a regex location block for requests with a specific file extension
+        fastcgi_split_path_info ^(.+\.php)(/.+)$; # defines a regular expression to split the request URI into a file path and a query string
+        fastcgi_pass unix:/var/run/php-fpm.sock; # sets the upstream server to handle PHP files
+        fastcgi_index index.php; # sets the default index file for requests that do not specify a particular file
+        include fastcgi_params; # includes the specified configuration files
+    }
+    location /scripts/ { # defines a location block for requests with a specific path
+        allow 192.168.1.0/24; # sets an IP address or a range of addresses that are allowed to access the specified directory
+        deny all; # sets all other addresses to be denied access to the specified directory
+    }
+    location ~ /\.ht { # defines a regex location block for requests with a file name starting with .
+        deny all; # sets all requests matching the pattern to be denied
+    }
+}

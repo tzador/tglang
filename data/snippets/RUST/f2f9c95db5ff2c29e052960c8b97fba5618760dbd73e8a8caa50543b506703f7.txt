@@ -1,0 +1,80 @@
+use std::fs::File;
+use std::io::{BufReader, BufWriter, Read, Write};
+
+// Define a struct to hold data
+#[derive(Debug)]
+struct Data {
+    id: u32,
+    name: String,
+    age: u8
+}
+
+// Define an enum to represent different types of data
+enum DataType {
+    Text(String),
+    Number(u32),
+    Record(Data),
+    Empty
+}
+
+// Define a function to write data to a file
+fn write_data(data: DataType, file_name: &str) -> std::io::Result<()> {
+    let file = File::create(file_name)?;
+    let mut writer = BufWriter::new(file);
+
+    match data {
+        DataType::Text(s) => {
+            // Write text data to file
+            let bytes = s.as_bytes();
+            writer.write_all(bytes)?;
+        },
+        DataType::Number(n) => {
+            // Write number data to file
+            let bytes = n.to_string().as_bytes();
+            writer.write_all(bytes)?;
+        },
+        DataType::Record(d) => {
+            // Write record data to file
+            let bytes = format!("{:?}", d).as_bytes();
+            writer.write_all(bytes)?;
+        },
+        _ => return Ok(())
+    }
+
+    Ok(())
+}
+
+// Define a function to read data from a file
+fn read_data(file_name: &str) -> std::io::Result<DataType> {
+    let file = File::open(file_name)?;
+    let mut reader = BufReader::new(file);
+
+    // Read file contents into a string
+    let mut buffer = String::new();
+    reader.read_to_string(&mut buffer)?;
+
+    // Convert string into relevant data type
+    if buffer.is_empty() {
+        return Ok(DataType::Empty);
+    } else if let Ok(number) = buffer.parse::<u32>() {
+        return Ok(DataType::Number(number));
+    } else if let Ok(data) = serde_json::from_str::<Data>(&buffer) {
+        return Ok(DataType::Record(data));
+    } else {
+        return Ok(DataType::Text(buffer));
+    }
+}
+
+fn main() -> std::io::Result<()> {
+    // Create a file and write different types of data to it
+    write_data(DataType::Text(String::from("This is some text.")), "file.txt")?;
+    write_data(DataType::Number(100), "file.txt")?;
+    write_data(DataType::Record(Data{id: 1, name: String::from("John"), age: 35}), "file.txt")?;
+    write_data(DataType::Empty, "file.txt")?;
+
+    // Read data from file and print it
+    let data = read_data("file.txt")?;
+    println!("Data: {:?}", data);
+
+    Ok(())
+}

@@ -1,0 +1,96 @@
+// Defines a contract with multiple functions and data types using the SOLID principles
+// OpenZeppelin library used for safe math operations and ownership management
+// Events used for emitting data
+// Modifiers used for access control
+// Inheritance used for code reuse and modular design
+
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract MultipleFunctions is Ownable {
+    
+    using SafeMath for uint256;
+    
+    // Events for emitting data
+    event NewInvoice(uint256 indexed invoiceId, address indexed customer, uint256 amount);
+
+    // Data types for storing invoice information
+    struct Invoice {
+        address customer;
+        uint256 amount;
+        bool paid;
+    }
+
+    // Storage variables
+    uint256 public invoiceCount;
+    mapping(uint256 => Invoice) public invoices;
+    
+    // Public functions can be accessed by anyone
+    // Function to create a new invoice
+    function createInvoice(address _customer, uint256 _amount) public {
+        // Ensuring that an address is provided for the customer
+        require(_customer != address(0), "Invalid address provided");
+        
+        // Using SafeMath to prevent overflow errors 
+        uint256 newInvoiceId = invoiceCount.add(1);
+        
+        // Storing the new invoice in the mapping
+        invoices[newInvoiceId] = Invoice({
+            customer: _customer,
+            amount: _amount,
+            paid: false
+        });
+        
+        // Emitting the event
+        emit NewInvoice(newInvoiceId, _customer, _amount);
+        
+        // Incrementing the invoice count
+        invoiceCount = invoiceCount.add(1);
+    }
+    
+    // Function to mark an invoice as paid
+    function payInvoice(uint256 _invoiceId) public payable {
+        // Ensuring that the invoice exists
+        require(_invoiceId <= invoiceCount, "Invoice does not exist");
+        
+        // Ensuring that the invoice has not already been paid
+        require(!invoices[_invoiceId].paid, "Invoice has already been paid");
+        
+        // Ensuring that the amount sent is equal to the invoice amount
+        require(msg.value == invoices[_invoiceId].amount, "Incorrect amount sent");
+        
+        // Marking the invoice as paid
+        invoices[_invoiceId].paid = true;
+    }
+    
+    // Owner can call these functions as well as the public ones
+    // Function to withdraw funds from the contract
+    // Using the "onlyOwner" modifier from the Ownable contract
+    function withdrawFunds() external onlyOwner {
+        // Transfer funds to the owner's address
+        payable(owner()).transfer(address(this).balance);
+    }
+    
+    // Function to get the balance of the contract
+    function getContractBalance() external view onlyOwner returns (uint256) {
+        return address(this).balance;
+    }
+    
+    // Function to update the contract owner
+    function updateOwner(address _newOwner) external onlyOwner {
+        // Ensuring that a new owner address is provided
+        require(_newOwner != address(0), "Invalid address provided");
+        
+        // Calling the transferOwnership function from the Ownable contract 
+        transferOwnership(_newOwner);
+    }
+    
+    // The following modifiers can be used to restrict access to certain functions
+    // Only the contract owner can call these functions
+    modifier onlyOwner {
+        require(msg.sender == owner(), "Only contract owner can call this function");
+        _;
+    }
+}

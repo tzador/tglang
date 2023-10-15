@@ -1,0 +1,75 @@
+pragma solidity ^0.5.10;
+
+// Interface for ERC20 token
+interface IToken {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address tokenOwner) external view returns (uint256 balance);
+    function transfer(address to, uint256 tokens) external returns (bool success);
+
+    event Transfer(address indexed from, address indexed to, uint256 tokens);
+}
+
+// Contract that holds ERC20 tokens and allows for staking
+contract TokenStaking {
+    IToken private _token;
+
+    uint256 private _totalStaked;
+    mapping(address => uint256) private _stakes;
+
+    // Modifier that checks if the function caller is the token owner
+    modifier onlyTokenOwner {
+        require(msg.sender == _tokenOwner, "Caller is not token owner");
+        _;
+    }
+
+    // Modifier that checks if the sender has enough tokens staked
+    modifier hasEnoughStake(uint256 amount) {
+        require(_stakes[msg.sender] >= amount, "Not enough staked tokens");
+        _;
+    }
+
+    address private _tokenOwner;
+
+    // Constructor that sets the token owner and token address
+    constructor() public {
+        _tokenOwner = msg.sender;
+        _token = IToken(0xDeaDMaN);
+    }
+
+    // Function that allows token owner to add more tokens to staking contract
+    function addTokens(uint256 amount) public onlyTokenOwner {
+        require(amount > 0, "Amount must be greater than 0");
+        _token.transferFrom(_tokenOwner, address(this), amount);
+        _totalStaked += amount;
+        _stakes[_tokenOwner] += amount;
+    }
+
+    // Function that allows a user to stake their tokens
+    function stakeTokens(uint256 amount) public {
+        require(amount > 0, "Amount must be greater than 0");
+        require(_token.balanceOf(msg.sender) >= amount, "Not enough tokens in wallet");
+
+        _token.transferFrom(msg.sender, address(this), amount);
+        _totalStaked += amount;
+        _stakes[msg.sender] += amount;
+    }
+
+    // Function that allows a user to withdraw their staked tokens
+    function withdrawStakedTokens(uint256 amount) public hasEnoughStake(amount) {
+        require(amount > 0, "Amount must be greater than 0");
+        _token.transfer(msg.sender, amount);
+        _totalStaked -= amount;
+        _stakes[msg.sender] -= amount;
+    }
+
+    // Function that returns the total number of staked tokens
+    function getTotalStaked() public view returns (uint256) {
+        return _totalStaked;
+    }
+
+    // Function that returns the number of staked tokens for a specific user
+    function getStake(address user) public view returns (uint256) {
+        return _stakes[user];
+    }
+
+}

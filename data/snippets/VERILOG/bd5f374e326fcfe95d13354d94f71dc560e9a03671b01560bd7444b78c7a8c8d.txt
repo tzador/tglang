@@ -1,0 +1,65 @@
+// Declare a counter variable
+reg [7:0] count = 8'b00000000;
+
+// Define a counter module with asynchronous reset, load, and enable inputs
+module counter (
+  input logic clk, // clock input
+  input logic rst, // asynchronous reset input
+  input logic load, // load input
+  input logic enable, // enable input
+  output reg [7:0] count // output for counter value
+);
+
+// Initialize the count output to 0
+// This will be overwritten if the load input is asserted
+assign count = 8'b00000000;
+
+// Create a clock divider module
+// This will slow down the input clock to the desired frequency for the counter
+reg [7:0] div_counter = 8'b00000000; // count variable for the clock divider
+logic clk_div, // output of the clock divider
+      clk_div_en; // enable signal for the clock divider
+always @ (posedge clk) begin
+  // Increment the divider counter on each clock edge
+  div_counter <= div_counter + 8'b00000001;
+  
+  // Output clock divider signal every 10 cycles
+  if (div_counter == 8'b00001001) begin
+    div_counter <= 8'b00000000;
+    clk_div_en <= 1'b1;
+  end
+  
+  // Disable clock divider after one cycle
+  if (clk_div_en) begin
+    clk_div_en <= 1'b0;
+  end
+end
+
+// Instantiate the clock divider and connect it to the enable input
+// This will effectively slow down the input clock by a factor of 10
+genvar i;
+generate
+  for (i = 0; i < 10; i = i + 1) begin : div_inst
+    always @ (posedge clk_div) begin
+      enable <= 1'b1;
+    end
+  end
+endgenerate
+
+// Create a control logic to control the counter behavior
+always @ (posedge clk_div or posedge rst) begin
+  if (rst) begin
+    // Asynchronous reset when the rst input is asserted
+    count <= 8'b00000000;
+  end else begin
+    if (load) begin
+      // Load new count value when the load input is asserted
+      count <= count + 8'b00000001;
+    end else if (enable) begin
+      // Increment count on each clock edge when the enable input is asserted
+      count <= count + 8'b00000001;
+    end
+  end
+end
+
+endmodule // end counter module

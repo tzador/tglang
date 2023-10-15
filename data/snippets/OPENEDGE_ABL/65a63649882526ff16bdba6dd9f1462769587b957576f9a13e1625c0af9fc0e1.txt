@@ -1,0 +1,48 @@
+/* This is a code snippet in OPENEDGE_ABL */
+
+/* Declaring a temp-table with fields and datatypes */
+DEFINE TEMP-TABLE tt-item
+    FIELD item-num AS INTEGER
+    FIELD item-desc AS CHARACTER
+    FIELD item-price AS DECIMAL
+    INDEX item-num PRIMARY UNIQUE item-num.
+
+/* Creating a procedure to insert a new record into the temp-table, using a buffer */
+DEFINE PROCEDURE insert-item.
+    DEFINE INPUT PARAMETER ip-item AS HANDLE.
+    DO ON ERROR UNDO, THROW:
+
+    /* Start new transaction */
+    RUN transaction "insert-item" NO-ERROR.
+
+    /* Create a new buffer */
+    CREATE tt-item.
+    /* Set buffer properties */
+    ASSIGN tt-item.item-num = ip-item.item-num
+           tt-item.item-desc = ip-item.item-desc
+           tt-item.item-price = ip-item.item-price.
+
+    /* Insert buffer into the temp-table */
+    FOR EACH tt-item:
+        IF tt-item.item-num = ip-item.item-num THEN
+            /* Duplicate item number, cannot insert */
+            UNDO TRANSACTION "insert-item".
+            RETURN.
+        END IF.
+    END.
+
+    /* Commit changes and end transaction */
+    IF NOT COMPLETE TRANSACTION "insert-item" THEN
+        UNDO, THROW.
+    ELSE
+        MESSAGE "Record successfully inserted!".
+    END.
+END PROCEDURE.
+
+/* Calling the procedure to insert a new item into the temp-table */
+DEFINE VARIABLE item-handle AS HANDLE NO-UNDO.
+CREATE tt-item.
+ASSIGN tt-item.item-num = 123
+       tt-item.item-desc = "New Item"
+       tt-item.item-price = 10.99.
+RUN insert-item(item-handle).

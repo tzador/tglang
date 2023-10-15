@@ -1,0 +1,32 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+module Main where
+
+import System.Time
+import Control.Monad.Trans
+
+class MonadIO m => Clock m where
+  getTime :: m ClockTime
+
+class MonadIO m => Logging m where
+  logMessage :: String -> m ()
+
+instance MonadIO (IO m) where
+  liftIO = id
+
+instance MonadIO m => Clock m where
+  getTime = liftIO getClockTime
+
+instance MonadIO m => Logging m where
+  logMessage msg = liftIO $ putStrLn msg
+
+runAndLog :: (Clock m, Logging m) => m a -> m ()
+runAndLog action = do
+  startTime <- getTime
+  _ <- action
+  endTime <- getTime
+  logMessage $ "Action took " ++ show (diffClockTimes endTime startTime)
+
+main :: IO ()
+main = runAndLog $ do
+  liftIO $ putStrLn "Hello World!"
+  liftIO $ putStrLn "This is a complex code snippet."

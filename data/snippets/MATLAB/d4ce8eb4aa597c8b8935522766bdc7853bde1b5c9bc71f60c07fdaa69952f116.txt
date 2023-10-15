@@ -1,0 +1,147 @@
+%%% Cell type classification using support vector machines %%%
+
+% Load the cell data
+load cell_data.mat;
+
+% Normalize the data
+features_norm = feature_normalize(features);
+
+% Add bias term to features
+features_norm = [ones(size(features,1), 1) features_norm];
+
+% Initialize parameters for the support vector machine
+C = 1; % regularization parameter
+sigma = 1; % parameter for Gaussian kernel
+num_iters = 100; % number of iterations for SVM training
+
+% Split the dataset into training and test sets
+[train_set, test_set] = split_dataset(features_norm, labels, 0.8);
+
+% Train the support vector machine
+svm_params = svm_train(train_set, C, sigma, num_iters);
+
+% Make predictions for the test set
+predictions = svm_predict(svm_params, test_set);
+
+% Evaluate the accuracy of the predictions
+accuracy = mean(predictions == test_set(:,end)) * 100;
+fprintf("Accuracy: %f%%\n", accuracy);
+
+% Plot the decision boundary and the training data
+plot_decision_boundary(features_norm, labels, svm_params);
+
+%%% Helper functions %%%
+
+function [train_set, test_set] = split_dataset(features, labels, train_ratio)
+    % Splits the dataset into training and test sets based on a given ratio
+    
+    m = size(features,1); % number of data points
+    perm = randperm(m); % random permutation of data points
+    train_size = round(train_ratio * m); % size of training set
+    
+    % Training set
+    train_set = features(perm(1:train_size), :); % select data points based on permutation
+    train_labels = labels(perm(1:train_size), :); % select corresponding labels
+    train_set = [train_set train_labels]; % combine features and labels
+    
+    % Test set
+    test_set = features(perm(train_size+1:end), :); % select remaining data points
+    test_labels = labels(perm(train_size+1:end), :); % select corresponding labels
+    test_set = [test_set test_labels]; % combine features and labels
+end
+
+function svm_params = svm_train(train_set, C, sigma, num_iters)
+    % Trains a support vector machine using gradient descent
+    
+    m = size(train_set, 1); % number of training examples
+    n = size(train_set, 2) - 1; % number of features
+    X = train_set(:, 1:n); % training features
+    y = train_set(:, end); % training labels
+    
+    % Initialize parameters
+    theta = zeros(n+1, 1); % initialize weights
+    k = gaussian_kernel(X, X, sigma); % calculate kernel matrix
+    cost_history = zeros(num_iters, 1); % cost history during training
+    
+    % Perform gradient descent for a fixed number of iterations
+    for i = 1:num_iters
+        % Calculate predicted values and error
+        h = sigmoid(k * theta); % predicted values
+        error = y - h; % error
+        
+        % Update weights
+        theta = theta + (1/C) * (k' * (error .* h .* (1-h))) + (1/m) * [0; theta(2:end)]; % gradient descent step
+        
+        % Calculate cost and store in cost history
+        cost = (1/m) * (sum(-y.*log(h) - (1-y).*log(1-h))) + (1/(2*C)) * (sum(theta(2:end).^2)); % regularized cost function
+        cost_history(i) = cost; % store cost in history
+    end
+    
+    % Save trained parameters
+    svm_params.theta = theta; % weights
+    svm_params.cost_history = cost_history; % cost history
+    svm_params.C = C; % regularization parameter
+    svm_params.sigma = sigma; % Gaussian kernel parameter
+end
+
+function predictions = svm_predict(svm_params, test_set)
+    % Makes predictions for a given test set using the trained SVM parameters
+    
+    m = size(test_set, 1); % number of test examples
+    n = size(test_set, 2) - 1; % number of features
+    X = test_set(:, 1:n); % test features
+    y = test_set(:, end); % test labels
+    
+    % Calculate predicted values and round to 0 or 1
+    h = round(sigmoid(gaussian_kernel(X, svm_params.theta(2:end), svm_params.sigma) * svm_params.theta(2:end)));
+    
+    % Return predictions
+    predictions = h; % predicted values
+end
+
+function k = gaussian_kernel(x1, x2, sigma)
+    % Computes the Gaussian (rbf) kernel between two sets of features
+    
+    m = size(x1, 1); % number of examples in first set
+    n = size(x2, 1); % number of examples in second set
+    k = zeros(m, n); % initialize kernel matrix
+    
+    % Calculate pairwise distances between examples
+    for i = 1:m
+        for j = 1:n
+            diff = x1(i,:) - x2(j,:);
+            k(i,j) = exp(-(diff*diff') / (2*sigma^2)); % calculate Gaussian kernel value
+        end
+    end
+end
+
+function plot_decision_boundary(features, labels, svm_params)
+    % Plots the decision boundary and training data for a given SVM
+    
+    % Extract features and labels
+    X = features(:, 2:end); % features
+    y = labels; % labels
+    
+    % Set up meshgrid of points to evaluate decision boundary
+    x1 = linspace(min(X(:,1)), max(X(:,1)), 100);
+    x2 = linspace(min(X(:,2)), max(X(:,2)), 100);
+    [X1, X2] = meshgrid(x1, x2);
+    vals = [X1(:) X2(:)];
+    
+    % Calculate predicted values for each point in meshgrid
+    predictions = svm_predict(svm_params, [ones(size(vals,1), 1) vals]);
+    
+    % Plot decision boundary and data points
+    scatter(X(:,1), X(:,2), 50, y, 'filled'); % plot data points
+    hold on;
+    contour(X1, X2, reshape(predictions, size(X1)), [0.5 0.5], 'LineWidth', 2); % plot decision boundary
+    c = colorbar; % add colorbar
+    colormap(lines(3)); % set color scheme
+    c.Ticks = [0 1]; % set ticks for colorbar
+    c.TickLabels = {'Negative', 'Positive'}; % set labels for colorbar
+    xlabel('Feature 1'); % label x-axis
+    ylabel('Feature 2'); % label y-axis
+    title('Decision Boundary for Cell Type Classification'); % add title
+    legend('Class A', 'Class B', 'Class C', 'Decision Boundary'); % add legend
+    hold off;
+end

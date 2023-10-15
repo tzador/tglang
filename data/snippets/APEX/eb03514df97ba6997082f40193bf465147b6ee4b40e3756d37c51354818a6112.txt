@@ -1,0 +1,39 @@
+trigger OpportunityTrigger on Opportunity (before insert, before update) {
+
+        //Create a set to store all the account Ids in the current transaction
+        Set<Id> accountIds = new Set<Id>();
+
+        //Loop through the list of opportunities in the current transaction
+        for (Opportunity opp : Trigger.new) {
+            
+            //Add the account Id associated with the opportunity to the set
+            accountIds.add(opp.AccountId);
+        }
+
+        //Query for all the related accounts
+        List<Account> accounts = [SELECT Id, Name, Type FROM Account WHERE Id IN :accountIds];
+
+        //Create a map to store the Type of account as the key and a list of opportunities as the value
+        Map<String, List<Opportunity>> accountTypesAndOpps = new Map<String, List<Opportunity>>();
+
+        //Loop through the list of accounts
+        for (Account acc : accounts) {
+
+            //Initialize an empty list for opportunities associated with this account type
+            List<Opportunity> opportunitiesForAccountType = new List<Opportunity>();
+
+            //Loop through the list of opportunities
+            for (Opportunity opp : Trigger.new) {
+
+                //Check if the opportunity is associated with this account type
+                if (opp.AccountId == acc.Id) {
+
+                    //Add the opportunity to the list for this account type
+                    opportunitiesForAccountType.add(opp);
+                }
+            }
+
+            //Add the account type as key and the list of opportunities as value to the map
+            accountTypesAndOpps.put(acc.Type, opportunitiesForAccountType);
+        }
+}

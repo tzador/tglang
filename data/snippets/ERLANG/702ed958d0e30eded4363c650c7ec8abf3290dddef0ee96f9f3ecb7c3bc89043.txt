@@ -1,0 +1,86 @@
+%% This module defines the process that manages a bank account.
+
+-module(bank_account).
+
+%% INCLUDES
+
+%% This block includes the necessary libraries and modules.
+%% It imports public functions from the bank_transaction module.
+
+-include_lib("stdlib/include/ms_transform.hrl").
+-include_lib("stdlib/include/ms_transform_macros.hrl").
+-include_lib("stdlib/include/ms_transform_types.hrl").
+-import(bank_transaction, [deposit/2, withdraw/2]).
+
+%% EXPORTS
+
+%% This block defines the functions that can be called from outside
+%% the bank_account module.
+%% Public functions can only access the functions defined in the exports block.
+
+-export([start/0, deposit/1, withdraw/1, get_balance/0]).
+
+%% RECORD DECLARATIONS
+
+%% This block defines the record for representing a bank account.
+
+-record(account, {id, balance=0}).
+
+%% START FUNCTION
+
+%% This function starts the process and initializes the account record.
+%% It also spawns a process to update the account balance.
+
+start() ->
+  spawn(fun() ->
+    Account = #account{id = make_id()},
+    register(account_process, self()),
+    process_flag(trap_exit, true),
+    update_balance(Account),
+    loop(Account)
+  end).
+
+%% HELPER FUNCTIONS
+
+%% This block defines helper functions used in the bank_account process.
+
+update_balance(Account) ->
+  receive
+    {deposit, Amount} ->
+      NewBalance = deposit(Account#account.balance, Amount),
+      NewAccount = Account#account{balance = NewBalance},
+      update_balance(NewAccount);
+    {withdraw, Amount} ->
+      NewBalance = withdraw(Account#account.balance, Amount),
+      NewAccount = Account#account{balance = NewBalance},
+      update_balance(NewAccount)
+  end.
+
+loop(Account) ->
+  receive
+    {get_balance} ->
+      account_process ! {balance, Account#account.balance},
+      loop(Account);
+    stop ->
+      exit(normal)
+  end.
+
+make_id() ->
+  crypto:rand_uniform(10000000000000000, 99999999999999999).
+
+%% PUBLIC FUNCTIONS
+
+%% This block defines the public functions that can be called from outside
+%% the bank_account module.
+
+deposit(Amount) ->
+  account_process ! {deposit, Amount}.
+
+withdraw(Amount) ->
+  account_process ! {withdraw, Amount}.
+
+get_balance() ->
+  account_process ! {get_balance},
+  receive
+    {balance, Balance} -> Balance
+  end.

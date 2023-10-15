@@ -1,0 +1,46 @@
+Function Get-LastLogonDate
+{
+<#
+    .SYNOPSIS
+        This function retrieves the last logon date of all users in the active directory domain.
+    .DESCRIPTION
+        The function utilizes the `Get-ADUser` cmdlet to retrieve all user objects in the active directory domain.
+        It then loops through each user and retrieves the `LastLogonDate` property.
+        Finally, it sorts the results by the `LastLogonDate` in ascending order and outputs it to the console.
+    .PARAMETER Domain
+        Specifies the active directory domain to retrieve user information from.
+        Default value is the current domain.
+    .EXAMPLE
+        Get-LastLogonDate -Domain "contoso.com"
+#>
+    Param(
+        [Parameter(Mandatory=$false)]
+        [string]$Domain = $env:USERDNSDOMAIN
+    )
+
+    # Retrieve all user objects in the specified domain
+    $users = Get-ADUser -Filter * -Server $Domain
+
+    # Loop through each user and retrieve the LastLogonDate property
+    foreach($user in $users)
+    {
+        $user | Add-Member -MemberType NoteProperty -Name LastLogonDate -Value $null
+        $lastLogon = [datetime]::FromFileTime($user.LastLogon)
+        if($lastLogon -ne $null)
+        {
+            $user.LastLogonDate = $lastLogon
+        }
+        else
+        {
+            # If LastLogon is not available, use PasswordLastSet date as LastLogonDate
+            $lastLogon = [datetime]::FromFileTime($user.PasswordLastSet)
+            $user.LastLogonDate = $lastLogon
+        }
+    }
+
+    # Sort the results by LastLogonDate in ascending order
+    $sortedResults = $users | Sort-Object -Property LastLogonDate
+
+    # Output the results to the console
+    $sortedResults | Select-Object -Property Name, LastLogonDate
+}

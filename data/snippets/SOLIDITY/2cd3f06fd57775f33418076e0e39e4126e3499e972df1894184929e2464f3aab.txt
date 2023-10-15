@@ -1,0 +1,72 @@
+// Define a contract with a function to create a new ICO
+contract ICOFactory {
+
+    // array of created ICOs
+    ICO[] public icos;
+
+    // event indicating a new ICO is created
+    event NewICO(string name, address indexed contractAddress);
+
+    // Function to create a new ICO
+    function createICO(string memory _name, uint256 _targetAmount, uint256 _endTime) public {
+
+        // creating a new instance of ICO contract
+        ICO newICO = new ICO(_name, _targetAmount, _endTime, msg.sender);
+
+        // adding the contract address to the array of ICOs
+        icos.push(newICO);
+
+        // emitting the NewICO event
+        emit NewICO(_name, address(newICO));
+    }
+}
+
+// Define an ICO contract
+contract ICO {
+
+    // ICO details
+    string public name;
+    uint256 public targetAmount;
+    uint256 public endTime;
+    address public creator;
+
+    // mapping of contributors and their deposit amounts
+    mapping (address => uint256) public contributions;
+
+    // event indicating a new contribution is made
+    event NewContribution(address indexed contributor, uint256 amount);
+
+    // Constructor function to set initial values
+    constructor(string memory _name, uint256 _targetAmount, uint256 _endTime, address _creator) public {
+        name = _name;
+        targetAmount = _targetAmount;
+        endTime = _endTime;
+        creator = _creator;
+    }
+
+    // Function to make a contribution
+    function contribute() public payable {
+        // adding the contribution amount to the mapping
+        contributions[msg.sender] += msg.value;
+
+        // emitting the NewContribution event
+        emit NewContribution(msg.sender, msg.value);
+    }
+
+    // Function to check if the target amount has been reached
+    function hasReachedTarget() public view returns (bool) {
+        return address(this).balance >= targetAmount;
+    }
+
+    // Function to withdraw funds after the ICO ends
+    function withdrawFunds() public {
+        // checking if ICO has ended
+        require(now >= endTime, "ICO is still ongoing");
+
+        // checking if target amount has been reached
+        require(hasReachedTarget(), "Target amount has not been reached");
+
+        // transferring the funds to the creator
+        creator.transfer(address(this).balance);
+    }
+}

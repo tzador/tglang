@@ -1,0 +1,61 @@
+/* This code reads in a dataset and calculates summary statistics for a designated set of variables */
+data mydata;
+    /* Uses the infile statement to read in data from a specified file */
+    infile 'mydataset.dat' dlm=',';
+
+    /* Uses the input statement to specify the variables to be read in and their associated formats */
+    input ID $ Age Gender $ Income;
+
+    /* Uses the array statement to simplify calculations for multiple variables */
+    array variables(*) Age Income;
+
+    /* Uses the call symput statement to dynamically create macro variables for each variable in the array */
+    do i = 1 to dim(variables);
+        call symput('var'||trim(left(i)), variables(i));
+    end;
+
+    /* Uses the proc means procedure to calculate summary statistics for the designated variables */
+    proc means data=mydata;
+        /* Uses the var statement to specify the variables to be included in the summary statistics */
+        var &var1 &var2;
+
+        /* Uses the output statement to save the summary statistics to a designated table */
+        output out=summary_stats mean= Mean var=Variance;
+
+        /* Uses the title statement to label the output table */
+        title 'Summary Statistics for Age and Income Variables';
+    run;
+    
+    /* Uses the data statement to create a new dataset with the summary statistics */
+    data summary_data;
+        set summary_stats;
+        
+        /* Uses the if statement to filter out observations with missing values */
+        if mean ne . and var ne .;
+    run;
+    
+    /* Uses the proc print procedure to print the summary statistics dataset */
+    proc print data=summary_data;
+        /* Uses the title statement to label the output table */
+        title 'Summary Statistics for Age and Income Variables with No Missing Values';
+    run;
+        
+    /* Uses the proc export procedure to export the summary statistics dataset to a CSV file */
+    proc export data=summary_data outfile='summary_stats.csv' dbms=csv replace;
+    run;
+    
+    /* Uses the proc sql procedure to create a table from the summary statistics dataset */
+    proc sql;
+        /* Creates a table called stats_table with the variables and summary statistics from the summary statistics dataset */
+        create table stats_table as
+            select &var1 as variable, mean, variance
+            from summary_data;
+    quit;
+    
+    /* Uses the proc print procedure to print the new stats_table */
+    proc print data=stats_table;
+        /* Uses the title statement to label the output table */
+        title 'Summary Statistics Table';
+    run;
+    
+/* End of code snippet */

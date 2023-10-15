@@ -1,0 +1,83 @@
+/* This program performs a basic CRUD operation on a customer database */
+
+/* Define the database and table structure */
+DEFINE DATABASE dbCustomer
+   DATA-SOURCE "customerdb"
+   BUFFER-POOLS 
+      3-BUFFERS
+   ENABLE-LOGGING YES. 
+
+DEFINE TABLE tblCustomer
+   FIELD customerID AS INT
+   FIELD firstName AS CHAR
+   FIELD lastName AS CHAR
+   FIELD address AS CHAR
+   FIELD city AS CHAR
+   FIELD state AS CHAR
+   FIELD zip AS INT.
+
+/* Create a new customer record */
+DEF VAR newCustomer AS OBJECT HANDLE.
+CREATE newCustomer.
+ASSIGN 
+   newCustomer.customerID = 1
+   newCustomer.firstName = "John"
+   newCustomer.lastName = "Smith"
+   newCustomer.address = "123 Main Street"
+   newCustomer.city = "New York"
+   newCustomer.state = "NY"
+   newCustomer.zip = 10001.
+
+/* Add the new customer to the database */
+CONNECT DEFAULT dbCustomer.
+CREATE tblCustomer.
+ASSIGN 
+   tblCustomer.BUFFER = "blkCustomer" 
+   tblCustomer.customerID = newCustomer.customerID
+   tblCustomer.firstName = newCustomer.firstName
+   tblCustomer.lastName = newCustomer.lastName
+   tblCustomer.address = newCustomer.address
+   tblCustomer.city = newCustomer.city
+   tblCustomer.state = newCustomer.state
+   tblCustomer.zip = newCustomer.zip.
+DISCONNECT dbCustomer.
+
+/* Retrieve customer information from database */
+DEF TEMP-TABLE ttCustomer NO-UNDO LIKE tblCustomer.
+CONNECT DEFAULT dbCustomer.
+GET FIRST tblCustomer.
+DO WHILE AVAILABLE tblCustomer:
+   CREATE ttCustomer.
+   ASSIGN
+      ttCustomer.customerID = tblCustomer.customerID
+      ttCustomer.firstName = tblCustomer.firstName
+      ttCustomer.lastName = tblCustomer.lastName
+      ttCustomer.address = tblCustomer.address
+      ttCustomer.city = tblCustomer.city
+      ttCustomer.state = tblCustomer.state
+      ttCustomer.zip = tblCustomer.zip.
+   GET NEXT tblCustomer.
+END.
+DISCONNECT dbCustomer.
+
+/* Update customer information */
+DEF VAR customerToEdit AS OBJECT HANDLE.
+DEFINE INPUT PARAMETER customerID AS INT.
+CONNECT DEFAULT dbCustomer.
+GET tblCustomer BY customerID = customerID.
+UPDATE tblCustomer.
+ASSIGN
+   customerToEdit = BUFFER tblCustomer:HANDLE.
+customerToEdit.firstName = "Jane".
+customerToEdit.address = "456 First Avenue".
+DISCONNECT dbCustomer.
+
+/* Delete customer record */
+DEF VAR customerToDelete AS OBJECT HANDLE.
+DEFINE INPUT PARAMETER customerID AS INT.
+CONNECT DEFAULT dbCustomer.
+GET tblCustomer BY customerID = customerID.
+DELETE tblCustomer.
+ASSIGN
+   customerToDelete = BUFFER tblCustomer:HANDLE.
+DISCONNECT dbCustomer.

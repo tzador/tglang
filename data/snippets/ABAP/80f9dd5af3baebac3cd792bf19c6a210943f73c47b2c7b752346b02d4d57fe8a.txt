@@ -1,0 +1,37 @@
+REPORT Z_EXAMPLE.
+
+* Get current date and convert it to YYYYMMDD format
+DATA: lv_date TYPE dats.
+GET TIME FIELD lv_date.
+FORMAT INTENSIFIED OFF.
+CONVERT DATE lv_date INTO `YYYYMMDD`.
+
+* Loop through sales orders between two dates
+SELECT *
+  FROM vbak
+  INTO TABLE @DATA(lt_vbak)
+  WHERE audat BETWEEN @lv_date AND @lv_date + 30.
+
+* Count the number of items in each order
+LOOP AT lt_vbak ASSIGNING FIELD-SYMBOL(<fs_vbak>).
+  SELECT COUNT( * )
+    FROM vbap
+    INTO <fs_vbak>-item_count
+    WHERE vbeln = <fs_vbak>-vbeln.
+ENDLOOP.
+
+* Calculate total order value
+DATA(lr_funct) = CL_ABAP_DYN_PRG=>CREATE_BY_NAME( program_name = 'SAPMV45A' ).
+DATA(lt_ausdk) = lr_funct->GET_TABLES( ).
+LOOP AT lt_vbak ASSIGNING <fs_vbak>.
+  LOOP AT lt_ausdk ASSIGNING FIELD-SYMBOL(<fs_ausdk>).
+    <fs_ausdk>-vbak = <fs_vbak>-vbeln.
+  ENDLOOP.
+ENDLOOP.
+lr_funct->CALL_METHODOFFLINE( method_name = 'PRICING' ).
+
+* Display sales orders and their corresponding values
+LOOP AT lt_vbar INTO DATA(ls_vbak).
+  WRITE: / 'Order Number: ', ls_vbak-vbeln,
+         / 'Order Value: ', ls_vbak-total_value.
+ENDLOOP.

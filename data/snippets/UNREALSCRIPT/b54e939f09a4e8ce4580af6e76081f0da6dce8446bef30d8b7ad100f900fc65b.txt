@@ -1,0 +1,103 @@
+/*
+    This is a complex code snippet in UNREALSCRIPT programming language that implements a basic AI behavior.
+    It uses custom functions, variables, and flow control statements to create an autonomous character.
+*/
+
+class AICharacter extends Pawn; // This creates a new class that inherits from the Pawn class.
+
+var bool bIsActive; // This variable will hold the state of the AI character.
+
+// This function is called when the AI character is spawned.
+simulated function PostBeginPlay()
+{
+    super.PostBeginPlay(); // Calls the parent class function.
+
+    bIsActive = true; // Sets the character's state to active.
+    SetTimer(0.5, true, 'MoveRandomly'); // Starts a timer that calls the 'MoveRandomly' function every 0.5 seconds.
+}
+
+// This function is called when the AI character is destroyed.
+simulated function Destroyed()
+{
+    ClearTimer(); // Clears the timer.
+
+    super.Destroyed(); // Calls the parent class function.
+}
+
+// This function contains the logic for the AI character to move randomly.
+function MoveRandomly()
+{
+    if(bIsActive) // Checks if the character is active.
+    {
+        local Vector RandomLocation; // This variable will hold a random location for the character to move to.
+        RandomLocation.X = Rand(-500.0, 500.0); // Generates a random X coordinate between -500 and 500.
+        RandomLocation.Y = Rand(-500.0, 500.0); // Generates a random Y coordinate between -500 and 500.
+        RandomLocation.Z = 0.0; // Sets the Z coordinate to 0.
+
+        MoveTo(RandomLocation); // Moves the character to the random location.
+
+        SetTimer(1.0, false, 'StopMoving'); // Starts a timer that calls the 'StopMoving' function after 1 second.
+    }
+}
+
+// This function stops the AI character from moving.
+function StopMoving()
+{
+    Stop(); // Stops the character's movement.
+
+    SetTimer(Rand(2.0, 4.0), true, 'MoveRandomly'); // Starts a timer that calls the 'MoveRandomly' function after a random amount of time between 2 and 4 seconds.
+}
+
+// This function is called when the player is within a certain distance from the AI character.
+function NotifyPlayerDetected(PlayerController PC)
+{
+    if(PC != none) // Checks if the PlayerController is valid.
+    {
+        bIsActive = false; // Sets the character's state to inactive.
+
+        local Rotator LookAtRotation; // This variable will hold the rotation for the character to face the player.
+        LookAtRotation = RotationFromDir(PC.Pawn.Location - Location); // Calculates the rotation needed to face the player.
+        LookAtRotation.Pitch = 0.0; // Sets the pitch to 0 to prevent the character from looking up or down.
+
+        SetRotation(LookAtRotation); // Sets the character's rotation to face the player.
+    }
+}
+
+// This function is called every frame.
+simulated function Tick(float DeltaTime)
+{
+    super.Tick(DeltaTime); // Calls the parent class function.
+
+    if(bIsActive) // Checks if the character is active.
+    {
+        local Actor Player; // This variable will hold the player character.
+        Player = GetPlayerPawn(0); // Gets the first player character in the game.
+
+        if(Player != none) // Checks if the player character is valid.
+        {
+            if(VSize(Player.Location - Location) < 500.0) // Checks if the player is within 500 units of the character.
+            {
+                NotifyPlayerDetected(Player.GetController()); // Calls the 'NotifyPlayerDetected' function passing in the player's controller.
+            }
+        }
+    }
+}
+
+defaultproperties
+{
+    // This section defines default values for the variables and functions.
+
+    bAutoTick = true; // Enables automatic ticking for the class.
+
+    CollisionRadius = 25.0; // Sets the collision radius for the character.
+
+    // This section defines key bindings for functions.
+
+    KeyBindings(0).Key = C; // Binds the C key to call the 'NotifyPlayerDetected' function.
+    KeyBindings(0).Command = "NotifyPlayerDetected(PawnController('PC'));"; // Specifies the command to execute when the key is pressed.
+
+    KeyBindings(1).Key = X; // Binds the X key to toggle the character's state.
+    KeyBindings(1).Command = "bIsActive = !bIsActive;"; // Specifies the command to execute when the key is pressed.
+
+    AICharacterName = "AICharacter"; // Sets the display name for the character.
+}

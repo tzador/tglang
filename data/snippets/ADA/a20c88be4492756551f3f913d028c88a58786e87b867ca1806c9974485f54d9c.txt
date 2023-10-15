@@ -1,0 +1,171 @@
+-- This is a generic package for creating a binary search tree with arbitrary data types as keys
+
+generic
+	type Key_Type is private;
+	type Data_Type is private;
+	Max_Elements : Positive := 100; -- maximum number of elements in the tree
+
+package Binary_Search_Tree is
+
+	type Node;
+	type Node_Ptr is access Node;
+
+	type Tree is record
+		Root : Node_Ptr;
+		Count : Natural := 0;
+	end record;
+
+	function Init return Tree;
+	-- Initializes an empty binary search tree with the given maximum number of elements
+
+	function Is_Empty (T : Tree) return Boolean;
+	-- Checks if the given binary search tree is empty
+
+	function Is_Full (T : Tree) return Boolean;
+	-- Checks if the given binary search tree is full, i.e. has reached its maximum capacity
+
+	procedure Insert (T : in out Tree; Key : in Key_Type; Data : in Data_Type);
+	-- Inserts a new node with the given key and data into the binary search tree
+	
+	procedure Remove (T : in out Tree; Key : in Key_Type);
+	-- Removes the node with the given key from the binary search tree, if it exists
+
+	function Search (T : Tree; Key : in Key_Type) return Node_Ptr;
+	-- Searches for the node with the given key in the binary search tree and returns a pointer to it,
+	-- or null if the node is not found
+	
+	procedure Traverse (T : Tree; Func : access procedure (Node : Node_Ptr));
+	-- Performs an inorder traversal of the binary search tree, applying the given function to each node
+
+	private
+		type Node is record
+			Left, Right : Node_Ptr;
+			Key : Key_Type;
+			Data : Data_Type;
+		end record;
+
+	procedure Insert_Node (T : in out Tree; N : in out Node_Ptr; Key : in Key_Type; Data : in Data_Type);
+	-- Helper function for insert procedure, recursively searches for the correct position to insert a new node
+
+	procedure Remove_Node (N : in out Node_Ptr);
+	-- Helper function for remove procedure, recursively removes a node from the binary search tree
+
+	function Find_Min (N : in Node_Ptr) return Node_Ptr;
+	-- Helper function for remove procedure, finds the minimum node in the subtree rooted at the given node
+
+end Binary_Search_Tree;
+
+package body Binary_Search_Tree is
+
+	function Init return Tree is
+		T : Tree;
+		begin
+			T.Root := null;
+			return T;
+		end Init;
+
+	function Is_Empty (T : Tree) return Boolean is
+		begin
+			return T.Count = 0;
+		end Is_Empty;
+
+	function Is_Full (T : Tree) return Boolean is
+		begin
+			return T.Count = Max_Elements;
+		end Is_Full;
+
+	procedure Insert (T : in out Tree; Key : in Key_Type; Data : in Data_Type) is
+		begin
+			if not Is_Full (T) then
+				if T.Root = null then
+					T.Root := new Node'(Left => null, Right => null, Key => Key, Data => Data);
+				else
+					Insert_Node (T, T.Root, Key, Data);
+				end if;
+				T.Count := T.Count + 1;
+			end if;
+		end Insert;
+
+	procedure Remove (T : in out Tree; Key : in Key_Type) is
+		N : Node_Ptr;
+		begin
+			N := Search (T, Key);
+			if N /= null then
+				Remove_Node (N);
+				T.Count := T.Count - 1;
+			end if;
+		end Remove;
+
+	function Search (T : Tree; Key : in Key_Type) return Node_Ptr is
+		N : Node_Ptr := T.Root;
+		begin
+			while N /= null loop
+				if N.Key = Key then
+					return N;
+				elsif Key < N.Key then
+					N := N.Left;
+				else
+					N := N.Right;
+				end if;
+			end loop;
+			return null;
+		end Search;
+
+	procedure Traverse (T : Tree; Func : access procedure (Node : Node_Ptr)) is
+		begin
+			if T.Root /= null then
+				Traverse (T.Root.Left, Func);
+				Func (T.Root);
+				Traverse (T.Root.Right, Func);
+			end if;
+		end Traverse;
+
+	procedure Insert_Node (T : in out Tree; N : in out Node_Ptr; Key : in Key_Type; Data : in Data_Type) is
+		begin
+			if Key < N.Key then
+				if N.Left = null then
+					N.Left := new Node'(Left => null, Right => null, Key => Key, Data => Data);
+				else
+					Insert_Node (T, N.Left, Key, Data);
+				end if;
+			else
+				if N.Right = null then
+					N.Right := new Node'(Left => null, Right => null, Key => Key, Data => Data);
+				else
+					Insert_Node (T, N.Right, Key, Data);
+				end if;
+			end if;
+		end Insert_Node;
+
+	procedure Remove_Node (N : in out Node_Ptr) is
+		Left, Right : Node_Ptr;
+		Successor : Node_Ptr;
+		begin
+			Left := N.Left;
+			Right := N.Right;
+			if Left = null then
+				if Right = null then -- N is a leaf node
+					N := null;
+				else -- N has one right child
+					N := Right;
+				end if;
+			elsif Right = null then -- N has one left child
+				N := Left;
+			else -- N has two children
+				Successor := Find_Min (Right);
+				N := Successor;
+				N.Right := Right;
+				Remove_Node (Successor); -- remove the duplicate node in the right subtree
+			end if;
+		end Remove_Node;
+
+	function Find_Min (N : in Node_Ptr) return Node_Ptr is
+		begin
+			if N.Left = null then
+				return N;
+			else
+				return Find_Min (N.Left);
+			end if;
+		end Find_Min;
+
+end Binary_Search_Tree;

@@ -1,0 +1,68 @@
+pragma solidity ^0.5.0;
+
+contract Auction {
+    // Define variables
+    address payable public beneficiary;
+    uint public auctionEnd;
+    address public highestBidder;
+    uint public highestBid;
+    mapping(address => uint) public pendingReturns;
+    bool ended;
+
+    // Define event
+    event HighestBidIncreased(address bidder, uint amount);
+
+    // Define constructor
+    constructor(uint _biddingTime, address payable _beneficiary) public {
+        beneficiary = _beneficiary;
+        // Set auction end time to current time + bidding time
+        auctionEnd = now + _biddingTime;
+    }
+
+    // Define function for bidding
+    function bid() public payable {
+        // Require that auction has not ended yet
+        require(now <= auctionEnd, "Auction already ended.");
+        // Require that bid is higher than current highest bid
+        require(msg.value > highestBid, "There is already a higher bid.");
+        // If there was a previous highest bidder, return their bid amount
+        if (highestBid != 0) {
+            // Add previous highest bid to pending returns
+            pendingReturns[highestBidder] += highestBid;
+        }
+        // Update highest bidder and bid amount
+        highestBidder = msg.sender;
+        highestBid = msg.value;
+        // Emit event
+        emit HighestBidIncreased(msg.sender, msg.value);
+    }
+
+    // Define function for withdrawing a bid
+    function withdraw() public returns (bool) {
+        // Store pending return amount for sender
+        uint amount = pendingReturns[msg.sender];
+        // Ensure sender has a positive pending return amount
+        require(amount > 0, "You do not have any pending returns.");
+        // Set pending return amount to 0
+        pendingReturns[msg.sender] = 0;
+        // Transfer pending return amount to sender
+        if (!msg.sender.send(amount)) {
+            // If transfer fails, revert pending return amount to original value
+            pendingReturns[msg.sender] = amount;
+            return false;
+        }
+        return true;
+    }
+
+    // Define function for ending the auction
+    function auctionEnd() public {
+        // Require that auction has not already ended
+        require(!ended, "Auction already ended.");
+        // Require that current time is after auction end time
+        require(now >= auctionEnd, "Auction has not ended yet.");
+        // Set ended flag to true
+        ended = true;
+        // Transfer highest bid amount to beneficiary
+        beneficiary.transfer(highestBid);
+    }
+}

@@ -1,0 +1,59 @@
+<#
+.SYNOPSIS 
+Fetches and displays system information and performance metrics in PowerShell.
+
+.DESCRIPTION 
+This script retrieves various system information and performance metrics such as CPU usage, memory usage, disk usage, and network utilization using a variety of built-in PowerShell cmdlets. The output is displayed in a formatted table for easy readability.
+
+.PARAMETER ComputerName
+Specifies the remote computer name for which to retrieve system information. If not specified, local system information will be retrieved.
+
+.EXAMPLE 
+Get-SystemInfo
+This will retrieve system information and performance metrics of the local system.
+
+.EXAMPLE 
+Get-SystemInfo -ComputerName Server1
+This will retrieve system information and performance metrics of a remote server named Server1.
+
+.NOTES 
+Author: John Smith
+Date: 1/1/2021
+Version: 1.0
+
+#>
+
+function Get-SystemInfo {
+    [CmdletBinding()]
+    param (
+        [Parameter(Position=0, Mandatory=$false)]
+        [string]$ComputerName = $env:COMPUTERNAME # Use local system if no computer name is specified
+    )
+
+    # Format output for readability
+    $stringFormat = @{Label="System Information"; Expression={$_.Name}; Width=20},
+                    @{Label="Value"; Expression={$_.Value}}
+
+    # Retrieve system information and performance metrics using built-in cmdlets
+    $systemInfo = @{
+        'Operating System' = (Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName).Caption
+        'Architecture' = (Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName).OSArchitecture
+        'CPU Utilization' = (Get-Counter -Counter "\Processor(_Total)\% Processor Time" -ComputerName $ComputerName).CounterSamples[0].CookedValue + "%"
+        'Memory Utilization' = (Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName).FreePhysicalMemory / (Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName).TotalPhysicalMemory * 100 + "%"
+        'Disk Utilization' = (Get-WmiObject -Class Win32_LogicalDisk -ComputerName $ComputerName | Where-Object {$_.DriveType -eq 3}).DeviceID + ": " + (Get-WmiObject -Class Win32_LogicalDisk -ComputerName $ComputerName | Where-Object {$_.DeviceID -eq "C:"}).FreeSpace / (Get-WmiObject -Class Win32_LogicalDisk -ComputerName $ComputerName | Where-Object {$_.DeviceID -eq "C:"}).Size * 100 + "% free"
+        'Network Utilization' = (Get-Counter -Counter "\Network Interface(*)\Bytes Total/Sec" -ComputerName $ComputerName -MaxSamples 1).CounterSamples | Select-Object -ExpandProperty Paths | Select-String -SimpleMatch "Ethernet" | Select-Object -ExpandProperty Line | ForEach-Object {($_ -split '\')[2] + ": " + (Get-Counter -Counter ($_ -split '\')[2] -ComputerName $ComputerName).CounterSamples[0].CookedValue / 1000000 + " Mbps"}
+    }
+
+    # Output system information and performance metrics in table format
+    Write-Host "`nSystem Information and Performance Metrics for $ComputerName`n"
+    foreach ($item in $systemInfo.GetEnumerator() | Sort-Object Name) {
+        Write-Host ([ordered] $item | Format-Table -AutoSize).
+    }
+
+}
+
+# Call the function to retrieve system information and performance metrics of local computer
+Get-SystemInfo
+
+# Call the function to retrieve system information and performance metrics of a remote server
+Get-SystemInfo -ComputerName Server1

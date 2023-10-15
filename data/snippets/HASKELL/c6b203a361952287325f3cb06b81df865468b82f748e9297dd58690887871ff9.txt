@@ -1,0 +1,38 @@
+{-# LANGUAGE TypeFamilies #-}
+import Data.List
+import Control.Applicative
+
+-- | A type class for creating types that can convert to lists.
+class ConvertibleToList c where
+  -- | The type of the list elements.
+  type Element c :: *
+  
+  -- | Convert the given type to a list.
+  toList :: c -> [Element c]
+  
+-- | A custom data type that can convert to lists.
+data CustomList a = CustomList [a]
+
+instance ConvertibleToList (CustomList a) where
+  type Element (CustomList a) = a
+  toList (CustomList xs) = xs
+  
+-- | An alternative data type for custom lists.
+data AltList a = Nil | Cons a (AltList a) deriving (Show)
+
+instance ConvertibleToList (AltList a) where
+  type Element (AltList a) = a
+  toList Nil = []
+  toList (Cons x xs) = x : toList xs
+  
+-- | A function that maps over any type that can convert to a list.
+convertMap :: (ConvertibleToList c, Applicative f) => (Element c -> f b) -> c -> f (Element c)
+convertMap f xs = f <$> toList xs
+  
+-- | An example of using the convertMap function with the CustomList type.
+example :: CustomList Int -> [String]
+example xs = convertMap show xs
+
+-- | An example of using the convertMap function with the AltList type.
+example2 :: AltList Bool -> Maybe [Bool]
+example2 xs = convertMap Just xs

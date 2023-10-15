@@ -1,0 +1,147 @@
+// Defines a contract 'SupplyChain'
+contract SupplyChain {
+
+  // Defines a state variable 'owner' of type 'address'
+  address owner;
+
+  // Defines a state variable 'skuCount' of type 'uint'
+  uint skuCount;
+
+  // Defines a state variable 'state' of type 'State'
+  State state;
+
+  // Defines enum 'State' with the following values: ForSale, Sold, Shipped, Received
+  enum State {
+    ForSale,
+    Sold,
+    Shipped,
+    Received
+  }
+
+  // Defines a struct 'Item' with the following fields:
+  // name: Name of the item
+  // sku: Stock Keeping Unit (SKU) identifier
+  // price: Price of the item
+  // state: Current state of the item
+  // seller: Address of the seller
+  // buyer: Address of the buyer
+  // address[] chemicalComponents: List of chemical components used in the item
+  struct Item {
+    string name;
+    uint sku;
+    uint price;
+    State state;
+    address seller;
+    address buyer;
+    address[] chemicalComponents;
+  }
+
+  // Defines a public mapping 'items' that maps the SKU (stock keeping unit) to an Item.
+  mapping(uint => Item) public items;
+
+  // Defines an event 'ForSale' to track items put up for sale
+  event ForSale(
+    uint sku
+  );
+
+  // Defines an event 'Sold' to track items sold
+  event Sold(
+    uint sku
+  );
+
+  // Defines an event 'Shipped' to track items shipped
+  event Shipped(
+    uint sku
+  );
+
+  // Defines an event 'Received' to track items received
+  event Received(
+    uint sku
+  );
+
+  // Defines modifier 'onlyOwner' where only the contract owner can call the function
+  modifier onlyOwner() {
+    require(msg.sender == owner);
+    _;
+  }
+
+  // Defines a constructor function that sets the contract's owner
+  // and initializes the skuCount
+  constructor() {
+    owner = msg.sender;
+    skuCount = 0;
+  }
+
+  // Defines a function 'addItem' that adds a new item to the contract
+  // and emits the 'ForSale' event
+  function addItem(string memory _name, uint _price, address[] memory _chemicalComponents) public onlyOwner {
+    skuCount = skuCount + 1;
+    items[skuCount] = Item({
+      name: _name,
+      sku: skuCount,
+      price: _price,
+      state: State.ForSale,
+      seller: msg.sender,
+      buyer: address(0),
+      chemicalComponents: _chemicalComponents
+    });
+    emit ForSale(skuCount);
+  }
+
+  // Defines a function 'buyItem' that allows a buyer to purchase an item,
+  // updates the state of the item,
+  // and emits the 'Sold' event
+  function buyItem(uint _sku) public payable {
+    // Check if the item is for sale
+    require(items[_sku].state == State.ForSale);
+
+    // Check if the buyer is paying the correct amount
+    require(msg.value == items[_sku].price);
+
+    // Update the state of the item
+    items[_sku].state = State.Sold;
+
+    // Update the buyer's address
+    items[_sku].buyer = msg.sender;
+
+    // Transfer the ownership of the item to the buyer
+    items[_sku].seller.transfer(msg.value);
+
+    // Emit the 'Sold' event
+    emit Sold(_sku);
+  }
+
+  // Defines a function 'shipItem' that allows the seller to ship an item,
+  // updates the state of the item,
+  // and emits the 'Shipped' event
+  function shipItem(uint _sku) public {
+    // Check if the item is sold
+    require(items[_sku].state == State.Sold);
+
+    // Check if the caller is the seller
+    require(msg.sender == items[_sku].seller);
+
+    // Update the state of the item
+    items[_sku].state = State.Shipped;
+
+    // Emit the 'Shipped' event
+    emit Shipped(_sku);
+  }
+
+  // Defines a function 'receiveItem' that allows the buyer to confirm the receipt of an item,
+  // updates the state of the item,
+  // and emits the 'Received' event
+  function receiveItem(uint _sku) public {
+    // Check if the item is shipped
+    require(items[_sku].state == State.Shipped);
+
+    // Check if the caller is the buyer
+    require(msg.sender == items[_sku].buyer);
+
+    // Update the state of the item
+    items[_sku].state = State.Received;
+
+    // Emit the 'Received' event
+    emit Received(_sku);
+  }
+}

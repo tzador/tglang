@@ -1,0 +1,129 @@
+// This code snippet simulates a maze game using Swift language
+
+// Defining the maze structure
+struct Maze {
+    var rows: Int          // number of rows in the maze
+    var columns: Int       // number of columns in the maze
+    var cells: [Cell]      // a list of cells in the maze
+    var startCell: Cell    // the starting cell in the maze
+    
+    // Generates a random maze of given size
+    mutating func generate() {
+        // Initializing all the cells in the maze
+        var cellIndex = 0
+        for row in 0..<rows {
+            for col in 0..<columns {
+                // Marking the outside walls as locked
+                var isLocked = false
+                if row == 0 || col == 0 || row == rows - 1 || col == columns - 1 {
+                    isLocked = true
+                }
+                let cell = Cell(index: cellIndex, row: row, col: col, isLocked: isLocked)
+                cells.append(cell)
+                cellIndex += 1
+            }
+        }
+        
+        // Selecting the starting cell
+        let randomRow = Int.random(in: 1...rows - 2)
+        let randomCol = Int.random(in: 1...columns - 2)
+        startCell = cells[randomRow * columns + randomCol]
+        
+        // Generating the maze using Prim's algorithm
+        var walls = [Wall]()   // a list of walls in the maze
+        for i in 1...rows - 2 {
+            for j in 1...columns - 2 {
+                // Adding all the inner walls to the list
+                let wallUp = Wall(cell1: cells[(i - 1) * columns + j], cell2: cells[i * columns + j], isVertical: true)
+                walls.append(wallUp)
+                let wallLeft = Wall(cell1: cells[i * columns + (j - 1)], cell2: cells[i * columns + j], isVertical: false)
+                walls.append(wallLeft)
+            }
+        }
+        
+        // Randomly removing walls until all cells are connected
+        var remainingWalls = walls.count
+        while remainingWalls > 0 {
+            // Selecting a random wall from the list
+            let randomWallIndex = Int.random(in: 0...remainingWalls - 1)
+            let wall = walls[randomWallIndex]
+            
+            // Checking if the two cells separated by the wall are already connected
+            if !wall.cell1.connectedCells.contains(wall.cell2.index) {
+                // Removing the wall and joining the two cells
+                wall.isRemoved = true
+                wall.cell1.connectedCells.append(wall.cell2.index)
+                wall.cell2.connectedCells.append(wall.cell1.index)
+            }
+            
+            // Removing the wall from the list
+            walls.remove(at: randomWallIndex)
+            remainingWalls -= 1
+        }
+        
+        // Marking the start cell as open and unlocked
+        startCell.isLocked = false
+        startCell.isOpen = true
+    }
+    
+    // Prints the maze in console
+    func printMaze() {
+        // Printing the top border of the maze
+        var border = ""
+        for _ in 0..<columns {
+            border += "+---"
+        }
+        border += "+"
+        print(border)
+        
+        // Printing each row of the maze
+        for i in 0..<rows {
+            var row = ""
+            for j in 0..<columns {
+                // Checking if there is a wall to the left of the cell
+                var wallLeft = "|"
+                if cells[i * columns + j].connectedCells.contains(i * columns + j - 1) || j == 0 {
+                    wallLeft = " "
+                }
+                
+                // Checking if there is a wall above the cell
+                var wallUp = "---"
+                if cells[i * columns + j].connectedCells.contains(i * columns + j - columns) || i == 0 {
+                    wallUp = "   "
+                }
+                
+                // Combining the walls and the cell
+                row += wallLeft + wallUp
+            }
+            row += "|"
+            print(row)
+        }
+        
+        // Printing the bottom border of the maze
+        print(border)
+    }
+}
+
+// Defining the cell structure
+struct Cell {
+    var index: Int              // unique index of the cell
+    var row: Int                // row number of the cell
+    var col: Int                // column number of the cell
+    var isLocked: Bool          // indicates if the cell has a locked wall
+    var isOpen: Bool = false    // indicates if the cell has been opened
+    
+    var connectedCells: [Int] = [Int]()   // a list of indexes of cells connected to this cell
+}
+
+// Defining the wall structure
+struct Wall {
+    var cell1: Cell                 // one of the two cells separated by the wall
+    var cell2: Cell                 // the other cell separated by the wall
+    var isRemoved: Bool = false     // indicates if the wall has been removed
+    var isVertical: Bool           // indicates if the wall is vertical (separating two columns)
+}
+
+// Generating a new maze and printing it
+var maze = Maze(rows: 10, columns: 10, cells: [], startCell: Cell(index: -1, row: -1, col: -1, isLocked: false))
+maze.generate()
+maze.printMaze()

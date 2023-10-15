@@ -1,0 +1,28 @@
+upstream backend { # This defines an upstream server for load balancing
+    server 127.0.0.1:8000; # This is the IP address and port of the first server
+    server 127.0.0.1:8001; # This is the IP address and port of the second server
+    server 127.0.0.1:8002 backup; # This is the IP address, port, and backup designation of the third server
+    keepalive 32; # This sets the maximum number of idle connections to keep open to the backend servers
+}
+
+server {
+    listen 80;
+    server_name example.com;
+
+    # Location for root directory and index file
+    root /var/www/html;
+    index index.html;
+
+    # Location for error pages
+    error_page 403 /error_pages/403.html;
+    error_page 404 /error_pages/404.html;
+
+    # Configuration for reverse proxy
+    location /api/ {
+        proxy_pass http://backend; # This passes requests to the upstream server
+        proxy_set_header Host $host; # This preserves the original host header
+        proxy_set_header X-Real-IP $remote_addr; # This sets the X-Real-IP header to the client's IP
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # This appends X-Forwarded-For header with the client's IP
+        proxy_read_timeout 60s; # This sets the timeout for reading a response from the upstream server
+    }
+}

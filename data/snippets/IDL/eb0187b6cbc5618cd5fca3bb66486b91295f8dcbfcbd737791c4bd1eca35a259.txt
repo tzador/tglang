@@ -1,0 +1,40 @@
+; Initialize variables
+n = 100 ; number of data points
+x = FINDGEN(n) ; create array of consecutive numbers
+y = 2 * x + RANDOMN(seed=42, n) ; create random data points
+m = 2 ; number of parameters
+; Define model function
+FUNCTION linear_model, x, a, b
+    RETURN, a * x + b
+END
+; Define least squares fitting routine
+ROUTINE least_squares, x, y, m, p, chisq
+    ; Initialize fitting parameters
+    p = FLTARR(m) ; create array of floating point numbers
+    p[0] = MAX(y) - MIN(y) ; intercept
+    p[1] = (MAX(y) - MIN(y)) / MAX(x) ; slope
+    ; Define Nelder-Mead optimization algorithm
+    optimizer = OBJ_NEW('nelder_mead', p)
+    ; Define cost function for least squares
+    cost_function = OBJ_NEW('easy_lm_chisqfcn', x, y, m)
+    ; Fit model to data and obtain best-fit parameters
+    optimizer -> optimize, cost_function, result
+    result -> get_parameter, p
+    ; Obtain reduced chi-square and print results
+    result -> get_prop, 'chisq', chisq
+    PRINT, 'Intercept:', p[0]
+    PRINT, 'Slope:', p[1]
+    PRINT, 'Reduced chi-square:', chisq
+END
+; Fit model to data and obtain best-fit parameters
+least_squares, x, y, m, p, chisq
+; Plot data and best-fit line
+plot, x, y, title='Least Squares Fit', xtitle='x', ytitle='y', $
+    psym=4, pchar=1, /nodata, thick=2, color='blue'
+info = 'Intercept: ' + STRROUND(p[0], 3) + ', Slope: ' + STRROUND(p[1], 3)
+OPLOT, x, linear_model(x, p[0], p[1]), title=info, color='red'
+id = OBJ_NEW('IDLgrText', info, XPOS=0.5, YPOS=0.9, ALIGNMENT=0.5, $
+    FONT_SIZE=12, COLOR='black')
+plot → add, id
+; Display plot
+plot → show

@@ -1,0 +1,40 @@
+REPORT Z_REPORT.
+
+* This is a report that will display the top 10 customers based on their order amount
+* The data will be retrieved from table 'VBAP'
+
+DATA: BEGIN OF gt_vbap OCCURS 0,
+        orderid     TYPE vbap-vbeln,
+        customer    TYPE vbap-kunnr,
+        material    TYPE vbap-matnr,
+        amount      TYPE vbap-netwr,
+       END OF gt_vbap.
+
+DATA: gt_top10 TYPE TABLE OF gt_vbap,
+      gs_top10 TYPE gt_vbap.
+
+* Select data from table VBAP and store it in internal table gt_vbap
+SELECT vbeln kunnr matnr netwr
+INTO CORRESPONDING FIELDS OF TABLE gt_vbap
+FROM vbap
+WHERE matnr = '0000000001'.
+
+* Sort the data by order amount in descending order
+SORT gt_vbap BY amount DESCENDING.
+
+* Fetch the top 10 records and store them in internal table gt_top10
+LOOP AT gt_vbap INTO gs_top10
+    ASSIGNING FIELD-SYMBOL(<fs_top10>).
+  IF sy-tabix <= 10.
+    INSERT gs_top10 INTO TABLE gt_top10.
+  ELSE.
+    EXIT.
+  ENDIF.
+ENDLOOP.
+
+* Display the results in ALV grid 
+CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+  EXPORTING
+    i_title = 'Top 10 Customers'
+  TABLES
+    t_outtab = gt_top10.

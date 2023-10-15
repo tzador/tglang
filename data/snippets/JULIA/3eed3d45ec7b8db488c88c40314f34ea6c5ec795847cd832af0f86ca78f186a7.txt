@@ -1,0 +1,54 @@
+# Import packages
+using DataFrames, GLM
+
+# Create a function for data preprocessing
+function preprocess_data(data)
+    # Convert character columns to integer columns
+    df = convert(DataFrame, data)
+
+    # Impute missing values with median
+    df[ismissing.(df)] = median(skipmissing(df))
+
+    # Normalize numerical columns
+    df[normalize!(df[:, [2, 4, 6]])] = df[:, [2, 4, 6]]
+
+    # One-hot encode categorical columns
+    df = hcat(df, onehotbatch(df[:, [1, 3, 5]], 0))
+
+    # Split into features and labels
+    X = df[:, 2:end]
+    y = df[:, 1]
+
+    return (X, y)
+end
+
+# Create a function for building and training a linear regression model
+function build_linear_model(X, y)
+    # Add intercept column for bias
+    X = hcat(ones(size(X, 1)), X)
+
+    # Fit linear model
+    beta = glm(X, y, Normal())
+
+    return beta
+end
+
+# Load and preprocess training data
+train_data = CSV.read("train_data.csv")
+X_train, y_train = preprocess_data(train_data)
+
+# Build linear regression model on training data
+beta = build_linear_model(X_train, y_train)
+
+# Load and preprocess test data
+test_data = CSV.read("test_data.csv")
+X_test, y_test = preprocess_data(test_data)
+
+# Make predictions on test data using trained model
+y_pred = X_test * beta
+
+# Calculate mean squared error for predictions
+mse = sum((y_test - y_pred).^2)/size(X_test, 1)
+
+# Print mean squared error
+println("Mean Squared Error: $mse")

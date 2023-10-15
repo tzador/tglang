@@ -1,0 +1,138 @@
+/*
+This code snippet is a stored procedure that performs a complex data transformation task.
+It takes in two input parameters and uses several cursors and joins to retrieve data from multiple tables and perform calculations and transformations.
+The output is an updated table with the transformed data.
+*/
+
+CREATE OR REPLACE PROCEDURE transform_data (
+    p_start_date DATE,
+    p_end_date DATE
+) AS
+    -- Declare variables
+    v_total_sales NUMBER;
+    v_total_profit NUMBER;
+BEGIN
+    -- Calculate total sales for the given date range
+    SELECT SUM(sales_amount)
+    INTO v_total_sales
+    FROM sales_table
+    WHERE order_date BETWEEN p_start_date AND p_end_date;
+    
+    -- Calculate total profit for the given date range
+    SELECT SUM(profit)
+    INTO v_total_profit
+    FROM profit_table
+    WHERE transaction_date BETWEEN p_start_date AND p_end_date;
+    
+    -- Declare cursors to retrieve data from various tables
+    CURSOR c_sales IS
+        SELECT sale_id, product_name, sales_amount, order_date
+        FROM sales_table
+        WHERE order_date BETWEEN p_start_date AND p_end_date;
+    
+    CURSOR c_profit IS
+        SELECT profit_id, product_name, profit, transaction_date
+        FROM profit_table
+        WHERE transaction_date BETWEEN p_start_date AND p_end_date;
+    
+    CURSOR c_inventory IS
+        SELECT inventory_id, product_name, units_in_stock
+        FROM inventory_table;
+        
+    -- Declare variables to store data retrieved from cursors
+    v_sale_id sales_table.sale_id%TYPE;
+    v_product_name sales_table.product_name%TYPE;
+    v_sales_amount sales_table.sales_amount%TYPE;
+    v_order_date sales_table.order_date%TYPE;
+    
+    v_profit_id profit_table.profit_id%TYPE;
+    v_profit profit_table.profit%TYPE;
+    v_transaction_date profit_table.transaction_date%TYPE;
+    
+    v_inventory_id inventory_table.inventory_id%TYPE;
+    v_units_in_stock inventory_table.units_in_stock%TYPE;
+    
+    -- Create temporary table to store transformed data
+    CREATE TABLE temp_data (
+        sale_id sales_table.sale_id%TYPE,
+        product_name sales_table.product_name%TYPE,
+        sales_amount sales_table.sales_amount%TYPE,
+        profit profit_table.profit%TYPE,
+        units_in_stock inventory_table.units_in_stock%TYPE,
+        total_profit NUMBER(10,2)
+    );
+    
+    -- Begin loop to iterate through sales cursor
+    FOR r_sales IN c_sales LOOP
+        -- Store data from cursor into variables
+        v_sale_id := r_sales.sale_id;
+        v_product_name := r_sales.product_name;
+        v_sales_amount := r_sales.sales_amount;
+        v_order_date := r_sales.order_date;
+        
+        -- Begin loop to iterate through profit cursor
+        FOR r_profit IN c_profit LOOP
+            -- Store data from cursor into variables
+            v_profit_id := r_profit.profit_id;
+            v_profit := r_profit.profit;
+            v_transaction_date := r_profit.transaction_date;
+            
+            -- Join sales and profit data and calculate total profit
+            v_total_profit := v_sales_amount * v_profit;
+            
+            -- Begin loop to iterate through inventory cursor
+            FOR r_inventory IN c_inventory LOOP
+                -- Store data from cursor into variables
+                v_inventory_id := r_inventory.inventory_id;
+                v_units_in_stock := r_inventory.units_in_stock;
+                
+                -- Insert transformed data into temporary table
+                INSERT INTO temp_data VALUES (
+                    v_sale_id,
+                    v_product_name,
+                    v_sales_amount,
+                    v_profit,
+                    v_units_in_stock,
+                    v_total_profit
+                );
+                
+                -- Update inventory table with new stock after sales
+                UPDATE inventory_table 
+                SET units_in_stock = units_in_stock - v_sales_amount
+                WHERE inventory_id = v_inventory_id 
+                AND product_name = v_product_name; 
+                
+                -- Delete processed data from sales and profit tables
+                DELETE FROM sales_table
+                WHERE sale_id = v_sale_id 
+                AND product_name = v_product_name;
+                
+                DELETE FROM profit_table
+                WHERE profit_id = v_profit_id 
+                AND product_name = v_product_name 
+                AND transaction_date = v_transaction_date;
+            END LOOP; -- inventory cursor loop
+        END LOOP; -- profit cursor loop
+    END LOOP; -- sales cursor loop
+    
+    -- Update sales table with total sales for given date range
+    UPDATE sales_table 
+    SET sales_amount = v_total_sales
+    WHERE order_date BETWEEN p_start_date AND p_end_date;
+    
+    -- Update profit table with total profit for given date range
+    UPDATE profit_table 
+    SET profit = v_total_profit
+    WHERE transaction_date BETWEEN p_start_date AND p_end_date;
+    
+    -- Drop temporary table
+    DROP TABLE temp_data;
+    
+    -- Commit changes
+    COMMIT;
+    
+    -- Print message to indicate successful completion of task
+    dbms_output.put_line('Data transformation complete.');
+    
+END transform_data;
+/

@@ -1,0 +1,85 @@
+%{
+    #include <stdio.h>
+
+    // Define token types
+    #define NUMBER 1
+    #define PLUS 2
+    #define MINUS 3
+    #define TIMES 4
+    #define DIVIDE 5
+    #define ASSIGN 6
+    #define VARIABLE 7
+%}
+
+/* Define grammar rules */
+
+%token <name> ID           # Define variable name token
+
+%%                          # Start of grammar rules
+
+program: statement '\n'    # Program consists of a statement followed by a newline
+
+statement:
+    expression              # Expression is a statement
+    | assignment            # Assignment is a statement
+
+assignment:
+    VARIABLE ASSIGN expression
+
+expression:
+    expression PLUS term    # Add term to expression
+    | expression MINUS term # Subtract term from expression
+    | term                  # Base case is a single term
+
+term:
+    term TIMES factor       # Multiply factor to term
+    | term DIVIDE factor    # Divide term by factor
+    | factor                # Base case is a single factor
+
+factor:
+    '(' expression ')'      # Use parentheses to change precedence
+    | NUMBER                # Factor is a number
+    | VARIABLE              # Factor is a variable
+    | '-' factor            # Negation of factor
+
+%%                          # End of grammar rules
+
+int main(int argc, char **argv) {
+
+    // Create parser
+    yyparse();
+
+    return 0;
+}
+
+// Functions to handle tokens and errors
+
+int yyerror(char *s) {
+    fprintf(stderr, "%s\n", s);
+    return 0;
+}
+
+int yylex(void) {
+    int c = getchar();      // Get next character from input
+    switch(c) {
+        case '+': return PLUS;
+        case '-': return MINUS;
+        case '*': return TIMES;
+        case '/': return DIVIDE;
+        case '=': return ASSIGN;
+        case '\n': return '\n';
+        default: {
+            if (isdigit(c)) { // Check if character is a digit
+                ungetc(c, stdin);       // Push character back to input
+                scanf("%d", &yylval);   // Read the number and return the token
+                return NUMBER;
+            }
+            if (isalpha(c)) {   // Check if character is a letter
+                ungetc(c, stdin);       // Push character back to input
+                scanf("%s", yytext);    // Read the string and return the token
+                return ID;
+            }
+            return c;           // Return any other character as is
+        }
+    }
+}

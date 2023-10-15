@@ -1,0 +1,38 @@
+# Copy file from host to container
+COPY app/config.ini /usr/src/app/
+
+# Set environment variable
+ENV NODE_ENV production
+
+# Create a volume
+VOLUME /usr/src/app/logs
+
+# Install dependencies
+RUN npm install
+
+# Expose port
+EXPOSE 80
+
+# Define entrypoint
+ENTRYPOINT [ "node", "app.js" ]
+
+# Set working directory
+WORKDIR /usr/src/app
+
+# Define a multi-stage build
+FROM node:alpine AS build-stage
+COPY . ./
+RUN npm install && npm run build
+
+FROM nginx AS production-stage
+COPY --from=build-stage /usr/src/app/build /usr/share/nginx/html
+
+# Define a network
+NETWORK app-network
+
+# Define a Dockerfile label
+LABEL maintainer="John Smith"
+
+# Define a healthcheck and its parameters
+HEALTHCHECK --interval=5m --timeout=3s \
+  CMD curl -f http://localhost/ || exit 1

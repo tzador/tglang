@@ -1,0 +1,40 @@
+* Variable Declaration
+DATA: ls_material TYPE zcl_materials=>ts_material,
+      ls_supplier TYPE zcl_materials=>ts_supplier.
+
+* Internal Table Declaration
+DATA: lt_materials TYPE STANDARD TABLE OF zcl_materials=>ts_material,
+      lt_suppliers TYPE SORTED TABLE OF zcl_materials=>ts_supplier
+      WITH UNIQUE KEY material_id supplier_id.
+
+* Main Loop
+LOOP AT lt_materials INTO ls_material.
+
+  * Inner Loop
+  LOOP AT lt_suppliers INTO ls_supplier
+       WHERE material_id = ls_material-material_id " Filter by material ID
+       AND supplier_id NE ls_material->approved_supplier_id. " Filter out approved supplier
+ 
+    * Function Module Call
+    CALL FUNCTION 'CHECK_SUPPLIER_DELINQUENT'
+      EXPORTING
+        material_id = ls_material-material_id
+        supplier_id = ls_supplier-supplier_id
+      IMPORTING
+        delinquent_flag = ls_supplier-delinquent_flag.
+ 
+    * Decision Making
+    IF ls_suppliers-delinquent_flag = abap_true.
+      CONTINUE TO NEXT LOOP.
+    ELSE.
+      EXIT INNER LOOP.
+    ENDIF.
+  ENDLOOP.
+
+    * Database Update
+    UPDATE zcl_materials=>mt_suppliers
+      SET delinquent_flag = abap_true
+      WHERE material_id = ls_material-material_id
+        AND supplier_id = ls_supplier-supplier_id.
+        
+ENDLOOP.

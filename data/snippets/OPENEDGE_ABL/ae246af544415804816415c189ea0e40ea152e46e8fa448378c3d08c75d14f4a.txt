@@ -1,0 +1,43 @@
+DEFINE VARIABLE myTable AS HANDLE NO-UNDO.
+DEFINE VARIABLE myField AS CHARACTER NO-UNDO.
+DEFINE VARIABLE myWhere AS CHARACTER NO-UNDO.
+ 
+/* Create a new table object and set its buffer */
+CREATE BUFFER myTableHandle FOR TABLE "CUSTOMER" NO-ERROR.
+myTable:BUFFER = myTableHandle.
+ 
+/* Set object properties */
+myTable:BUFFER-NAME = "customerBuffer".
+myTable:CURRENT-WHERE = "CustNum > 10000".
+myTable:ALIAS = "cust".
+ 
+/* Create an output stream for XML */
+DEFINE VARIABLE xmlStream AS HANDLE NO-UNDO.
+CREATE STREAM xmlStream.
+ 
+/* Start building the XML document */
+xmlStream:XML-NODE-TYPE = XML-NODE-DTD.
+xmlStream:WRITE-XML-DECLARATION().
+xmlStream:XML-NODE-TYPE = XML-NODE-ELEMENT.
+xmlStream:XML-NODE-NAME = "customerList".
+xmlStream:WRITE-START-ELEMENT().
+ 
+/* Loop through table records and add to XML stream */
+FOR EACH myTable NO-LOCK WHERE myTable:CustState = "CA":
+    /* Get field value and add to XML stream */
+    myField = myTable:CustNum.
+    xmlStream:XML-NODE-TYPE = XML-NODE-ELEMENT.
+    xmlStream:XML-NODE-NAME = "customer".
+    xmlStream:WRITE-START-ELEMENT().
+    xmlStream:WRITE-ATTRIBUTE("id", STRING(myField)).
+    xmlStream:XML-NODE-TYPE = XML-NODE-ELEMENT.
+    xmlStream:XML-NODE-NAME = "state".
+    xmlStream:WRITE-START-ELEMENT().
+    xmlStream:WRITE-ATTRIBUTE("value", myTable:CustState).
+    xmlStream:WRITE-END-ELEMENT().
+    xmlStream:WRITE-END-ELEMENT().
+END.
+ 
+/* Close XML document */
+xmlStream:WRITE-END-ELEMENT().
+xmlStream:CLOSE().

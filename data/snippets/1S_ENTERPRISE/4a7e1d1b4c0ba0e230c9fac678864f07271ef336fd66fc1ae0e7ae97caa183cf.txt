@@ -1,0 +1,96 @@
+//This code snippet creates a custom data processor in 1C_ENTERPRISE
+
+//Define the custom data processor object
+&AtClient
+Object CustomDataProcessor
+
+    //Define properties of the custom data processor
+    Value ShowingMessage;         //Boolean, shows a message when the data processor is run
+    String DataFileName;          //Name of the data file to process
+    String DataFolder;            //Path to the folder where the data file is located
+    Value ProcessedData;          //Holds the processed data from the file
+    Value IsDataProcessed;        //Boolean, shows if the data has been processed
+
+    //Define methods of the custom data processor
+    Method ProcessData;           //Method for processing the data from the file
+    Method SaveProcessedData;     //Method for saving the processed data in a new file
+
+    //Define events of the custom data processor
+    Event OnDataProcessed();      //Event that triggers when the data is processed
+
+EndObject
+
+//Define the ProcessData method
+Method ProcessData
+    //Check if the data file name and folder are provided
+    If Not DataFileName And DataFolder Then
+		//Throw an error if both are not provided
+        Exception "Data file name and folder must be specified!"
+    EndIf
+
+    //Get the full path of the data file
+    String FullFilePath = DataFolder + "\" + DataFileName;
+
+    //Check if the data file exists
+    If Not Exists(FullFilePath) Then
+		//Throw an error if the file doesn't exist
+        Exception "Data file does not exist!"
+    EndIf
+
+    //Open the file
+    File DataFile = New File(FullFilePath);
+
+    //Read the data from the file
+    ProcessedData = DataFile.Read();
+
+    //Set the IsDataProcessed property to true
+    IsDataProcessed = True;
+
+    //Trigger the OnDataProcessed event
+    OnDataProcessed();
+EndMethod
+
+//Define the SaveProcessedData method
+Method SaveProcessedData
+    //Check if the data has been processed
+    If Not IsDataProcessed Then
+		//Throw an error if the data hasn't been processed yet
+        Exception "Data must be processed before saving!"
+    EndIf
+
+    //Get the full path for the new file
+    String SaveFilePath = DataFolder + "\" + "Processed_" + DataFileName;
+
+    //Create a new file to save the data
+    File SaveFile = New File(SaveFilePath);
+
+    //Write the processed data to the file
+    SaveFile.Write(ProcessedData);
+
+    //Show a message if the ShowingMessage property is set to true
+    If ShowingMessage Then
+        MessageBox("Data has been saved to the file: " + SaveFilePath);
+    EndIf
+EndMethod
+
+//Define a text item that will trigger the custom data processor
+TextItem ProcessDataText
+    //Set the text to be displayed on the button
+    Value Text = "Process Data";
+    //Set the item type to a button
+    Value Type = Button;
+
+    //Define the OnClick event
+    Event OnClick()
+        //Create a new instance of the custom data processor object
+        CustomDataProcessor Processor = New CustomDataProcessor;
+        //Set the DataFileName property to the name of the data file
+        Processor.DataFileName = "DataFile.csv";
+        //Set the DataFolder property to the path of the data folder
+        Processor.DataFolder = "C:\Data";
+        //Call the ProcessData method to process the data
+        Processor.ProcessData();
+        //Call the SaveProcessedData method to save the processed data
+        Processor.SaveProcessedData();
+    EndEvent
+EndItem

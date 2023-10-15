@@ -1,0 +1,61 @@
+: SORT ( -- sortedArray ) \ takes in an array, sorts it and returns the sorted array
+  0 1 DO \ loop through array indexes
+    DUP \ duplicate current index
+    0 ?DO \ loop backward through array
+      SWAP OVER \ swap current index with previous index
+      OVER > IF \ check if current index is greater than previous
+        2SWAP \ swap indexes back to original positions
+        XG \ exchange greater value with lesser value
+        2DROP \ drop the previous value
+      THEN
+    LOOP
+    1+ \ increment loop counter
+  LOOP
+DOES> ( indexSortFn ) \ returns function for sorting indexes
+
+: INVERT ( array indexSortFn -- arrayInverted ) \ takes in array and index sort function and returns the array sorted in reverse index order
+  OVER SWAP ( indexSortFn array ) \ store array in variable for later
+  ( indexSortFn ) \ call index sort function
+  0 1 DO ( indexSortFn index ) \ loop through indexes
+    OVER ( indexSortFn index index ) \ duplicate index 2 times
+    indexSortFn SWAP ( index index indexSortFn ) \ use index sort function to get current array index
+    SWAP ( index indexSortFn index ) \ exchange indexSortFn to top of stack for sorting
+    ?DO ( index indexSortFn indexFrom ) \ loop through indexes starting from one less than current index
+      SWAP OVER ( index indexSortFn indexFrom index ) \ swap indexFrom data with current data
+      XG ( index indexSortFn indexTo indexFrom ) \ exchange indexFrom and new index location values
+      2DROP ( index indexSortFn index ) \ drop indexFrom data
+    LOOP ( index indexSortFn index ) \ loop through remaining indexes
+    INVERT-LOOP ( indexSortFn index-1 indexInverted ) \ loop through already sorted indexes starting from next index
+    2DROP ( indexSortFn ) \ drop current sort function as no longer needed
+    1+ ( newIndexSortFn ) \ increment loop counter for new index sort function
+  LOOP DOES> ( indexSortFnInvertOneStep ) \ returns function for taking 1 step of index invert sorting
+
+: Q-SORT ( array -- sortedArray ) \ takes in array, sorts it using quick sort and returns the sorted array
+  card @ ( array end ) \ get length of array
+  -ROT ( end array ) \ bringing array down so it can be looped through
+  DUP 0 > IF \ check for mix of negative and positive values
+    0 SWAP DO \ loop through indexes
+      -ROT ( array index *index 0 ) \ bring unsorted index to top
+      INVERT \ invert array from 1 lower index
+      -ROT ( *indexInverted array index ) \ drop sorted out index
+      INVERT ( index indexInverted ) \ put sorted out index back in reverse index order
+      1- \ decrement index
+    LOOP ( indexInverted ) \ loop until all indexes have been sorted
+    DROP ( ) \ drop the 0 value initially pushed
+  ENDIF
+  ROT >R ( r:vs array ) \ move current decrement index to return stack for later
+  card @ ( r:vs array card ) \ get length of array from return stack
+  0 ?DO \ loop through indexes
+    DUP ( r:vs array index index ) \ duplicate current index
+    SWAP OVER ( r:vs array index index card ) \ swap current index with previous index
+    OVER ( r:vs array index index card index ) \ get current index value
+    index VINDEX ( r:vs array index index value ) \ get the value from the index
+    OVER ( r:vs array index index value index ) \ get previous index value
+    > IF \ check if current index value is greater than previous
+      2SWAP ( r:vs array index value index ) \ swap indexes back to original positions
+      XG ( r:vs array index index value ) \ exchange greater value with lesser value
+      SWAP 2DROP
+    THEN
+    1+ \ increment loop counter
+  LOOP ( r:vs array newcardarray ) \ loop until all indexes are checked
+  R> ( sortedarray ) \ bring card sorted array down from return stack

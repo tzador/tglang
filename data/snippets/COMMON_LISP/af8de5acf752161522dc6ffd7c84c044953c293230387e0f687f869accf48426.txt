@@ -1,0 +1,74 @@
+(defvar *sudoku-grid* (make-array '(9 9) :initial-element 0) "A 9x9 grid representing a Sudoku puzzle. Each element is initialized to 0.")
+
+;; Function to check if a number is already used in a given row
+(defun row-used-p (row num)
+  "Checks if the number 'num' is already used in the row specified by 'row'."
+  (loop for i from 0 to 8
+         when (= num (aref *sudoku-grid* row i))
+           return t
+         finally (return nil)))
+
+;; Function to check if a number is already used in a given column
+(defun col-used-p (col num)
+  "Checks if the number 'num' is already used in the column specified by 'col'."
+  (loop for i from 0 to 8
+         when (= num (aref *sudoku-grid* i col))
+           return t
+         finally (return nil)))
+
+;; Function to check if a number is already used in a given 3x3 subgrid
+(defun subgrid-used-p (row col num)
+  "Checks if the number 'num' is already used in the 3x3 subgrid containing the cell specified by ('row', 'col')."
+  (let ((subgrid-row (floor row 3))
+        (subgrid-col (floor col 3)))
+    (loop for i from 0 to 2
+          for r from subgrid-row to (+ subgrid-row 2)
+          do (loop for j from 0 to 2
+                   for c from subgrid-col to (+ subgrid-col 2)
+                   when (and (not (equal r row)) (not (equal c col))) ;; ignore the current cell
+                     when (= num (aref *sudoku-grid* r c))
+                       return t)
+          finally (return nil))))
+
+;; Function to check if a given cell can be filled with a given number
+(defun valid-cell-p (row col num)
+  "Checks if the cell at ('row', 'col') can be filled with the number 'num' according to the Sudoku rules."
+  (and (not (row-used-p row num)) (not (col-used-p col num)) (not (subgrid-used-p row col num))))
+
+;; Function to solve the Sudoku puzzle using backtracking algorithm
+(defun solve-sudoku ()
+  "Solves the Sudoku puzzle stored in *sudoku-grid* using backtracking algorithm."
+  (let ((row 0)
+        (col 0))
+    (loop while (and (< row 9) (< col 9))
+          do (if (= (aref *sudoku-grid* row col) 0) ;; if the cell is empty
+               (let ((valid-num-p nil)
+                     (num 1))
+                 (loop while (and (not valid-num-p) (<= num 9))
+                       do (if (valid-cell-p row col num)
+                            (progn (setf (aref *sudoku-grid* row col) num)
+                                   (setq valid-num-p t))
+                            (setq num (+ num 1)))))
+               (if (= col 8) ;; if the current column is the last column,
+                (progn (setq row (+ row 1))
+                       (setq col 0)) ;; go to the first column of the next row
+                (setq col (+ col 1)))
+               )
+          finally(return *sudoku-grid*))))
+
+;; Example puzzle to solve (the original Sudoku puzzle)
+(setf *sudoku-grid* #(5 3 0 0 7 0 0 0 0
+                   6 0 0 1 9 5 0 0 0
+                   0 9 8 0 0 0 0 6 0
+                   8 0 0 0 6 0 0 0 3
+                   4 0 0 8 0 3 0 0 1
+                   7 0 0 0 2 0 0 0 6
+                   0 6 0 0 0 0 2 8 0
+                   0 0 0 4 1 9 0 0 5
+                   0 0 0 0 8 0 0 7 9))
+
+;; Solving the puzzle
+(solve-sudoku)
+
+;; The solved Sudoku puzzle
+(print *sudoku-grid*)

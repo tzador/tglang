@@ -1,0 +1,61 @@
+server {
+  listen 80 default_server;
+  listen [::]:80 default_server;
+  server_name example.com;
+  root /var/www/example.com;
+  
+  # Enable gzip compression
+  gzip on;
+  gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+  # Restrict certain user agents
+  if ($http_user_agent ~* (crawler|bot)) {
+    return 403;
+  }
+
+  # Rewrite incoming requests
+  rewrite ^/(.*)$ /index.php?q=$1 last;
+  
+  # Enable caching for certain file types
+  location ~* \.(jpg|jpeg|png|gif|ico|svg)$ {
+    expires 30d;
+  }
+  
+  # Deny access to specified files
+  location ~* /(system|tmp|logs)/.*\.(php|pl|py|jsp|asp|sh|cgi)$ {
+    deny all;
+  }
+  
+  # Redirect specific URLs
+  location /old-page/ {
+    rewrite ^ https://example.com/new-page/;
+  }
+
+  # Block certain IPs
+  deny 123.45.67.89;
+  
+  # Allow only certain IPs
+  allow 123.45.67.89;
+  allow 98.76.54.32;
+  deny all;
+  
+  # Enable SSL
+  listen 443 ssl http2;
+  ssl_certificate /etc/nginx/ssl/example.com.pem;
+  ssl_certificate_key /etc/nginx/ssl/example.com.key;
+  
+  # Enable HTTP/2
+  http2_max_field_size 16k;
+  http2_max_header_size 32k;
+  http2_max_requests 1000;
+  
+  # Enable rate limiting
+  limit_req_zone $binary_remote_addr zone=one:10m rate=10r/s;
+  limit_req zone=one burst=1000;
+  
+  # Configure proxy settings
+  proxy_pass http://localhost:8000/;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header Host $host;
+  proxy_ssl_server_name on;
+}

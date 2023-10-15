@@ -1,0 +1,60 @@
+trigger updateContactAddress on Contact (before update){
+    //create a map to store the new addresses for each contact
+    Map<Id, Address> contactAddresses = new Map<Id, Address>();
+    
+    //query for all the contacts being updated
+    List<Contact> updatedContacts = [SELECT Id, MailingAddress FROM Contact WHERE Id IN :Trigger.newMap.keySet()];
+    
+    //loop through the updated contacts
+    for(Contact con : updatedContacts){
+        //create a new instance of Address with the updated mailing address
+        Address newAddress = new Address(
+            Street = con.MailingStreet,
+            City = con.MailingCity,
+            State = con.MailingState,
+            PostalCode = con.MailingPostalCode,
+            Country = con.MailingCountry
+        );
+        
+        //add the contact ID and new address to the map
+        contactAddresses.put(con.Id, newAddress);
+    }
+    
+    //update the associated account with the new address
+    List<Account> updatedAccounts = new List<Account>();
+    
+    //query for all the accounts associated with the updated contacts
+    List<Account> accounts = [SELECT Id, BillingAddress FROM Account WHERE Id IN (SELECT AccountId FROM Contact WHERE Id IN :Trigger.newMap.keySet())];
+    
+    //loop through the accounts
+    for(Account acc : accounts){
+        //check if the contact is the primary contact for the account
+        if(acc.Primary_Contact__c == Trigger.newMap.get(acc.Primary_Contact__c).Id){
+            //update the billing address to the new address in the map
+            acc.BillingAddress = contactAddresses.get(acc.Primary_Contact__c);
+            //add the updated account to the list
+            updatedAccounts.add(acc);
+        }
+    }
+    
+    //update the accounts with the new addresses
+    update updatedAccounts;
+    
+    //update the contacts with the same new address as their associated account
+    List<Contact> updatedContacts = new List<Contact>();
+    
+    //loop through the updated contacts
+    for(Contact con : updatedContacts){
+        //check if the associated account's billing address is different from the contact's mailing address
+        if(con.Account.BillingAddress != contactAddresses.get(con.Id)){
+            //update the contact's mailing address to match the associated account's billing address
+            con.MailingAddress = con.Account.BillingAddress;
+            //add the updated contact to the list
+            updatedContacts.add(con);
+        }
+        
+    }
+    
+    //update the contacts with the new addresses
+    update updatedContacts;
+}

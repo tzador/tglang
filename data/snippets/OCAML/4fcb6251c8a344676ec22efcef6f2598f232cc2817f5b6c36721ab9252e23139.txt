@@ -1,0 +1,69 @@
+(* Overview: This code solves a system of linear equations using the Gauss-Jordan method *)
+let rec gauss_jordan_solve equations =
+  (* Function to swap the position of two rows in a matrix *)
+  let swap_row matrix i j =
+    let row_i = List.nth matrix i in
+    let row_j = List.nth matrix j in
+    let temp = row_i in
+    List.mapi (fun index _ ->
+      if index = i then row_j else if index = j then temp else List.nth matrix index
+    ) matrix
+  in
+  (* Function to divide all elements in a row by a given number *)
+  let scale_row matrix i divisor =
+    let row_i = List.nth matrix i in
+    List.mapi (fun index element ->
+      element /. divisor
+    ) row_i
+  in
+  (* Function to subtract a multiple of one row from another *)
+  let add_scaled_row matrix i j multiplier =
+    let scaled_row_i = List.map (fun element -> element *. multiplier) (List.nth matrix i) in
+    let row_j = List.nth matrix j in
+    List.mapi (fun index element ->
+      element -. List.nth scaled_row_i index
+    ) row_j
+  in
+  (* Function to iterate through all equations and perform operations to solve the system *)
+  (* Str. is the number of rows, Stc. is the number of columns *)
+  let rec solve matrix n count row col =
+    if count = n then matrix else begin
+      (* Find the column with leading number (pivot) *)
+      let pivot_col = col in
+      List.nth matrix pivot_col |> List.nth |> abs_float |> fun x ->
+      let cmp a b = abs_float (a -. x) < abs_float (b -. x) in
+      let pivot_row = List.mapi (fun index element -> index, element) (List.nth matrix pivot_col) |> List.filter (fun (_, x) -> cmp x 0.) |> List.hd |> fst in
+      (* Swap the rows if the pivot is not already at the top *)
+      if pivot_row <> row then
+        let matrix' = swap_row matrix pivot_row row in
+        solve matrix' n count row col
+      else
+        (* Scale the pivot row so that the leading number is 1 *)
+        let divisor = List.nth (List.nth matrix pivot_col) pivot_row in
+        if divisor <> 1. then
+          let matrix' = scale_row matrix pivot_row divisor in
+          solve matrix' n count row col
+        else
+          (* Subtract multiples of the pivot row from other rows so that their leading number is 0 *)
+          let modified_matrix = List.mapi (fun index row ->
+            if index = pivot_row then row else add_scaled_row matrix pivot_row index (List.nth row pivot_row)
+          ) matrix
+          in
+          solve modified_matrix n (count + 1) (row + 1) (col + 1)
+    end
+  in
+  (* Call the solve function with the initial equations and return the solution *)
+  let (_, n) = List.split equations |> List.hd |> fun (_, c) -> List.length c |>(fun d -> d,d) in
+  let solution = List.mapi (fun index _ -> 0.) equations in
+  let matrix = List.map (fun (eq, _) ->
+    let row = List.map (fun (x, _) -> x) eq in
+    let equal = List.map (fun (_, x) -> x) eq in
+    List.append row equal
+  ) equations in
+  let solved_matrix = solve matrix n 0 0 0 in
+  (* Take the solution from the last column of the solved matrix *)
+  List.map (fun row ->
+    List.(row |> length |> fun len -> (sub row (len / 2) (len / 2) |> reduce (fun (a, n) x -> x::a, n - 1) ([], len / 2)))
+    |> fun li -> (head li, li |> second))
+  solved_matrix
+;;

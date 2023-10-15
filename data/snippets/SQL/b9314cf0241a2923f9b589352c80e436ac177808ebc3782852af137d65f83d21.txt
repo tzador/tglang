@@ -1,0 +1,41 @@
+CREATE PROCEDURE calculate_weighted_average(
+    IN course_code VARCHAR(10),
+    OUT weighted_average DECIMAL(10,2)
+)
+
+BEGIN
+    DECLARE total_credits INT;
+    DECLARE total_score DECIMAL(10,2);
+    DECLARE temp_credits INT;
+    DECLARE temp_score DECIMAL(10,2);
+    DECLARE temp_grade CHAR(1);
+
+    SELECT SUM(credits) INTO total_credits FROM grades WHERE course = course_code;
+
+    DECLARE grades_cur CURSOR FOR
+        SELECT credits, score, grade FROM grades WHERE course = course_code;
+    OPEN grades_cur;
+
+    SET total_score = 0;
+    SET weighted_average = 0;
+    FETCH grades_cur INTO temp_credits, temp_score, temp_grade;
+    WHILE temp_credits IS NOT NULL DO
+        IF temp_grade = 'A' THEN
+            SET weighted_average = weighted_average + (temp_credits * temp_score * 4.00);
+        ELSEIF temp_grade = 'B' THEN
+            SET weighted_average = weighted_average + (temp_credits * temp_score * 3.00);
+        ELSEIF temp_grade = 'C' THEN
+            SET weighted_average = weighted_average + (temp_credits * temp_score * 2.00);
+        ELSEIF temp_grade = 'D' THEN
+            SET weighted_average = weighted_average + (temp_credits * temp_score * 1.00);
+        END IF;
+
+        SET total_score = total_score + (temp_credits * temp_score);
+        FETCH grades_cur INTO temp_credits, temp_score, temp_grade;
+    END WHILE;
+
+    CLOSE grades_cur;
+
+    SET weighted_average = weighted_average / (total_credits * 4.00);
+
+END;

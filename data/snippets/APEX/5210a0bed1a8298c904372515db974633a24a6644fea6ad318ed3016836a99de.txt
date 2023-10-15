@@ -1,0 +1,141 @@
+public class ContactTriggerHandler implements ITriggerHandler {
+    // Declare variables
+    private Map<Id, Contact> oldContacts;
+    private Map<Id, List<String>> contactRelationships;
+
+    /**
+     * Constructor for ContactTriggerHandler
+     * Initializes maps and queries for related records
+     */
+    public ContactTriggerHandler() {
+        // Initialize maps
+        oldContacts = new Map<Id, Contact>();
+        contactRelationships = new Map<Id, List<String>>();
+
+        // Query for related records
+        List<Contact> relatedContacts = [SELECT Id, Name, Relationship__c FROM Contact WHERE Relationship__c != null];
+
+        // Loop through related contacts and add them to map
+        for (Contact con : relatedContacts) {
+            // Check if map contains list for related contacts
+            if (contactRelationships.containsKey(con.Relationship__c)) {
+                // Add contact name to existing list
+                contactRelationships.get(con.Relationship__c).add(con.Name);
+            } else {
+                // Create new list and add contact name
+                List<String> contactsList = new List<String>();
+                contactsList.add(con.Name);
+                // Add list to map
+                contactRelationships.put(con.Relationship__c, contactsList);
+            }
+        }
+    }
+
+    /**
+     * Method to handle inserts for Contact object
+     * Adds related contacts to map
+     *
+     * @param contacts List of contacts to be inserted
+     */
+    public void handleInserts(List<Contact> contacts) {
+        for (Contact con : contacts) {
+            // Check if contact has a relationship
+            if (con.Relationship__c != null) {
+                // Check if map contains list for related contacts
+                if (contactRelationships.containsKey(con.Relationship__c)) {
+                    // Add contact name to existing list
+                    contactRelationships.get(con.Relationship__c).add(con.Name);
+                } else {
+                    // Create new list and add contact name
+                    List<String> contactsList = new List<String>();
+                    contactsList.add(con.Name);
+                    // Add list to map
+                    contactRelationships.put(con.Relationship__c, contactsList);
+                }
+            }
+        }
+    }
+
+    /**
+     * Method to handle updates for Contact object
+     * Adds old contact to map and updates related contacts list if necessary
+     *
+     * @param contacts List of contacts to be updated
+     * @param oldContacts List of old contacts
+     */
+    public void handleUpdates(List<Contact> contacts, Map<Id, Contact> oldContacts) {
+        for (Contact con : contacts) {
+            // Check if contact has a relationship
+            if (con.Relationship__c != null) {
+                // Add old contact to map
+                oldContacts.put(con.Id, oldContacts.get(con.Id));
+                // Check if map contains list for related contacts
+                if (contactRelationships.containsKey(con.Relationship__c)) {
+                    // Remove old contact name from related contacts list if it exists
+                    if (contactRelationships.get(con.Relationship__c).contains(oldContacts.get(con.Id).Name)) {
+                        contactRelationships.get(con.Relationship__c).remove(oldContacts.get(con.Id).Name);
+                    }
+                    // Add updated contact name to list
+                    contactRelationships.get(con.Relationship__c).add(con.Name);
+                } else {
+                    // Create new list and add contact name
+                    List<String> contactsList = new List<String>();
+                    contactsList.add(con.Name);
+                    // Add list to map
+                    contactRelationships.put(con.Relationship__c, contactsList);
+                }
+            }
+        }
+    }
+
+    /**
+     * Method to handle deletions for Contact object
+     * Removes old contact from map and updates related contacts list if necessary
+     *
+     * @param contacts List of contacts to be deleted
+     * @param oldContacts List of old contacts
+     */
+    public void handleDeletions(List<Contact> contacts, Map<Id, Contact> oldContacts) {
+        for (Contact con : contacts) {
+            // Add old contact to map
+            oldContacts.put(con.Id, oldContacts.get(con.Id));
+            // Check if contact had a relationship
+            if (oldContacts.get(con.Id).Relationship__c != null) {
+                // Check if map contains list for related contacts
+                if (contactRelationships.containsKey(oldContacts.get(con.Id).Relationship__c)) {
+                    // Remove deleted contact name from related contacts list
+                    contactRelationships.get(oldContacts.get(con.Id).Relationship__c).remove(oldContacts.get(con.Id).Name);
+                }
+            }
+        }
+    }
+
+    /**
+     * Method to handle undeletes for Contact object
+     * Adds undeleted contact to map
+     *
+     * @param contacts List of contacts to be undeleted
+     */
+    public void handleUndeletes(List<Contact> contacts) {
+        for (Contact con : contacts) {
+            // Check if contact has a relationship
+            if (con.Relationship__c != null) {
+                // Add contact name to related contacts list
+                contactRelationships.get(con.Relationship__c).add(con.Name);
+            }
+        }
+    }
+    
+    // Other methods and logic for Contact object
+    
+    /**
+     * Interface for trigger handlers
+     */
+    public interface ITriggerHandler {
+        void handleInserts(List<SObject> newRecords);
+        void handleUpdates(List<SObject> newRecords, Map<Id, SObject> oldRecords);
+        void handleDeletions(List<SObject> deletedRecords, Map<Id, SObject> oldRecords);
+        void handleUndeletes(List<SObject> recoveredRecords);
+    }
+    
+}

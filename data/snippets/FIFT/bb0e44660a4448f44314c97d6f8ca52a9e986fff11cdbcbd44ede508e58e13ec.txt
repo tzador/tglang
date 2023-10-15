@@ -1,0 +1,78 @@
+;; Program to calculate the factorial of a user input number
+;; 3-State machine for factorial calculation
+
+$CONSTANTS
+DROP HAVE_INPUT HAVE_OUTPUT true false
+~max_value~ 100
+
+$INPUTS
+{ n :: int }
+
+$OUTPUTS
+{ result :: int }
+
+$STATES
+1 :: idle ; Initial state, wait for user input
+2 :: calculating ; Calculate the factorial and check for overflow
+3 :: output ; Output the result or error message
+4 :: error ; Handle overflow or invalid input
+
+$TRANSITIONS
+{ 1 -> HAVE_INPUT }
+{ HAVE_INPUT -> 2 }
+{ 2 -> 2 (n > 0) } ; Loop until n is 0
+{ 2 -> error (n <= 0) } ; Handle negative or 0 input
+{ 2 -> HAVE_OUTPUT (result * n > ~max_value~) } ; Check for overflow
+{ 2 -> 2 (result * n <= ~max_value~) } ; Multiply result by n
+{ HAVE_OUTPUT -> output }
+{ 3 -> idle } ; Reset to idle state after output
+{ error -> output }
+{ output -> idle }
+
+$CODE
+;; Initial memory layout
+idle:
+dup 1 -> STATE
+0 -> result
+not -> HAVE_INPUT
+jmp
+
+;; State 2: calculating
+calculating:
+dup 2 -> STATE
+n -> loc0
+1 -> loc1
+1 -> result
+loc0 * loc0 -> loc2
+jmpc loc0 != 0
+loc2 <= ~max_value~ -> result
+jmpc loc2 == 0
+loc1 -> n
+loc1 - 1 -> loc1
+result * n -> result
+jmpc loc1 != 0
+TRUE -> HAVE_OUTPUT
+jmp
+
+;; State 3: output
+output:
+dup 3 -> STATE
+jmpc result > 0
+FALSE -> result
+jmp
+
+;; State 4: error
+error:
+dup 4 -> STATE
+jmpc n <= 0
+jmpc result <= ~max_value~
+FALSE -> result
+jmpc result > 0
+-1 -> result
+NOT -> HAVE_INPUT
+jmp
+
+;; End state machine
+jmp
+
+$ENDCODE

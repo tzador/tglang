@@ -1,0 +1,110 @@
+#user directive specifies which user will run the worker processes
+#the user can be either an actual username or a numeric user ID
+user www-data;
+
+#worker_processes directive specifies the number of worker processes
+#it is usually set to the number of CPUs in the system
+#each worker process handles one connection at a time
+worker_processes auto;
+
+#pid directive specifies the file where the master process ID will be stored
+#this is used to control the master process, such as when reloading configurations
+pid /run/nginx.pid;
+
+#error_log directive specifies where error logs will be saved
+#error logs are useful for troubleshooting and debugging
+#error_log can be set to a file path or to "stderr" for printing to standard error stream
+#error_log is set to "warn" level to only log errors, warnings, and critical messages
+#error logs can also be disabled by setting to "off"
+#error_log /var/log/nginx/error.log warn;
+
+#events block specifies the parameters for event-based processing
+events {
+    #the listen directive sets the maximum number of connections that can be accepted at once
+    #this should be set to a number higher than the worker_processes value
+    #the default value is 511 and can be adjusted based on server needs
+    worker_connections 1024;
+
+    #use directive allows for special modules to be loaded and used
+    #in this example, the "epoll" module is being used for event-based processing
+    use epoll;
+}
+
+#http block is the main configuration for the HTTP server
+http {
+    #include directive is used to include additional configuration files
+    #in this example, it is being used to include the "mime.types" file for defining MIME types
+    include mime.types;
+
+    #default_type directive specifies the default MIME type for responses that do not have explicit type set
+    default_type application/octet-stream;
+    
+    #access_log directive specifies where access logs will be saved
+    #access logs track requests and responses to the server, useful for traffic analysis
+    #in this example, it is set to "/var/log/nginx/access.log" and logs in the "combined" format
+    access_log /var/log/nginx/access.log combined;
+    
+    #sendfile directive enables or disables the use of sendfile() system call for file copying
+    #in this example, it is set to "on" for better performance
+    sendfile on;
+    
+    #tcp_nopush directive enables or disables the use of the TCP_CORK socket option for sending multiple fragments of data over one socket
+    #this is useful for servers that serve large files
+    tcp_nopush on;
+    
+    #keepalive_timeout directive sets the timeout for keep-alive connections with the client
+    #it is recommended to keep this value low for servers with high load
+    keepalive_timeout 65;
+    
+    #gzip directive enables or disables gzipping of responses
+    #responses with MIME types "text/html" and "text/css" will be compressed by default
+    gzip on;
+    
+    #server block defines a virtual server and its settings
+    #in this example, the server is listening on port 80 for all requests
+    server {
+        listen 80;
+        
+        #server_name directive specifies the server name(s) for this virtual server
+        #requests that match this server name will be handled by this server block
+        server_name example.com www.example.com;
+        
+        #root directive specifies the root directory for requests that match this server
+        #in this example, all requests will be served from the "/var/www/example.com" directory
+        root /var/www/example.com;
+        
+        #location block defines a specific location and its settings for this server
+        #in this example, all requests for "/static/" will be served from the "/var/www/example.com/static" directory
+        location /static/ {
+            alias /var/www/example.com/static;
+        }
+        
+        #location block can also be used to handle specific file types
+        #in this example, all requests for ".png" files will be served from the "/var/www/example.com/images" directory
+        location ~* \.png$ {
+            root /var/www/example.com/images;
+        }
+        
+        #error_page directive specifies the HTML file to display for specific error codes
+        #in this example, a 404 error will display the "404.html" file from the "/var/www/example.com/errors" directory
+        error_page 404 /errors/404.html;
+        
+        #index directive specifies the default file to serve if a request does not specify a file name
+        #in this example, the default file is "index.html"
+        index index.html;
+        
+        #location block can also be used to handle requests for specific HTTP methods
+        #in this example, all POST requests will be redirected to the "/login" location
+        location / {
+            if ($request_method = POST) {
+                rewrite ^ /login;
+            }
+        }
+        
+        #proxy_pass directive specifies a server or group of servers to proxy requests to
+        #in this example, all requests for "/api/" will be proxied to the backend server on port 5000
+        location /api/ {
+            proxy_pass http://localhost:5000;
+        }
+    }
+}

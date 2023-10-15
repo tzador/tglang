@@ -1,0 +1,42 @@
+/* PROLOG code to find the shortest path in a weighted graph using Dijkstra's algorithm*/
+:- dynamic edge/3. % Declare dynamic predicate for storing graph edges
+
+% Helper function to find minimum distance in a list
+min_list([Min],Min). % Base case: list with single element has minimum as that element
+min_list([H,K|T],Min) :- % Recursion: compare head and minimum of tail, pick the smaller one
+    H =< K,
+    min_list([H|T],Min).
+min_list([H,K|T],Min) :-
+    H > K,
+    min_list([K|T],Min).
+
+% Helper function to remove an element from a list
+remove_element(X,[X|T],T). % Base case: if element is head of list, remove it and return the tail
+remove_element(X,[H|T],[H|T1]) :- % Recursion: remove element from tail and append to head
+    remove_element(X,T,T1).
+
+% Helper function to find minimum distance node from a list of unvisited nodes
+min_distance(Visited,Unvisited,Min,MinNode) :-
+    findall(Distance,(member(Node,Unvisited),edge(EdgeNode,Node,Distance),not(member(EdgeNode,Visited))),Distances), % Find distances from all unvisited nodes
+    min_list(Distances,Min), % Find the minimum distance
+    member(MinNode,Unvisited), % Select the first node with minimum distance
+    edge(EdgeNode,MinNode,Min), % Find the parent node for minimum distance node
+    not(member(EdgeNode,Visited)). % Check if parent node is not already visited
+    
+% Main function for Dijkstra's algorithm
+dijkstra(Start,End,Path,Distance) :-
+    assert(edge(nil,nil,9999)), % Set distance to infinity for all unconnected nodes
+    once(dijkstra_path(Start,End,Path,Distance)). % Find shortest path and distance
+    
+% Function to find the shortest path from Start to End
+dijkstra_path(End,End,[],0). % Base case: reached end node, path is empty and distance is 0
+dijkstra_path(Start,End,Path,Distance) :-
+    edge(nil,Start,_), % Check if Start node is unconnected
+    retract(edge(nil,Start,_)), % Remove unconnected node from graph
+    dijkstra_path(End,End,Path,Distance). % Recurse without unconnected node
+dijkstra_path(Start,End,[Parent|Path],Distance) :-
+    min_distance([Start], [End], Min, Parent), % Calculate the parent node for End node
+    edge(Parent,End,Min), % Update the distance of End node from Start node
+    remove_element(End,[Start],Unvisited), % Remove End node from unvisited list
+    dijkstra_path(Start,Parent,Path,Distance2), % Recurse to find path from Start to Parent node
+    Distance is Distance2+Min. % Calculate total distance from Start to End

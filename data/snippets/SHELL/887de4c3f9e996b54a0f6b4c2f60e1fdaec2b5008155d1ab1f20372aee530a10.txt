@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# This is a shell script that installs and configures a web server
+
+# Install Apache web server
+sudo apt-get update # Update package manager
+sudo apt-get install apache2 -y # Install Apache2 web server
+
+# Configure Apache to serve a virtual host
+sudo mkdir /var/www/example.com # Create directory for virtual host
+sudo cp /etc/apache2/sites-available/000-default.conf /etc/apache2/sites-available/example.com.conf # Copy default virtual host config
+sudo sed -i 's/domain.com/example.com/g' /etc/apache2/sites-available/example.com.conf # Replace domain name in config file
+sudo a2ensite example.com.conf # Enable virtual host
+sudo systemctl reload apache2 # Reload Apache
+
+# Install PHP and configure Apache to use it
+sudo apt-get install php libapache2-mod-php php-mysql -y # Install PHP and MySQL module
+sudo sed -i '2 a\\n<FilesMatch "\\.php$"> \n SetHandler application/x-httpd-php \n </FilesMatch>' /etc/apache2/sites-available/example.com.conf # Configure Apache to use PHP for .php files
+sudo systemctl reload apache2 # Reload Apache
+
+# Install and configure MySQL
+sudo apt-get install mysql-server -y # Install MySQL
+sudo mysql_secure_installation # Run security script
+sudo mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'password';" # Use mysql_native_password authentication method
+sudo systemctl restart apache2 # Restart Apache
+
+# Install and configure WordPress
+curl -O https://wordpress.org/latest.tar.gz # Download latest version of WordPress
+tar -zxvf latest.tar.gz # Extract files
+sudo rsync -avP ~/wordpress/ /var/www/example.com # Copy WordPress files to virtual host directory
+sudo cp /var/www/example.com/wp-config-sample.php /var/www/example.com/wp-config.php # Copy default WordPress config file
+sudo sed -i 's/database_name_here/wp_db_name/g' /var/www/example.com/wp-config.php # Replace database name in config file
+sudo sed -i 's/username_here/wp_db_user/g' /var/www/example.com/wp-config.php # Replace database username in config file
+sudo sed -i 's/password_here/wp_db_password/g' /var/www/example.com/wp-config.php # Replace database password in config file
+sudo chown -R www-data:www-data /var/www/example.com/ # Change ownership of WordPress files to Apache user
+sudo chmod -R 755 /var/www/example.com/ # Change permissions of WordPress files
+sudo find /var/www/example.com/ -type f -exec chmod 644 {} \; # Change permissions of WordPress files
+sudo rm -rf ~/wordpress # Delete downloaded files
+sudo systemctl restart apache2 # Restart Apache
+
+# Finish installation
+echo "Congratulations! WordPress has been installed on example.com!"
+echo "You can now access your site at http://example.com"

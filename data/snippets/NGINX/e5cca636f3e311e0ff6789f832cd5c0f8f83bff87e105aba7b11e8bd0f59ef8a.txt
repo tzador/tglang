@@ -1,0 +1,55 @@
+# This is a complex NGINX configuration file
+# It includes settings for load balancing, caching, and proxying
+
+# Load balancing settings
+upstream backend {
+    server 127.0.0.1:8000;
+    server 127.0.0.1:8001;
+    server 127.0.0.1:8002;
+}
+
+# Caching settings
+proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=backend_cache:10m;
+proxy_cache_key "$scheme$request_uri";
+proxy_cache_valid 200 302 5m;
+proxy_cache_valid 404 1m;
+
+# Proxying settings
+server {
+    listen 80;
+    server_name example.com;
+    location / {
+        # Pass requests to the backend server
+        proxy_pass http://backend;
+        # Enable caching
+        proxy_cache backend_cache;
+        # Enable load balancing
+        proxy_next_upstream error timeout invalid_header http_500;
+        # Set cache control headers
+        proxy_set_header Cache-Control "max-age=300, must-revalidate";
+        # Set proxy headers
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+
+# Gzip compression settings
+gzip on;
+gzip_types text/plain application/xml;
+
+# SSL settings
+server {
+    listen 443 ssl;
+    server_name example.com;
+    # SSL certificate and key files
+    ssl_certificate /etc/nginx/ssl/example.crt;
+    ssl_certificate_key /etc/nginx/ssl/example.key;
+    # Enable session resumption to improve performance
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 5m;
+    # Enable OCSP stapling to improve security
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    # Enable HSTS to force secure connections
+    add_header Strict-Transport-Security "max-age=31536000" always;
+}

@@ -1,0 +1,49 @@
+import scala.io.StdIn
+import scala.concurrent._
+import ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+
+/**
+  * A class representing a task that can be executed
+  * asynchronously using the Scala Future API.
+  *
+  * @param task A function that represents the task to be executed.
+  * @param onFinish A function that represents the callback to be
+  *                 executed upon successful completion of the task.
+  * @param onError A function that represents the callback to be
+  *                executed upon encountering an error during execution.
+  */
+class AsyncTask[T](task: () => T, onFinish: T => Unit, onError: Throwable => Unit) {
+
+  /**
+    * Starts the execution of the task asynchronously.
+    *
+    * @return A Scala Future object that can be used to check the status
+    *         of the execution and get the result of the task.
+    */
+  def execute(): Future[T] = {
+    Future {
+      task()
+    }
+    .map(result => {
+      onFinish(result)
+      result
+    })
+    .recover {
+      case e: Throwable => onError(e)
+      throw e
+    }
+  }
+}
+
+// Example usage:
+val task = new AsyncTask[Int](() => {
+  // Some long and complex task to be executed
+  Thread.sleep(1000)
+  5 * 5
+}, result => println(s"The result is: $result"), error => println(s"An error occurred: $error"))
+
+val future = task.execute()
+
+// Use the Future API to get the result or handle errors
+future.foreach(result => println(s"The final result is: $result"))

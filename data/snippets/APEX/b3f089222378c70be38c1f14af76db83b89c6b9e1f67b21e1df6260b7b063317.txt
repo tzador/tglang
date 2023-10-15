@@ -1,0 +1,124 @@
+/**
+ * Description: This class creates a custom object and adds fields and records to it.
+ * It also has methods for CRUD operations on the custom object.
+ */
+public with sharing class CustomObjectManager {
+    // Declare variables
+    private List<Custom_Object__c> customObjects;
+    private Custom_Object__c newCustomObject;
+    
+    /**
+     * Description: Constructor for CustomObjectManager class
+     */
+    public CustomObjectManager() {
+        // Initialize customObjects list and create new custom object instance
+        customObjects = new List<Custom_Object__c>();
+        newCustomObject = new Custom_Object__c();
+    }
+    
+    /**
+     * Description: Method to create a new custom object
+     * @param objName - Name of the custom object
+     * @param objLabel - Label for the custom object
+     * @param objDesc - Description for the custom object
+     * @param fields - List of fields to be added to the custom object
+     */
+    public void createCustomObject(String objName, String objLabel, String objDesc, List<Custom_Field__c> fields) {
+        // Set properties for the new custom object
+        newCustomObject.Name = objName;
+        newCustomObject.Description = objDesc;
+        newCustomObject.Label = objLabel;
+        
+        // Check if custom object name is not blank
+        if (objName != null && objName != '') {
+            // Use Database class method to create a custom object
+            Database.SaveResult result = Database.create(newCustomObject);
+            
+            // Check if custom object was created successfully
+            if (result.isSuccess()) {
+                // Add the custom object to the list
+                customObjects.add(newCustomObject);
+                
+                // Loop through list of fields to be added and use Schema class to create them
+                for (Custom_Field__c field : fields) {
+                    String fieldType = field.Type__c;
+                    String fieldName = field.Name__c;
+                    
+                    // Check if field type is not blank
+                    if (fieldType != null && fieldType != '') {
+                        // Use Schema class to create field on the custom object
+                        Schema.SObjectType objType = Schema.getGlobalDescribe().get(objName);
+                        Schema.SObjectField objField = objType.getDescribe().fields.getMap().get(fieldName);
+                        objField.add(fieldType);
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * Description: Method to read a custom object's fields
+     * @param objName - Name of the custom object
+     * @return List of fields on the custom object
+     */
+    public List<Custom_Field__c> readCustomObjectFields(String objName){
+        // Use Schema class to get the list of fields on the custom object
+        Schema.SObjectType objType = Schema.getGlobalDescribe().get(objName);
+        List<Schema.SObjectField> fields = objType.getDescribe().fields.getMap().values();
+        
+        // Loop through fields and add them to a list of custom fields
+        List<Custom_Field__c> customFields = new List<Custom_Field__c>();
+        for (Schema.SObjectField field : fields) {
+            Custom_Field__c customField = new Custom_Field__c();
+            customField.Name__c = field.getDescribe().getLabel();
+            customField.Type__c = String.valueOf(field.getDescribe().getType());
+            customFields.add(customField);
+        }
+        
+        return customFields;
+    }
+    
+    /**
+     * Description: Method to update a custom object
+     * @param objName - Name of the custom object
+     * @param newDesc - New description for the custom object
+     */
+    public void updateCustomObject(String objName, String newDesc) {
+        // Use Database class to query for the custom object to be updated
+        Custom_Object__c objToUpdate = [SELECT Id, Name, Description FROM Custom_Object__c WHERE Name = :objName];
+        
+        // Check if query returned a result
+        if (objToUpdate != null) {
+            // Update the custom object's description
+            objToUpdate.Description = newDesc;
+            
+            // Use Database class to update the custom object
+            Database.SaveResult result = Database.update(objToUpdate);
+            
+            // Check if update was successful
+            if (!result.isSuccess()) {
+                System.debug(result.getErrors().get(0));
+            }
+        }
+    }
+    
+    /**
+     * Description: Method to delete a custom object
+     * @param objName - Name of the custom object
+     */
+    public void deleteCustomObject(String objName) {
+        // Use Database class to query for the custom object to be deleted
+        Custom_Object__c objToDelete = [SELECT Id, Name FROM Custom_Object__c WHERE Name = :objName];
+        
+        // Check if query returned a result
+        if (objToDelete != null) {
+            // Use Database class to delete the custom object
+            Database.SaveResult result = Database.delete(objToDelete);
+            
+            // Check if delete was successful
+            if (!result.isSuccess()) {
+                System.debug(result.getErrors().get(0));
+            }
+        }
+    }
+}

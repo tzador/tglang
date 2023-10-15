@@ -1,0 +1,93 @@
+! This code snippet is a Fortran program to calculate the temporal and spatial derivatives of a scalar field using the Chebyshev spectral method
+program spectral_derivatives
+  implicit none
+
+  ! Declare variables
+  integer :: n, i, j
+  real(8), dimension(:), allocatable :: x, u, dudx, dudt, d2udx2
+  real(8), dimension(:, :), allocatable :: dudxdx
+
+  ! Initialize parameters
+  n = 1000 ! number of grid points
+
+  ! Allocate memory for arrays
+  allocate(x(n), u(n), dudx(n), dudt(n), d2udx2(n), dudxdx(n, n))
+
+  ! Define grid points
+  do i = 1, n
+    x(i) = cos( (n - i) * pi / n)
+  end do
+
+  ! Define initial condition
+  do i = 1, n
+    u(i) = exp(-x(i)**2 / 0.1)
+  end do
+
+  ! Calculate temporal and spatial derivatives
+  do j = 1, 100
+    ! Calculate temporal derivative
+    do i = 1, n
+      dudt(i) = -u(i) * (2.0 * x(i) / 0.1)
+    end do
+
+    ! Calculate spatial derivatives using Chebyshev recurrence relations
+    do i = 1, n
+      dudx(i) = 0.0 ! initialize derivative at each grid point
+
+      do k = 1, n-1
+        dudx(i) = dudx(i) + u(k) * (-k * chebyshev_coefficient(k, x(i)))
+      end do
+
+      dudx(i) = 2.0 * dudx(i) / (n - 1) ! normalize derivative
+    end do
+
+    ! Calculate second derivative using Chebyshev recurrence relations
+    do i = 1, n
+      d2udx2(i) = 0.0 ! initialize derivative at each grid point
+
+      do k = 1, n-1
+        d2udx2(i) = d2udx2(i) + u(k) * (-k * chebyshev_coefficient(k, x(i)))
+      end do
+
+      ! Calculate matrix of mixed derivatives using Chebyshev recurrence relations
+      do l = 1, n
+        dudxdx(i, l) = 0.0 ! initialize mixed derivative at each grid point
+
+        do k = 1, n-1
+          dudxdx(i, l) = dudxdx(i, l) + u(k) * (-k * chebyshev_coefficient(k, x(i)) * chebyshev_coefficient(k, x(l)))
+        end do
+
+        dudxdx(i, l) = 2.0 * dudxdx(i, l) / (n - 1) ! normalize mixed derivatives
+      end do
+
+      d2udx2(i) = 2.0 * d2udx2(i) / (n - 1)**2 ! normalize second derivative
+    end do
+
+    ! Update u for next time step using Euler's method
+    do i = 1, n
+      u(i) = u(i) + dudt(i) * dt ! dt is time step size
+    end do
+  end do
+
+  ! Deallocate memory for arrays
+  deallocate(x, u, dudx, dudt, d2udx2, dudxdx)
+
+contains
+
+  ! Function to calculate Chebyshev coefficients
+  function chebyshev_coefficient(k, x)
+    implicit none
+    integer, intent(in) :: k
+    real(8), intent(in) :: x
+    real(8) :: chebyshev_coefficient
+
+    if (k == 0) then
+      chebyshev_coefficient = 1.0
+    else if (k == 1) then
+      chebyshev_coefficient = x
+    else
+      chebyshev_coefficient = 2.0 * x * chebyshev_coefficient(k - 1, x) - chebyshev_coefficient(k - 2, x)
+    end if
+  end function chebyshev_coefficient
+
+end program spectral_derivatives

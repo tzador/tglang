@@ -1,0 +1,108 @@
+// Import the necessary libraries
+import "./Ownable.sol";
+import "./SafeMath.sol";
+
+// Define a contract called Auction
+contract Auction is Ownable {
+
+    using SafeMath for uint256; // Use SafeMath library for all mathematical operations
+
+    // Declare variables
+    enum AuctionState { Pending, Active, Ended, Cancelled }
+    AuctionState public state;
+    address payable public beneficiary;
+    uint256 public startTime;
+    uint256 public endTime;
+    uint256 public startPrice;
+    uint256 public buyoutPrice;
+    uint256 public currentBid;
+    address public currentBidder;
+    mapping(address => uint256) public pendingReturns;
+    bool public buyoutActivated;
+
+    // Event to be triggered when a bid is placed
+    event BidPlaced(address bidder, uint256 amount);
+
+    // Event to be triggered when an auction ends
+    event AuctionEnded(address winner, uint256 amount);
+
+    // Event to be triggered when an auction is cancelled
+    event AuctionCancelled();
+
+    // Constructor function to initialize the variables
+    constructor(
+        address payable _beneficiary,
+        uint256 _startTime,
+        uint256 _endTime,
+        uint256 _startPrice,
+        uint256 _buyoutPrice
+    ) public {
+        beneficiary = _beneficiary;
+        startTime = _startTime;
+        endTime = _endTime;
+        startPrice = _startPrice;
+        buyoutPrice = _buyoutPrice;
+        state = AuctionState.Pending;
+        buyoutActivated = false;
+    }
+
+    // Function to place a bid
+    function placeBid() public payable onlyOwner {
+        require(state == AuctionState.Active, "Auction not active"); // Check if the auction is currently active
+        require(msg.value > currentBid, "Bid is lower than current bid");
+        require(msg.value >= startPrice, "Bid is lower than start price");
+        currentBidder = msg.sender;
+        currentBid = msg.value;
+        emit BidPlaced(msg.sender, msg.value);
+    }
+
+    // Function to activate the buyout option
+    function activateBuyout() public onlyOwner {
+        require(state == AuctionState.Active, "Auction not active"); // Check if the auction is currently active
+        require(!buyoutActivated, "Buyout option already activated");
+        require(msg.sender == owner(), "Only owner can activate buyout"); // Check if the caller is the owner of the contract
+        buyoutActivated = true;
+    }
+
+    // Function to end the auction and declare the winner
+    function endAuction() public onlyOwner {
+        require(state != AuctionState.Ended, "Auction already ended"); // Check if the auction has already ended
+        require(state == AuctionState.Cancelled || now >= endTime, "Auction not ended"); // Check if the auction has been cancelled or it is after the end time
+        if (buyoutActivated && currentBid >= buyoutPrice) { // Check if the buyout option is activated and current bid is greater than or equal to the buyout price
+            beneficiary.transfer(address(this).balance); // Transfer full balance to beneficiary
+            emit AuctionEnded(currentBidder, currentBid);
+        } else if (!buyoutActivated && currentBid > 0) { // Check if buyout option is not activated and current bid is greater than 0
+            pendingReturns[currentBidder] = currentBid; // Set current bidder's pending return to current bid amount
+            emit AuctionCancelled();
+        }
+        state = AuctionState.Ended; // Change the state to ended
+    }
+
+    // Function to withdraw pending returns
+    function withdraw() public returns (bool) {
+        uint256 amount = pendingReturns[msg.sender]; // Get the pending return amount for the caller
+        if (amount > 0) { // Check if amount is greater than 0
+            pendingReturns[msg.sender] = 0; // Set pending return to 0
+            if (!msg.sender.send(amount)) { // Send the amount to the caller
+                pendingReturns[msg.sender] = amount; // If sending fails, set pending return back to original amount
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Function to extend the end time of the auction
+    function extendEndTime(uint256 newEndTime) public onlyOwner {
+        require(state == AuctionState.Active, "Auction not active"); // Check if the auction is currently active
+        require(newEndTime > endTime, "New end time must be after current end time");
+        endTime = newEndTime;
+    }
+
+    // Function to cancel the auction
+    function cancelAuction() public onlyOwner {
+        require(state == AuctionState.Pending, "Auction not in pending state"); // Check if the auction is currently in the pending state
+        state = AuctionState.Cancelled; // Change the state to cancelled
+        pendingReturns[beneficiary] = startPrice; // Set the beneficiary's pending return to start price
+        emit AuctionCancelled();
+    }
+}

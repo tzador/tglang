@@ -1,0 +1,56 @@
+% This code snippet performs a Markov chain Monte Carlo simulation of a simple linear regression model.
+% The posterior distribution of the regression coefficients is sampled using the Metropolis-Hastings algorithm.
+% The data consists of 100 observations with 2 variables, x and y.
+% The prior distribution is assumed to be normal with mean 0 and precision 1.
+% The likelihood function is assumed to be normal with a known variance of 1.
+
+n = 100; % number of observations
+x = randn(n, 1); % generate random values for x variable
+y = 2*x + randn(n, 1); % generate response values using linear relationship with some noise
+
+% define the log-posterior function
+log_like = @(b) sum(-0.5*log(2*pi) - 0.5*(y - b(1) - b(2)*x).^2); % likelihood function
+log_prior = @(b) -0.5*b(1)^2 - 0.5*b(2)^2; % prior distribution
+
+% initialize initial values for regression coefficients and MCMC loop
+beta0 = [0; 0]; % initial values for beta_0 and beta_1
+N = 10000; % number of iterations
+betas = nan(N, 2); % preallocate matrix for storing posterior samples
+accept = 0; % initialize accept count
+
+% perform Metropolis-Hastings algorithm
+for ii = 1:N
+    % proposal step
+    beta1 = beta0 + [randn; randn]; % proposal from normal distribution
+    % compute log-acceptance probability
+    log_alpha = log_like(beta1) + log_prior(beta1) - log_like(beta0) - log_prior(beta0);
+    % accept/reject step
+    if log(rand) < log_alpha
+        beta0 = beta1; % accept proposed value
+        accept = accept + 1; % increment accept count
+    end
+    % store beta values
+    betas(ii, :) = beta0;
+end
+
+% calculate acceptance rate
+accept_rate = accept / N;
+
+% plot posterior distribution of beta_0
+figure; % create new figure
+histogram(betas(:, 1)); % plot histogram of beta_0 values
+xlabel('\beta_0'); % set x-axis label
+ylabel('frequency'); % set y-axis label
+
+% plot posterior distribution of beta_1
+figure; % create new figure
+histogram(betas(:, 2)); % plot histogram of beta_1 values
+xlabel('\beta_1'); % set x-axis label
+ylabel('frequency'); % set y-axis label
+
+% calculate 95% credible interval for beta_0 and beta_1
+betas_sort = sort(betas); % sort beta values for each iteration
+beta0_lower = betas_sort(round(0.025*N), 1); % lower bound for beta_0
+beta0_upper = betas_sort(round(0.975*N), 1); % upper bound for beta_0
+beta1_lower = betas_sort(round(0.025*N), 2); % lower bound for beta_1
+beta1_upper = betas_sort(round(0.975*N), 2); % upper bound for beta_1

@@ -1,0 +1,57 @@
+-- Annotated code snippet in ELM
+module Main exposing (..)
+
+import Html exposing (Html, text)
+import Http
+import Json.Decode exposing (Decoder)
+
+type alias User =
+    { name : String
+    , age : Int
+    , address : String
+    }
+
+-- Create a decoder to decode JSON data into a User record
+userDecoder : Decoder User
+userDecoder =
+    Json.Decode.map3 User
+        (Json.Decode.field "name" Json.Decode.string)
+        (Json.Decode.field "age" Json.Decode.int)
+        (Json.Decode.field "address" Json.Decode.string)
+
+-- Define an Http request to get user data
+getUser : Http.Request User
+getUser =
+    Http.get
+        { url = "https://exampleapi.com/users"
+        , expect = Http.expectJson userDecoder
+        }
+
+-- Send the request and handle the response with a function
+getUserData : Cmd Msg
+getUserData =
+    Http.send GetUser (GetUserResponse >> HandleResponse)
+
+-- Define a Msg type to handle the response
+type Msg
+    = GetUserResponse (Result Http.Error User)
+
+-- Define a function to handle the response
+handleResponse : Result Http.Error User -> Msg
+handleResponse result =
+    case result of
+        Ok user ->
+            -- Display the user's name in an HTML element
+            Html.text ("Welcome, " ++ user.name ++ "!")
+        Err error ->
+            -- Display an error message in an HTML element
+            Html.text ("Error: " ++ error)
+
+-- Create the main ELM program
+main : Program () Model Msg
+main =
+    Html.beginnerProgram
+        { model = ()
+        , view = (\_ -> Html.text "Loading user data...")
+        , update = (\msg _model -> ((), getUserData))
+        }

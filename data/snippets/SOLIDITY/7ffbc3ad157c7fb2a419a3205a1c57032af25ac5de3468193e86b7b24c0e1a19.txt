@@ -1,0 +1,195 @@
+// This contract implements a bank system with security measures based on the principles of SOLIDITY
+// Principle 1: Single Responsibility
+// Principle 2: Open-Closed
+// Principle 3: Liskov Substitution
+// Principle 4: Interface Segregation
+// Principle 5: Dependency Inversion
+
+// Interface for managing users
+interface UserManagement {
+    function addUser(address _user) external returns (bool);
+    function removeUser(address _user) external returns (bool);
+    function verifyUser(address _user) external view returns (bool);
+}
+
+// Interface for managing transactions
+interface TransactionManagement {
+    function deposit(address _user, uint256 _amount) external returns (bool);
+    function withdraw(address _user, uint256 _amount) external returns (bool);
+    function transfer(address _sender, address _receiver, uint256 _amount) external returns (bool);
+}
+
+// Contract for managing bank users
+contract BankUsers is UserManagement {
+
+    // Only bank admin can add or remove users
+    address private admin;
+
+    // Mapping to keep track of users
+    mapping (address => bool) private users;
+
+    // Modifier to restrict functions to only admin
+    modifier onlyAdmin() {
+        require(msg.sender == admin, "Only the bank admin can perform this action");
+        _;
+    }
+
+    // Constructor to set admin upon deployment
+    constructor () {
+        admin = msg.sender;
+    }
+
+    // Function to add a new user to the bank
+    function addUser(address _user) external override onlyAdmin returns (bool) {
+        users[_user] = true;
+        return true;
+    }
+
+    // Function to remove an existing user from the bank
+    function removeUser(address _user) external override onlyAdmin returns (bool) {
+        users[_user] = false;
+        return true;
+    }
+
+    // Function to verify if a user is registered with the bank
+    function verifyUser(address _user) external override view returns (bool) {
+        return users[_user];
+    }
+}
+
+// Contract for managing user transactions
+contract BankTransactions is TransactionManagement {
+
+    // Only bank users can deposit, withdraw or transfer
+    BankUsers private bankUsers;
+
+    // Modifier to restrict functions to only bank users
+    modifier onlyBankUser() {
+        require(bankUsers.verifyUser(msg.sender), "You are not registered as a bank user");
+        _;
+    }
+
+    // Constructor to set bankUsers contract address upon deployment
+    constructor (address _bankUsersAddress) {
+        bankUsers = BankUsers(_bankUsersAddress);
+    }
+
+    // Function to deposit funds into bank account
+    function deposit(address _user, uint256 _amount) external override onlyBankUser returns (bool) {
+        require(_amount > 0, "Amount must be greater than 0");
+        // Deposit amount into bank account
+        return true;
+    }
+
+    // Function to withdraw funds from bank account
+    function withdraw(address _user, uint256 _amount) external override onlyBankUser returns (bool) {
+        require(_amount > 0, "Amount must be greater than 0");
+        // Withdraw amount from bank account if balance is sufficient
+        return true;
+    }
+
+    // Function to transfer funds from one bank account to another
+    function transfer(address _sender, address _receiver, uint256 _amount) external override onlyBankUser returns (bool) {
+        require(_amount > 0, "Amount must be greater than 0");
+        // Transfer amount from sender's bank account to receiver's bank account if balance is sufficient
+        return true;
+    }
+}
+
+// Contract for implementing a secure bank system based on SOLIDITY principles
+contract Bank is UserManagement, TransactionManagement {
+
+    // Only admin can manage bank users and transactions
+    address private admin;
+
+    // Contract for managing bank users
+    BankUsers private bankUsers;
+
+    // Contract for managing user transactions
+    BankTransactions private bankTransactions;
+
+    // Modifier to restrict functions to only admin
+    modifier onlyAdmin() {
+        require(msg.sender == admin, "Only the bank admin can perform this action");
+        _;
+    }
+    
+    // Constructor to set admin and contract addresses upon deployment
+    constructor (address _bankUsersAddress, address _bankTransactionsAddress) {
+        admin = msg.sender;
+        bankUsers = BankUsers(_bankUsersAddress);
+        bankTransactions = BankTransactions(_bankTransactionsAddress);
+    }
+
+    // Functions for managing bank users
+    function addUser(address _user) external override onlyAdmin returns (bool) {
+        return bankUsers.addUser(_user);
+    }
+
+    function removeUser(address _user) external override onlyAdmin returns (bool) {
+        return bankUsers.removeUser(_user);
+    }
+
+    function verifyUser(address _user) external override view returns (bool) {
+        return bankUsers.verifyUser(_user);
+    }
+
+    // Functions for managing transactions
+    function deposit(address _user, uint256 _amount) external override returns (bool) {
+        return bankTransactions.deposit(_user, _amount);
+    }
+
+    function withdraw(address _user, uint256 _amount) external override returns (bool) {
+        return bankTransactions.withdraw(_user, _amount);
+    }
+
+    function transfer(address _sender, address _receiver, uint256 _amount) external override returns (bool) {
+        return bankTransactions.transfer(_sender, _receiver, _amount);
+    }
+}
+
+// Client contract for interacting with the bank system
+contract Client {
+    
+    address private bankAddress;
+    Bank private bank;
+
+    // Constructor to set bank contract address upon deployment
+    constructor (address _bankAddress) {
+        bankAddress = _bankAddress;
+        bank = Bank(bankAddress);
+    }
+
+    // Functions for bank users
+    function registerUser() external returns (bool) {
+        // Add user to bank system using user's address as parameter
+        return bank.addUser(msg.sender);
+    }
+
+    function withdrawFunds(uint256 _amount) external returns (bool) {
+        // Withdraw specified amount from bank account
+        return bank.withdraw(msg.sender, _amount);
+    }
+
+    function transferFunds(address _receiver, uint256 _amount) external returns (bool) {
+        // Transfer specified amount from sender's bank account to receiver's bank account
+        return bank.transfer(msg.sender, _receiver, _amount);
+    }
+
+    // Functions for bank admin
+    function addNewUser(address _user) external returns (bool) {
+        // Only bank admin can add new users to the bank system
+        return bank.addUser(_user);
+    }
+
+    function removeUser(address _user) external returns (bool) {
+        // Only bank admin can remove users from the bank system
+        return bank.removeUser(_user);
+    }
+
+    // Function for checking user's bank account balance
+    function checkBalance() external view returns (uint256) {
+        // Function to retrieve user's balance from bank system
+        return 0;
+    }
+}

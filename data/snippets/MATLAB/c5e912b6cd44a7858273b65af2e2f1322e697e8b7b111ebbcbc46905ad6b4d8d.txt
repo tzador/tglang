@@ -1,0 +1,83 @@
+%% Image Processing Code
+% This code snippet performs basic image processing operations in MATLAB
+% Import image from file
+img = imread('image.jpg');
+
+% Convert image to grayscale
+gray_img = rgb2gray(img);
+
+% Dilate image to enhance edges
+se = strel('disk', 2);
+dilated_img = imdilate(gray_img, se);
+
+% Apply a Gaussian filter to smooth the image
+gauss_img = imgaussfilt(dilated_img, 1);
+
+% Threshold image to create a binary mask
+threshold = graythresh(gauss_img);
+mask = imbinarize(gauss_img, threshold);
+
+% Find contours in the image
+contours = bwboundaries(mask);
+
+% Loop through each contour
+for i = 1:length(contours)
+    % Get coordinates of the contour
+    coordinates = contours{i};
+    
+    % Calculate the centroid of the contour
+    x = coordinates(:,2);
+    y = coordinates(:,1);
+    centroid_x = sum(x)/length(x);
+    centroid_y = sum(y)/length(y);
+    
+    % Crop the image around the centroid
+    cropped_img = imcrop(img, [centroid_x-50, centroid_y-50, 100, 100]);
+    
+    % Convert cropped image to black and white
+    bw_img = im2bw(cropped_img, 0.5);
+    
+    % Perform morphological operations on the image
+    se = strel('disk', 1);
+    opened_img = imopen(bw_img, se);
+    
+    % Find connected components in the image and label them
+    labeled_img = bwlabel(opened_img);
+    
+    % Calculate the area and eccentricity of each connected component
+    stats = regionprops(labeled_img, 'Area', 'Eccentricity');
+    
+    % Check if the component is a circle (eccentricity < 0.2) and has
+    % an area greater than 200 pixels
+    for j = 1:length(stats)
+        if stats(j).Eccentricity < 0.2 && stats(j).Area > 200
+            % Get the coordinates of the centroid of the component
+            centroid = stats(j).Centroid;
+            
+            % Plot a red circle on the original image at the centroid
+            hold on;
+            plot(centroid(1), centroid(2), 'r.', 'MarkerSize', 20);
+            hold off;
+        end
+    end
+end
+
+% Display the original image with marked circles
+imshow(img);
+title('Circle detection');
+
+% Save the modified image to a file
+imwrite(img, 'modified_image.jpg');
+
+% Inverse the image
+inverted_img = imcomplement(img);
+
+% Add a border to the image
+bordered_img = padarray(inverted_img, [20, 20], 'symmetric');
+
+% Rotate the image
+rotated_img = imrotate(bordered_img, 45, 'nearest');
+
+% Display the rotated image
+figure, imshow(rotated_img);
+title('Rotated image');

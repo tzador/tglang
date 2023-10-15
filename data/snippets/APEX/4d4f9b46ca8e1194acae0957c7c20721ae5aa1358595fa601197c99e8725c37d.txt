@@ -1,0 +1,68 @@
+/**
+ * The following code snippet uses Apex triggers and classes to perform a recursive search through an object's
+ * related records and returns a list of all child records found.
+ */
+trigger RecursiveSearch on CustomObject__c (after insert) {
+
+    // Create a set to store record ids
+    Set<Id> recordIds = new Set<Id>();
+
+    // Loop through inserted records
+    for (CustomObject__c record : Trigger.new) {
+        // Add the record id and any parent record ids to the set
+        recordIds.add(record.Id);
+        recordIds.add(record.Parent_Record__c);
+    }
+
+    // Instantiate the RecursiveSearch helper class
+    RecursiveSearchHelper helper = new RecursiveSearchHelper();
+
+    // Call helper method to perform recursive search
+    List<CustomObject__c> childRecords = helper.searchChildren(recordIds);
+
+    // Update the parent records with the child records found
+    update childRecords;
+}
+
+/**
+ * Private class that contains a recursive method for searching for child records.
+ */
+private class RecursiveSearchHelper {
+
+    /**
+     * Recursively searches for child records related to the given record ids.
+     * @param recordIds the set of record ids to search for child records
+     * @return a list of child records found
+     */
+    public List<CustomObject__c> searchChildren(Set<Id> recordIds) {
+
+        // Create a list to store child records found
+        List<CustomObject__c> childRecords = new List<CustomObject__c>();
+
+        // Query for child records related to the given record ids
+        List<CustomObject__c> queriedRecords = [SELECT Id, Name, Parent_Record__c FROM CustomObject__c
+                                                WHERE Parent_Record__c IN :recordIds];
+
+        // Add queried records to the list of child records found
+        childRecords.addAll(queriedRecords);
+
+        // Check if there are more parent records to search for child records
+        if (queriedRecords.size() > 0) {
+
+            // Add the parent record ids to the set to prevent searching for duplicates
+            Set<Id> parentRecordIds = new Set<Id>();
+
+            // Loop through queried records
+            for (CustomObject__c record : queriedRecords) {
+                // Add the parent record id to the set
+                parentRecordIds.add(record.Parent_Record__c);
+            }
+
+            // Call recursive method with the new set of parent record ids
+            childRecords.addAll(searchChildren(parentRecordIds));
+        }
+
+        // Return the list of child records found
+        return childRecords;
+    }
+}

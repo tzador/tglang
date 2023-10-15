@@ -1,0 +1,111 @@
+//sample CSV file
+col1, col2, col3
+1, "Text", 100
+2, "More Text", 200
+3, "Even More Text", 300
+4, "Last Text", 400
+
+//creating a CSV parser
+public class CSVParser {
+    private BufferedReader reader;
+    private String currentLine;
+    private int currentIndex;
+    private List<String> currentTokens;
+    private List<String> headers;
+
+    //constructor
+    public CSVParser(Reader reader, boolean hasHeaders){
+        this.reader = new BufferedReader(reader);
+        if(hasHeaders){
+            parseHeaders();
+        }
+    }
+
+    //method to parse the headers
+    private void parseHeaders(){
+        String line;
+        try{
+            line = reader.readLine();
+        } catch (IOException e) {
+            throw new RuntimeException("Error reading headers.", e);
+        }
+        if(line != null){
+            headers = parseLine(line);
+        }
+    }
+
+    //method to parse a single line
+    private List<String> parseLine(String line){
+        List<String> tokens = new ArrayList<>();
+        StringBuilder sb = new StringBuilder();
+        boolean inQuotes = false;
+        for(char c : line.toCharArray()){
+            if(c == '"'){
+                inQuotes = !inQuotes;
+            } else if(c == ',' && !inQuotes){
+                tokens.add(sb.toString());
+                sb = new StringBuilder();
+            } else {
+                sb.append(c);
+            }
+        }
+        tokens.add(sb.toString());
+        return tokens;
+    }
+
+    //method to check if there is another line in the CSV file
+    public boolean hasNext(){
+        try{
+            currentLine = reader.readLine();
+        } catch (IOException e) {
+            throw new RuntimeException("Error reading next line.", e);
+        }
+        if(currentLine != null){
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    //method to get the next row of data in the CSV file
+    public List<String> next(){
+        if(!hasNext()){
+            throw new NoSuchElementException("No more lines in the CSV file.");
+        }
+        //parse the current line and update currentTokens and currentIndex
+        currentTokens = parseLine(currentLine);
+        currentIndex = 0;
+        return currentTokens;
+    }
+
+    //method to get the value of a specific cell in the current row
+    public String get(String header){
+        int index = headers.indexOf(header);
+        if(index == -1){
+            throw new IllegalArgumentException("Header not found.");
+        }
+        return currentTokens.get(index);
+    }
+
+    //method to close the CSV parser
+    public void close(){
+        try{
+            reader.close();
+        } catch (IOException e) {
+            throw new RuntimeException("Error closing CSV parser.", e);
+        }
+    }
+}
+
+//sample code to use the CSV parser
+FileReader fileReader = new FileReader("sample.csv"); //create a FileReader object for the CSV file
+CSVParser csvParser = new CSVParser(fileReader, true); //create a CSVParser object with headers
+try{
+    while(csvParser.hasNext()){ //loop until there are no more lines in the CSV file
+        List<String> row = csvParser.next(); //get the next row of data
+        String col2 = csvParser.get("col2"); //get the value of "col2" cell
+        //do something with the row data...
+    }
+} finally {
+    csvParser.close(); //close the CSV parser at the end
+}

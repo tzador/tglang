@@ -1,0 +1,62 @@
+//Contract for creating a decentralized marketplace
+pragma solidity ^0.8.0;
+
+//Defining a struct for items to be sold
+struct Item {
+    string name;
+    uint price;
+    address seller;
+    bool sold;
+}
+
+//Creating a mapping for item ids to items
+mapping (uint => Item) items;
+
+//Defining a modifier to only allow the owner of the contract to perform certain actions
+modifier onlyOwner() {
+    require(msg.sender == owner, "Only the contract owner can perform this action");
+    _;
+}
+
+//Creating a contract for the marketplace
+contract Marketplace {
+    
+    //Defining variables
+    address payable public owner;
+    uint public numItems;
+    
+    //Defining events for tracking item and contract ownership changes
+    event ItemAdded(uint id, string name, uint price, address seller);
+    event ItemPurchased(uint id, string name, uint price, address buyer);
+    event OwnershipTransferred(address previousOwner, address newOwner);
+    
+    //Constructor function to set the contract owner
+    constructor() {
+        owner = payable(msg.sender);
+    }
+    
+    //Function to add a new item for sale
+    function addItem(string memory _name, uint _price) public {
+        numItems++; //Incrementing the number of items
+        items[numItems] = Item(_name, _price, msg.sender, false); //Adding the item to the mapping
+        emit ItemAdded(numItems, _name, _price, msg.sender); //Triggering the event
+    }
+    
+    //Function to purchase a specific item
+    function purchaseItem(uint _itemId) public payable {
+        require(items[_itemId].sold == false, "This item has already been sold"); //Checking if the item is still available for purchase
+        require(msg.value >= items[_itemId].price, "Insufficient funds for purchase"); //Checking if the user has enough funds
+        items[_itemId].seller.transfer(msg.value); //Transferring the funds to the seller
+        items[_itemId].sold = true; //Marking the item as sold
+        emit ItemPurchased(_itemId, items[_itemId].name, items[_itemId].price, msg.sender); //Triggering the event
+    }
+    
+    //Function to transfer ownership of the contract
+    function transferOwnership(address payable _newOwner) public onlyOwner {
+        require(_newOwner != address(0), "New owner cannot be the zero address"); //Ensuring the new owner address is valid
+        address payable previousOwner = owner;
+        owner = _newOwner; //Transferring ownership
+        emit OwnershipTransferred(previousOwner, _newOwner); //Triggering the event
+    }
+    
+}

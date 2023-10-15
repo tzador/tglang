@@ -1,0 +1,32 @@
+! This code snippet solves a stochastic optimization problem with a linear decision rule
+
+Set t "time period" /1*12/;
+Set s "scenarios" /1*3/;
+Alias(s,sx);
+Parameter
+    p(t) "price at time t"
+    PV(s) "probability of scenario s"
+    C(s,t) "cost in scenario s at time t";
+
+PV(s) = uniform(s, 0.3, 0.7);  // set probabilities as uniform distribution between 0.3 and 0.7
+C(s,t) = normal(s, t, 10);  // set costs as normal distribution with mean t and standard deviation of 10
+
+Variables
+    x(t) "decision variable"
+    z(s) "expected cost in scenario s";
+
+Positive Variable x;  // declare x as a positive variable
+Equations
+    obj "objective function"
+    constr(t) "decision rule constraints"
+    expcost(s) "expected cost constraints";
+
+obj.. sum(s, PV(s)*z(s)) =e= sum(s, PV(s)*x);  // set objective function to minimize expected cost
+
+constr(t).. x(t) =e= 1 + sum(s, PV(s)*C(s,t));  // set decision rule constraint to ensure non-negative solution for x
+expcost(s).. z(s) =e= sum(t, C(s,t)*x(t));  // set expected cost constraint for each scenario s
+
+Model stochastic_optimization /obj, constr, expcost/;
+Solve stochastic_optimization min z;
+
+Display x.l, z.l;  // display the optimal values for x and z

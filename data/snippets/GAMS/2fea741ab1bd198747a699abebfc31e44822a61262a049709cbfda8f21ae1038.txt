@@ -1,0 +1,55 @@
+*This code snippet solves a linear programming problem using the GAMS language*
+
+SETS       ! Sets and parameters 
+     i months /jan, feb, mar, apr, may/
+     j crops /wheat, corn, soybeans/
+     k soiltypes /loamy, sandy/
+     ;
+     
+PARAMETERS  ! Input data
+     cost(j) cost of crop per acre planted
+     yield(j) average bushels per acre planted
+     p(i,j) plantings possible in each month
+     req crop requirements for each crop
+     nreq not required for each crop
+     l(i,k) requires/(not)loamy soil
+     f soil factor(1,3) .9, .8, .1;
+     
+TABLE rth(i,j,k) req(n) i, j, k
+                jan $10*50, 20*70
+                feb $12*100
+                mar $8*100
+                apr $12*90
+                may $9*70;
+                
+VARIABLES  ! Decision variables
+     x(j) acres planted
+     z production per crop
+     wp total cost
+     ;
+     
+EQUATIONS  ! Define objective and constraints
+     obj function
+     lim resources limit
+     req satisfied
+     soil nutrient content
+     ;
+     
+obj.. wp =E=E= sum(i, month, (p(i,j)*cost(j)*x(j))+sum(i,j,1-nreq(j)*cost(j))-sum(i,j,k,1-rth(i,j,k)*cost(j)))
+;
+
+lim.. sum(j, x(j)) =E= 100;
+
+req sum(j, x(j)) =G= sum(j, crop req j);
+
+soil(i,1) ..sum(j, x(j)*l(i,1)*f(1)) =L= sum(j, x(j)*l(i,2)*f(2));
+soil(i,2) ..sum(j, x(j)*l(i,2)*f(2)) =L= sum(j, x(j)*l(i,3)*f(3));
+
+model lp /all/;
+
+lp.optfile = 1;
+solve lp using lp minimizing wp;
+
+parameter z(j) optimal acres, cost and production;
+display x.l, z.l
+;

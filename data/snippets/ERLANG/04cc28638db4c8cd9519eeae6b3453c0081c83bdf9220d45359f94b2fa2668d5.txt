@@ -1,0 +1,56 @@
+-module(chat_server).
+-export([start/0]).
+
+-include("chat_protocol.hrl").
+-include_lib("stdlib/include/qlc.hrl").
+
+%% Starts the chat server
+start() ->
+    {ok, Socket} = gen_tcp:listen(9000, [binary, {packet, 0}, {reuseaddr, true}, {active, false}]),
+    process_flag(trap_exit, true),
+    loop(Socket).
+
+%%
+%% Main server loop
+%%
+loop(Socket) ->
+    case gen_tcp:accept(Socket) of
+        {ok, ClientSocket} ->
+            spawn(?MODULE, handle_client, [ClientSocket]),
+            loop(Socket);
+        {error, closed} ->
+            ok
+    end.
+
+%%
+%% Client handling process
+%%
+handle_client(Socket) ->
+    process_flag(trap_exit, true),
+    loop(Socket).
+
+%%
+%% Reading messages from client
+%%
+loop(Socket) ->
+    case gen_tcp:recv(Socket, 0) of
+        {ok, Message} ->
+            handle_message(Socket, Message),
+            loop(Socket);
+        {error, closed} ->
+            gen_tcp:close(Socket),
+            ok
+    end.
+
+%%
+%% Handling different message types
+%%
+handle_message(Socket, Message) ->
+    case Message of
+        {chat_message, User, Text} ->
+            io:format("Received message '~s' from ~s~n", [Text, User]);
+        {join_notification, User} ->
+            io:format("~s has joined the chat~n", [User]);
+        {leave_notification, User} ->
+            io:format("~s has left the chat~n", [User])
+    end.

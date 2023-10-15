@@ -1,0 +1,48 @@
+/* This code snippet shows the use of a PROGRESS query and update statement to retrieve and change data from a database table. */
+
+/* Define a new query named 'qryCust' with an SQL select statement to retrieve the customer name and balance from the CUSTOMER table. */
+DEFINE QUERY qryCust FOR CUSTOMER,
+    SQL-STATEMENT = "SELECT NAME, BALANCE FROM CUSTOMER WHERE CUSTNUM = ?".
+    
+/* Define an UPDATE statement to change the balance of a specific customer in the CUSTOMER table. */
+DEFINE VARIABLE lBalUpdate AS LOGICAL NO-UNDO.
+lBalUpdate = TRUE.
+
+/* Start a database transaction. */
+START TRANSACTION ON ERROR UNDO, RETAIN.
+    
+/* Open the query and set the customer number parameter. */
+OPEN QUERY qryCust PRESELECTING 1234.
+
+/* Get the values from the query. */
+GET qryCust.
+
+/* Check if the customer has a balance higher than $1000. */
+IF qryCust.BALANCE > 1000 THEN DO:
+    /* Retrieve the customer name and balance from the query. */
+    ASSIGN 
+        CustomerName = qryCust.NAME
+        CustomerBalance = qryCust.BALANCE.
+        
+    /* Calculate the new balance by adding a $100 credit. */
+    UPDATE CUSTOMER SET BALANCE = BALANCE + 100 WHERE NAME = CustomerName.
+    
+    /* Check if the update was successful and commit the changes if it was. */
+    IF NUMBER-OF-ROWS > 0 THEN DO:
+        lBalUpdate = TRUE.
+    END.
+    ELSE DO:
+        /* If the update failed, rollback the changes. */
+        lBalUpdate = FALSE.
+        UNDO, RETAIN.
+    END.
+END.
+
+/* Close the query and commit the transaction. */
+CLOSE QUERY qryCust.
+DO TRANSACTION:
+    IF lBalUpdate = TRUE THEN DO:
+        /* If the transaction is successful, commit the changes. */
+        COMMIT TRANSACTION.
+    END.
+END.

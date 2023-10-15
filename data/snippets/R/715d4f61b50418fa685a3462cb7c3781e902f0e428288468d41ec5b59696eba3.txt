@@ -1,0 +1,42 @@
+# Linear Regression Model with Regularization
+
+# Load required libraries
+library(glmnet)
+library(dplyr)
+
+# Import dataset 
+data <- read.csv("dataset.csv")
+
+# Data preprocessing
+data <- data %>% # Pipe operator to connect data manipulation functions
+  filter(col1 != "NA" & col2 != "NA") %>% # Removing rows with missing values
+  select(col1, col2, col3) %>% # Selecting specific columns for model
+  scale() # Scaling the data for better model performance
+
+# Split data into train and test sets
+train <- sample(1:nrow(data), 0.7 * nrow(data), replace = FALSE) # Randomly select 70% of data for training
+x.train <- data[train, c("col1", "col2")] # Input variables for training
+y.train <- data[train, "col3"] # Output variable for training
+x.test <- data[-train, c("col1", "col2")] # Input variables for testing
+y.test <- data[-train, "col3"] # Output variable for testing
+
+# Fit the linear regression model with regularization
+fit <- glmnet(x.train, y.train, alpha = 1) # Set alpha = 1 for Lasso regularization
+cv.fit <- cv.glmnet(x.train, y.train, alpha = 1) # Perform cross validation to select optimal value of lambda
+
+# Plot cross validation results
+plot(cv.fit) # Visualize the cross validation results to select optimal lambda
+abline(v = log(cv.fit$lambda.min), col = "red") # Add a vertical line at the optimal lambda value
+
+# Make predictions on test set
+pred <- predict(fit, s = cv.fit$lambda.min, newx = x.test) # Use the optimal lambda value to predict on test set
+
+# Calculate evaluation metrics
+MAE <- mean(abs(y.test - pred)) # Mean Absolute Error
+MSE <- mean((y.test - pred)^2) # Mean Squared Error
+RMSE <- sqrt(MSE) # Root Mean Squared Error
+
+# Print results
+print(paste("MAE:", MAE))
+print(paste("MSE:", MSE))
+print(paste("RMSE:", RMSE))

@@ -1,0 +1,60 @@
+REPORT ztest_complex.
+
+* Test program to demonstrate complex ABAP code
+
+* Selection screen
+SELECTION-SCREEN BEGIN OF SCREEN 0100.
+PARAMETERS: p_matnr TYPE matnr MATCHCODE OBJECT mat1 OBLIGATORY,
+            p_werks TYPE werks DEFAULT ‘1000’ VALIDATION ws_werks,
+            p_date TYPE sy-datum OBLIGATORY.
+SELECTION-SCREEN END OF SCREEN 0100.
+
+* Declaration of internal table for output
+DATA: BEGIN OF gs_output,
+        matnr TYPE matnr,
+        werks TYPE werks,
+        changenum TYPE numc LENGTH 10,
+        date TYPE dats,
+      END OF gs_output.
+
+DATA gt_output TYPE TABLE OF gs_output.
+
+* Start of selection
+START-OF-SELECTION.
+
+* Retrieve data from database based on selection screen input
+SELECT matnr, werks, changenum, date
+  INTO TABLE gt_output
+  FROM zmaterial
+  WHERE matnr = p_matnr
+    AND werks = p_werks
+    AND date = p_date.
+
+* Define internal table for storing aggregated data
+DATA gt_materials TYPE TABLE OF zmaterial.
+
+* Loop through output table and aggregate data
+LOOP AT gt_output INTO gs_output.
+  * Check if material already exists in aggregated table
+  READ TABLE gt_materials WITH KEY matnr = gs_output-matnr
+    INTO DATA(ls_material).
+  IF sy-subrc <> 0.
+    * Material doesn't exist, add it to aggregated table
+    ls_material-matnr = gs_output-matnr.
+    INSERT ls_material INTO TABLE gt_materials.
+  ELSE.
+    * Material exists, update data in aggregated table
+    ls_material-changenum = ls_material-changenum + gs_output-changenum.
+    ls_material-date = gs_output-date.
+    MODIFY gt_materials FROM ls_material INDEX sy-tabix.
+  ENDIF.
+ENDLOOP.
+
+* Sort aggregated table by material number
+SORT gt_materials BY matnr.
+
+* Output data on list
+WRITE: / ‘Material’, 20 ‘Plant’, 10 ‘Change Number’, 15 ‘Date’.
+LOOP AT gt_materials INTO ls_material.
+  WRITE: / ls_material-matnr, 20 ls_material-werks, 10 ls_material-changenum, 15 ls_material-date.
+ENDLOOP.

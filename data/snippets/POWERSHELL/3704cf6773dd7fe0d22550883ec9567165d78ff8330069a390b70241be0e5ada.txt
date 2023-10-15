@@ -1,0 +1,37 @@
+# This code snippet uses PowerShell to perform disk cleanup and remove temporary files
+# Import the module for disk cleanup
+Import-Module Storage
+
+# Define an array of temporary file paths to be removed
+$TempFiles = @("C:\Users\Username\AppData\Local\Temp", "C:\Windows\Temp", "C:\Temp")
+
+# Loop through each path and remove temporary files
+Foreach ($Path in $TempFiles) {
+    # Get a list of temporary files in the path
+    $Files = Get-ChildItem $Path -Recurse | Where-Object {$_.Attributes -like "*Temporary*"}
+
+    # Loop through each file and remove it
+    ForEach ($File in $Files) {
+        Remove-Item $File.FullName -Force -Recurse
+
+        # If the file still exists, try terminating any processes using it (e.g. open files)
+        if (Test-Path $File.FullName) {
+            # Try to terminate any processes using the file
+            try {
+                Stop-Process -Force -ErrorAction Stop -InputObject (Get-Process)
+            } catch {
+                # Catch the error and continue with the loop
+            }
+
+            # Remove the file again
+            Remove-Item $File.FullName -Force -Recurse
+        }
+    }
+}
+
+# Run disk cleanup to remove additional system and user temporary files
+Clear-RecycleBin
+Clear-TemporaryFiles
+
+# Display a message to indicate that cleanup is complete
+Write-Host "Disk cleanup and temporary file removal completed!"

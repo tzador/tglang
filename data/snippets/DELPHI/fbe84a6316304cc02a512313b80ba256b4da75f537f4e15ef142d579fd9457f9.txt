@@ -1,0 +1,186 @@
+unit MainForm;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
+  Menus, StdCtrls, ComCtrls, ExtCtrls;
+
+type
+  TMainForm = class(TForm)
+    MainMenu1: TMainMenu;
+    File1: TMenuItem;
+    New1: TMenuItem;
+    Open1: TMenuItem;
+    Save1: TMenuItem;
+    SaveAs1: TMenuItem;
+    Edit1: TMenuItem;
+    Undo1: TMenuItem;
+    Redo1: TMenuItem;
+    N1: TMenuItem;
+    SelectAll1: TMenuItem;
+    View1: TMenuItem;
+    StatusBar1: TMenuItem;
+    Toolbar1: TMenuItem;
+    RichEdit1: TRichEdit;
+    procedure RichEdit1Change(Sender: TObject);
+    procedure RichEdit1MouseUp(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
+    procedure File1Click(Sender: TObject);
+    procedure Edit1Click(Sender: TObject);
+    procedure View1Click(Sender: TObject);
+    procedure FormActivate(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  MainForm: TMainForm;
+
+implementation
+
+{$R *.DFM}
+
+procedure TMainForm.File1Click(Sender: TObject);
+begin
+  { Handle file menu clicks }
+  case TMenuItem(Sender).MenuIndex of
+    0:  begin
+          { New menu item clicked }
+          if (RichEdit1.Modified) and (MessageDlg('Do you want to save changes?',
+                mtConfirmation, [mbYes, mbNo], 0) = mrYes) then
+            begin
+              Save1Click(Self);
+            end
+          else
+            begin
+              { Clear the rich edit control }
+              RichEdit1.Clear;
+              { Set the caption to include an asterisk }
+              Caption := 'Untitled*';
+              { Reset the modified state }
+              RichEdit1.Modified := False;
+            end;
+        end;
+    1:  begin
+          { Open menu item clicked }
+          if RichEdit1.Modified then
+            { If the rich edit control has been modified, prompt the user to save changes }
+            if MessageDlg('Do you want to save changes?', mtConfirmation,
+                  [mbYes, mbNo], 0) = mrYes then
+              begin
+                Save1Click(Self);
+              end;
+          { Prompt the user for a file to open }
+          if OpenDialog1.Execute then
+            begin
+              { Load the selected file into the rich edit control }
+              RichEdit1.Lines.LoadFromFile(OpenDialog1.FileName);
+              { Set the caption to include the file name }
+              Caption := ExtractFileName(OpenDialog1.FileName);
+              { Reset the modified state }
+              RichEdit1.Modified := False;
+            end;
+        end;
+    2:  Save1Click(Self);
+    3:  begin
+          { Save As menu item clicked }
+          if SaveDialog1.Execute then
+            begin
+              { Save the rich edit control's contents to the selected file }
+              RichEdit1.Lines.SaveToFile(SaveDialog1.FileName);
+              { Set the caption to include the file name }
+              Caption := ExtractFileName(SaveDialog1.FileName);
+              { Reset the modified state }
+              RichEdit1.Modified := False;
+            end;
+        end;
+  end;
+end;
+
+procedure TMainForm.Edit1Click(Sender: TObject);
+begin
+  { Handle edit menu clicks }
+  case TMenuItem(Sender).MenuIndex of
+    0: Undo1Click(Self);
+    1: Redo1Click(Self);
+    3: RichEdit1.Perform(EM_UNDO,0,0);
+    4: RichEdit1.Perform(EM_REDO,0,0);
+    6: RichEdit1.CopyToClipboard;
+    7: Redo1.Click;
+    8: Redo1.Click;
+    9: PasteItem.Click;
+    10: RichEdit1.ClearSelection;
+    11: SelectAll1.Click;
+    13: PopupMenu1.Popup(Mouse.CursorPos.X, Mouse.CursorPos.Y);
+  end;
+end;
+
+procedure TMainForm.View1Click(Sender: TObject);
+begin
+  { Handle view menu clicks }
+  case TMenuItem(Sender).MenuIndex of
+    0: StatusBar1Click(Sender);
+    1: Toolbar1Click(Sender);
+  end;
+end;
+
+procedure TMainForm.FormActivate(Sender: TObject);
+begin
+  { Set the focus to the rich edit control }
+  RichEdit1.SetFocus;
+end;
+
+procedure TMainForm.FormCreate(Sender: TObject);
+begin
+  { Initialize the save dialog }
+  SaveDialog1.InitialDir := ExtractFilePath(Application.ExeName);
+  SaveDialog1.DefaultExt := 'rtf';
+  SaveDialog1.Filter := 'Rich Text Format (*.RTF)|*.RTF|All Files (*.*)|*.*';
+  { Initialize the open dialog }
+  OpenDialog1.InitialDir := SaveDialog1.InitialDir;
+  OpenDialog1.DefaultExt := SaveDialog1.DefaultExt;
+  OpenDialog1.Filter := SaveDialog1.Filter;
+end;
+
+procedure TMainForm.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+  { If the rich edit control has been modified, prompt the user to save changes on close }
+  if RichEdit1.Modified then
+    if MessageDlg('Do you want to save changes?', mtConfirmation,
+          [mbYes, mbNo], 0) = mrYes then
+      begin
+        Save1Click(Self);
+      end;
+end;
+
+procedure TMainForm.RichEdit1Change(Sender: TObject);
+begin
+  { Set the modified state to True }
+  RichEdit1.Modified := True;
+  { Check if the caption already includes an asterisk, if not, add one }
+  if Pos('*', Caption) = 0 then
+    Caption := Caption + '*';
+end;
+
+procedure TMainForm.RichEdit1MouseUp(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+var
+  CharPos: Word;
+begin
+  { Retrieve the current character position }
+  CharPos := RichEdit1.GetCharIndexAtMouse;
+  { Move the caret to the current character position }
+  RichEdit1.SelStart := CharPos;
+  { Set the caption to include the current line number }
+  StatusBar1.Panels[1].Text := 'Line: ' + IntToStr(SendMessage(RichEdit1.Handle,
+      EM_EXLINEFROMCHAR, 0, RichEdit1.SelStart) + 1) +
+    ' Column: ' + IntToStr(SendMessage(RichEdit1.Handle, WM_USER + 53, 0, 0)
+    - RichEdit1.SelStart) + ' ';
+end;
+
+end.

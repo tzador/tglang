@@ -1,0 +1,53 @@
+user www-data;
+worker_processes 4; # sets the number of worker processes
+pid /run/nginx.pid; # sets the location of the PID file
+
+events { # events block, used for configuring various event-related settings
+    worker_connections 768; # sets the maximum number of connections per worker process
+}
+
+http { # http block, used for configuring various HTTP settings
+    include /etc/nginx/mime.types; # sets the file that defines MIME types
+    default_type application/octet-stream; # sets the default MIME type
+
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"'; # sets the log format
+
+    access_log /var/log/nginx/access.log main; # sets the location and log format for access logs
+
+    sendfile on; # enables sending of files
+    tcp_nopush on; # enables optimization of the data transfer process
+    tcp_nodelay on; # disables Nagle's algorithm for small packets
+
+    keepalive_timeout 65; # sets the number of seconds that a connection will be kept alive
+    types_hash_max_size 2048; # sets the maximum size of the types hash table
+    server_tokens off; # disables displaying of server version in error pages
+
+    # gzip block, used for configuring compression settings
+    gzip on; # enables gzip compression
+    gzip_disable "msie6"; # disables gzip compression for older browsers
+    gzip_vary on; # enables sending of Vary header to indicate that the content may vary based on user-agent
+    gzip_proxied any; # enables gzip compression for any requests from upstream servers
+    gzip_comp_level 6; # sets the compression level
+    gzip_buffers 16 8k; # sets the number and size of buffers used for gzip compression
+    gzip_http_version 1.1; # sets the minimal HTTP version required for gzip compression
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript image/svg+xml; # sets the MIME types that will be compressed
+
+    # server block, used for configuring server-specific settings
+    server {
+        listen 80 default_server; # sets the port and server name
+        listen [::]:80 default_server;
+        server_name _; # catches all server names that do not match any other server names
+        root /var/www/html; # sets the root directory for the server
+        index index.html; # sets the default file to be served
+        location / {
+            try_files $uri $uri/ =404; # sets how nginx handles non-existent files
+        }
+        error_page 404 /404.html; # sets the page to be displayed for 404 errors
+        error_page 500 502 503 504 /50x.html; # sets the page to be displayed for 5xx errors
+        location = /50x.html {
+            root /usr/share/nginx/html; # sets the root directory for the 50x error page
+        }
+    }
+}

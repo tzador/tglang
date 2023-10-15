@@ -1,0 +1,65 @@
+/* This code snippet generates a report of employee sales data
+   using a nested query and CASE statement for conditional formatting. */
+
+/* Declare variables */
+DEFINE VARIABLE i AS INTEGER NO-UNDO.
+DEFINE VARIABLE j AS INTEGER NO-UNDO.
+DEFINE VARIABLE empNum AS INTEGER NO-UNDO.
+DEFINE VARIABLE empName AS CHARACTER NO-UNDO.
+
+/* Create a temp-table to hold employee and sales data */
+DEFINE TEMP-TABLE ttSales
+    FIELD empNum AS INTEGER
+    FIELD empName AS CHARACTER
+    FIELD year AS INTEGER
+    FIELD month AS INTEGER
+    FIELD totalSales AS DECIMAL.
+
+/* Populate temp-table with sales data */
+CREATE ttSales.
+ASSIGN
+    ttSales.empNum = 123
+    ttSales.empName = "John Smith"
+    ttSales.year = 2019
+    ttSales.month = 8
+    ttSales.totalSales = 50000
+    ttSales.empNum = 456
+    ttSales.empName = "Jane Doe"
+    ttSales.year = 2019
+    ttSales.month = 8
+    ttSales.totalSales = 40000
+    ttSales.empNum = 789
+    ttSales.empName = "Bob Johnson"
+    ttSales.year = 2019
+    ttSales.month = 9
+    ttSales.totalSales = 60000.
+
+/* Generate report header */
+DISPLAY "Employee Sales Report for " ttSales.month "/" ttSales.year
+    WITH FRAME fReport.
+
+/* Create nested query to group by month and year, and sum total sales */
+FOR EACH ttSales 
+    BREAK BY ttSales.month BY ttSales.year:
+    FOR EACH ttSales WHERE ttSales.month = FIRST(ttSales.month) AND ttSales.year = FIRST(ttSales.year)
+        BREAK BY ttSales.empNum BY ttSales.empName:
+        DISPLAY "Employee: " ttSales.empNum " - " ttSales.empName SKIP
+            "Total Sales for " ttSales.month "/" ttSales.year ": " (SUM(ttSales.totalSales)) WITH(12) "TOTAL-SALES"
+            WITH CENTERED FRAME fData.
+        DOWN.
+    DOWN.
+    DISPLAY FRAME fData.
+
+/* Create CASE statement to format total sales based on different ranges */
+CASE ttSales.totalSales WHEN < 50000 THEN
+    DISPLAY EVENT ttSales.break SKIP "Sales below expectations."
+    IN INCOMPLETE-SELECTION STATE SELECT-DELETE LAST-EVENT.
+WHEN > 50000 AND <? ttSales.totalSales THEN
+    DISPLAY EVENT ttSales.break SKIP "Sales on track."
+    IN COMPLETE-SELECTION STATE SELECT-LAST EVENT.
+OTHERWISE
+    DISPLAY EVENT ttSales.break SKIP "Sales above expectations."
+    IN COMPLETE-SELECTION STATE SELECT-FIRST EVENT.
+
+/* Generate report footer */
+DISPLAY "End of report." WITH FRAME fReport.

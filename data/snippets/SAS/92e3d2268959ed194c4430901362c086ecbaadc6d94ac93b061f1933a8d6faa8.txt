@@ -1,0 +1,50 @@
+/* This is a complex code snippet in SAS that performs data cleaning and analysis */
+
+/* Set up data library */
+libname data '/mydata';
+
+/* Import and format raw data */
+data rawdata;
+infile 'raw_data.csv' dlm=',' lrecl=32767 firstobs=2;
+input @1 ID $char8.
+      @11 Name $char25.
+      @36 Gender $char7.
+      @44 Age 3.
+      @48 Weight 8.
+      @57 Height 8.
+      @66 State $char2.
+;
+format Age 3. Weight 8. Height 8.;
+run;
+
+/* Remove duplicates and missing values */
+proc sort data=rawdata out=cleaned_data nodupkey;
+by ID;
+where not missing(Name) and not missing(Age) and not missing(Weight) and not missing(Height);
+run;
+
+/* Calculate BMI for each individual */
+data bmi_data;
+set cleaned_data;
+BMI = Weight / ((Height/100)*(Height/100));
+run;
+
+/* Group individuals by state and calculate average age and BMI */
+proc means data=bmi_data noprint;
+class State;
+var Age BMI;
+output out=state_avg(keep=State Mean_Age Mean_BMI) mean=;
+run;
+
+/* Generate plots of BMI distribution and average age by state */
+proc sgplot data=bmi_data;
+histogram BMI;
+run;
+
+proc sgplot data=state_avg;
+vbar State / response=Mean_Age;
+run;
+
+/* Export data to Excel file */
+proc export data=state_avg outfile='/mydata/state_stats.xlsx' dbms=xlsx replace;
+run;

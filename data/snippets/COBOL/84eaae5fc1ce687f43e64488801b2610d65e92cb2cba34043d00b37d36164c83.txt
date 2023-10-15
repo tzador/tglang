@@ -1,0 +1,59 @@
+IDENTIFICATION DIVISION.                        * Identification division starts the COBOL program
+PROGRAM-ID. CUSTOMER-REPORT.                    * Program name is CUSTOMER-REPORT
+AUTHOR. JOHN DOE.                               * Author of the program
+DATE-WRITTEN. APRIL 01, 2021.                   * Date the program was written
+ENVIRONMENT DIVISION.                           * Environment division describes the system
+INPUT-OUTPUT SECTION.                           * Input-output section defines the files
+FILE-CONTROL.                                   * File control for handling files in program
+    SELECT CUSTOMER-FILE ASSIGN TO "CUSTFILE".   * Selects the customer file and assigns it to CUSTFILE
+    SELECT INVOICE-FILE ASSIGN TO "INVFILE".     * Selects the invoice file and assigns it to INVFILE
+DATA DIVISION.                                  * Data division describes the data to be used
+FILE SECTION.                                   * File section defines the customer and invoice files
+    FD CUSTOMER-FILE                            * File descriptor for customer file
+    01 CUSTOMER-RECORD.                         * Customer record includes name, address, and id number
+        02 NAME PIC X(20).                      * Customer name field, 20 characters in length
+        02 ADDRESS PIC X(30).                   * Customer address field, 30 characters in length
+        02 ID PIC 9(5).                         * Customer id field, 5 digits in length
+    FD INVOICE-FILE                             * File descriptor for invoice file
+    01 INVOICE-RECORD.                          * Invoice record includes date, customer id, and amount
+        02 DATE PIC X(8).                       * Invoice date field, 8 characters in length
+        02 CUST-ID PIC 9(5).                    * Customer id field, 5 digits in length
+        02 AMOUNT PIC 9(6)V99.                  * Invoice amount field, 6 digits before decimal and 2 after
+WORKING-STORAGE SECTION.                        * Working-storage section for temporary variables
+    01 TOTAL-AMT PIC 9(8)V99.                   * Total amount of all invoices
+    01 CUST-TOTAL OCCURS 10 TIMES               * Array to store total amount for each customer
+        INDEXED BY C-INDEX.                     * Index to access each customer's total amount
+        02 CUST-ID PIC 9(5).                    * Customer id field, 5 digits in length
+        02 CUST-AMT PIC 9(8)V99.                * Total amount for customer, 8 digits before decimal and 2 after
+PROCEDURE DIVISION.                             * Procedure division contains program logic
+    OPEN INPUT CUSTOMER-FILE, INVOICE-FILE.     * Opens customer and invoice files for reading
+    READ CUSTOMER-FILE AT END GO TO END-OF-FILE. * Reads customer file until EOF
+    PERFORM UNTIL END-OF-FILE.                  * Loop until end-of-file is reached
+        ADD 1 TO C-INDEX.                       * Increment index for each customer
+        SET CUST-ID TO ID.                      * Set customer id to id field in customer record
+        SET CUST-AMT TO 0.                      * Set customer amount to 0
+        READ INVOICE-FILE INVALID KEY           * Reads invoice file for current customer
+            DISPLAY "NO INVOICES FOR CUSTOMER ".* Displays message if no invoices found
+            CUST-ID                             * Displays customer id
+            GO TO NEXT-RECORD.                  * Skips to next customer record
+        END-READ.
+        READ INVOICE-FILE AT END                * Loop until end-of-file is reached
+            CUST-ID NOT EQUAL TO ID             * Check if invoice is for current customer
+            GO TO NEXT-RECORD.                  * Skips to next customer record if not
+        END-READ.
+        ADD AMOUNT TO CUST-AMT.                 * Adds current invoice amount to customer total amount
+        ADD AMOUNT TO TOTAL-AMT.                * Adds current invoice amount to total amount of all invoices
+        READ CUSTOMER-FILE INTO CUSTOMER-RECORD * Reads next customer record
+            AT END GO TO END-OF-FILE.           * End loop if end-of-file is reached
+        END-READ.
+    END-PERFORM.
+    CLOSE CUSTOMER-FILE, INVOICE-FILE.           * Closes the files
+    DISPLAY "CUSTOMER REPORT".                   * Displays header for report
+    DISPLAY "TOTAL AMOUNT: " TOTAL-AMT.          * Displays total amount for all invoices
+    PERFORM VARYING C-INDEX FROM 1 BY 1          * Loop to display total amount for each customer
+        UNTIL C-INDEX > 10.                     * Until index reaches 10, the maximum number of customers
+        DISPLAY "CUSTOMER ID: " CUST-ID          * Displays customer id
+        DISPLAY " TOTAL AMOUNT: " CUST-TOTAL (C-INDEX). * Displays total amount for current customer
+    END-PERFORM.
+    STOP RUN.                                    * End of program
+END PROGRAM CUSTOMER-REPORT.                     * End of program CUSTOMER-REPORT

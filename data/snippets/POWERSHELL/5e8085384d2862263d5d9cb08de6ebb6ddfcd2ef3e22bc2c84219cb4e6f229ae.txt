@@ -1,0 +1,51 @@
+function Get-EventLogStatistics {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [Alias('server')]
+        [String]$ComputerName,
+
+        [Parameter(Mandatory)]
+        [Alias('log')]
+        [ValidateSet('Application','System','Security')]
+        [String]$LogName
+    )
+
+    begin {
+        # Initialize variables
+        $eventLog = New-Object System.Diagnostics.EventLog
+        $eventCount = 0
+        $oldestEvent = $null
+        $newestEvent = $null
+    }
+
+    process {
+        # Set event log properties
+        $eventLog.MachineName = $ComputerName
+        $eventLog.Log = $LogName
+
+        # Get all the events from the event log
+        $eventLog.GetEventLogEntries() | ForEach-Object {
+            # Keep track of event count
+            $eventCount++
+
+            # Check for oldest event
+            if (-not $oldestEvent -or $_.TimeGenerated -lt $oldestEvent.TimeGenerated) {
+                $oldestEvent = $_
+            }
+
+            # Check for newest event
+            if (-not $newestEvent -or $_.TimeGenerated -gt $newestEvent.TimeGenerated) {
+                $newestEvent = $_
+            }
+        }
+    }
+
+    end {
+        # Output event log statistics
+        Write-Output "Event log: $LogName on $ComputerName"
+        Write-Output "Event count: $eventCount"
+        Write-Output "Oldest event: $($oldestEvent.TimeGenerated)"
+        Write-Output "Newest event: $($newestEvent.TimeGenerated)"
+    }
+}

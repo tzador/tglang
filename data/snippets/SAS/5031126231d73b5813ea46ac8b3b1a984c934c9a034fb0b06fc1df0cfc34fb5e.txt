@@ -1,0 +1,45 @@
+/* This code snippet generates a linear regression model */
+
+OPTIONS CONFIDENCE=0.95; /* sets the confidence level to 95% */
+
+/* Creates a data set using the built-in dataset 'cars'  */
+DATA cars_data;
+	SET sashelp.cars;
+RUN;
+
+/* Selects only the necessary variables for the regression model */
+PROC SQL;
+	SELECT make, model, horsepower, torque
+	INTO :make_list SEPARATED BY ','
+	FROM cars_data;
+QUIT;
+
+/* Applies a log transformation to the horsepower variable */
+DATA cars_data;
+	SET cars_data;
+	horsepower_log = log(horsepower);
+RUN;
+
+/* Runs the linear regression procedure */
+PROC REG DATA=cars_data;
+	MODEL torque = horsepower_log / STB OPTION;
+RUN;
+
+/* Outputs the results of the regression model */
+ODS OUTPUT ParameterEstimates=reg_params;
+ODS GRAPHICS OFF;
+RUN;
+
+/* Prints the regression model coefficients */
+DATA reg_coeff;
+	SET reg_params;
+	percent = PCT;
+	label = LABEL;
+	keep make model percent label;
+RUN;
+
+/* Creates a table of the coefficients with labels */
+PROC REPORT DATA=reg_coeff;
+	COLUMNS make model percent label;
+	TITLE 'Linear Regression Model Coefficients';
+RUN;

@@ -1,0 +1,72 @@
+{-# LANGUAGE FlexibleContexts, RankNTypes #-}
+
+-- | Type representing a monadic state transformation.
+-- 
+-- A State transformation is a function from a state 
+-- s to a result value a and an updated state s.
+-- Since it is a monad, it can be sequenced and 
+-- composed with other stateful computations.
+--
+newtype StateT s m a = StateT { runStateT :: s -> m (a,s) }
+
+-- | Functor instance for StateT.
+--
+-- f <$> StateT m = StateT $ \s -> 
+--   f <$> m s >>= \(a, s') ->
+--     return (a, s') 
+--
+instance (Functor m) => Functor (StateT s m) where
+  fmap f (StateT m) =
+    StateT $ \s ->
+      fmap (\(a,s') -> (f a, s')) (m s)
+
+-- | Applicative instance for StateT.
+--
+-- StateT mf <*> StateT ma = StateT $ \s -> 
+--   mf s >>= \(f, s') ->
+--     ma s' >>= \(a, s'') ->
+--       return (f a, s'')
+--
+instance (Monad m) => Applicative (StateT s m) where
+  pure x = StateT $ \s -> return (x, s)
+  (StateT mf) <*> (StateT ma) =
+    StateT $ \s ->
+      mf s >>= \(f, s') ->
+        ma s' >>= \(a, s'') ->
+          return (f a, s'')
+
+-- | Monad instance for StateT.
+--
+-- return x      = StateT $ \s -> return (x,s)
+-- StateT ma >>= k = StateT $ \s ->
+--   ma s >>= \(a,s') ->
+--     runStateT (k a) s'
+--
+instance (Monad m) => Monad (StateT s m) where
+  return x = StateT $ \s -> return (x, s)
+  (StateT ma) >>= k =
+    StateT $ \s ->
+      ma s >>= \(a, s') ->
+        runStateT (k a) s'
+
+-- | MonadTrans instance for StateT.
+--
+-- lift m = StateT $ \s -> 
+--   m >>= \a ->
+--     return (a, s)
+--
+instance MonadTrans (StateT s) where
+  lift m = StateT $ \s -> m >>= \a -> return (a, s)
+
+-- | runStateT with the identity monad.
+--
+runState :: State s a -> s -> (a, s)
+runState = runIdentity . runStateT
+
+-- | An example usage of StateT to count the number of elements in a list.
+--
+-- getNumElements = 
+--   StateT $ \xs -> return (length xs, xs)
+--
+getNumElements :: StateT [a] Identity Int
+getNumElements = StateT $ \xs -> Identity (length xs, xs)

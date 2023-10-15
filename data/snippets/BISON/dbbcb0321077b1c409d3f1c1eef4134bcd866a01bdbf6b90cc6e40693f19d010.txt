@@ -1,0 +1,134 @@
+%{
+// This is a comment in BISON
+// This section is used to define any external variables, libraries, or constants
+#include <stdio.h>
+
+// This is a user-defined symbol that represents an integer
+#define INT 257
+// This is a user-defined symbol that represents a float
+#define FLOAT 258
+// This is a user-defined symbol that represents an identifier
+#define IDENTIFIER 259
+
+// This is a structure that is used in the lexer to store the current token
+struct token{
+    int token_type;
+    char *token_value;
+};
+
+// This is a function that will be used by the parser to get the next token from the lexer
+int yyLex(struct token *t);
+
+// This is a function that will be used by the parser to handle syntax errors
+void yyError(){
+    printf("ERROR: Invalid syntax\n");
+}
+
+// This is the main function that initiates the parsing process
+int main(){
+    // This is an array of structures that will store the tokens returned by the lexer
+    struct token tokens[1000];
+    
+    // This variable will store the number of tokens returned by the lexer
+    int num_tokens = yyLex(tokens);
+    
+    // This loop will iterate through all the tokens returned by the lexer
+    for(int i=0; i<num_tokens; i++){
+        // This switch case will handle different token types and perform appropriate actions
+        switch(tokens[i].token_type){
+            case INT:
+                // This printf statement will output the token value along with its type
+                printf("Token type: INT, Value: %d\n", atoi(tokens[i].token_value));
+                break;
+            case FLOAT:
+                // This printf statement will output the token value along with its type
+                printf("Token type: FLOAT, Value: %f\n", atof(tokens[i].token_value));
+                break;
+            case IDENTIFIER:
+                // This printf statement will output the token value along with its type
+                printf("Token type: IDENTIFIER, Value: %s\n", tokens[i].token_value);
+                break;
+            default:
+                // This printf statement will be executed in case of an unknown token type
+                printf("ERROR: Unknown token type");
+                break;
+        }
+    }
+    return 0;
+}
+%}
+
+%start program
+
+// This is the grammar for a simple program that can contain declarations and expressions
+program: declarations expressions | /* empty */
+;
+
+// This rule handles multiple declarations separated by semicolons
+declarations: declarations ';' declaration | declaration ;
+
+// This rule handles declaration of variables that can be an integer or a float
+declaration: INT ID { printf("Variable %s declared as int\n", $2); } | FLOAT ID { printf("Variable %s declared as float\n", $2); };
+
+// This rule handles expressions that can be an assignment operation or a calculation
+expressions: expressions ';' assignment | assignment ;
+
+// This rule handles an assignment operation and prints out the result of the assignment
+assignment: ID '=' expr { printf("Variable %s assigned value: %f\n", $1, $3); };
+
+// This rule defines an expression that can be a mathematical operation involving variables or literals
+expr: ID { $$ = atof($1); } | INT { $$ = (double) $1; } | FLOAT { $$ = $1; } | expr '+' expr { $$ = $1 + $3; } | expr '-' expr { $$ = $1 - $3; } | expr '*' expr { $$ = $1 * $3; } | expr '/' expr { $$ = $1 / $3; } | '(' expr ')' { $$ = $2; } ;
+
+// This rule defines an identifier as any sequence of alphanumeric characters
+ID: IDENTIFIER+ ;
+
+// This rule enables the use of whitespace in the program
+%option noyywrap
+%option nounput
+%option noinput
+
+// This section defines the rules for tokens in our language
+%%
+
+[0-9]+\.?[0-9]* { return FLOAT; } // Matches numbers like 123, 1.2, etc.
+[a-zA-Z][a-zA-Z0-9]* { return IDENTIFIER; } // Matches identifiers like variable names
+[\t\n ]+    // Do nothing, just ignore the whitespace
+. { yyError(); } // Handles error in case of an unknown token
+
+%%
+// This is the function that will return the tokens to our program
+int yyLex(struct token *t){
+    int current_token = 0;
+    int input;
+    while((input = yyinput()) != EOF){
+        if(input == ' ' || input == '\t' || input == '\n')
+            continue; // Ignore whitespace
+        if(isdigit(input)){
+            int num_index = 0;
+            char number[20] = {0};
+            do{
+                number[num_index++] = input;
+                input = yyinput();
+            }while(isdigit(input)); // Keep adding digits to the number array until we reach the end of the number
+            t[current_token].token_type = FLOAT;
+            t[current_token].token_value = strdup(number); // strdup function allocates and copies the string
+            return t[current_token++].token_type;
+        }
+        else if(isalpha(input)){ // Handle identifiers
+            int id_index = 0;
+            char identifier[20] = {0};
+            do{
+                identifier[id_index++] = input;
+                input = yyinput();
+            }while(isalpha(input) || isdigit(input));
+            t[current_token].token_type = IDENTIFIER;
+            t[current_token].token_value = strdup(identifier);
+            return t[current_token++].token_type;
+        }
+        else{
+            yyError();
+            return 0;
+        }
+    }
+    return 0;
+}

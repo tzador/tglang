@@ -1,0 +1,56 @@
+pragma solidity ^0.8.0;
+
+//Contract to simulate a lottery game
+
+contract Lottery {
+    event NewPlayer(address player);
+    event DrawWinner(address winner, uint256 amount);
+    
+    address public manager;
+    address[] public players;
+    
+    constructor() {
+        manager = msg.sender;
+    }
+    
+    function enterGame() public payable {
+        //Function to add new player to the game by sending ether
+        require(msg.value > 0.01 ether);
+        players.push(msg.sender);
+        
+        //Emit event for new player
+        emit NewPlayer(msg.sender); 
+    }
+    
+    function random() private view returns (uint256) {
+        //Function to generate a random number using block timestamp and total players
+        return uint256(keccak256(abi.encodePacked(block.timestamp, players.length)));
+    }
+    
+    function drawWinner() public {
+        //Function to randomly select a winner and send the prize to their address
+        require(msg.sender == manager);
+        
+        //Generate random number using helper function
+        uint256 index = random() % players.length;
+        
+        //Transfer the prize to the winner
+        payable(players[index]).transfer(address(this).balance);
+        
+        //Emit event for winner
+        emit DrawWinner(players[index], address(this).balance);
+        
+        //Reset game by clearing out players array
+        players = new address[](0);
+    }
+    
+    //Fallback function to receive ether from players
+    fallback() external payable {
+        enterGame();
+    }
+    
+    //Function to get current players in the game
+    function getCurrentPlayers() public view returns (address[] memory) {
+        return players;
+    }
+}

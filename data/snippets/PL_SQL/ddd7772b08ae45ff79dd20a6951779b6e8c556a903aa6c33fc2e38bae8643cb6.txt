@@ -1,0 +1,55 @@
+CREATE OR REPLACE PROCEDURE add_employee(
+    emp_id VARCHAR2,
+    first_name VARCHAR2,
+    last_name VARCHAR2,
+    salary NUMBER
+)
+IS
+BEGIN
+    INSERT INTO employee (employee_id, firstName, lastName, salary)
+    VALUES (emp_id, first_name, last_name, salary);
+    
+    COMMIT;
+    
+    -- Add bonus to salary based on employee's experience
+    IF salary < 50000 THEN
+        UPDATE employee
+        SET salary = salary * 1.1
+        WHERE employee_id = emp_id;
+    ELSIF salary >= 50000 AND salary <= 100000 THEN
+        UPDATE employee
+        SET salary = salary * 1.2
+        WHERE employee_id = emp_id;
+    ELSE
+        UPDATE employee
+        SET salary = salary * 1.3
+        WHERE employee_id = emp_id;
+    END IF;
+    
+    COMMIT;
+    
+    -- Check if the new total salary exceeds company's budget limit
+    DECLARE
+        total_salary NUMBER;
+    BEGIN
+        SELECT SUM(salary) INTO total_salary FROM employee;
+        
+        IF total_salary > 1000000 THEN
+            RAISE_APPLICATION_ERROR (-20001, 'The total salary exceeds the company budget limit!');
+        END IF;
+    END;
+    
+    COMMIT;
+    
+    -- Add new entry to audit table
+    INSERT INTO audit_table (employee_id, audit_date, action)
+    VALUES (emp_id, SYSDATE, 'Added new employee');
+    
+    COMMIT;
+    
+    DBMS_OUTPUT.PUT_LINE('Employee ' || first_name || ' ' || last_name || ' successfully added!');
+    EXCEPTION
+        WHEN OTHERS THEN
+            DBMS_OUTPUT.PUT_LINE('Error: ' || SQLCODE || ' - ' || SUBSTR(SQLERRM, 1, 200));
+        ROLLBACK;
+END;

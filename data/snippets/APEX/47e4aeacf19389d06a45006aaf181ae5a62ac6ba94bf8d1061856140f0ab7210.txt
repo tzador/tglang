@@ -1,0 +1,44 @@
+trigger ValidateAccountName on Account (before insert, before update) {
+    // Create a new map to store the error messages
+    Map<Id, String> accountErrors = new Map<Id, String>();
+    
+    // Loop through the records and check for invalid account names
+    for(Account acc : Trigger.new) {
+        // Check if account name contains any special characters
+        if (acc.Name.containsAny(new List<String>{'%','$','#','@','&','*','!'}) {
+            accountErrors.put(acc.Id, 'Account name cannot contain special characters');
+        }
+        
+        // Check if account name is unique
+        List<Account> uniqueAccounts = [SELECT Id FROM Account WHERE Name =:acc.Name LIMIT 1];
+        if(!uniqueAccounts.isEmpty()) {
+            accountErrors.put(acc.Id, 'An account with this name already exists');
+        }
+        
+        // Check if account name is longer than 50 characters
+        if(acc.Name.length() > 50) {
+            accountErrors.put(acc.Id, 'Account name cannot exceed 50 characters');
+        }
+    }
+    
+    // If there are any errors, throw a custom exception
+    if(!accountErrors.isEmpty()) {
+        throw new CustomException('Invalid Account Names', accountErrors);
+    }
+}
+
+// Custom exception class to handle errors
+public class CustomException extends Exception {
+    Map<Id, String> errorMap;
+    
+    // Constructor to set error message and error map
+    public CustomException(String message, Map<Id, String> errorMap) {
+        super(message);
+        this.errorMap = errorMap;
+    }
+    
+    // Method to get error map
+    public Map<Id, String> getErrorMap() {
+        return this.errorMap;
+    }
+}

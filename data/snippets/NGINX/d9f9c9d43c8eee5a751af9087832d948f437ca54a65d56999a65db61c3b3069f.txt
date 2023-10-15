@@ -1,0 +1,65 @@
+worker_processes 2;  # sets the number of worker processes
+
+events {  # declares an events section
+	worker_connections 1024;  # sets the maximum number of connections per worker process
+}
+
+http {  # declares the HTTP section
+
+	include mime.types;  # includes a separate file with MIME types
+	default_type application/octet-stream;  # sets the default MIME type
+
+	sendfile on;  # enables sendfile optimization for serving static files
+	tcp_nopush on;  # enables the TCP_NO_PUSH option to optimize TCP data transfer
+	tcp_nodelay on;  # enables the TCP_NODELAY option to disable Nagle's algorithm
+
+	server {  # starts the server block
+		listen 80;  # sets the port to listen on
+		server_name example.com;  # sets the server name
+
+		root /var/www/html;  # sets the root directory for serving files
+
+		index index.html;  # sets the default index file name
+
+		location / {  # starts the location block
+			try_files $uri $uri/ /index.html;  # sets the fallback behavior for URI requests
+		}
+
+		location /static/ {  # starts another location block for serving static files
+			alias /var/www/static/;  # locates the static files directory
+			autoindex on;  # enables directory listing for this location
+		}
+
+		location ~ \.php$ {  # starts a regex location block for PHP files
+			fastcgi_pass unix:/run/php/php7.2-fpm.sock;  # sets the path to the PHP FPM socket
+			fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;  # sets the PHP script to execute
+			include fastcgi_params;  # includes a separate file with FastCGI parameters
+		}
+	}
+
+	upstream backend {  # starts the upstream block for a load balancer
+		server backend1.example.com max_fails=3 fail_timeout=10s;  # defines a server and its failover configuration
+		server backend2.example.com max_fails=3 fail_timeout=10s;  # defines another server and its failover configuration
+	}
+
+	server {  # starts another server block for a reverse proxy
+		listen 8080;  # sets the port to listen on
+		location / {  # starts the location block
+			proxy_pass http://backend;  # sets the upstream server to proxy requests to
+			proxy_set_header Host $host;  # sets the host header to the original request
+		}
+	}
+
+	log_format combined '$remote_addr - $remote_user [$time_local] '
+			'"$request $status $body_bytes_sent" '
+			'"$http_referer" "$http_user_agent"';  # defines a custom log format
+
+	access_log /var/log/nginx/access.log combined;  # sets the path and format for the access log
+	error_log /var/log/nginx/error.log;  # sets the path for the error log
+
+	gzip on;  # enables gzip compression for responses
+	gzip_comp_level 5;  # sets the compression level to 5 (default is 1)
+	gzip_types text/plain text/css application/json;  # specifies which MIME types to compress
+
+	include /etc/nginx/conf.d/*.conf;  # includes a separate file with additional server configurations
+}  # ends the HTTP section

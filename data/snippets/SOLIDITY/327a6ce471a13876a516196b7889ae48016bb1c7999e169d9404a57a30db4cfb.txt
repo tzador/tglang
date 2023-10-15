@@ -1,0 +1,76 @@
+// Define a contract for a decentralized marketplace
+contract Marketplace {
+
+  // Variables
+  address public owner; // Address of the marketplace owner
+  uint public itemCounter; // Counts the number of items in the marketplace
+  mapping(uint => Item) public items; // Map of items with id as the key
+
+  // Define a struct to represent an item in the marketplace
+  struct Item {
+    uint id; // Unique id of the item
+    string name; // Name of the item
+    string description; // Description of the item
+    uint price; // Price of the item denominated in Wei
+    address seller; // Address of the seller
+    bool isSold; // Flag to indicate if the item has been sold
+  }
+
+  // Define events to log actions in the marketplace
+  event NewItemAdded(uint id, string name, string description, uint price, address seller);
+  event ItemSold(uint id, string name, string description, uint price, address seller, address buyer);
+
+  // Define modifiers to restrict access to specific functions
+  modifier onlyOwner() {
+    require(msg.sender == owner, "Only the marketplace owner can perform this action");
+    _; // Continue execution
+  }
+
+  // Define a constructor for the contract
+  constructor() {
+    owner = msg.sender; // Set the contract creator as the owner of the marketplace
+    itemCounter = 0; // Initialize the item counter to 0
+  }
+
+  // Function to add a new item to the marketplace
+  function addItem(string memory _name, string memory _description, uint _price) public {
+    // Increment the item counter
+    itemCounter++;
+    // Create a new Item instance and add it to the map
+    items[itemCounter] = Item(itemCounter, _name, _description, _price, msg.sender, false);
+    // Emit the NewItemAdded event
+    emit NewItemAdded(itemCounter, _name, _description, _price, msg.sender);
+  }
+
+  // Function to get the details of an item using its id
+  function getItemDetails(uint _id) public view returns (uint, string memory, string memory, uint, bool) {
+    require(_id > 0 && _id <= itemCounter, "Invalid item id"); // Check if the item exists
+    // Return the item details
+    return (items[_id].id, items[_id].name, items[_id].description, items[_id].price, items[_id].isSold);
+  }
+
+  // Function to buy an item from the marketplace
+  function buyItem(uint _id) public payable {
+    require(_id > 0 && _id <= itemCounter, "Invalid item id"); // Check if the item exists
+    require(msg.value == items[_id].price, "Insufficient funds to purchase this item"); // Check if the buyer has enough funds to purchase the item
+    require(!items[_id].isSold, "This item has already been sold"); // Check if the item has already been sold
+    // Transfer the funds to the seller's address
+    payable(items[_id].seller).transfer(msg.value);
+    // Set the item as sold
+    items[_id].isSold = true;
+    // Emit the ItemSold event
+    emit ItemSold(_id, items[_id].name, items[_id].description, items[_id].price, items[_id].seller, msg.sender);
+  }
+
+  // Fallback function to handle accidental ETH transfers to the contract
+  fallback() external payable {}
+
+  // Function to withdraw any remaining ETH in the contract to the owner's address
+  function withdraw() public onlyOwner {
+    // Only the owner can perform this action
+    require(address(this).balance > 0, "No remaining ETH in the contract"); // Check if there is any balance to be withdrawn
+    // Transfer the balance to the owner's address
+    payable(owner).transfer(address(this).balance);
+  }
+
+}

@@ -1,0 +1,113 @@
+/* Example of a BISON code snippet */
+
+%{
+#include <stdio.h>
+
+/* Declare global variables */
+int count = 0;
+char name[20];
+%}
+
+/* Declare tokens */
+%token EOL
+%token <num> NUMBER
+%token <str> STRING
+
+/* Define grammar rules */
+expr: NUMBER { /* Whenever a NUMBER is parsed, increment count */
+           count++; 
+           }
+     | STRING { /* Whenever a STRING is parsed, print it using printf */
+           printf("%s\n", $1);
+           }
+     | ID '=' expr { /* Whenever an expression is assigned to an ID,
+                     * print the ID and its value using printf.
+                     * Then reset the count to 0. */
+                     printf("%s = ", $1);
+                     printf("%d\n", $3);
+                     count = 0;
+                    }
+     | expr '+' expr { /* Whenever two expressions are added, 
+                       * print their sum using printf. */
+                       printf("%d\n", $1 + $3);
+                      }
+     ;
+
+/* Define token types */
+%type <num> NUMBER
+%type <str> STRING
+
+/* Define token definitions */
+%token <num> DIGIT
+%token <str> LETTER
+
+/* Define number and string patterns */
+%%
+
+/* Display errors for invalid input */
+EOL { yyerror("Unexpected end of line."); exit(1); }
+
+NUMBER [0-9]+   { return NUMBER; }
+STRING '"' [A-Za-z]+ '"'  { return STRING; }
+ID [A-Za-z]+    { return ID; }
+%%
+
+/* Define yyerror() function */
+void yyerror(char *s) {
+    fprintf(stderr, "%s\n", s);
+}
+
+/* Define main function */
+int main() {
+    printf("Enter an expression: ");
+    yyparse(); /* Call parser function */
+    return 0;
+}
+
+/* Define yylex() function */
+int yylex() {
+
+    /* Read input from stdin */
+    int c = getchar();
+
+    /* Check for end of line */
+    if (c == '\n') {
+        return EOL;
+    }
+
+    /* Check for numbers */
+    if (isdigit(c)) {
+        /* Convert character to integer */
+        int value = c - '0';
+        while (isdigit(c = getchar())) {
+            /* Shift previous value to accomodate new digit */
+            value = value * 10 + (c - '0');
+        }
+        /* Return NUMBER token with value */
+        yylval.num = value;
+        return NUMBER;
+    }
+
+    /* Check for strings */
+    if (c == '"') {
+        /* Read all characters until closing quote */
+        int i = 0;
+        while ((c = getchar()) != '"') {
+            /* Check for invalid characters */
+            if (!isalpha(c)) {
+                fprintf(stderr, "Invalid character in string.\n");
+                exit(1);
+            }
+            /* Store letters in name array */
+            name[i++] = c;
+        }
+        /* Append null terminator to string */
+        name[i] = '\0';
+        /* Return STRING token with value */
+        yylval.str = strdup(name);
+        return STRING;
+    }
+
+    /* Ignore all other characters and tokens */
+    return 0;
+}

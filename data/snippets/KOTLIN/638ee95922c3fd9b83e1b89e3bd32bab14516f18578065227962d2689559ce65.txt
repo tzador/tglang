@@ -1,0 +1,311 @@
+class BinaryTree<K, V>(private val comparator: Comparator<K>) {
+
+    // Node class to represent each element in the tree
+    private inner class Node(val key: K, var value: V, var left: Node? = null, var right: Node? = null)
+
+    // Root node of the tree
+    private var root: Node? = null
+
+    /*
+     * Method to insert a key-value pair into the binary tree
+     * @param key the key of the element being inserted
+     * @param value the value associated with the key
+     */
+    fun insert(key: K, value: V) {
+        // Check if root is null, if so create a new root
+        if (root == null) {
+            root = Node(key, value)
+            return
+        }
+
+        // Start from the root and traverse the tree to find the correct location for insertion
+        var current = root
+        var parent: Node
+
+        while (current != null) {
+            parent = current
+
+            // Compare the key with the current node's key using the comparator
+            val result = comparator.compare(key, current.key)
+
+            // If the result is less than 0, go to the left subtree
+            if (result < 0) {
+                current = current.left
+
+                // If the left child is null, create a new node and set it as the left child
+                if (current == null) {
+                    parent.left = Node(key, value)
+                    return
+                }
+            }
+
+            // If the result is greater than 0, go to the right subtree
+            else if (result > 0) {
+                current = current.right
+
+                // If the right child is null, create a new node and set it as the right child
+                if (current == null) {
+                    parent.right = Node(key, value)
+                    return
+                }
+            }
+
+            // If the result is 0, the key already exists in the tree, so update the value associated with it
+            else {
+                current.value = value
+                return
+            }
+        }
+    }
+
+    /*
+     * Method to search for a value in the binary tree using a given key
+     * @param key the key of the element being searched for
+     * @return the value associated with the given key, or null if the key is not found
+     */
+    fun search(key: K): V? {
+        var current = root
+
+        // Traverse the tree until the key is found
+        while (current != null) {
+
+            // Compare the key with the current node's key using the comparator
+            val result = comparator.compare(key, current.key)
+
+            // If the result is less than 0, go to the left subtree
+            if (result < 0) {
+                current = current.left
+            }
+
+            // If the result is greater than 0, go to the right subtree
+            else if (result > 0) {
+                current = current.right
+            }
+
+            // If the result is 0, return the value associated with the key
+            else {
+                return current.value
+            }
+        }
+
+        // If the key is not found, return null
+        return null
+    }
+
+    /*
+     * Method to print the elements of the tree in inorder traversal
+     * @param node the current node being processed
+     */
+    private fun printInorder(node: Node?) {
+        node?.let {
+            // Print the elements of the left subtree
+            printInorder(node.left)
+
+            // Then print the current node's value
+            println("${node.key} : ${node.value}")
+
+            // Finally, print the elements of the right subtree
+            printInorder(node.right)
+        }
+    }
+
+    /*
+     * Method to delete an element from the binary tree
+     * @param key the key of the element to be deleted
+     */
+    fun delete(key: K) {
+        deleteHelper(root, key)
+    }
+
+    /*
+     * Helper method to delete an element from the binary tree
+     * @param node the current node being processed
+     * @param key the key of the element to be deleted
+     */
+    private fun deleteHelper(node: Node?, key: K) {
+        // Base case
+        if (node == null) {
+            return
+        }
+
+        // Compare the key with the current node's key using the comparator
+        val result = comparator.compare(key, node.key)
+
+        // If the key is less than the current node's key, go to the left subtree
+        if (result < 0) {
+            node.left?.let {
+                deleteHelper(it, key)
+            }
+        }
+
+        // If the key is greater than the current node's key, go to the right subtree
+        else if (result > 0) {
+            node.right?.let {
+                deleteHelper(it, key)
+            }
+        }
+
+        // If the key is equal to the current node's key, perform the delete operation
+        else {
+            // If the node has no right child, replace the node with its left child
+            if (node.right == null) {
+                node.left?.let {
+                    replaceNode(node, it)
+                }
+
+                // If the node has no left child, replace the node with its right child
+            } else if (node.left == null) {
+                node.right?.let {
+                    replaceNode(node, it)
+                }
+
+                // If the node has two children, find the successor and replace the node with it
+            } else {
+                findSuccessor(node.right)?.let { successor ->
+                    node.key = successor.key
+                    node.value = successor.value
+
+                    // Delete the successor node from its original location
+                    deleteHelper(node.right, successor.key)
+                }
+            }
+        }
+    }
+
+    /*
+     * Method to find the successor of a given node in the tree
+     * @param node the node whose successor is being searched for
+     * @return the successor node, or null if the given node has no right child
+     */
+    private fun findSuccessor(node: Node?): Node? {
+        if (node == null) {
+            return null
+        }
+
+        // The successor will always be the leftmost node in the right subtree
+        var current = node
+
+        while (current?.left != null) {
+            current = current.left
+        }
+
+        return current
+    }
+
+    /*
+     * Method to replace a node in the tree with its child
+     * @param node the node to be replaced
+     * @param child the child node that will replace the given node
+     */
+    private fun replaceNode(node: Node, child: Node) {
+        // Set the parent of the child node to point to the parent of the given node
+        if (node == root) {
+            root = child
+        } else if (node == node.parent?.left) {
+            node.parent?.left = child
+        } else {
+            node.parent?.right = child
+        }
+
+        // Set the parent of the child node to be the parent of the given node
+        child.parent = node.parent
+    }
+
+    /*
+     * Method to print the elements of the tree in preorder traversal
+     * @param node the current node being processed
+     */
+    private fun printPreorder(node: Node?) {
+        node?.let {
+            // First print the current node's value
+            println("${node.key} : ${node.value}")
+
+            // Then print the elements of the left subtree
+            printPreorder(node.left)
+
+            // Finally, print the elements of the right subtree
+            printPreorder(node.right)
+        }
+    }
+
+    /*
+     * Method to print the elements of the tree in postorder traversal
+     * @param node the current node being processed
+     */
+    private fun printPostorder(node: Node?) {
+        node?.let {
+            // Print the elements of the left subtree
+            printPostorder(node.left)
+
+            // Then print the elements of the right subtree
+            printPostorder(node.right)
+
+            // Finally print the current node's value
+            println("${node.key} : ${node.value}")
+        }
+    }
+
+    /*
+     * Method to print the elements of the tree in level order traversal
+     */
+    fun printLevelOrder() {
+        // Use a queue to process nodes in a level-wise manner
+        val queue: Queue<Node> = LinkedList()
+        var current: Node?
+        root?.let {
+            queue.add(it)
+
+            // Continue processing until the queue is empty
+            while (queue.isNotEmpty()) {
+                // Get the current node and remove it from the queue
+                current = queue.poll()
+
+                // Print the current node's value
+                println("${current?.key} : ${current?.value}")
+
+                // Add the left child to the queue if it exists
+                current?.left?.let {
+                    queue.add(it)
+                }
+
+                // Add the right child to the queue if it exists
+                current?.right?.let {
+                    queue.add(it)
+                }
+            }
+        }
+    }
+}
+
+
+// Example usage of the BinaryTree class
+fun main() {
+    // Create a new binary tree with a custom comparator
+    val tree = BinaryTree<Int, String>(compareBy { it })
+    tree.insert(5, "John")
+    tree.insert(3, "Jane")
+    tree.insert(4, "Bob")
+    tree.insert(10, "Mary")
+
+    // Print the tree in level order
+    println("Level order traversal of the tree:")
+    tree.printLevelOrder()
+
+    // Delete the element with key 4
+    tree.delete(4)
+
+    // Search for the element with key 3
+    println("Value associated with key 3: ${tree.search(3)}")
+
+    // Print the tree in preorder
+    println("Preorder traversal of the tree:")
+    tree.printPreorder(tree.root)
+
+    // Print the tree in postorder
+    println("Postorder traversal of the tree:")
+    tree.printPostorder(tree.root)
+
+    // Print the tree in inorder
+    println("Inorder traversal of the tree:")
+    tree.printInorder(tree.root)
+}

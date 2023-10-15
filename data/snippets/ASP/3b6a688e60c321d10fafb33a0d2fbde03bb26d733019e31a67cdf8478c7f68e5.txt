@@ -1,0 +1,125 @@
+<!--This code snippet is an example of a shopping cart system in ASP. It allows users to add, remove, and update items in their cart. -->
+
+<!--Initialize session variables to keep track of items in cart and total cost -->
+<%
+Session("cart") = ""
+Session("total_cost") = 0
+%>
+
+<!--Retrieve items from database based on user input or default category -->
+<%
+Dim category 
+Dim items 
+ category = Request.QueryString("category")
+
+If category = "" Then 
+    items = "SELECT * FROM products"
+Else 
+    items = "SELECT * FROM products WHERE category='" & category & "'"
+End If 
+%>
+
+<!--Create table to display items -->
+<table>
+    <tr>
+        <th>Item Name</th>
+        <th>Price</th>
+        <th>Quantity</th>
+        <th>Add to Cart</th>
+    </tr>
+    <!--Loop through items and display each item in a row of the table -->
+    <% 
+    Dim rs 
+    Set rs = Server.CreateObject("ADODB.Recordset") 
+    rs.Open items, db_conn 
+    While Not rs.EOF 
+    %>
+    <tr>
+        <td><%= rs("name") %></td>
+        <td>$<%= rs("price") %></td>
+        <!--Create a form for users to specify quantity of item they want to add to cart -->
+        <td>
+            <form>
+                <input type="number" name="quantity" value="1" min="1">
+            </form>
+        </td>
+        <td>
+            <!--Use form action to add item to cart and redirect back to current page -->
+            <form action="add_to_cart.asp?page=<%= Request.ServerVariables("SCRIPT_NAME") %>" method="post">
+                <input type="hidden" name="item" value="<%= rs("id") %>">
+                <input type="submit" value="Add">
+            </form>
+        </td>
+    </tr>
+    <!--Move to next item in recordset -->
+    <% 
+    rs.MoveNext 
+    Wend 
+    %>
+</table>
+
+<!--Retrieve items in cart from session variable and display in a table -->
+<table>
+    <tr>
+        <th>Item Name</th>
+        <th>Price</th>
+        <th>Quantity</th>
+        <th>Update</th>
+        <th>Remove</th>
+    </tr>
+    <% 
+    Dim cart_items 
+    Dim cart_items_array
+    cart_items = Session("cart")
+    cart_items_array = Split(cart_items, ",")
+    Dim i 
+    For i = 0 To UBound(cart_items_array)
+        Dim item 
+        Dim item_quantity 
+        item = cart_items_array(i)
+        item_quantity = CInt(Mid(item, InStr(item, "-") + 1))
+        item = Left(item, InStr(item, "-") - 1)
+    %>
+    <tr>
+        <td><%= item %></td>
+        <td>$<%= GetPrice(item) %></td>
+        <!--Create form to allow users to update quantity of item in cart -->
+        <td>
+            <form>
+                <input type="number" name="quantity" value="<%= item_quantity %>" min="1">
+            </form>
+        </td>
+        <td>
+            <!--Use form action to update quantity of item in cart and redirect back to cart page -->
+            <form action="update_cart.asp">
+                <input type="hidden" name="item" value="<%= item %>">
+                <input type="hidden" name="quantity" value="<%= item_quantity %>">
+                <input type="submit" value="Update">
+            </form>
+        </td>
+        <td>
+            <!--Use form action to remove item from cart and redirect back to cart page -->
+            <form action="remove_from_cart.asp">
+                <input type="hidden" name="item" value="<%= item %>">
+                <input type="submit" value="Remove">
+            </form>
+        </td>
+    </tr>
+    <% 
+    Next 
+    %>
+</table>
+
+<!--Function to retrieve price of item from database based on item ID -->
+<%
+Function GetPrice(item_id)
+    Dim price 
+    Dim item 
+    item = "SELECT price FROM products WHERE id=" & item_id
+    Set rs = Server.CreateObject("ADODB.Recordset") 
+    rs.Open item, db_conn 
+    price = rs("price")
+    GetPrice = price
+    rs.Close 
+End Function
+%>

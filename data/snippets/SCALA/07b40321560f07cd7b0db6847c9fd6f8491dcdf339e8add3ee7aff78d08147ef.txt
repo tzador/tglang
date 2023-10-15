@@ -1,0 +1,25 @@
+object AStateMonad {
+  trait StateMonad[S, A] {
+    def flatMap[B](transitionFn: A => StateMonad[S, B]): StateMonad[S, B]
+    def map[B](convertFn: A => B): StateMonad[S, B] = flatMap((a: A) => StateMonad.unit(convertFn(a)))
+    def run(startState: S): (A, S)
+  }
+  object StateMonad {
+    def unit[S, A](a: A): StateMonad[S, A] = new StateMonad[S, A] {
+      def flatMap[B](transitionFn: A => StateMonad[S, B]) = transitionFn(a)
+      def run(startState: S) = (a, startState)
+    }
+  }
+  def get[S]: StateMonad[S, S] = new StateMonad[S, S] {
+    def flatMap[B](transitionFn: S => StateMonad[S, B]) = StateMonad[S, B] {
+      startState =>
+      val (nextState, result) = transitionFn(startState).run(startState)
+      (result, nextState)
+    }
+    def run(startState: S) = (startState, startState)
+  }
+  def put[S](newState: S): StateMonad[S, Unit] = new StateMonad[S, Unit] {
+    def flatMap[B](transitionFn: Unit => StateMonad[S, B]) = StateMonad[S, B](startState => transitionFn().run(newState))
+    def run(startState: S) = ((), newState)
+  }
+}

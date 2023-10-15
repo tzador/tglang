@@ -1,0 +1,46 @@
+# nginx configuration file
+worker_processes auto; # sets the number of worker processes to be created
+error_log /var/log/nginx/error.log warn; # sets the file for error logs and the minimum severity level to be logged
+
+events {
+    worker_connections 1024; # sets the maximum number of connections per worker process
+}
+
+http { 
+    include mime.types; # includes a list of known MIME types
+    default_type application/octet-stream; # sets the default MIME type if no type is provided
+
+    log_format combined '$remote_addr - $remote_user [$time_local] "$request" '
+                     '$status $body_bytes_sent "$http_referer" '
+                     '"$http_user_agent" "$http_x_forwarded_for"'; # sets the format for the access log
+
+    access_log /var/log/nginx/access.log combined; # sets the file for access logs and the log format to use
+
+    sendfile on; # enables sendfile to efficiently send files between client and server
+    tcp_nopush on; # enables the use of TCP_CORK, which can improve performance by reducing the number of packets sent over the network
+
+    server { # begins the server block
+        listen 80; # sets the port to listen on
+        server_name example.com; # sets the hostname for this server
+        root /var/www/example.com/; # sets the root directory for this server
+
+        location / { # begins the location block for requests to the root directory
+            try_files $uri $uri/ /index.html; # tries to find a file or directory that matches the request, or serves the index.html file if none is found
+        }
+
+        location /images/ { # begins the location block for requests to the images directory
+            autoindex on; # enables directory listing
+            alias /var/www/example.com/images/; # sets the location of the directory to be served
+        }
+
+        error_page 404 /404.html; # sets the file to serve for requests that result in a 404 Not Found error
+        location = /404.html { # begins the location block for requests to the 404 page
+            internal; # allows only internal requests to be served
+        }
+
+        error_page 500 502 503 504 /50x.html; # sets the file to serve for requests that result in a 500 Internal Server Error or any of the specified status codes
+        location = /50x.html { # begins the location block for requests to the 50x page
+            root /usr/share/nginx/html; # sets the root directory for this location
+        }
+    }
+}

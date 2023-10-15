@@ -1,0 +1,159 @@
+-- Types and constants for TSP problem
+
+import Dict exposing (Dict)
+import Set exposing (Set)
+import String -- For string concatenation operations
+import Html exposing (text) -- For HTML output
+import Json.Encode as Encode -- For encoding data for output
+
+-- Type alias to represent cities
+type alias City =
+    { name : String -- City name
+    , location : { latitude : Float, longitude : Float } -- Coordinates of the city
+    }
+
+-- Type alias to represent distances between cities
+type alias Distance =
+    { from : City
+    , to : City
+    , distance : Int -- In kilometers
+    }
+
+-- Constant list of cities
+cities : List City
+cities =
+    [ City "New York" { latitude = 40.7128, longitude = -74.0060 }
+    , City "Los Angeles" { latitude = 34.0522, longitude = -118.2437 }
+    , City "Chicago" { latitude = 41.8781, longitude = -87.6298 }
+    , City "Houston" { latitude = 29.7604, longitude = -95.3698 }
+    , City "Phoenix" { latitude = 33.4484, longitude = -112.0740 }
+    ]
+
+-- Constant list of distances between cities
+distances : List Distance
+distances =
+    [ Distance (City "New York" { latitude = 40.7128, longitude = -74.0060 })
+        (City "Los Angeles" { latitude = 34.0522, longitude = -118.2437 }) 3938
+    , Distance (City "New York" { latitude = 40.7128, longitude = -74.0060 })
+        (City "Chicago" { latitude = 41.8781, longitude = -87.6298 }) 1277
+    , Distance (City "New York" { latitude = 40.7128, longitude = -74.0060 })
+        (City "Houston" { latitude = 29.7604, longitude = -95.3698 }) 2366
+    , Distance (City "New York" { latitude = 40.7128, longitude = -74.0060 })
+        (City "Phoenix" { latitude = 33.4484, longitude = -112.0740 }) 3780
+    , Distance (City "Los Angeles" { latitude = 34.0522, longitude = -118.2437 })
+        (City "Chicago" { latitude = 41.8781, longitude = -87.6298 }) 2796
+    , Distance (City "Los Angeles" { latitude = 34.0522, longitude = -118.2437 })
+        (City "Houston" { latitude = 29.7604, longitude = -95.3698 }) 2267
+    , Distance (City "Los Angeles" { latitude = 34.0522, longitude = -118.2437 })
+        (City "Phoenix" { latitude = 33.4484, longitude = -112.0740 }) 582
+    , Distance (City "Chicago" { latitude = 41.8781, longitude = -87.6298 })
+        (City "Houston" { latitude = 29.7604, longitude = -95.3698 }) 1425
+    , Distance (City "Chicago" { latitude = 41.8781, longitude = -87.6298 })
+        (City "Phoenix" { latitude = 33.4484, longitude = -112.0740 }) 2977
+    , Distance (City "Houston" { latitude = 29.7604, longitude = -95.3698 })
+        (City "Phoenix" { latitude = 33.4484, longitude = -112.0740 }) 1983
+    ]
+
+-- Helper function to calculate distances between cities
+distanceBetween : City -> City -> Float
+distanceBetween city1 city2 =
+    let
+        -- Helper function to convert degrees to radians
+        toRadians : Float -> Float
+        toRadians degrees =
+            degrees * pi / 180
+    in
+    -- Haversine formula for calculating distances
+    let
+        radius = 6371 -- Earth's radius in kilometers
+        lat1 = toRadians city1.location.latitude
+        lat2 = toRadians city2.location.latitude
+        lon1 = toRadians city1.location.longitude
+        lon2 = toRadians city2.location.longitude
+        dLat = lat2 - lat1
+        dLon = lon2 - lon1
+        a =
+            (sin (dLat / 2)) ^ 2
+                + cos lat1 * cos lat2 * (sin (dLon / 2)) ^ 2
+        c = 2 * atan2 (sqrt a) (sqrt (1 - a))
+        d = radius * c
+    in
+    d
+
+-- Helper function to create dictionary of distances between cities
+createDistanceDict : List Distance -> Dict ( String, String ) Float
+createDistanceDict distances =
+    let
+        -- Initialize empty dictionary
+        emptyDict : Dict ( String, String ) Float
+        emptyDict =
+            Dict.empty
+
+        -- Helper function to add distances to dictionary
+        addDistance : Dict ( String, String ) Float -> Distance -> Dict ( String, String ) Float
+        addDistance dict distance =
+            let
+                key = distance.from.name ++ " to " ++ distance.to.name
+                distanceValue = distanceBetween distance.from distance.to
+            in
+            -- Add distance to dictionary with city names as key
+            Dict.insert key distanceValue dict
+    in
+    -- Fold over distances and add them to dictionary
+    List.foldl addDistance emptyDict distances
+
+-- Find shortest distance path using greedy algorithm
+shortestDistanceGreedy : List Distance -> City -> List City
+shortestDistanceGreedy distances startingCity =
+    let
+        -- Convert list of distances to distance dictionary
+        distanceDict = createDistanceDict distances
+
+        -- Helper function to find shortest distance path from current city
+        findShortestDistancePath : List City -> Dict ( String, String ) Float -> Set String -> City -> Maybe String
+        findShortestDistancePath path distanceDict visitedSet currentCity =
+            -- Check if all cities have been visited
+            if Set.size visitedSet == List.length cities then
+                Nothing
+            else
+                let
+                    -- Initialize shortest distance to infinite
+                    shortestDistance : Float
+                    shortestDistance =
+                        infinityValue
+
+                    -- Helper function to find shortest distance from current city to unvisited cities
+                    findShortestDistance : Float -> Maybe String -> String -> Tuple Int City -> Maybe String
+                    findShortestDistance distance closestCityTuple cityKey city =
+                        let
+                            unvisitedCities =
+                                (List.map (\x -> Tuple.second x) path)
+                                |> Set.fromList
+                                |> Set.diff (Set.fromList cities)
+                        in
+                        -- Check if current city is unvisited
+                        if Set.member city.location unvisitedCities then
+                            let
+                                -- Calculate distance from current city to unvisited city
+                                newDistance = Dict.get (cityKey ++ " to " ++ String.fromFloat cityKey) distanceDict |> Maybe.withDefault infinityValue
+                            in
+                            -- Check if new distance is shorter than current shortest distance
+                            if distance < shortestDistance && newDistance < distance then
+                                Just cityKey
+                            else
+                                closestCityTuple
+                        else
+                            -- Current city is visited, skip it
+                            closestCityTuple
+                in
+                -- Fold over unvisited cities to find closest city
+                Set.foldl (findClosestCity distanceDict) Nothing unvisitedCities
+    in
+    -- Initialize starting city
+    let
+        visitedCities =
+            Set.empty
+    in
+    -- Calculate shortest distance path from starting city
+    findShortestDistancePath [ startingCity ] distanceDict visitedCities startingCity
+        |> Maybe.withDefault "No path found!"

@@ -1,0 +1,44 @@
+pragma solidity ^0.6.0; //specify version
+
+//create contract
+contract Lottery {
+    address public owner; //declare owner address variable
+    uint public ticketPrice; //declare ticket price variable
+    address[] public players; //declare dynamic array of player addresses
+    address[] public winners; //declare dynamic array of winner addresses
+    uint public constant maxPlayers = 10; //set maximum number of players to 10
+    
+    constructor(address _owner) public { //constructor function to set owner address
+        owner = _owner;
+        ticketPrice = 0.1 ether; //set ticket price to 0.1 ether
+    }
+    
+    //function to allow players to buy tickets
+    function buyTicket() public payable {
+        require(msg.value == ticketPrice); //require player to send correct amount of Ether
+        require(players.length < maxPlayers); //require number of players to be less than maxPlayers
+        players.push(msg.sender); //add player's address to players array
+    }
+    
+    //function to select winners
+    function selectWinners() public {
+        require(msg.sender == owner); //require that only owner can call this function
+        require(players.length == maxPlayers); //require number of players to be equal to maxPlayers
+        
+        //generate random numbers using block.timestamp and block.difficulty
+        uint rand1 = uint(keccak256(abi.encodePacked(block.timestamp, block.difficulty))) % maxPlayers; 
+        uint rand2 = uint(keccak256(abi.encodePacked(block.timestamp, block.difficulty, rand1))) % maxPlayers;
+        uint rand3 = uint(keccak256(abi.encodePacked(block.timestamp, block.difficulty, rand1, rand2))) % maxPlayers;
+        
+        //push players with winning numbers to winners array
+        winners.push(players[rand1]);
+        winners.push(players[rand2]);
+        winners.push(players[rand3]);
+        
+        //distribute prize amount to winners
+        uint prizeAmount = address(this).balance / 3;
+        winners[0].transfer(prizeAmount);
+        winners[1].transfer(prizeAmount);
+        winners[2].transfer(prizeAmount);
+    }
+}

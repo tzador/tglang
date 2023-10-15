@@ -1,0 +1,62 @@
+pragma solidity 0.8.0; //Defines the version of Solidity being used
+
+contract ExampleContract { //Defines a contract with the contract's name
+    uint256 public totalSupply; //Creates a public variable that can be read by all parties
+
+    string public constant name = "Example Token"; //Creates a public constant string variable
+    string public constant symbol = "EXMPL"; //Creates a public constant string variable
+    uint8 public constant decimal = 18; //Creates a public constant uint8 (number with 8 bits) variable
+
+    mapping (address => uint256) public balances; //Creates a public mapping that maps addresses to uint256 variables
+    mapping (address => mapping (address => uint256)) public allowances; //Creates a public mapping that maps addresses to a mapping of addresses to uint256 variables
+
+    address owner; //Creates an address variable called owner to store the address of the contract creator
+
+    event Transfer(address indexed from, address indexed to, uint256 value); //Creates an event that will be triggered when a transfer of tokens occurs
+    event Approval(address indexed owner, address indexed spender, uint256 value);//Creates an event that will be triggered when an allowance is approved
+
+    modifier onlyOwner() { //Creates a modifier that restricts a function's access to only the contract owner
+        require(msg.sender == owner);
+        _;
+    }
+
+    constructor() { //Creates a constructor function that will be executed once during contract creation
+        totalSupply = 1000000000; //Sets the total supply of tokens to 1 billion
+        balances[msg.sender] = totalSupply; //Assigns all tokens to the contract creator's address
+        owner = msg.sender; //Sets the contract creator's address as the owner
+    }
+
+    function transfer(address _to, uint256 _value) public returns (bool) { //Creates a function to transfer tokens from sender to receiver, with input parameters _to (address) and _value (uint256)
+        require(_to != address(0)); //Checks if the receiver's address is not 0x00... (empty address)
+        require(_value <= balances[msg.sender]); //Checks if the sender has enough tokens to transfer
+        balances[msg.sender] = balances[msg.sender] - _value; //Subtracts the transfer amount from the sender's balance
+        balances[_to] = balances[_to] + _value; //Adds the transfer amount to the receiver's balance
+        emit Transfer(msg.sender, _to, _value); //Triggers the Transfer event
+        return true;
+    }
+
+    function approve(address _spender, uint256 _value) public returns (bool) { //Creates a function to approve an allowance for another address to spend tokens from sender's balance, with input parameters _spender (address) and _value (uint256)
+        require(_spender != address(0)); //Checks if the spender's address is not 0x00... (empty address)
+        allowances[msg.sender][_spender] = _value; //Sets the allowance amount for the spender
+        emit Approval(msg.sender, _spender, _value); //Triggers the Approval event
+        return true;
+    }
+
+    function transferFrom(address _from, address _to, uint256 _value) public returns (bool) { //Creates a function to transfer tokens from sender's allowance to receiver, with input parameters _from (address), _to (address), and _value (uint256)
+        require(_to != address(0)); //Checks if the receiver's address is not 0x00... (empty address)
+        require(_value <= balances[_from]); //Checks if the sender has enough tokens to transfer
+        require(_value <= allowances[_from][msg.sender]); //Checks if the sender's allowance is enough to transfer
+        balances[_from] = balances[_from] - _value; //Subtracts the transfer amount from the sender's balance
+        balances[_to] = balances[_to] + _value; //Adds the transfer amount to the receiver's balance
+        allowances[_from][msg.sender] = allowances[_from][msg.sender] - _value; //Reduces the sender's allowance by the transfer amount
+        emit Transfer(_from, _to, _value); //Triggers the Transfer event
+        return true;
+    }
+
+    function burn(uint256 _value) public onlyOwner { //Creates a function to burn (destroy) tokens from the contract owner's balance, with input parameter _value (uint256)
+        require(balances[owner] >= _value); //Checks if the owner has enough tokens to burn
+        totalSupply = totalSupply - _value; //Subtracts the burn amount from the total supply
+        balances[owner] = balances[owner] - _value; //Subtracts the burn amount from the owner's balance
+        emit Transfer(owner, address(0), _value); //Transfers the burned tokens to the empty address, effectively removing them from circulation
+    }
+}

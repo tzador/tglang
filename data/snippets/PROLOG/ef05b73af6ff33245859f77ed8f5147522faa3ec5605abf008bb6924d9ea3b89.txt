@@ -1,0 +1,55 @@
+% This is a program that finds the shortest path in a weighted graph using the Dijkstra algorithm
+
+% Creating a predicate for the shortest path, taking in three arguments - start node, end node, and a list of edges with their weights
+shortest_path(Start, End, Edges) :-
+    dijkstra(Start, End, Edges, [], [Start], _, Cost),
+    format('Shortest path from ~w to ~w is ~w with cost ~w', [Start, End, Path, Cost]).
+
+% Creating a predicate for the Dijkstra algorithm, taking in six arguments - start node, end node, list of edges with their weights, visited nodes, current path, and current cost
+dijkstra(Current, End, Edges, Visited, Path, CurrentCost, Cost) :-
+    % Base case: if current node is the end node, we have found the shortest path and return the current path and cost
+    Current == End,
+    reverse([Current | Visited], Path),
+    Cost is CurrentCost.
+
+% If current node is not the end node, we need to explore its neighbors
+dijkstra(Current, End, Edges, Visited, Path, CurrentCost, Cost) :-
+    % Finding the unvisited neighbors of the current node and adding them to the list of visited nodes
+    findall(Next, member(Next/Weight, Edges), Neighbors),
+    subtract(Neighbors, Visited, Unvisited),
+    % Exploring each unvisited neighbor recursively
+    explore_nodes(Unvisited, Current, End, Edges, Visited, Path, CurrentCost, Cost).
+
+% Predicate to explore each unvisited neighbor recursively
+explore_nodes([Next | Neighbors], Current, End, Edges, Visited, Path, CurrentCost, Cost) :-
+    % Calculating the cost of reaching the next node via the current node
+    member(Current/CurrentWeight, Edges),
+    NewCost is CurrentCost + CurrentWeight,
+    % If the new cost is lower than the existing cost, we update the current path and cost
+    ( member(Next/ExistingCost, Visited)
+    ->  (NewCost < ExistingCost
+        ->  update_path_and_cost(Next, Current, End, Edges, Visited, Path, NewCost, UpdatedCost),
+            explore_nodes(Neighbors, Current, End, Edges, UpdatedCost, Path, NewCost, Cost)
+        ;   explore_nodes(Neighbors, Current, End, Edges, Visited, Path, CurrentCost, Cost)
+        )
+    ;   update_path_and_cost(Next, Current, End, Edges, Visited, Path, NewCost, UpdatedCost),
+        explore_nodes(Neighbors, Current, End, Edges, UpdatedCost, Path, NewCost, Cost) 
+    ).
+
+% Updating the current path and cost with the new node and its cost if it has not been visited already or if the new cost is lower than the existing cost
+update_path_and_cost(Next, Current, End, Edges, Visited, Path, NewCost, UpdatedCost) :-
+    % Adding the current node and its cost to the visited nodes list
+    append(Visited, [Next/NewCost], UpdatedVisited),
+    % Updating the current path with the new node
+    append(Path, [Current/Next], UpdatedPath),
+    % Recursively exploring the next node
+    dijkstra(Next, End, Edges, UpdatedVisited, UpdatedPath, NewCost, UpdatedCost).
+
+% Sample graph with nodes A, B, C, D and edges with their weights
+graph([a/b/1, a/c/3, b/c/1, b/d/2, c/d/3, d/b/1]).
+
+% Query for finding the shortest path from node A to node D in the sample graph
+?- graph(G), shortest_path(a, d, G).
+
+% Output
+% Shortest path from a to d is [a/b, b/d] with cost 3.

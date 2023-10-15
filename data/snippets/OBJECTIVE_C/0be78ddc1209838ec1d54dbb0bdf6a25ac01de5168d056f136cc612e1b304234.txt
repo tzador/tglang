@@ -1,0 +1,94 @@
+// Setting up a UITableViewController as a subclass of UIViewController
+@interface MyTableViewController : UITableViewController
+// Define properties
+@property (strong, nonatomic) NSArray *dataArray;
+@property (weak, nonatomic) IBOutlet UIRefreshControl *myRefreshControl;
+
+// Define methods
+-(void)fetchData;
+-(void)reloadData;
+
+// Implementation of the UITableViewController
+@implementation MyTableViewController
+// Synthesize properties
+@synthesize dataArray = _dataArray;
+
+// Implementation of the viewDidLoad method
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    
+    // Set up the table view delegate and data source
+    self.tableView.delegate = self;
+    self.tableView.dataSource = self;
+    
+    // Set a custom title for the view controller
+    self.title = @"My Table View";
+    
+    // Set up the refresh control
+    self.myRefreshControl = [[UIRefreshControl alloc] init];
+    [self.myRefreshControl addTarget:self action:@selector(fetchData) forControlEvents:UIControlEventValueChanged];
+    [self.tableView addSubview:self.myRefreshControl];
+    
+    // Fetch data from a remote source
+    [self fetchData];
+}
+
+// Implementation of the fetchData method
+-(void)fetchData {
+    
+    // Send an asynchronous network request
+    NSURL *url = [NSURL URLWithString:@"https://example.com/data"];
+    NSURLSessionDataTask *dataTask = [[NSURLSession sharedSession] dataTaskWithURL:url completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        
+        // Handle any errors
+        if (error) {
+            NSLog(@"Error: %@", error);
+        } else {
+            
+            // Convert JSON response into an array
+            NSError *jsonError;
+            self.dataArray = [NSJSONSerialization JSONObjectWithData:data options:kNilOptions error:&jsonError];
+            
+            // Reload the table view data
+            [self reloadData];
+        }
+    }];
+    
+    // Start the data task
+    [dataTask resume];
+}
+
+// Implementation of the reloadData method
+-(void)reloadData {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        
+        // Reload the table view data
+        [self.tableView reloadData];
+        
+        // Stop the refresh control animation
+        [self.myRefreshControl endRefreshing];
+    });
+}
+
+# pragma mark - Table View Data Source methods
+
+// Implementation of the numberOfRowsInSection method
+-(NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    return self.dataArray.count;
+}
+
+// Implementation of the cellForRowAtIndexPath method
+-(UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    
+    // Create a new table view cell
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"MyCell" forIndexPath:indexPath];
+    
+    // Configure the cell with data from the data array
+    NSDictionary *item = self.dataArray[indexPath.row];
+    cell.textLabel.text = item[@"name"];
+    cell.detailTextLabel.text = [NSString stringWithFormat:@"Quantity: %@", item[@"quantity"]];
+    
+    return cell;
+}
+
+@end

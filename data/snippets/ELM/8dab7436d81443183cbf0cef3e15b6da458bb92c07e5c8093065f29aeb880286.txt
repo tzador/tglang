@@ -1,0 +1,112 @@
+-- ELM code for a searchable list of users
+
+-- Define Type for a user
+type alias User=
+  { name : String
+  , age : Int
+  , occupation : String
+  }
+
+-- Define a list of users
+users : List User
+users =
+  [{ name = "John"
+   , age = 28
+   , occupation = "Software Engineer"
+   },
+   { name = "Alice"
+   , age = 25
+   , occupation = "Graphic Designer"
+   },
+   { name = "Bob"
+   , age = 32
+   , occupation = "Marketing Manager"
+   },
+   { name = "Jenny"
+   , age = 36
+   , occupation = "Project Manager"
+   }]
+
+-- Define the search criteria
+type alias SearchCriteria =
+  { keyword : String
+  , minAge : Int
+  , maxAge : Int
+  , occupation : String
+  }
+
+-- Define the update function for search criteria
+update : Msg -> Model -> SearchCriteria -> ( Model, SearchCriteria )
+update msg model searchCriteria =
+  case msg of
+    SetKeyword keyword ->
+      ( model, { searchCriteria | keyword = keyword } )
+    SetAge minAge maxAge ->
+      ( model, { searchCriteria | minAge = minAge, maxAge = maxAge } )
+    SetOccupation occupation ->
+      ( model, { searchCriteria | occupation = occupation } )
+    ClearSearchCriteria ->
+      ( model, { keyword = "", minAge = 0, maxAge = 99, occupation = "" } )
+
+-- Define the view function for search criteria
+view : Model -> Html Msg
+view model =
+  div []
+    [ input [ placeholder "Enter keyword", onInput SetKeyword ] []
+    , input [ type_ "number", placeholder "Min age", onInput (\min -> SetAge (String.toInt min) model.searchCriteria.maxAge) ] []
+    , input [ type_ "number", placeholder "Max age", onInput (\max -> SetAge model.searchCriteria.minAge (String.toInt max)) ] []
+    , input [ placeholder "Occupation", onInput SetOccupation ] []
+    , button [ onClick ClearSearchCriteria ] [ text "Clear" ]
+    ]
+
+-- Define the filter function for users
+filterUsers : SearchCriteria -> List User -> List User
+filterUsers searchCriteria users =
+  let
+    filteredUsers =
+      List.filter (\user -> String.contains searchCriteria.keyword (String.toLower user.name)) users
+      |> List.filter (\user -> user.age >= searchCriteria.minAge && user.age <= searchCriteria.maxAge)
+      |> List.filter (\user -> String.contains searchCriteria.occupation (String.toLower user.occupation))
+  in
+    filteredUsers
+
+-- Define the view function for filtered users
+viewResults : Model -> Html Msg
+viewResults model =
+  let
+    filteredUsers =
+      filterUsers model.searchCriteria users
+  in
+    div []
+      [ ul []
+          ( List.map (\user -> li [] [ text user.name, text (toString user.age), text user.occupation ]) filteredUsers )
+      ]
+
+-- Define the model and init function
+type alias Model =
+  { searchCriteria : SearchCriteria
+  }
+
+init : ( Model, Cmd Msg )
+init =
+  ( { searchCriteria = { keyword = "", minAge = 0, maxAge = 99, occupation = "" } }, Cmd.none )
+
+-- Define the subscriptions function
+subscriptions : Model -> Sub Msg
+subscriptions model =
+  Sub.none
+
+-- Define the main program
+main : Program Never Model Msg
+main =
+  Program.program
+    { init = init
+    , view = view
+    , update = update
+    , subscriptions = subscriptions
+    }
+
+-- Run the program
+port program : Program Never Model Msg
+port program =
+  main

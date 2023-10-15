@@ -1,0 +1,141 @@
+IDENTIFICATION DIVISION.
+       PROGRAM-ID. MyProg.
+
+       ENVIRONMENT DIVISION.
+       INPUT-OUTPUT SECTION.
+       FILE-CONTROL.
+       SELECT Input-File ASSIGN TO "INFILE.TXT".
+       SELECT Output-File ASSIGN TO "OUTFILE.TXT".
+
+       DATA DIVISION.
+       FILE SECTION.
+       FD Input-File
+          LABEL RECORDS ARE STANDARD
+          VALUE OF FILE-ID IS "INFILE.TXT"
+          RECORDING MODE IS F.
+
+       01 Input-Record.
+          05 Field1    PIC X(10).
+          05 Field2    PIC 9(02).
+          05 Field3    PIC X(05).
+          05 Field4    PIC 9(03).
+          05 Field5    PIC 9(02).
+
+       FD Output-File
+          LABEL RECORDS ARE STANDARD
+          VALUE OF FILE-ID IS "OUTFILE.TXT"
+          RECORDING MODE IS F.
+
+       01 Output-Record.
+          05 Field1    PIC X(10).
+          05 Field2    PIC X(10).
+          05 Field3    PIC X(10).
+          05 Field4    PIC 9(04).
+          05 Field5    PIC X(10).
+          05 Field6    PIC X(10).
+          05 Field7    PIC X(10).
+          05 Field8    PIC X(10).
+          05 Field9    PIC X(10).
+          05 Field10   PIC X(10).
+
+       WORKING-STORAGE SECTION.
+       01 EOF-Switch                  PIC X(01).
+       01 Valid-Record-Count          PIC 9(08) VALUE ZERO.
+       01 Invalid-Record-Count        PIC 9(08) VALUE ZERO.
+       01 Total-Record-Count          PIC 9(08) VALUE ZERO.
+
+       01 Input-Record-Number          PIC 9(08) VALUE ZERO.
+       01 Output-Record-Number         PIC 9(08) VALUE ZERO.
+
+       01 Error-Code                     PIC S9(4) COMP VALUE 0.
+       01 Error-Message                  PIC X(80).
+       01 Error-Status                   PIC X(02).
+
+       PROCEDURE DIVISION.
+       0000-MAIN-PARAGRAPH.
+           OPEN INPUT Input-File
+           OPEN OUTPUT Output-File
+
+           PERFORM UNTIL EOF-Switch = 'Y'
+               READ Input-File
+                   AT END
+                       MOVE 'Y' TO EOF-Switch
+                       GO TO 2000-MAIN-END.
+
+               EVALUATE TRUE
+                   WHEN Field1 NOT NUMERIC
+                       MOVE "ERROR: Field1 must be numeric" TO Error-Message
+                       MOVE 'ER' TO Error-Status
+                   WHEN Field2 NOT NUMERIC
+                       MOVE "ERROR: Field2 must be numeric" TO Error-Message
+                       MOVE 'ER' TO Error-Status
+                   WHEN Field3 NOT NUMERIC
+                       MOVE "ERROR: Field3 must be numeric" TO Error-Message
+                       MOVE 'ER' TO Error-Status
+                   WHEN Field4 NOT NUMERIC
+                       MOVE "ERROR: Field4 must be numeric" TO Error-Message
+                       MOVE 'ER' TO Error-Status
+                   WHEN Field5 NOT NUMERIC
+                       MOVE "ERROR: Field5 must be numeric" TO Error-Message
+                       MOVE 'ER' TO Error-Status
+                   WHEN OTHER
+                       MOVE "ERROR: Invalid record" TO Error-Message
+                       MOVE 'ER' TO Error-Status
+               END-EVALUATE.
+
+               IF Error-Status = 'ER'
+                   ADD 1 TO Invalid-Record-Count
+               ELSE
+                   ADD 1 TO Valid-Record-Count
+               END-IF.
+
+               MOVE Field1 TO Field2
+               MOVE Field3 TO Field4
+               MOVE ZEROS TO Field1
+               MOVE ZEROS TO Field3
+
+               COMPUTE Field5 = Field2 + Field4
+               MULTIPLY Field5 BY 100
+               MOVE Field5 TO Field6
+
+               MOVE Field4 TO Field7
+               IF Field2 > Field4
+                   ADD 10 TO Field7
+               ELSE
+                   SUBTRACT 5 FROM Field7
+               END-IF.
+
+               IF Field1 = 'ABC'
+                   PERFORM 1000-SPECIAL-CASE
+               END-IF.
+
+               MOVE Output-Record TO Output-File
+               WRITE Output-Record
+                   ON ERROR
+                       MOVE "ERROR: Write operation failed" TO Error-Message
+                       MOVE 'ER' TO Error-Status
+                   NOT ON ERROR
+                       ADD 1 TO Output-Record-Number
+               END-WRITE.
+
+               ADD 1 TO Input-Record-Number
+           END-PERFORM.
+
+       1000-SPECIAL-CASE.
+           IF Field2 = 50
+               MOVE ZEROS TO Field4
+           END-IF.
+
+           IF Field5 = 1000
+               PERFORM 2000-MAIN-END
+           END-IF.
+
+       2000-MAIN-END.
+           CLOSE Input-File
+           CLOSE Output-File
+
+           MOVE Input-Record-Number TO Total-Record-Count
+           DISPLAY "Total Records: " Total-Record-Count
+           DISPLAY "Valid Records: " Valid-Record-Count
+           DISPLAY "Invalid Records: " Invalid-Record-Count
+           STOP RUN.

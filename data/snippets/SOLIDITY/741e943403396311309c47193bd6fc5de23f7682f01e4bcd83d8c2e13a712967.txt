@@ -1,0 +1,66 @@
+/// @title Auction
+contract Auction {
+  // Variables that will be used to store important information of the auction.
+  address public beneficiary;
+  uint public auctionEnd;
+  // Current state of the auction.
+  address public highestBidder;
+  uint public highestBid;
+  // Allowed withdrawals of previous bids.
+  mapping(address => uint) pendingReturns;
+  // Set to true at the end, disallows any change.
+  bool ended;
+  // Events that will be fired on changes.
+  event HighestBidIncreased(address bidder, uint amount);
+  event AuctionEnded(address winner, uint amount);
+  // The following is a so-called natspec comment, recognizable by the three slashes.
+  // It will be shown when the user is asked to confirm a transaction.
+  /// @dev Creates a simple auction with `_biddingTime` seconds bidding time on behalf of the
+  /// beneficiary address `_beneficiary`.
+  constructor(
+    uint _biddingTime,
+    address _beneficiary
+  ) public {
+    beneficiary = _beneficiary;
+    auctionEnd = now + _biddingTime;
+  }
+  /// @notice Bid on the auction with the value sent together with this transaction.
+  /// @param bidAmount The bid amount in wei.
+  function bid(uint bidAmount) public payable {
+    // Parameter validation
+    require(!ended, "Auction has ended.");
+    require(bidAmount > highestBid, "There is already a higher bid.");
+    // Update highest bid
+    highestBidder = msg.sender;
+    highestBid = bidAmount;
+    // Emit event
+    emit HighestBidIncreased(msg.sender, bidAmount);
+  }
+  /// @dev Withdraw a bid that was overbid.
+  function withdraw() public returns (bool) {
+    // Get amount to withdraw
+    uint amount = pendingReturns[msg.sender];
+    // If the amount is positive, update pending returns and send the amount
+    if (amount > 0) {
+      pendingReturns[msg.sender] = 0;
+      if (!msg.sender.send(amount)) {
+        // Setting this to zero prevents a user from blocking the withdraw of another user's funds.
+        pendingReturns[msg.sender] = amount;
+        return false;
+      }
+    }
+    return true;
+  }
+  /// @notice End the auction and send the highest bid to the beneficiary.
+  function auctionEnd() public {
+    // Parameter validation
+    require(now >= auctionEnd, "Auction has not ended yet.");
+    require(!ended, "Auction has already ended.");
+    // Update state
+    ended = true;
+    // Emit event
+    emit AuctionEnded(highestBidder, highestBid);
+    // Send highest bid to beneficiary
+    beneficiary.transfer(highestBid);
+  }
+}

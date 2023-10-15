@@ -1,0 +1,83 @@
+pragma solidity ^0.8.0;
+
+/// @title A simple contract that manages a list of team members
+contract TeamManagement {
+    /// @notice An event emitted when a new team member is added
+    event NewTeamMemberAdded(uint256 memberIndex, address memberAddress, string memberName);
+
+    /// @notice An event emitted when a team member's role is updated
+    event TeamMemberRoleUpdated(uint256 memberIndex, string newRole);
+
+    /// @notice An event emitted when a team member is removed
+    event TeamMemberRemoved(uint256 memberIndex);
+
+    /// @notice Struct representing a team member
+    struct TeamMember {
+        address memberAddress; // Address of the team member
+        string name; // Name of the team member
+        string role; // Role of the team member
+    }
+
+    /// @notice Array of team members
+    TeamMember[] public teamMembers;
+
+    /// @dev Mapping of team member addresses to their indexes in the teamMembers array
+    mapping(address => uint256) public teamMemberIndexes;
+
+    /// @notice Add a new team member
+    /// @param _memberAddress The address of the new team member
+    /// @param _name The name of the new team member
+    /// @param _role The role of the new team member
+    function addTeamMember(address _memberAddress, string memory _name, string memory _role) public {
+        require(!teamMemberExists(_memberAddress), "Team member already exists"); // Check if team member already exists
+
+        TeamMember memory newTeamMember = TeamMember(_memberAddress, _name, _role); // Create new TeamMember struct
+        uint256 memberIndex = teamMembers.push(newTeamMember) - 1; // Add new team member to teamMembers array and get its index
+
+        teamMemberIndexes[_memberAddress] = memberIndex; // Update teamMemberIndexes mapping
+
+        emit NewTeamMemberAdded(memberIndex, _memberAddress, _name); // Emit event
+    }
+
+    /// @notice Update a team member's role
+    /// @param _memberAddress The address of the team member
+    /// @param _newRole The new role of the team member
+    function updateTeamMemberRole(address _memberAddress, string memory _newRole) public {
+        require(teamMemberExists(_memberAddress), "Team member does not exist"); // Check if team member exists
+
+        uint256 memberIndex = teamMemberIndexes[_memberAddress]; // Get team member's index
+        teamMembers[memberIndex].role = _newRole; // Update team member's role in teamMembers array
+
+        emit TeamMemberRoleUpdated(memberIndex, _newRole); // Emit event
+    }
+
+    /// @notice Remove a team member
+    /// @param _memberAddress The address of the team member
+    function removeTeamMember(address _memberAddress) public {
+        require(teamMemberExists(_memberAddress), "Team member does not exist"); // Check if team member exists
+
+        uint256 memberIndex = teamMemberIndexes[_memberAddress]; // Get team member's index
+
+        delete teamMemberIndexes[_memberAddress]; // Delete team member's index from teamMemberIndexes mapping
+        delete teamMembers[memberIndex]; // Delete team member from teamMembers array
+
+        emit TeamMemberRemoved(memberIndex); // Emit event
+    }
+
+    /// @notice Check if a team member already exists
+    /// @param _memberAddress The address of the team member
+    /// @return true if the team member exists, false otherwise
+    function teamMemberExists(address _memberAddress) public view returns (bool) {
+        if (teamMembers.length == 0) { // Check if teamMembers array is empty
+            return false;
+        } else {
+            return (teamMembers[teamMemberIndexes[_memberAddress]].memberAddress == _memberAddress); // Check if team member exists at their index in teamMembers array
+        }
+    }
+
+    /// @notice Get the total number of team members
+    /// @return The total number of team members
+    function getTeamMembersCount() public view returns (uint256) {
+        return teamMembers.length;
+    }
+}

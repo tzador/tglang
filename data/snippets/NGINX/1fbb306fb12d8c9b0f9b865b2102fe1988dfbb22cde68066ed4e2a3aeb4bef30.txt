@@ -1,0 +1,94 @@
+# HTTP server configuration
+server {
+    # IP address to listen on
+    listen 80;
+    # server name (domain name)
+    server_name www.example.com;
+
+    # Redirect all requests to HTTPS
+    return 301 https://$server_name$request_uri;
+}
+
+# HTTPS server configuration
+server {
+    # IP address to listen on
+    listen 443 ssl http2;
+    # server name (domain name)
+    server_name www.example.com;
+
+    # SSL certificate information
+    ssl_certificate /etc/nginx/ssl/www.example.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/www.example.com.key;
+
+    # Enable SSL/TLS
+    ssl on;
+    
+    # Configure strong SSL ciphers
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers "ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA";
+    
+    # Enable HTTP Strict Transport Security (HSTS)
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # Enable OCSP stapling
+    ssl_stapling on;
+    ssl_stapling_verify on;
+
+    # Enable server-wide caching of static assets
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+    types_hash_max_size 2048;
+    # Enable gzip compression for faster page loading
+    gzip on;
+    gzip_disable "msie6";
+    gzip_types text/plain text/css application/json application/javascript application/x-javascript text/xml application/xml application/xml+rss text/javascript;
+    
+    # Define the location of the website's root directory
+    root /var/www/html;
+    
+    # Serve index.html as the default page
+    index index.html index.htm;
+    
+    # Enable caching of images, CSS, and JavaScript
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+        expires 30d;
+    }
+    
+    # Serve static files directly without passing to other handlers
+    location ~* \.(txt|html)$ {
+        if_modified_since off;
+        expires 0;
+    }
+    
+    # Enable server-side caching of dynamic content
+    # by using a reverse proxy cache
+    location / {
+        proxy_cache my-cache;
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+        proxy_cache_valid 200 302 60m;
+        proxy_cache_valid 404 1m;
+        proxy_cache_revalidate on;
+        proxy_cache_min_uses 1;
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+        proxy_cache_bypass $http_pragma;
+        add_header X-Cache-Status $upstream_cache_status;
+        proxy_pass http://localhost:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_redirect off;
+    }
+}
+
+# Reverse proxy cache configuration
+proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=my-cache:10m inactive=60m;
+
+# Virtual hosts configuration
+http {
+    include mime.types;
+    proxy_ignoring_headers Cache-Control Expires;
+    sendfile on;
+    keepalive_timeout 65;
+}

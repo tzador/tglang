@@ -1,0 +1,51 @@
+*&---------------------------------------------------------------------*
+*& Report ZTEST_REPORT
+*&
+*&---------------------------------------------------------------------*
+ 
+REPORT ztest_report.
+
+* Helper method to calculate total price for a given product and quantity
+METHOD calculate_price.
+  DATA:
+    ls_product TYPE product,
+    lv_quantity TYPE i VALUE 5,
+    lv_price TYPE p DECIMALS 2 VALUE 0.
+
+  GET REFERENCE OF ls_product INTO DATA(lr_product).
+  lv_price = lr_product->price * lv_quantity.
+
+  CLEAR lr_product.
+  lr_product->resulted_price = lv_price.
+ENDMETHOD.
+
+* Functional method to get product details from table
+METHOD get_product_details.
+  DATA:
+    lt_products TYPE TABLE OF product,
+    lr_product TYPE REF TO product.
+
+  SELECT *
+  FROM product
+  INTO TABLE @lt_products.
+
+  DESCRIBE TABLE lt_products LINES DATA(number_of_products).
+  
+  IF number_of_products > 0.
+    LOOP AT lt_products INTO DATA(ls_product).
+      lr_product ?= ls_product.
+      
+      IF lr_product IS BOUND.
+        calculate_price( )->execute( CHANGING lr_product ).
+      ENDIF.
+    ENDLOOP.
+  ENDIF.
+ENDMETHOD.
+
+* Main program
+START-OF-SELECTION.
+get_product_details( )->execute( CHANGING DATA(ls_product) ).
+
+* Output
+WRITE 'Total price for product ' && ls_product-product_id && ':' && ls_product-resulted_price.
+*---------------------------------------------------------------------*

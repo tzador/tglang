@@ -1,0 +1,39 @@
+### Stage 1: Create base image
+FROM alpine:latest
+
+### Stage 2: Set environment variables
+ENV HOME=/home
+ENV USER=developer
+ENV UID=1000
+ENV GID=1000
+ENV CODE_DIR=/home/project
+
+### Stage 3: Install dependencies
+RUN apk update && \
+    apk upgrade && \
+    apk add --no-cache \
+    bash \
+    openssh \
+    git \
+    curl \
+    docker-compose
+
+### Stage 4: Configure SSH
+RUN mkdir /home/.ssh
+RUN touch /home/.ssh/known_hosts
+RUN ssh-keyscan github.com >> /home/.ssh/known_hosts
+
+### Stage 5: Create user and assign permissions
+RUN addgroup -g $GID $USER
+RUN adduser -h $HOME -s /bin/bash -u $UID -G -S $USER
+RUN chown -R $USER:$USER /home
+
+### Stage 6: Set working directory
+WORKDIR $CODE_DIR
+
+### Stage 7: Clone project repository
+RUN git clone git@github.com:user/project.git .
+
+### Stage 8: Expose port and start server
+EXPOSE 8000
+CMD ["python", "run_server.py"]

@@ -1,0 +1,189 @@
+/*
+This code snippet creates a custom character class 
+and implements movement and attack functions.
+*/
+
+class CustomCharacter extends Pawn;
+
+// Movement variables
+var() float WalkSpeed;
+var() float RunSpeed;
+var() float JumpHeight;
+var() float Gravity;
+
+// Attack variables
+var() int AmmoCount;
+var() int MaxAmmo;
+var() float AttackRate;
+var() float WeaponDamage;
+
+// Movement constants
+const float MIN_WALK_SPEED = 1000.0;
+const float MIN_RUN_SPEED = 2000.0;
+const float MIN_JUMP_HEIGHT = 300.0;
+const float MIN_GRAVITY = 800.0;
+
+// Attack constants
+const int MAX_AMMO = 100;
+const float MIN_ATTACK_RATE = 1.0;
+const float MAX_WEAPON_DAMAGE = 100.0;
+
+// Function to initialize default variables
+event InitDefaultVars()
+{
+    Super.InitDefaultVars();
+
+    WalkSpeed = 1500.0;
+    RunSpeed = 3000.0;
+    JumpHeight = 400.0;
+    Gravity = 1200.0;
+
+    AmmoCount = 50;
+    MaxAmmo = 100;
+    AttackRate = 1.5;
+    WeaponDamage = 50.0;
+}
+
+// Function to move character forward
+simulated function MoveForward(float Val)
+{
+    if (Val != 0.0)
+    {
+        Vector MoveDirection;
+
+        // Calculate move direction based on character rotation
+        MoveDirection = Rotation;
+        MoveDirection.Yaw = 0;
+        MoveDirection.Normalize();
+
+        // Move forward with WalkSpeed or RunSpeed based on Val
+        if (Val < 0.0)
+            Velocity = WalkSpeed * MoveDirection * Val * -1.0;
+        else
+            Velocity = RunSpeed * MoveDirection * Val;
+    }
+    else
+        Velocity = vect(0,0,0);
+}
+
+// Function to move character sideways
+simulated function MoveRight(float Val)
+{
+    if (Val != 0.0)
+    {
+        Vector MoveDirection;
+
+        // Calculate move direction based on character rotation
+        MoveDirection = Rotation;
+        MoveDirection.Yaw += 90;
+        MoveDirection.Normalize();
+
+        // Move sideways with WalkSpeed or RunSpeed based on Val
+        if (Val < 0.0)
+            Velocity = WalkSpeed * MoveDirection * Val * -1.0;
+        else
+            Velocity = RunSpeed * MoveDirection * Val;
+    }
+    else
+        Velocity = vect(0,0,0);
+}
+
+// Function to make character jump
+simulated function Jump()
+{
+    if (IsOnGround() && Velocity.Z <= 0)
+    {
+        // Add velocity upwards based on JumpHeight
+        Velocity.Z = JumpHeight;
+    }
+}
+
+// Function to perform an attack
+function Attack()
+{
+    if (AmmoCount > 0)
+    {
+        // Do damage to any nearby enemies based on WeaponDamage
+        array<Actor> PotentialTargets;
+        PotentialTargets = GetActorsInRange(class'Actor', 500.0);
+        foreach PotentialTargets(P)
+        {
+            if (P.IsA('Pawn'))
+            {
+                Pawn Enemy = Pawn(P);
+                Enemy.TakeDamage(WeaponDamage, self, Location, P.Location, vect(0,0,0), class'DamageType');
+            }
+        }
+
+        // Reduce ammo count and set timer to limit rate of attack
+        AmmoCount--;
+        SetTimer(AttackRate, false, 'Attack', '');
+    }
+}
+
+// Function to reload ammo
+function Reload()
+{
+    if (AmmoCount < MaxAmmo)
+    {
+        // Add ammo up to the max amount
+        AmmoCount = Min(AmmoCount + 20, MaxAmmo);
+    }
+}
+
+// Function to get the character's current health
+function int GetHealth()
+{
+    return Health;
+}
+
+// Function to take damage
+function TakeDamage(int Damage, Controller EventInstigator, Vector HitLocation, Vector Momentum, class DamageType)
+{
+    // Deduct damage from health
+    Health -= Damage;
+
+    // If health reaches 0, destroy the character
+    if (Health <= 0)
+    {
+        bCollideActors = false;
+        bBlockActors = false;
+        bBlockNonZeroExtentTraces = false;
+        bProjTarget = false;
+        Destroy();
+    }
+}
+
+defaultproperties
+{
+    // Set default mesh and character movement class
+    Begin Object class=SkeletalMeshComponent Name=CustomCharacterMesh
+        SkeletalMesh=SkeletalMesh'PathToYourMeshHere'
+        AnimTreeTemplate=AnimTree'PathToYourAnimTreeHere'
+        MeshTickBaseIsTickGroupWait
+    End Object
+
+    Begin Object class=UCharacterMovementComponent Name=CharacterMovement
+        WalkingSpeed=WalkingSpeed
+        RunningSpeed=RunSpeed
+        JumpZ=JumpHeight
+        GravityScale=Gravity
+        MovementTickComponent=CharacterMovement
+        bSprintEnabled=False
+        AirSpeed=WalkSpeed
+    End Object
+
+    CharacterMovement=CharacterMovement
+    Mesh=CustomCharacterMesh
+
+    Health=100
+    MaxHealth=100
+
+    bCanCrouch=True
+
+    // Set collision settings
+    BlockActors=True
+    BlockNonZeroExtentTraces=True
+    PhysicsVolume=PhysicsVolume'None'
+    CanBeBaseForPawn=True
+}

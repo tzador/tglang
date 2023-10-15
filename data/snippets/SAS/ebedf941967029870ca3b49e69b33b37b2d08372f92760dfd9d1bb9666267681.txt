@@ -1,0 +1,43 @@
+/* This is a complex SAS code snippet that uses multiple functions and nested do loops to generate a table of sales data */
+
+/* Setting up the necessary variables and arrays */
+%let num_years = 10; /* Number of years of data to generate */
+%let num_months = 12; /* Number of months in a year */
+%let sales_range = (%eval(1000 * &num_years * &num_months)); /* Max sales amount to generate */
+
+/* Creating a macro to generate random sales data for each month */
+%macro generate_sales(input_year);
+    %do i = 1 %to &num_months;
+        %let sales_amount = %sysfunc(rand('uniform', 0, &sales_range)); /* Generating a random sales amount within the specified range */
+        output;
+    %end;
+%mend;
+
+/* Creating a data set to store the sales data */
+data sales_data;
+    array sales[&num_years][&num_months]; /* Declaring an array to store sales data for each month of each year */
+    set sales_data; /* Setting the data set to itself to append new data */
+
+    /* Using nested do loops to generate sales data for each year and month */
+    do year = 1 to &num_years;
+        do month = 1 to &num_months;
+            /* Calling the macro to generate a random sales amount for the current month */
+            call execute('%generate_sales('||put(month, 2.)||')');
+
+            /* Assigning the generated sales amount to the array element for the current year and month */
+            sales[year, month] = &sales_amount;
+        end;
+    end;
+
+    drop sales_amount; /* Dropping the temporary variable used to generate sales_amount */
+run;
+
+/* Sorting the data by year and month */
+proc sort data=sales_data;
+    by year month;
+run;
+
+/* Printing the sales data table */
+proc print data=sales_data;
+    var year month sales1 - sales&num_months.; /* Selecting the array elements to print */
+run;

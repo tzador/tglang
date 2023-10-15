@@ -1,0 +1,78 @@
+pragma solidity ^0.8.0; //specifies the version of Solidity to be used
+
+contract Voting {
+    address public manager; //stores the address of the contract owner
+    address[] public voters; // array to store the addresses of the voters
+    uint public totalVotes; //the total number of votes received
+
+    struct Candidate {
+        string name; //name of the candidate
+        uint voteCount; //number of votes given to the candidate
+    }
+
+    Candidate[] public candidates; //array to store the details of the candidates
+
+    mapping(address => bool) public hasVoted; //mapping to track if an address has already voted
+
+    modifier onlyManager() {  //modifier to restrict certain functions to only the contract owner
+        require(msg.sender == manager);
+        _;
+    }
+
+    //constructor function to initialize the contract
+    constructor() {
+        manager = msg.sender;
+    }
+
+    //function to add a new candidate to the election
+    function addCandidate(string memory _name) public onlyManager {
+        candidates.push(Candidate(_name, 0));
+    }
+    
+    //function for voters to cast their vote
+    function vote(uint _candidateIndex) public {
+        //check if the voter has already voted
+        require(!hasVoted[msg.sender]);
+        //check if the candidate index is valid
+        require(_candidateIndex >= 0 && _candidateIndex < candidates.length);
+
+        //increment the vote count for the selected candidate and mark the voter as having voted
+        candidates[_candidateIndex].voteCount++;
+        hasVoted[msg.sender] = true;
+        
+        //update the total number of votes received
+        totalVotes++;
+    }
+    
+    //function to determine the winner of the election
+    function getWinner() public view returns (string memory) {
+        uint maxVotes = 0; //variable to store the max number of votes received
+        string memory winner; //variable to store the name of the winner
+        
+        //loop through all the candidate's vote count and update the maxVotes and winner variables accordingly
+        for (uint i = 0; i < candidates.length; i++) {
+            if (candidates[i].voteCount > maxVotes) {
+                maxVotes = candidates[i].voteCount;
+                winner = candidates[i].name;
+            }
+        }
+        
+        //return the name of the winner
+        return winner;
+    }
+    
+    //function to get the list of candidates and their vote counts
+    function getCandidates() public view returns (string[] memory, uint[] memory) {
+        string[] memory candidateNames = new string[](candidates.length); //array to store candidate names
+        uint[] memory voteCounts = new uint[](candidates.length); //array to store vote counts
+        
+        //loop through all the candidates and add their details to the arrays
+        for (uint i = 0; i < candidates.length; i++) {
+            candidateNames[i] = candidates[i].name;
+            voteCounts[i] = candidates[i].voteCount;
+        }
+        
+        //return both arrays
+        return (candidateNames, voteCounts);
+    }
+}

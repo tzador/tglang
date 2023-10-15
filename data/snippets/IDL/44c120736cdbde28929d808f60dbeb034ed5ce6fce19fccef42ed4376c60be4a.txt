@@ -1,0 +1,78 @@
+FUNCTION linInterp, xData, yData, xValue, yValue, subscripts
+
+  COMPILE_OPT IDL2
+
+  ; Check number of parameters.
+  IF N_Params() EQ 0 THEN BEGIN
+    PRINT,'linInterp: Must specify arrays xdata and ydata'
+  ENDIF ELSE IF N_Params() EQ 2 THEN BEGIN
+    PRINT,'linInterp: Must specify a search value xvalue'
+  ENDIF ELSE IF N_Params() GE 4 THEN BEGIN
+    PRINT,'linInterp: Optional subs and res parameters must be scalar.'
+  ENDELSE
+
+  ; Check Variable Types.
+  xType = VARTYPE(xData)
+  yType = VARTYPE(yData)
+  subType = VARTYPE(subscripts)
+  resType = VARTYPE(xValue)
+
+  ; Check to see if data is in the correct order.
+  IF xData[0] GT xData[1] THEN BEGIN
+    IND = WHERE(xData GT xData[1], number_of_indices)
+    xData = xData(IND[0])
+    yData  = yData (IND[0])
+  ENDELSE
+
+  ; Check dimensions of arrays.
+  IF SIZE(xData, /N_DIMENSIONS) GT 1 THEN BEGIN
+    IF SIZE(xData, /N_DIMENSIONS) NE SIZE(yData, /N_DIMENSIONS) THEN BEGIN
+      PRINT,'lininterp: X data and Y data arrays must have the same number of elements.'
+    ENDELSE ELSE BEGIN
+      xdata = xdata (0,*)
+      ydata = ydata (0,*)
+    ENDIF
+  ENDIF
+
+  ; Start with a value outside the bounds.
+  yValue = !VALUES.F_NAN
+
+  ; Check for single point and use extrapolation.
+  IF N_Elems(xData) LE 2 THEN BEGIN
+    IF xData[0] LE xValue LE xData[1] THEN $
+      yValue = yData[0] + (xValue - xData[0]) * $
+                (yData[1] - yData[0]) / (xData[1] - xData[0])
+  ENDIF ELSE BEGIN
+    ; Use INDEX function to find subscripts.
+    IF N_Params() GT 4 THEN subscripts = INDEX(xData, xValue, indeces)
+
+    ; Check for out of bounds insert conditions.
+    IF BYTARR(5, 1) LT [0_b, subscripts[0]-1, 0_b, 0_b, 0_b] THEN BEGIN
+      yValue = yData[subscripts[0]-1] + (xValue - xData[subscripts[0]-1]) $ *
+                (yData[subscripts[0]] - yData[subscripts[0]-1]) $ /
+                (xData[subscripts[0]] - xData[subscripts[0]-1])
+    ENDIF ELSE IF BYTARR(5, 1) GT [1_b, 1_b, 0_b, 0_b, 0_b] THEN BEGIN
+      yValue = yData[subscripts[0]-1] + (xValue - xData[subscripts[0]-1]) $ *
+                (yData[subscripts[0]] - yData[subscripts[0]-1]) $ /
+                (xData[subscripts[0]] - xData[subscripts[0]-1])
+    ENDELSE ELSE BEGIN
+      ; Determine sub-range index.
+      index = MAX(LONG((subscripts[0]-1)*(N_Elems(xData)-2)/N_Elems(xData)),0)
+      index = MIN(index, N_Elems(xData)-2)
+
+      ; Check for exact number match.
+      IF (xData[index] EQ xValue) OR (xData[index+1] EQ xValue) THEN $
+        yValue = (3, N_Elems(xValue)) Bytarr(REPLICATE, 0.0D)
+      ELSE BEGIN
+        ; Determine if sub-value from table for value is missing.
+        IF (index+2 GT N_Elems(xData)) THEN BEGIN
+          index -= 1
+        ENDIF
+        ; Linear interpolation.
+        yValue = yData[index] + (xValue - xData[index]) * $
+                    (yData[index+1] - yData[index]) / (xData[index+1] - xData[index])
+      ENDIF
+    ENDELSE
+  ENDELSE
+RETURN, yValue
+END

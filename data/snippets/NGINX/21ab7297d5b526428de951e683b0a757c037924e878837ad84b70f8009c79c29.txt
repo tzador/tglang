@@ -1,0 +1,108 @@
+# Set default server block
+server {
+    listen 8080 default_server; # Listen on port 8080 for all incoming requests
+    server_name _; # Any server name will be accepted
+
+    # Location block for handling root requests
+    location / {
+        root /var/www/html; # Set root directory for serving content
+        index index.html index.htm; # Set index files to be served
+    }
+
+    # Location block for handling requests to /admin/* paths
+    location /admin/ {
+        root /var/www/admin; # Set root directory for serving admin content
+        index index.php; # Only serve index.php as the index file
+        auth_basic "Admin Login"; # Set basic authentication for admin paths
+        auth_basic_user_file /etc/nginx/.htpasswd; # Specify path to authentication file
+    }
+
+    # Location block for handling requests to /api/* paths
+    location /api/ {
+        proxy_pass http://localhost:3000/; # Proxy requests to local server on port 3000
+        proxy_http_version 1.1; # Use HTTP/1.1 protocol for proxy requests
+        proxy_set_header Host $host; # Pass the original host to the proxy server
+        proxy_set_header X-Real-IP $remote_addr; # Pass the client's IP address to the proxy server
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # Pass the real client's IP address to the proxy server
+    }
+
+    # Location block for handling requests to /static/* paths
+    location /static/ {
+        alias /var/www/static; # Set alias for serving static content
+        expires 1d; # Set maximum caching time for static content
+        add_header Cache-Control "public"; # Set caching to public
+    }
+
+    # Location block for handling requests to /uploads/* paths
+    location /uploads/ {
+        limit_except GET HEAD { # Limit available HTTP methods to GET and HEAD
+            deny all; # Deny all requests not using the allowed methods
+        }
+        alias /var/www/uploaded_files; # Set alias for serving uploaded files
+    }
+
+    # Location block for handling requests to /app/* paths
+    location /app/ {
+        proxy_pass http://127.0.0.1:8000/; # Proxy requests to local server on port 8000
+        limit_req zone=mylimit burst=5 nodelay; # Set rate limiting for this location
+        try_files $uri $uri/ /index.html; # Try finding requested file, directory, or return 404
+        error_page 404 @fallback; # Redirect to fallback if 404 error occurs
+    }
+
+    location @fallback {
+        rewrite ^(.*)$ /index.html last; # Rewrite URL to index.html and stop processing
+    }
+
+    # Location block for handling requests to /secret/* paths
+    location /secret/ {
+        root /var/www; # Set root directory for serving secret content
+        internal; # Only allow internal requests to this location
+    }
+
+    # Location block for handling requests to /private/* paths
+    location /private/ {
+        deny all; # Deny all requests to this location
+        auth_jwt "Restricted Area"; # Set JWT authentication for private paths
+        auth_jwt_key_file /etc/nginx/jwt_key; # Specify path to JWT key file
+        auth_jwt_token_expires 1m; # Set expiration time for JWT tokens
+    }
+}
+
+# Set additional server block for example.com
+server {
+    listen 80; # Listen on port 80 for requests to example.com
+    server_name example.com; # Only allow requests with this server name
+
+    # Location block for handling requests to root directory
+    location / {
+        root /var/www/example.com; # Set root directory for serving example.com content
+        index index.html; # Serve index.html as the index file
+        try_files $uri $uri/ =404; # Try finding requested file or return 404
+        resolver 8.8.8.8; # Use Google DNS for resolving domain names
+    }
+
+    # Location block for handling requests to /blog/* paths
+    location /blog/ {
+        proxy_pass http://123.45.67.89:8000/; # Proxy requests to remote server on port 8000
+        proxy_set_header Host $host; # Pass the original host to the proxy server
+        proxy_set_header X-Real-IP $remote_addr; # Pass the client's IP address to the proxy server
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # Pass the real client's IP address to the proxy server
+        proxy_set_header X-Forwarded-Host $host; # Pass the original host to the proxy server
+        proxy_set_header X-Forwarded-Server $host; # Pass the original host to the proxy server
+        proxy_set_header X-Forwarded-Proto $scheme; # Pass the original protocol to the proxy server
+        proxy_set_header X-Frame-Options SAMEORIGIN; # Set X-Frame-Options to avoid clickjacking attacks
+        proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504; # Configure how nginx handles errors from the upstream server
+        client_max_body_size 10m; # Limit the maximum size of client request body
+        client_body_buffer_size 128k; # Set the buffer size for client request body
+        proxy_buffers 4 256k; # Set the number and size of buffers used for storing proxy response
+        proxy_busy_buffers_size 256k; # Set the buffer size for busy buffers
+        proxy_max_temp_file_size 1024m; # Set the maximum size of temporary files
+        rewrite ^/blog/([^/]+) /blog/index.php?post=$1 last; # Rewrite URL for pretty URLs
+    }
+}
+
+# Set gzip compression for all locations and MIME types
+gzip on; # Enable gzip compression
+gzip_min_length 1000; # Only compress files larger than 1000 bytes
+gzip_types application/javascript image/svg+xml; # Only compress JavaScript files and SVG images
+gzip_vary on; # Add Vary header to responses

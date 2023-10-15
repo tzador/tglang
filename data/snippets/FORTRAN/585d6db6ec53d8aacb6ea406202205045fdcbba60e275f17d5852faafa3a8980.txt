@@ -1,0 +1,110 @@
+! This code snippet solves the heat equation using the Crank-Nicolson method
+
+program heat_equation
+  implicit none
+  
+  ! Define parameters
+  integer, parameter :: nx = 100 ! number of spatial grid points
+  integer, parameter :: nt = 2000 ! number of time steps
+  real, parameter :: x_length = 1.0 ! length of domain in x direction
+  real, parameter :: t_length = 1.0 ! length of simulation in t direction
+  real, parameter :: dx = x_length/nx ! spatial step size
+  real, parameter :: dt = t_length/nt ! time step size
+  real, parameter :: alpha = 0.1 ! thermal diffusivity
+  
+  ! Define variables
+  real :: u(nx+1, nt+1) ! temperature solution
+  real :: u_new(nx+1, nt+1) ! new temperature solution
+  real :: a(nx+1) ! coefficient for lower diagonal of matrix A
+  real :: b(nx+1) ! coefficient for main diagonal of matrix A
+  real :: c(nx+1) ! coefficient for upper diagonal of matrix A
+  real :: d(nx+1) ! coefficient for lower diagonal of matrix B
+  real :: e(nx+1) ! coefficient for main diagonal of matrix B
+  real :: f(nx+1) ! coefficient for upper diagonal of matrix B
+  real :: r(nx+1) ! right hand side vector
+  
+  ! Set initial conditions
+  do i = 1, nx+1
+    u(i, 1) = sin(i*dx*pi) ! initial temperature profile
+  end do
+  
+  ! Set boundary conditions
+  u(1, :) = 0 ! temperature at left boundary
+  u(nx+1, :) = 0 ! temperature at right boundary
+  
+  ! Calculate coefficients for matrix A and B
+  do i = 2, nx
+    a(i) = -alpha*dt/(2*dx**2)
+    b(i) = 1 + alpha*dt/dx**2
+    c(i) = -alpha*dt/(2*dx**2)
+    d(i) = alpha*dt/(2*dx**2)
+    e(i) = 1 - alpha*dt/dx**2
+    f(i) = alpha*dt/(2*dx**2)
+  end do
+  
+  ! Time marching loop
+  do n = 1, nt
+    ! Calculate right hand side vector
+    do i = 2, nx
+      r(i) = u(i-1, n) + u(i+1, n) + b(i)*u(i, n)
+    end do
+    
+    ! Solve tridiagonal systems
+    call tridiagonal_solve(a, b, c, r, nx+1) ! solve for u_new
+    
+    ! Assign new temperature values
+    u_new(:, n+1) = u_new
+    
+    ! Update solution
+    u = u_new
+  end do
+  
+  ! Output solution to file
+  open(unit=1, file="temp_profile.txt", status='replace') ! open file for writing
+  do n = 1, nt+1
+    do i = 1, nx+1
+      write(1, *) i*dx, n*dt, u(i, n) ! output x, t, u values to file
+    end do
+    write(1, *)
+  end do
+  close(1) ! close file
+  
+contains
+  
+  ! Subroutine to solve a tridiagonal system
+  subroutine tridiagonal_solve(a, b, c, r, n)
+    implicit none
+    integer, intent(in) :: n ! size of system
+    real, intent(inout) :: a(n) ! lower diagonal of matrix A
+    real, intent(inout) :: b(n) ! main diagonal of matrix A
+    real, intent(inout) :: c(n) ! upper diagonal of matrix A
+    real, intent(inout) :: r(n) ! right hand side vector
+    
+    ! Define temporary variables
+    real :: m(n) ! temporary vector
+    real :: y(n) ! temporary vector
+    real :: x(n) ! temporary vector
+    
+    ! Forward elimination
+    m(1) = c(1)/b(1)
+    do i = 2, n
+      m(i) = c(i)/(b(i) - a(i)*m(i-1))
+    end do
+    
+    ! Back substitution
+    y(1) = r(1)/b(1)
+    do i = 2, n
+      y(i) = (r(i) - a(i)*y(i-1))/(b(i) - a(i)*m(i-1))
+    end do
+    
+    ! Calculate solution
+    x(n) = y(n)
+    do i = n-1, 1, -1
+      x(i) = y(i) - m(i)*x(i+1)
+    end do
+    
+    ! Update solution
+    r = x
+  end subroutine tridiagonal_solve
+
+end program heat_equation

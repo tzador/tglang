@@ -1,0 +1,53 @@
+#This code snippet has four main parts: 
+
+#1. Data generation: 
+# - It generates a dataset of 100 observations with 5 features 
+# - The first 4 features are continuous variables and the last one is a categorical variable with 3 levels.
+# - It also assigns names to the features.
+
+#2. Data preprocessing: 
+# - It converts the categorical variable into dummy variables using one-hot encoding 
+# - It standardizes the continuous variables using the standardization formula 
+
+#3. Model training: 
+# - It creates a logistic regression model using the glm function 
+# - It uses the standardized data as input and the categorical variable as the response 
+
+#4. Model evaluation: 
+# - It calculates the accuracy, precision, and recall of the model using the confusionMatrix function from the caret package 
+# - It also plots the ROC curve for the model using the ggplot2 package 
+
+#Data generation
+set.seed(123)
+dataset <- data.frame(replicate(5, rnorm(100)))
+dataset$categorical <- sample(c("A", "B", "C"), 100, replace = TRUE)
+names(dataset) <- c("Feature1", "Feature2", "Feature3", "Feature4", "Categorical")
+
+#Data preprocessing
+library(caret)
+library(dummies)
+dummy_vars <- dummy.data.frame(dataset$categorical, sep = "")
+dataset <- cbind(dataset[, 1:4], dummy_vars)
+std_vars <- scale(dataset[, 1:4])
+dataset <- cbind(std_vars, dataset[, 5:7])
+
+#Model training
+logistic_mod <- glm(Categorical ~ ., data = dataset, family = binomial)
+
+#Model evaluation
+library(pROC)
+library(ggplot2)
+pred <- predict(logistic_mod, type = "response")
+roc <- roc(dataset$Categorical, pred)
+conf_mat <- confusionMatrix(pred > 0.5, dataset$Categorical)
+acc <- round(conf_mat$overall["Accuracy"], 3)
+prec <- round(conf_mat$byClass["Pos Pred Value"], 3)
+recall <- round(conf_mat$byClass["Sensitivity"], 3)
+ggplot(data = roc, aes(x = 1 - spec, y = sens)) +
+  geom_step() +
+  geom_area(fill = "blue", alpha = 0.4) +
+  geom_text(aes(1 - spec[8], sens[8], label = paste("AUC =", auc)), color = "red") +
+  labs(x = "1 - Specificity", y = "Sensitivity", title = "ROC Curve for Logistic Regression Model") +
+  scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, by = 0.1)) +
+  scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, by = 0.1)) +
+  theme_bw()

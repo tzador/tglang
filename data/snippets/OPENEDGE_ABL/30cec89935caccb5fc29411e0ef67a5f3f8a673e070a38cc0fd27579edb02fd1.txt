@@ -1,0 +1,94 @@
+/*This program checks the validity of a credit card number and displays the issuer*/
+
+/*Declaring variables*/
+DEFINE VARIABLE cardNum AS CHARACTER NO-UNDO.
+DEFINE VARIABLE issuerNum AS CHARACTER NO-UNDO.
+DEFINE VARIABLE checksumNum AS CHARACTER NO-UNDO.
+DEFINE VARIABLE result AS CHARACTER NO-UNDO.
+
+/*Prompt user for input*/
+MESSAGE "Enter the credit card number:" SKIP
+VIEW-AS ALERT-BOX INFO BUTTONS OK.
+ENABLE cardNum WITH FRAME f-input.
+
+/*Validate input*/
+VALIDATE cardNum AS CHARACTER
+WITH FRAME f-input
+LABEL "Credit Card Number:"
+TRIGGERS ON FRAME f-output
+THEN DO:
+    /*Remove any dashes or spaces from the input*/
+    STRIP(cardNum, '- ', cardNum). 
+
+    /*Check if input is a 16-digit number*/
+    IF NUM-ENTRIES(cardNum) <> 16 THEN
+        MESSAGE "Invalid input. Please enter a 16-digit number." VIEW-AS ALERT-BOX ERROR.
+
+    ELSE DO:
+        /*Calculate checksum using Luhn algorithm*/
+        DO i = 1 TO 16:
+            IF i MODULO 2 = 0 THEN CHECKSUM = CHECKSUM + cardNum[i] ELSE
+                MULTIPLY cardNum[i] BY 2.
+                IF cardNum[i] > 9 THEN ADD 1 TO CHECKSUM USE-INDEX(i).
+
+        IF CHECKSUM MODULO 10 = 0 THEN CHECKSUM = 0 ELSE CHECKSUM = 10 - (CHECKSUM MODULO 10).
+
+        /*Get the first two digits of the input*/
+        issuerNum = CARDNUM[1 TO 2].
+
+        /*Display the issuer based on the first two digits and checksum*/
+        CASE issuerNum:
+            WHEN "37" THEN /*Output for American Express*/
+                IF CHECKSUM = 0 THEN DO:
+                    ASSIGN result = "American Express".
+                    BREAK.
+                END.
+            WHEN "34" THEN /*Output for American Express Corporate*/
+                IF CHECKSUM = 0 THEN DO:
+                    ASSIGN result = "American Express Corporate".
+                    BREAK.
+                END.
+            WHEN "51","52","53","54","55" THEN /*Output for Mastercard*/
+                IF CHECKSUM = 0 THEN DO:
+                    ASSIGN result = "Mastercard".
+                    BREAK.
+                END.
+            WHEN "4" THEN /*Output for Visa*/
+                IF CHECKSUM = 0 THEN DO:
+                    ASSIGN result = "Visa".
+                    BREAK.
+                END.
+            OTHERWISE MESSAGE "Invalid input. Unable to determine issuer." VIEW-AS ALERT-BOX ERROR.
+        END CASE.
+
+        /*Display the result*/
+        DISPLAY result WITH FRAME f-output.
+
+    END.
+END.
+
+/*Handlers for UI elements*/
+ON CHOOSE OF BUTTON btn-submit IN FRAME f-input DO:
+    RUN validate-input.
+    IF ERROR-STATUS:ERROR THEN DO:
+        MESSAGE ERROR-STATUS:GET-MESSAGE(1) VIEW-AS ALERT-BOX ERROR BUTTONS OK.
+        RETURN NO-APPLY.
+    END.
+END.
+
+ON END-ERROR IN FRAME f-input DO:
+    MESSAGE ERROR-STATUS:GET-MESSAGE(1) VIEW-AS ALERT-BOX ERROR BUTTONS OK.
+    RETURN NO-APPLY.
+END.
+
+ON END-KEY OF cardNum IN FRAME f-input DO:
+    RUN validate-input.
+    IF ERROR-STATUS:ERROR THEN DO:
+        MESSAGE ERROR-STATUS:GET-MESSAGE(1) VIEW-AS ALERT-BOX ERROR BUTTONS OK.
+        RETURN NO-APPLY. 
+    END.
+END.
+
+ON END-KEY IN FRAME f-output DO:
+    RETURN NO-APPLY.
+END.

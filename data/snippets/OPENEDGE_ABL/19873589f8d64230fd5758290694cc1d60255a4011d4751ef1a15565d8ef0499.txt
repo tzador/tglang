@@ -1,0 +1,68 @@
+/* This is a code snippet in OPENEDGE_ABL (also known as ABL) */
+/* It creates a database table called "Customer_Info" with fields for customer information */
+
+/* Create the database table */
+CREATE TABLE Customer_Info
+  CUSTOMER_ID                 INT
+  NAME                        CHAR(50)
+  ADDRESS                     CHAR(100)
+  CITY                        CHAR(25)
+  STATE                       CHAR(2)
+  ZIP_CODE                    CHAR(10)
+  PHONE_NUMBER                CHAR(15)
+  EMAIL                       CHAR(50)
+  BALANCE                     DECIMAL(10,2)
+  CREDIT_LIMIT                DECIMAL(10,2)
+  PRIMARY KEY                 (CUSTOMER_ID)
+  INDEX                       (CITY, STATE, ZIP_CODE);
+
+/* Add a trigger to update the balance field when a new transaction is added */
+CREATE TRIGGER UPDATE_BALANCE
+  BEFORE INSERT ON Transactions
+  REFERENCING NEW AS Transaction /* Transaction is a reserved word in ABL, so we use "AS Transaction" */
+  FOR EACH ROW
+  UPDATE Customer_Info SET BALANCE = BALANCE + Transaction.AMOUNT
+  WHERE CUSTOMER_ID = Transaction.CUSTOMER_ID;
+  
+/* Create a stored procedure to add a new customer to the table */
+CREATE PROCEDURE ADD_CUSTOMER (
+  IN customer_name            CHAR(50),
+  IN customer_address         CHAR(100),
+  IN customer_city            CHAR(25),
+  IN customer_state           CHAR(2),
+  IN customer_zip_code        CHAR(10),
+  IN customer_phone_number    CHAR(15),
+  IN customer_email           CHAR(50),
+  IN customer_balance         DECIMAL(10,2),
+  IN customer_credit_limit    DECIMAL(10,2)):
+  
+  /* Check if customer already exists */
+  FIND FIRST Customer_Info
+    WHERE NAME = customer_name
+    AND ADDRESS = customer_address
+    AND CITY = customer_city
+    AND STATE = customer_state
+    AND ZIP_CODE = customer_zip_code
+    AND PHONE_NUMBER = customer_phone_number
+    AND EMAIL = customer_email NO-LOCK NO-ERROR.
+  
+  /* If customer exists, throw an error */
+  IF AVAILABLE Customer_Info THEN
+    MESSAGE "Customer already exists" VIEW-AS ALERT-BOX.
+  
+  /* If customer does not exist, add them to the table */
+  ELSE DO:
+    CREATE Customer_Info.
+    ASSIGN
+      CUSTOMER_ID = NEXT-VALUE("CustInfoSeq"), /* CustInfoSeq is a sequence that generates unique customer IDs */
+      NAME = customer_name,
+      ADDRESS = customer_address,
+      CITY = customer_city,
+      STATE = customer_state,
+      ZIP_CODE = customer_zip_code,
+      PHONE_NUMBER = customer_phone_number,
+      EMAIL = customer_email,
+      BALANCE = customer_balance,
+      CREDIT_LIMIT = customer_credit_limit.
+    MESSAGE "Customer added" VIEW-AS ALERT-BOX.
+  END.

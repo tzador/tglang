@@ -1,0 +1,138 @@
+pragma solidity ^0.8.0;
+
+// Import the necessary libraries
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+// Create contract "Staking" and inherit from "Ownable" contract
+contract Staking is Ownable {
+    
+    // Define the token to be staked
+    IERC20 private _stakedToken;
+    
+    // Define the token that will be rewarded for staking
+    IERC20 private _rewardToken;
+    
+    // Define the staking duration
+    uint256 private _stakingDuration;
+    
+    // Define the minimum amount to be staked
+    uint256 private _minStakeAmount;
+    
+    // Define the reward rate
+    uint256 private _rewardRate;
+    
+    // Define a mapping to keep track of the staked amounts for each account
+    mapping(address => uint256) private _stakedBalance;
+    
+    // Define a modifier to restrict functions to only the owner of the contract
+    modifier onlyOwner() {
+        require(msg.sender == owner(), "You are not the owner of this contract");
+        _;
+    }
+    
+    // Define an event to emit when tokens are staked
+    event Staked(address indexed account, uint256 amount);
+    
+    // Define an event to emit when tokens are withdrawn
+    event Withdrawn(address indexed account, uint256 amount);
+    
+    // Define an event to emit when rewards are claimed
+    event RewardPaid(address indexed account, uint256 amount);
+    
+    // Constructor function to initialize the contract
+    constructor(IERC20 stakedToken_, IERC20 rewardToken_, uint256 stakingDuration_, uint256 minStakeAmount_, uint256 rewardRate_) {
+        // Assign the values to the contract variables
+        _stakedToken = stakedToken_;
+        _rewardToken = rewardToken_;
+        _stakingDuration = stakingDuration_;
+        _minStakeAmount = minStakeAmount_;
+        _rewardRate = rewardRate_;
+    }
+    
+    // Function to get the staked token
+    function getStakedToken() public view returns (IERC20) {
+        return _stakedToken;
+    }
+    
+    // Function to get the reward token
+    function getRewardToken() public view returns (IERC20) {
+        return _rewardToken;
+    }
+    
+    // Function to get the staking duration
+    function getStakingDuration() public view returns (uint256) {
+        return _stakingDuration;
+    }
+    
+    // Function to get the minimum stake amount
+    function getMinStakeAmount() public view returns (uint256) {
+        return _minStakeAmount;
+    }
+    
+    // Function to get the reward rate
+    function getRewardRate() public view returns (uint256) {
+        return _rewardRate;
+    }
+    
+    // Function to check if the staking period has ended
+    function isStakingEnded() public view returns (bool) {
+        return block.timestamp > _stakingDuration;
+    }
+    
+    // Function to stake tokens
+    function stake(uint256 amount) public {
+        // Check if the staking period has not ended
+        require(!isStakingEnded(), "Staking period has ended");
+        
+        // Check if the staked amount is greater than the minimum stake amount
+        require(amount >= _minStakeAmount, "Amount is less than the minimum stake amount");
+        
+        // Transfer the tokens from the sender to the contract and update the staked balance
+        SafeERC20.safeTransferFrom(_stakedToken, msg.sender, address(this), amount);
+        _stakedBalance[msg.sender] += amount;
+        
+        // Emit the staked event
+        emit Staked(msg.sender, amount);
+    }
+    
+    // Function to withdraw staked tokens
+    function withdraw(uint256 amount) public {
+        // Check if the staking period has ended
+        require(isStakingEnded(), "Staking period has not ended yet");
+        
+        // Check if the requested amount is less than or equal to the staked balance of the sender
+        require(amount <= _stakedBalance[msg.sender], "Not enough staked balance");
+        
+        // Transfer the tokens from the contract back to the sender and update the staked balance
+        SafeERC20.safeTransfer(_stakedToken, msg.sender, amount);
+        _stakedBalance[msg.sender] -= amount;
+        
+        // Emit the withdrawn event
+        emit Withdrawn(msg.sender, amount);
+    }
+    
+    // Function to claim rewards
+    function claimReward() public {
+        // Check if the staking period has ended
+        require(isStakingEnded(), "Staking period has not ended yet");
+        
+        // Calculate the reward amount based on the reward rate and the staked balance of the sender
+        uint256 rewardAmount = _rewardRate * _stakedBalance[msg.sender];
+        
+        // Transfer the reward tokens from the contract to the sender and update the reward balance
+        SafeERC20.safeTransfer(_rewardToken, msg.sender, rewardAmount);
+        _stakedBalance[msg.sender] = 0;
+        
+        // Emit the reward paid event
+        emit RewardPaid(msg.sender, rewardAmount);
+    }
+    
+    // Function to withdraw any remaining tokens from the contract
+    function withdrawRemainingTokens() public onlyOwner {
+        // Transfer the remaining staked tokens and reward tokens from the contract to the owner
+        SafeERC20.safeTransfer(_stakedToken, owner(), getStakedToken().balanceOf(address(this)));
+        SafeERC20.safeTransfer(_rewardToken, owner(), getRewardToken().balanceOf(address(this)));
+    }
+}

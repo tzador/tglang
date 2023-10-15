@@ -1,0 +1,74 @@
+# This code snippet generates a random maze using prim's algorithm
+# and solves it using the Dijkstra's algorithm.
+
+import random # import the random module
+
+proc generateMaze(width: int, height: int): # define procedure to generate maze
+    var maze: array[0..height-1, 0..width-1, int] # initialize maze as a 3D array
+    maze.fill(1) # fill the maze with walls
+    var walls: seq[(int, int)] = @[(random.randrange(width), random.randrange(height))] # create a sequence of walls with a random starting point
+    maze[walls[0][0], walls[0][1]] = 0 # set the starting point as empty space on the maze
+    var visited: array[0..height-1, 0..width-1, bool] # create a 2D array to track visited cells
+    visited.fill(false) # initialize all cells as unvisited
+    visited[walls[0][0], walls[0][1]] = true # mark the starting point as visited
+    while len(walls) > 0: # loop until all walls have been visited
+        var current_wall = walls.pop(random.randrange(len(walls))) # select a random wall from the sequence
+        var x = current_wall[0] # extract x-coordinate of current wall
+        var y = current_wall[1] # extract y-coordinate of current wall
+        visited[y, x] = true # mark current cell as visited
+        var neighbors: seq[(int, int)] = @[] # create sequence to store neighboring cells
+        if x > 1 and not visited[y, x-2]: # if left cell is unvisited
+            neighbors.add((x-2,y)) # add it to the sequence
+        if x < width-2 and not visited[y, x+2]: # if right cell is unvisited
+            neighbors.add((x+2,y)) # add it to the sequence
+        if y > 1 and not visited[y-2, x]: # if top cell is unvisited
+            neighbors.add((x,y-2)) # add it to the sequence
+        if y < height-2 and not visited[y+2, x]: # if bottom cell is unvisited
+            neighbors.add((x,y+2)) # add it to the sequence
+        if len(neighbors) > 0: # if there are unvisited neighboring cells
+            var neighbor_wall = neighbors[random.randrange(len(neighbors))] # select a random neighbor
+            var nx = neighbor_wall[0] # extract x-coordinate of neighbor
+            var ny = neighbor_wall[1] # extract y-coordinate of neighbor
+            maze[(y+ny)/2, (x+nx)/2] = 0 # break down the wall between current cell and neighbor
+            maze[ny, nx] = 0 # mark neighbor cell as empty space
+            visited[ny, nx] = true # mark neighbor cell as visited
+            for i in -1..1: # loop through all adjacent cells
+                for j in -1..1:
+                    if (abs(i) + abs(j)) == 1 and y+i >= 0 and y+i < height and x+j >= 0 and x+j < width: # if adjacent cell is within bounds
+                        if not visited[y+i, x+j]: # and unvisited
+                            walls.add((x+j,y+i)) # add the wall to the sequence
+    
+    return maze # return the generated maze
+
+
+proc dijkstraMaze(maze: array[0..height-1, 0..width-1, int]): # define procedure to solve maze using Dijkstra's algorithm
+    var dist: array[0..height-1, 0..width-1] # create array to store distances from starting point
+    dist.fill(INF) # initialize all distances as infinity
+    var visited: array[0..height-1, 0..width-1, bool] # create 2D array to track visited cells
+    visited.fill(false) # initialize all cells as unvisited
+    visited[0, 0] = true # mark starting point as visited
+    dist[0, 0] = 0 # set distance of starting point as 0
+    var pq: PriorityQueue[int] = initPriorityQueue() # initialize priority queue to store cells
+    pq.push(0, (0, 0)) # push starting point onto the queue with distance as priority
+    while not pq.isEmpty(): # while there are cells remaining in the queue
+        var current = pq.pop() # pop the cell with the smallest distance from the queue
+        var x = current[1][0] # extract x-coordinate of current cell
+        var y = current[1][1] # extract y-coordinate of current cell
+        visited[y, x] = true # mark current cell as visited
+        if x == width-1 and y == height-1: # if current cell is the destination
+            break # exit the loop
+        for i in -1..1: # loop through all adjacent cells
+            for j in -1..1:
+                if (abs(i) + abs(j)) == 1 and y+i >= 0 and y+i < height and x+j >= 0 and x+j < width: # if adjacent cell is within bounds
+                    if maze[y+i, x+j] == 0 and not visited[y+i, x+j]: # and is an empty space and unvisited
+                        var newDist = dist[y, x] + 1 # calculate new distance from starting point
+                        if newDist < dist[y+i, x+j]: # if it is shorter than the current distance
+                            dist[y+i, x+j] = newDist # update the distance
+                            pq.push(newDist, (x+j, y+i)) # push the cell onto the queue with new distance as priority
+    return dist # return the distances from the starting point to each cell in the maze
+
+# Sample usage:
+var maze = generateMaze(30, 20) # generate a 30x20 maze
+var distances = dijkstraMaze(maze) # solve the maze using Dijkstra's algorithm
+echo distances # print the distances from the starting
+echo maze # print the maze

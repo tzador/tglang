@@ -1,0 +1,115 @@
+*&---------------------------------------------------------------------*
+*& Report ZMM_PURCHASE_ORDER                                           *
+*&---------------------------------------------------------------------*
+*&                                                                   *
+*& Input Parameters: PO_NUMBER, PO_DATUM, VENDOR                       *
+*&---------------------------------------------------------------------*
+*& Purpose: This program creates a purchase order in the system using  *
+*& the given input parameters. It also performs checks for validity    *
+*& of input and existing purchase orders.                              *
+*&---------------------------------------------------------------------*
+
+REPORT ZMM_PURCHASE_ORDER.
+
+*--------------------- Declaration of Global Data ---------------------*
+
+TABLES: EKKO, EKPO.
+DATA: LV_PO_NUM TYPE EKKO-EBELN,
+      LV_DATE TYPE SY-DATUM,
+      LV_VENDOR TYPE LIFNR,
+      LV_PO_COUNT TYPE I.
+
+*---------------------- Input Parameters Checks -----------------------*
+
+DATA: LV_ERROR_MSG TYPE STRING.
+
+*PO_COUNT stores the number of purchase orders with the given PO_NUMBER*
+SELECT COUNT( * ) INTO LV_PO_COUNT FROM EKKO WHERE EBELN = PO_NUMBER.
+
+*Check for valid PO_NUMBER format*
+IF PO_NUMBER IS NOT INITIAL
+AND PO_NUMBER(1) = '4'
+AND SY-INDEX = 10.
+  IF LV_PO_COUNT = 0.
+    LV_ERROR_MSG = 'Invalid PO Number'.
+    RAISE EXCEPTION TYPE CX_SY_MESSAGE_AREA
+    EXPORTING
+      MESSAGE = LV_ERROR_MSG.
+  ENDIF.
+ELSE.
+  LV_ERROR_MSG = 'Invalid Input Format for PO Number'.
+  RAISE EXCEPTION TYPE CX_SY_MESSAGE_AREA
+  EXPORTING
+    MESSAGE = LV_ERROR_MSG.
+ENDIF.
+
+*Check for valid PO_DATUM format*
+IF PO_DATUM IS INITIAL
+OR PO_DATUM(4) < SY-DATUM(4).
+  IF PO_DATUM(6) < SY-DATUM(6).
+    IF PO_DATUM(8) < SY-DATUM(2).
+      LV_ERROR_MSG = 'Invalid PO Date'.
+      RAISE EXCEPTION TYPE CX_SY_MESSAGE_AREA
+      EXPORTING
+        MESSAGE = LV_ERROR_MSG.
+    ENDIF.
+  ENDIF.
+ENDIF.
+
+*Check for valid VENDOR*
+IF VENDOR IS NOT INITIAL.
+  SELECT * FROM EKKO
+    WHERE LIFNR = VENDOR AND EBELN <> PO_NUMBER.
+  IF SY-SUBRC <> 0.
+    LV_ERROR_MSG = 'Invalid Vendor'.
+    RAISE EXCEPTION TYPE CX_SY_MESSAGE_AREA
+      EXPORTING
+        MESSAGE = LV_ERROR_MSG.
+  ENDIF.
+ELSE.
+  LV_ERROR_MSG = 'Please enter Vendor'.
+  RAISE EXCEPTION TYPE CX_SY_MESSAGE_AREA
+    EXPORTING
+      MESSAGE = LV_ERROR_MSG.
+ENDIF.
+
+*------------------------- Creation of PO -----------------------------*
+
+LV_PO_NUM = PO_NUMBER.
+LV_DATE = PO_DATE.
+LV_VENDOR = VENDOR.
+
+*Check for any previous PO with the given PO_NUMBER*
+SELECT SINGLE * FROM EKKO WHERE EBELN = LV_PO_NUM.
+IF SY-SUBRC = 0.
+  LV_ERROR_MSG = 'Purchase Order Already Exists'.
+  RAISE EXCEPTION TYPE CX_SY_MESSAGE_AREA
+    EXPORTING
+      MESSAGE = LV_ERROR_MSG.
+ENDIF.
+
+*Creation of Purchase Order header*
+EKKO-EBELN = LV_PO_NUM.
+EKKO-BUKRS = SY-BUKRS.
+EKKO-BSTYP = 'F'.
+EKKO-BEDAT = PO_DATE.
+EKKO-LIFNR = VENDOR.
+
+INSERT INTO EKKO.
+COMMIT WORK.
+
+*Creation of Purchase Order items*
+EKKO-EBELN = LV_PO_NUM.
+
+*Item 1*
+EKPO-EBELN = LV_PO_NUM.
+EKPO-EBELP = '0001'.
+INSERT INTO EKPO.
+
+"...Create further item entries as needed..."
+
+COMMIT WORK.
+
+*------------------------ PO Creation Success -------------------------*
+
+WRITE: 'Purchase Order', LV_PO_NUM, 'created successfully'.

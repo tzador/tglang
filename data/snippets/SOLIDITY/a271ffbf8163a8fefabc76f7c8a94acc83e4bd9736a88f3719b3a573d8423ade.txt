@@ -1,0 +1,91 @@
+pragma solidity ^0.8.0;
+
+// Implementation of a voting system contract
+contract VotingSystem {
+    
+    // Struct to store voter information
+    struct Voter {
+        bool voted; // Flag to check if the voter has already voted
+        address delegate; // Address of a delegated voter
+        uint vote; // Index of the voted proposal
+    }
+    
+    // Struct to store proposal information
+    struct Proposal {
+        string name; // Name of the proposal
+        uint voteCount; // Accumulated number of votes
+    }
+    
+    // Address of the contract creator
+    address public chairperson;
+    
+    // Mapping to store voter information
+    mapping(address => Voter) public voters;
+
+    // Array to store proposal information
+    Proposal[] public proposals;
+    
+    // Constructor function to initialize the chairperson
+    constructor() {
+        chairperson = msg.sender;
+    }
+    
+    // Function to register a voter for voting
+    function registerVoter(address _voter) public {
+        require(msg.sender == chairperson, "Only the chairperson can register voters"); // Modifier to restrict function access
+        require(!voters[_voter].voted, "Voter has already voted"); // Modifier to check if the voter has already voted
+        require(voters[_voter].delegate == address(0), "Voter has already delegated"); // Modifier to check if the voter has already delegated
+        voters[_voter].voted = false; // Set the voted flag to false
+        voters[_voter].delegate = address(0); // Set the delegate address to 0
+        voters[_voter].vote = 0; // Set the vote index to 0
+    }
+    
+    // Function to create a new proposal
+    function createProposal(string memory _name) public {
+        require(msg.sender == chairperson, "Only the chairperson can create proposals"); // Modifier to restrict function access
+        proposals.push(Proposal(_name, 0)); // Add the new proposal to the proposals array with vote count set to 0
+    }
+    
+    // Function for voters to delegate their vote to another voter
+    function delegateVote(address _delegate) public {
+        Voter storage sender = voters[msg.sender]; // Create a reference to the sender voter
+        require(!sender.voted, "Voter has already voted"); // Modifier to check if the sender has already voted
+        require(_delegate != msg.sender, "A voter cannot delegate to themselves"); // Modifier to prevent self-delegation
+        while (voters[_delegate].delegate != address(0)) { // Loop to handle indirect delegation
+            _delegate = voters[_delegate].delegate; // Update the delegate address
+            require(_delegate != msg.sender, "Loop in delegation"); // Modifier to prevent indirect delegation loops
+        }
+        sender.voted = true; // Set the sender voted flag to true
+        sender.delegate = _delegate; // Set the delegate address
+        Voter storage delegate = voters[_delegate]; // Create a reference to the delegate voter
+        if (delegate.voted) { // Check if the delegate has already voted
+            proposals[delegate.vote].voteCount += 1; // Increment the vote count of the proposal the delegate voted for
+        }
+        else {
+            delegate.vote = sender.vote; // Set the delegate's vote index to the sender's vote index
+            proposals[sender.vote].voteCount += 1; // Increment the vote count of the proposal the sender voted for
+        }
+    }
+    
+    // Function for voters to cast their vote
+    function castVote(uint _vote) public {
+        Voter storage sender = voters[msg.sender]; // Create a reference to the sender voter
+        require(!sender.voted, "Voter has already voted"); // Modifier to check if the sender has already voted
+        sender.voted = true; // Set the sender voted flag to true
+        sender.vote = _vote; // Set the sender's vote index to the selected proposal index
+        proposals[_vote].voteCount += 1; // Increment the vote count of the selected proposal
+    }
+    
+    // Function to get the winning proposal
+    function getWinningProposal() public view returns (string memory) {
+        uint winningVoteCount = 0; // Initialize the winning vote count to 0
+        uint winningProposal = 0; // Initialize the winning proposal index to 0
+        for (uint i = 0; i < proposals.length; i++) { // Loop to iterate through all proposals
+            if (proposals[i].voteCount > winningVoteCount) { // Check if the proposal's vote count is higher than the current winning vote count
+                winningVoteCount = proposals[i].voteCount; // Update the winning vote count
+                winningProposal = i; // Update the winning proposal index
+            }
+        }
+        return proposals[winningProposal].name; // Return the name of the winning proposal
+    }
+}

@@ -1,0 +1,75 @@
+/// @title Purchase Contract
+/// @dev A contract for purchasing items
+contract Purchase {
+    address public seller; // Address of the seller
+    address public buyer; // Address of the buyer
+
+    enum State { // Possible states of the contract
+        Created,
+        Paid,
+        Delivered
+    }
+
+    State public state; // Current state of the contract
+
+    event PurchaseConfirmed(); // Event for confirming a purchase
+    event ItemReceived(); // Event for confirming item receipt
+
+    modifier onlyBuyer() { // Modifier that allows only the buyer to execute a function
+        require(msg.sender == buyer);
+        _;
+    }
+    
+    modifier onlySeller() { // Modifier that allows only the seller to execute a function
+        require(msg.sender == seller);
+        _;
+    }
+
+    modifier inState(State _state) { // Modifier that checks the current state of the contract
+        require(state == _state);
+        _;
+    }
+
+    uint public price; // Price of the item
+
+    /// @dev Creates a new purchase contract
+    /// @param _seller Address of the seller
+    /// @param _price Price of the item
+    function Purchase(address _seller, uint _price) public {
+        seller = _seller;
+        price = _price;
+    }
+
+    /// @dev Allows the buyer to purchase the item
+    function buy() public payable inState(State.Created) {
+        require(msg.value == price);
+        buyer = msg.sender;
+        state = State.Paid;
+        PurchaseConfirmed();
+    }
+
+    /// @dev Allows the buyer to confirm the item receipt
+    function confirmReceipt() public onlyBuyer inState(State.Paid) {
+        state = State.Delivered;
+        ItemReceived();
+        seller.transfer(price); // Transfer the payment to the seller
+    }
+
+    /// @dev Allows the seller to refund the buyer if the item is not received
+    function refund() public onlySeller inState(State.Paid) {
+        state = State.Created;
+        buyer.transfer(price); // Transfer the payment back to the buyer
+    }
+
+    /// @dev Allows the seller to withdraw the payment from the contract
+    /// @param _amount Amount to withdraw
+    function withdraw(uint _amount) public onlySeller {
+        require(_amount <= this.balance); // Make sure the contract has enough balance
+        seller.transfer(_amount);
+    }
+
+    /// @dev Function to get the current state of the contract
+    function getState() public view returns (State) {
+        return state;
+    }
+}

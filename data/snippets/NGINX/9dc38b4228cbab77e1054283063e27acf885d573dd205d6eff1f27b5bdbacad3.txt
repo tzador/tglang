@@ -1,0 +1,47 @@
+# This is a comment
+# Summary: This code snippet sets up a reverse proxy with caching using NGINX server
+
+# Set the working directory
+WORKDIR /etc/nginx
+
+# Install NGINX and necessary modules
+RUN apt-get update \
+    && apt-get install -y nginx \
+    && rc=0
+
+# Configure NGINX caching
+location / {
+    # Enable caching and set the cache time
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=nginx_cache_zone:10m inactive=60m;
+    # Set cache key
+    proxy_cache_key "$scheme$request_method$host$uri";
+    # Set cache parameters
+    proxy_cache_valid 200 302 10m;
+    proxy_cache_valid 404 1m;
+    proxy_cache_bypass $http_pragma;
+    proxy_cache_revalidate on;
+    proxy_ignore_headers "Cache-Control" "Expires";
+
+    # Set up reverse proxy
+    proxy_pass http://backend_server;
+
+    # Set proxy buffer size
+    proxy_buffer_size 128k;
+    proxy_buffers 4 256k;
+}
+
+# Configure NGINX to listen on port 80
+listen 80;
+
+# Add upstream server for backend
+upstream backend_server {
+    server 127.0.0.1:8000;
+}
+
+# Enable gzip compression
+gzip on;
+gzip_comp_level 5;
+gzip_min_length 1k;
+gzip_proxied any;
+gzip_vary on;
+gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;

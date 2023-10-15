@@ -1,0 +1,56 @@
+server {
+    listen 80;
+    server_name example.com;
+    return 301 https://$server_name$request_uri; # this line directs all traffic to https
+}
+
+server {
+    listen 443 ssl;
+    server_name example.com;
+    
+    # SSL configuration
+    ssl_certificate /etc/nginx/ssl/certificate.crt;
+    ssl_certificate_key /etc/nginx/ssl/private.key;
+    
+    # Enable HTTP Strict Transport Security (HSTS)
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    
+    location / {
+        # Configure caching for static assets
+        expires 1d;
+        add_header Cache-Control public;
+        
+        # Perform server-side caching using the Proxy Caching Server
+        proxy_cache cache;
+        proxy_cache_revalidate on;
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+        proxy_cache_valid 200 1d;
+        proxy_cache_bypass $http_pragma;
+        proxy_cache_revalidate on;
+        
+        # Proxy requests to Node.js app
+        proxy_pass http://localhost:3000;
+        proxy_set_header Host $host;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+    
+    location ~* \.(jpg|jpeg|gif|png|svg|ico|woff|woff2|otf|ttf)$ {
+        # Configure caching for image and font files
+        expires 7d;
+        add_header Cache-Control public;
+    }
+    
+    # Enable gzip compression for responses
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml;
+
+    # Protect against Cross-Site Scripting (XSS) attacks
+    add_header X-XSS-Protection "1; mode=block";
+
+    # Prevent all forms of content sniffing
+    add_header X-Content-Type-Options "nosniff";
+
+    # Enable Cross-Origin Resource Sharing (CORS)
+    add_header Access-Control-Allow-Origin *;
+}

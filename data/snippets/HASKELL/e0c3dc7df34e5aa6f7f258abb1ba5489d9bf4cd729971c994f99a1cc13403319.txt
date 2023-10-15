@@ -1,0 +1,58 @@
+{-# LANGUAGE RankNTypes, MultiParamTypeClasses, FlexibleInstances #-}
+
+module Main where
+
+import Data.Functor.Identity
+import Data.Void
+
+type Parser a = forall r. [String] -> r -> (a, r)
+
+class Monad m => MonadPlus m where
+    mzero :: m a
+    mplus :: m a -> m a -> m a
+
+instance MonadPlus Identity where
+    mzero = Identity (error "empty parser")
+    mplus (Identity a) _ = Identity a
+
+instance MonadPlus ((->) r) where
+    mzero = const (error "empty parser")
+    mplus p q x = p x `mplus` q x
+
+instance MonadPlus Maybe where
+    mzero = Nothing
+    mplus Nothing b = b
+    mplus (Just a) _ = Just a
+
+instance MonadPlus [] where
+    mzero = []
+    mplus = (++)
+
+class Monad m => MonadZero m where
+    zero :: m a
+
+class Alternative f => MonadOr f where
+    or :: forall a. f a -> f a -> f a
+
+-- Parse the first string in the list
+string :: Parser String
+string = (fmap fst) . (const (get >>= parse))
+  where
+    parse :: r -> String -> (String, r)
+    parse st s
+        | st == s = (st, [])
+        | otherwise = (st, [s])
+
+-- Parse any single character
+anyChar :: Parser Char
+anyChar = get >>= (\s -> case s of
+                       (c:cs) -> ([c], cs)
+                       [] -> ([], [])
+            )
+
+-- Main function
+main :: IO ()
+main = do
+    putStrLn "Enter a string:"
+    s <- getLine
+    putStrLn ("Character '" ++ s ++ "'")

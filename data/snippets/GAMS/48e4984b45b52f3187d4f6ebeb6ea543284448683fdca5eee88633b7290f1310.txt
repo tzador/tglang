@@ -1,0 +1,54 @@
+SETS
+    i 'nodes'
+    j 'conduits'
+    k 'time steps';
+
+ALIAS (i,j,k);
+
+PARAMETERS
+    A(i) 'area at node i'
+    Q(j) 'flow at conduit j'
+    V(i) 'velocity at node i'
+    Dt 'time step'
+    QMax(j) 'maximum flow for conduit j'
+    ZMin(i) 'minimum downstream invert at node i'
+    ZMax(i) 'maximum upstream invert at node i'
+    RMin(j) 'minimum radius at conduit j';
+
+POSITIVE VARIABLES
+    dH(i,j) 'energy loss in conduit j from node i'
+    H(i,j,k) 'head at node i and time step k'
+    U(j,k) 'upstream depth of flow in conduit j during time step k'
+    D(j,k) 'downstream depth of flow in conduit j during time step k';
+
+EQUATIONS
+    EnergyBal(i,j,k) 'energy balance at node i, conduit j, time step k'
+    FlowBal(i,j,k) 'flow balance at node i, conduit j, time step k'
+    NodeUp(i,k) 'upstream nodal depth at node i during time step k'
+    NodeDw(i,k) 'downstream nodal depth at node i during time step k'
+    ConduitDep(j,k) 'conduit depth at conduit j during time step k'
+    ConduitFlow(j,k) 'flow through conduit j during time step k';
+
+* Energy balance equation
+EnergyBal(i,j,k).. H(i,j,k) =E= H(i,j,k-1) - dH(i,j) * Dt;
+
+* Flow balance equation
+FlowBal(i,j,k).. Q(j) =E= A(i) * V(i) =E= A(i) * dH(i,j) / Dt;
+
+* Upstream nodal depth equation
+NodeUp(i,k).. U(j,k) =G= ZMax(i) - H(i,j,k);
+
+* Downstream nodal depth equation
+NodeDw(i,k).. D(j,k) =L= ZMin(i) - H(i,j,k);
+
+* Conduit depth equation
+ConduitDep(j,k).. U(j,k) =E= D(j,k);
+
+* Conduit flow equation
+ConduitFlow(j,k).. Q(j) =L= QMax(j) * (U(j,k))^1.5 * (D(j,k))^0.79 * (RMin(j))^0.33;
+
+MODEL PipeNetwork /all/;
+
+SOLVE PipeNetwork USING LP MINIMIZING 'Total energy lost';
+
+DISPLAY dH, H, U, D;

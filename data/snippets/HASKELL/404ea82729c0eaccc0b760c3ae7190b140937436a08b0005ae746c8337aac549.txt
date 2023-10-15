@@ -1,0 +1,36 @@
+{-# LANGUAGE OverloadedStrings #-}
+
+import Control.Monad
+import Data.Either
+import Data.Maybe
+import qualified Data.Text.Lazy as T
+
+-- | Apply the given function to the left value if it exists,
+-- otherwise return the given default value.
+mapLeft :: (a -> c) -> Either a b -> Either c b
+mapLeft f (Left a) = Left (f a)
+mapLeft _ (Right b) = Right b
+
+-- | Turn a maybe value into an either value,
+-- using the given left value as the default if the maybe value is empty.
+maybeToEither :: a -> Maybe b -> Either a b
+maybeToEither _ (Just b) = Right b
+maybeToEither a Nothing = Left a
+
+-- | Parse a string into an int, returning either an error message or the parsed int.
+parseToInt :: String -> Either String Int
+parseToInt str =
+  case reads str :: [(Int, String)] of
+    [(num, _)] -> Right num
+    _ -> Left $ "Could not parse \"" ++ str ++ "\" as an integer"
+
+-- | Parse a string representing a date according to the given format,
+-- returning either an error message or the parsed date.
+parseDate :: String -> String -> Either String Date
+parseDate format str =
+  let parsedInts = map (parseToInt . T.unpack) $ T.split (=='/') $ T.pack str
+      validatedInts = mapLeft ("Invalid date: " ++) $ sequence parsedInts
+      toInts (Just [year, month, day]) = (year, month, day)
+      toInts _ = error "Unexpected input to parseDate"
+      asDate (year, month, day) = Date year month day
+  in asDate . toInts <$> validatedInts

@@ -1,0 +1,108 @@
+// This module describes a 32-bit ALU (Arithmetic and Logic Unit)
+module ALU(
+   input wire [31:0] A, // input A
+   input wire [31:0] B, // input B
+   input wire [3:0] ALUOp, // 4-bit operation code
+   output reg [31:0] out, // output bus of 32-bit
+   output reg zero, // zero flag output
+   output reg overflow, // overflow flag output
+   output reg negative // negative flag output
+);
+ 
+// wires for internal signals and intermediate calculations
+wire [31:0] result; // result of ALU operation
+wire [32:0] A_ext; // extended 32-bit input A for arithmetic overflow detection
+wire [32:0] B_ext; // extended 32-bit input B for arithmetic overflow detection
+wire [32:0] sum; // temporary sum for addition, used for checking overflow
+wire [31:0] diff; // temporary difference for subtraction, used for checking overflow
+ 
+// assign extended inputs for overflow detection
+assign A_ext = {{32{A[31]}}, A}; // replicate MSB of A and concatenate to A, creating a 32-bit input
+assign B_ext = {{32{B[31]}}, B}; // replicate MSB of B and concatenate to B, creating a 32-bit input
+ 
+// ALU operation cases
+always @(*) begin
+   case (ALUOp)
+      4'b0000: result = A & B; // bitwise AND
+      4'b0001: result = A | B; // bitwise OR
+      4'b0010: result = A ^ B; // bitwise XOR
+      4'b0011: result = ~A; // bitwise NOT
+      4'b0100: result = A + B; // addition
+      4'b0101: begin // subtraction
+         diff = A - B;
+         if (A_ext > B_ext) // check for overflow
+            result = diff;
+         else begin // set overflow flag and return 0 if overflow occurs
+            result = 32'b0;
+            overflow = 1;
+         end
+      end
+      4'b0110: begin // signed multiplication
+         if (A[31] && B[31]) // check for negative inputs
+            result = 32'b0;
+         else if (A[31]) // if A is negative, negate both operands
+            result = -(A * B);
+         else if (B[31]) // if B is negative, negate both operands
+            result = -(A * B);
+         else // if both operands are positive, perform regular multiplication
+            result = A * B;
+      end
+      4'b0111: begin // signed division
+         if (B == 32'b0) // check for divide by zero error
+            result = 32'b0;
+         else if (A == 32'b0) // check for zero dividend
+            result = 32'b0;
+         else begin
+            result = A / B;
+            if (A[31] ^ B[31]) // check for negative result
+               result = -(A / B);
+         end
+      end
+      4'b1000: begin // bitwise shift left logical
+         if (B[31:5] != 0) // ensure that shift amount is within range
+            result = 32'b0;
+         else
+            result = A << B[4:0];
+      end
+      4'b1001: begin // bitwise shift right logical
+         if (B[31:5] != 0) // ensure that shift amount is within range
+            result = 32'b0;
+         else
+            result = A >> B[4:0];
+      end
+      4'b1010: begin // bitwise shift right arithmetic
+         if (B[31:5] != 0) // ensure that shift amount is within range
+            result = 32'b0;
+         else if (A[31] == 0) // if A is positive, perform logical shift
+            result = A >> B[4:0];
+         else // if A is negative, perform arithmetic shift (preserve sign)
+            result = {{32{1'b1}}, A[31:0] >> B[4:0]};
+      end
+      4'b1011: begin // set on less than (signed)
+         if (A < B) // if A is less than B, set output to 1
+            result = 32'b1;
+         else // if A is not less than B, set output to 0
+            result = 32'b0;
+      end
+      4'b1100: begin // set on less than (unsigned)
+         if (A < B) // if A is less than B, set output to 1
+            result = 32'b1;
+         else // if A is not less than B, set output to 0
+            result = 32'b0;
+      end
+      default: result = 32'b0; // if no valid operation is selected, output 0
+   endcase
+end
+ 
+// set zero flag if result is all 0s
+assign zero = (result == 32'b0);
+ 
+// set negative flag if MSB of result is 1
+assign negative = result[31];
+ 
+// assign output
+always @(posedge clk) begin
+   out <= result;
+end
+ 
+endmodule

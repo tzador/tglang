@@ -1,0 +1,50 @@
+Function Get-IPAddress {
+<#
+.SYNOPSIS
+    Returns the IP address of the local machine.
+.DESCRIPTION
+    This function uses WMI to get the IP address of the local machine and returns it as a string.
+.PARAMETER computername
+    The name of the computer whose IP address is being retrieved. Defaults to local machine.
+.OUTPUTS
+    String
+.EXAMPLE
+    Get-IPAddress
+.EXAMPLE
+    Get-IPAddress -computername "SERVER01"
+#>
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory=$false,
+                   ValueFromPipelineByPropertyName=$true,
+                   HelpMessage="Enter a computer name")]
+        [Alias('cname')]
+        [string[]]$computername = $env:COMPUTERNAME
+    )
+    
+    Begin {
+        Write-Verbose "Executing Get-IPAddress function"
+    }
+     Process {
+        try {
+            $wmi = Get-WmiObject -Class Win32_NetworkAdapterConfiguration -ComputerName $computername -ErrorAction Stop
+            if ($wmi -and $wmi.IPAddress) {
+                foreach ($ip in $wmi.IPAddress) {
+                    if ([IPAddress]$ip -ne [IPAddress]::IPv6Loopback) {
+                        return $ip
+                    }
+                }
+            }
+            else {
+                Write-Warning "Unable to retrieve IP address on $computername"
+            }
+        }
+        catch {
+            Write-Error $_
+        }
+    }
+    
+    End {
+        Write-Verbose "Get-IPAddress function completed"
+    }
+}

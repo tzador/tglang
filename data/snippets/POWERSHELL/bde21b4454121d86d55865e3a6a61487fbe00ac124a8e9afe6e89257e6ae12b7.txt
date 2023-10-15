@@ -1,0 +1,47 @@
+#This code snippet creates a function to check the status of a Windows service and restart it if necessary.
+
+function Check-ServiceStatus {
+param(
+    [string]$serviceName,
+    [int]$restartCount = 0
+)
+
+#Using Get-Service to retrieve the service object
+$service = Get-Service $serviceName
+
+#Checks if the service is running and displays status
+if ($service.status -eq 'Running') {
+    Write-Output "Service $serviceName is running."
+}
+
+#If service is stopped, attempts to start it and checks status after
+elseif ($service.status -eq 'Stopped') {
+    Start-Service $serviceName | Out-Null
+    $service.Refresh()
+
+    #Recursive function call to check status after restarting
+    if ($service.status -eq 'Running') {
+        Write-Output "Service $serviceName has been restarted."
+    }
+    else {
+        Write-Output "Failed to restart service $serviceName."
+        #Checks if maximum restart attempts have been reached
+        if ($restartCount -ge 5) {
+            Write-Output "Maximum restart attempts reached."
+        }
+        else {
+            Write-Output "Attempting to restart service $serviceName again."
+            Check-ServiceStatus $serviceName ($restartCount + 1)
+        }
+    }
+}
+
+#If service is in any other state, displays the status
+else {
+    Write-Output "Service $serviceName is in state $($service.status)."
+}
+
+}
+
+#Calling the function to check the status of a service
+Check-ServiceStatus 'WinRM'

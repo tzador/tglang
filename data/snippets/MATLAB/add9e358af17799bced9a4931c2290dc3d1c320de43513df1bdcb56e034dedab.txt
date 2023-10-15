@@ -1,0 +1,110 @@
+% This code snippet solves the N-Queens problem using a genetic algorithm
+% The N-Queens problem is to place N queens on an NxN chessboard such that no two queens can attack each other
+% Using a genetic algorithm, we generate a population of possible solutions and evolve them through selection, mutation, and crossover
+
+% Initialize parameters
+N = 8;                  % Size of the chessboard and number of queens
+population_size = 100;  % Size of the initial population
+crossover_rate = 0.8;   % Probability of crossover occurring between two individuals
+mutation_rate = 0.01;   % Probability of mutation occurring in an individual
+max_generations = 1000; % Maximum number of generations to evolve the population
+
+% Create initial population of solutions
+population = zeros(population_size, N);
+for i = 1:population_size
+    % Generate random sequence of numbers representing the position of the queens
+    population(i,:) = randperm(N);    
+end
+
+% Initialize variables for best fitness and corresponding solution
+best_fitness = N*(N-1)/2; % Maximum possible fitness, when all queens are in non-attacking positions
+best_solution = [];
+
+% Begin evolution process
+for generation = 1:max_generations
+    % Calculate fitness of each individual by counting number of attacking pairs of queens
+    fitness = zeros(population_size, 1);
+    for i = 1:population_size
+        % Count horizontal attacks
+        fitness(i) = fitness(i) + length(unique(population(i,:))); 
+        
+        % Count diagonal attacks
+        for j = 1:N
+            for k = j+1:N
+                if abs(population(i,j) - population(i,k)) == abs(j-k)
+                    fitness(i) = fitness(i) + 1;
+                end
+            end
+        end
+    end
+    
+    % Check if a solution with maximum fitness has been found
+    if max(fitness) == best_fitness
+        best_solution = population(fitness == best_fitness, :);
+        break;
+    end
+    
+    % Select parents for crossover using tournament selection
+    parents = tournament_selection(population, fitness);
+    
+    % Perform crossover between two parents to create two offspring
+    offspring = crossover(parents(1,:), parents(2,:), crossover_rate);
+    
+    % Mutate offspring with a small probability
+    mutated_offspring = mutation(offspring, mutation_rate);
+    
+    % Replace worst individuals in population with new offspring
+    [worst_fitness, worst_idx] = min(fitness);
+    population(worst_idx,:) = mutated_offspring;
+end
+
+% Print best solution
+if ~isempty(best_solution)
+    disp('The solution to the N-Queens problem is:');
+    disp(best_solution);
+else
+    disp('No solution found within the maximum number of generations');
+end
+
+% Helper function for tournament selection
+function chosen_parent = tournament_selection(population, fitness)
+    % Randomly select two parents from the population
+    parent1_idx = randi(size(population,1));
+    parent2_idx = randi(size(population,1));
+    
+    % Compare fitness of the two parents and select the one with better fitness
+    if fitness(parent1_idx) > fitness(parent2_idx)
+        chosen_parent = population(parent1_idx,:);
+    else
+        chosen_parent = population(parent2_idx,:);
+    end
+end
+
+% Helper function for crossover
+function offspring = crossover(parent1, parent2, crossover_rate)
+    % Initialize offspring with genes from one parent
+    offspring = parent1;
+    
+    % Perform crossover with a preset probability
+    if rand() < crossover_rate
+        % Randomly select crossover point
+        crossover_point = randi(length(parent1));
+        
+        % Swap genes between two parents at the crossover point
+        offspring(1:crossover_point) = parent2(1:crossover_point);
+    end
+end
+
+% Helper function for mutation
+function mutated_individual = mutation(individual, mutation_rate)
+    % Initialize mutated individual with original genes
+    mutated_individual = individual;
+    
+    % Perform mutation for each gene with a preset probability
+    for i = 1:length(individual)
+        if rand() < mutation_rate
+            % Select a new randomly generated number to represent the gene
+            mutated_individual(i) = randi(length(individual));
+        end
+    end
+end

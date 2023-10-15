@@ -1,0 +1,71 @@
+PRO fit_spectrum, data, model, pars, chisq
+
+  ;Perform non-linear least squares fitting of a model to a spectral data
+
+  ;Inputs:
+  ;  data - Array containing the spectral data
+  ;  model - A function representing the model to be fit
+  ;  pars - A structure containing the initial guesses for the model parameters
+  ;  chisq - An integer indicating the quality of the fit, where 0 is a perfect fit and larger values indicate worse fits
+
+  ;Outputs:
+  ;  pars - A structure containing the best-fit parameter values
+  ;  chisq - An integer indicating the quality of the fit, where 0 is a perfect fit and larger values indicate worse fits
+
+  ;Calculate the expected model values
+  model_data = model(pars, size(data))
+
+  ;Compute the residuals
+  residuals = data - model_data
+
+  ;Calculate the least squares sum of squares
+  chisq = TOTAL(residuals^2)
+
+  ;Initialize the fitting parameters
+  best_pars = pars
+
+  ;Start the fitting loop, setting the maximum number of iterations to 100
+  n_iter = 100
+  FOR i=0,n_iter-1,1 DO BEGIN
+
+    ;Calculate the Jacobian matrix
+    ;Note: In this example, the Jacobian is calculated using a numerical approximation
+    jac = NUM_DERIV(model, best_pars)
+
+    ;Calculate the Hessian matrix
+    hess = TRANSPOSE(jac) * jac
+
+    ;Calculate the step size
+    step = SOLVE(hess, -TRANSPOSE(jac) * residuals)
+
+    ;Update the parameters
+    pars = best_pars + step
+
+    ;Calculate the model values using the updated parameters
+    model_data = model(pars, size(data))
+
+    ;Update the residuals
+    residuals = data - model_data
+
+    ;Calculate the new chi-squared value
+    curr_chisq = TOTAL(residuals^2)
+
+    ;Check for convergence 
+    IF(curr_chisq le chisq) THEN BEGIN
+
+      ;Update the best-fit parameters and chi-squared value
+      best_pars = pars
+      chisq = curr_chisq
+    
+    ENDIF ELSE BEGIN
+
+      ;Exit the fitting loop if the chi-squared value increases
+      EXIT
+    ENDELSE
+
+  ENDFOR
+  
+  ;Return the output parameters
+  RETURN, best_pars, chisq
+
+END

@@ -1,0 +1,177 @@
+/*
+This is a Verilog code snippet for a finite state machine that controls a 
+traffic light system. Each state corresponds to a different light pattern 
+at the intersection. 
+
+Inputs:
+- clk: System clock
+- reset: Resets the machine to the initial state
+- sensor: Input signal from sensor detecting cars waiting at the intersection
+- time_count: Counts the number of clock cycles for timing
+
+Outputs:
+- green_led: Output to turn on the green traffic light
+- yellow_led: Output to turn on the yellow traffic light
+- red_led: Output to turn on the red traffic light
+- buzzer: Output to sound the buzzer when light is about to change
+
+States:
+- init: Initial state, all lights off
+- go: Green light showing, cars can go
+- caution: Yellow light showing, cars prepare to stop
+- stop: Red light showing, cars must stop
+- delay: Transition state between stop and go, used for timing between lights
+
+Transitions:
+- init -> go: When sensor detects cars and time_count is less than a certain value
+- go -> caution: When time_count reaches certain value
+- caution -> stop: When time_count reaches certain value
+- stop -> delay: When time_count reaches certain value
+- delay -> go: When time_count reaches certain value 
+
+*/
+
+// Verilog module for traffic light control finite state machine
+module traffic_light(
+  input clk, // System clock
+  input reset, // Reset signal
+  input sensor, // Sensor input
+  output reg green_led, // Green light output
+  output reg yellow_led, // Yellow light output
+  output reg red_led, // Red light output
+  output reg buzzer // Buzzer output
+);
+
+// State regiter to store current state
+reg [2:0] state_reg;
+// Next state register to store next state based on current state and inputs
+reg [2:0] next_state;
+
+// Counter for timing between state transitions
+reg [7:0] time_count;
+
+// Parameters for timing values
+parameter GO_TIME = 50; // Time for green light
+parameter CAUTION_TIME = 10; // Time for yellow light
+parameter STOP_TIME = 60; // Time for red light
+
+// Define states using Enum
+// Init state is set to 3'b000
+// Go state is set to 3'b001
+// Caution state is set to 3'b010
+// Stop state is set to 3'b100
+// Delay state is set to 3'b11
+typedef enum logic[2:0] {
+  INIT,
+  GO,
+  CAUTION,
+  STOP,
+  DELAY
+} state_type;
+
+// Always block to update state and outputs based on state transitions
+// and input signals
+always @ (posedge clk, posedge reset) begin
+  if (reset) begin
+    // Set initial conditions on reset, all lights off and state set to init
+    green_led <= 0;
+    yellow_led <= 0;
+    red_led <= 0;
+    buzzer <= 0;
+    state_reg <= INIT;
+  end
+  else begin
+    // Set next state based on current state
+    case(state_reg)
+      // If in initial state, check for cars and change state to go
+      INIT: begin
+        if (sensor == 1 && time_count < GO_TIME)
+          next_state <= GO;
+        else
+          next_state <= INIT;
+      end
+      // If in go state, check for time and change state to caution
+      GO: begin
+        if (time_count < CAUTION_TIME)
+          next_state <= GO;
+        else
+          next_state <= CAUTION;
+      end
+      // If in caution state, check for time and change state to stop
+      CAUTION: begin
+        if (time_count < STOP_TIME)
+          next_state <= CAUTION;
+        else
+          next_state <= STOP;
+      end
+      // If in stop state, check for time and change state to delay
+      STOP: begin
+        if (time_count < DELAY_TIME)
+          next_state <= STOP;
+        else
+          next_state <= DELAY;
+      end
+      // If in delay state, check for time and change state back to go
+      DELAY: begin
+        if (time_count < GO_TIME)
+          next_state <= DELAY;
+        else
+          next_state <= GO;
+      end
+      // Default state is set to init
+      default: state_reg <= INIT;
+    endcase
+  end
+end
+
+// Always block to update state register and timing counter on each clock cycle
+always @ (posedge clk) begin
+  state_reg <= next_state;
+  // Increase time count on each clock cycle
+  time_count <= time_count + 1;
+end
+
+// Always block to update outputs based on current state
+always @ (*) begin
+  case(state_reg)
+    // If in init state, all lights off
+    INIT: begin
+      green_led <= 0;
+      yellow_led <= 0;
+      red_led <= 0;
+      buzzer <= 0;
+    end
+    // If in go state, green light on
+    GO: begin
+      green_led <= 1;
+      yellow_led <= 0;
+      red_led <= 0;
+      buzzer <= 0;
+    end
+    // If in caution state, yellow light on and buzzer on
+    CAUTION: begin
+      green_led <= 0;
+      yellow_led <= 1;
+      red_led <= 0;
+      buzzer <= 1;
+    end
+    // If in stop state, red light on and buzzer on
+    STOP: begin
+      green_led <= 0;
+      yellow_led <= 0;
+      red_led <= 1;
+      buzzer <= 1;
+    end
+    // If in delay state, all lights off
+    DELAY: begin
+      green_led <= 0;
+      yellow_led <= 0;
+      red_led <= 0;
+      buzzer <= 0;
+    end
+    // Default state is set to init
+    default: state_reg <= INIT;
+  endcase
+end
+
+endmodule

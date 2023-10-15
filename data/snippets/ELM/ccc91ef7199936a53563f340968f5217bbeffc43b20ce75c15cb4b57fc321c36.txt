@@ -1,0 +1,63 @@
+import Html exposing (..)
+import Http
+
+type alias User =
+    { id : Int
+    , name : String
+    , age : Int
+    }
+
+type Msg
+    = FetchUsers
+    | UsersResult (Result Http.Error (List User))
+
+init : () -> (Model, Cmd Msg)
+init _ =
+    ( { users = []
+      , isLoading = False
+      }
+    , Cmd.none
+    )
+
+update : Msg -> Model -> (Model, Cmd Msg)
+update msg model =
+    case msg of
+        FetchUsers ->
+            ( { model | isLoading = True }
+            , getUsers model
+            )
+
+        UsersResult (Ok result) ->
+            ( { model | users = result }
+            , Cmd.none
+            )
+
+view : Model -> Html Msg
+view model =
+    div []
+        [ button [ onClick FetchUsers ] [ text "Fetch Users" ]
+        , if model.isLoading then
+            p [] [ text "Loading..." ]
+          else
+            ul [] (List.map viewUser model.users)
+        ]
+
+viewUser : User -> Html Msg
+viewUser user =
+    li [] [ text ("Name: " ++ user.name ++ " | Age: " ++ (String.fromInt user.age)) ]
+
+getUsers : Model -> Cmd Msg
+getUsers model =
+    Http.get
+        { url = "https://jsonplaceholder.typicode.com/users"
+        , expect = Http.expectJson UsersResult userDecoder
+        }
+
+userDecoder : Json.Decode.Decoder (List User)
+userDecoder =
+    Json.Decode.list
+        ( Json.Decode.map3 User
+            (Json.Decode.field "id" Json.Decode.int)
+            (Json.Decode.field "name" Json.Decode.string)
+            (Json.Decode.field "age" Json.Decode.int)
+        )

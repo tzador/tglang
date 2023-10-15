@@ -1,0 +1,27 @@
+DEFINE VARIABLE num_rows AS INTEGER NO-UNDO INITIAL 0. /* Define an integer variable named 'num_rows' with initial value of 0 and it will not be undoable */
+
+DEFINE VARIABLE data_buffer AS HANDLE NO-UNDO. /* Define a handle variable named 'data_buffer' with no initial value and it will not be undoable */
+
+DEFINE QUERY q-buffer FOR Customer, EACH ROW,
+    EACH Product FIELD(customer.skip = TRUE)
+    SCROLLING NO-LOCK. /* Define a query named 'q-buffer' that will retrieve data from the Customer table, each row will also contain data from the Product table and the customer field will be skipped. The query will not lock the tables. */
+
+CREATE BUFFER data_buffer FOR QUERY q-buffer. /* Create a buffer using the query 'q-buffer' and assign it to the variable 'data_buffer'. */
+
+ACCEPT num_rows FROM SUBJECT "Enter the number of rows to retrieve:". /* Prompt the user to enter the number of rows to retrieve and assign it to the 'num_rows' variable using the ACCEPT statement. */
+
+IF num_rows > 0 THEN DO: /* If the number of rows is greater than 0, then execute the following statements */
+    FIND FIRST q-buffer EXCLUSIVE-LOCK NO-ERROR. /* Set the query to retrieve the first row with an exclusive lock and with no error handling. */
+
+    REPEAT num_rows TIMES: /* Repeat the following statements for the number of times specified by the 'num_rows' variable */
+        DISPLAY data_buffer.Customer.Name data_buffer.Product.Name. /* Display the names of the customer and product from the current row in the data_buffer. */
+        FIND NEXT q-buffer EXCLUSIVE-LOCK NO-ERROR. /* Set the query to retrieve the next row with an exclusive lock and with no error handling. */
+    END. /* End the repeat loop */
+
+    IF num_rows > q-buffer:NUM-RECORDS THEN DO: /* If the number of rows entered is greater than the total number of records in the query, then execute the following statements */
+        DISPLAY "Only" q-buffer:NUM-RECORDS "records found.". /* Display a message indicating the actual number of records found in the query. */
+    END. /* End the if statement */
+
+    /* Other operations on the data can be performed here */
+
+END. /* End the if statement */

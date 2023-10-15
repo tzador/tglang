@@ -1,0 +1,41 @@
+%% This is a module that implements a tcp echo server
+
+-module(echo_server).
+
+%% Public API
+-export([start/1]).
+
+%% Start the tcp echo server on the given port
+%% @param Port - The port number to listen on
+start(Port) ->
+    %% Create the socket for listening
+    {ok, ListenSocket} = gen_tcp:listen(Port, [{active, false}]),
+
+    %% Start accepting connections
+    spawn(fun() -> start_accepting(ListenSocket) end).
+
+%% Internal functions
+%% Start the process of accepting new connections
+start_accepting(ListenSocket) ->
+    %% Listen for a new connection
+    {ok, ClientSocket} = gen_tcp:accept(ListenSocket),
+
+    %% Spawn a process to handle the new connection
+    spawn(fun() -> handle_connection(ClientSocket) end),
+
+    %% Continue accepting new connections
+    start_accepting(ListenSocket).
+
+%% Handle the client connection
+handle_connection(Socket) ->
+    %% Receive data from the client
+    {ok, Data} = gen_tcp:recv(Socket, 0),
+
+    %% Echo the data back to the client
+    gen_tcp:send(Socket, Data),
+
+    %% Close the connection
+    gen_tcp:close(Socket),
+
+    %% Continue handling connections
+    handle_connection(Socket).

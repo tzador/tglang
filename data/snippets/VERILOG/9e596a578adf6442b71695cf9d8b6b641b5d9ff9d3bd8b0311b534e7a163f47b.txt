@@ -1,0 +1,28 @@
+//This is a Verilog code snippet for creating a 64-bit multiplier using Booth's algorithm
+module multiplier_64_bit (a, b, p);
+input [63:0] a, b; //multiplicand and multiplier inputs
+output [127:0] p; //product output
+
+wire [127:0] accumulator; //accumulator to store partial products
+wire [6:0] shift_factor = 7'b0001101; //shift factor for Booth's algorithm
+
+assign accumulator = {{64{a[63]}}, a} << 64; //sign extension and shifting for first partial product
+assign p = accumulator + (accumulator >> 64) - {(64{b[63]}) & b, b}; //first step in Booth's algorithm
+
+always @ (posedge clk)
+begin
+    for (i = 1; i <= 63; i++)
+    begin
+        if (accumulator[127:64] == 1'b1) //if MSB of accumulator is 1, right shift and subtract b
+            accumulator = {1'b0, accumulator[126:64], accumulator[63:0]} - b;
+        else if (accumulator[127:64] == 2'b11) //if MSB of accumulator is 11, left shift and add b
+            accumulator = {accumulator[126:64], accumulator[63:0], 1'b0} + b;
+        else if (accumulator[127:64] == -2'b11) //if MSB of accumulator is -11, left shift and subtract b
+            accumulator = {accumulator[126:64], accumulator[63:0], 1'b0} - b;
+        else //if MSB of accumulator is 0, right shift
+            accumulator = {1'b0, accumulator[126:64], accumulator[63:0]};
+        
+        p = {p[125:0], accumulator[126:0]}; //add shifted partial product to p
+    end
+end
+endmodule

@@ -1,0 +1,106 @@
+; This code snippet parses a CSV file and outputs the data in a formatted table
+#NoEnv ; prevents reading of auto-execute sections in script
+#SingleInstance, Force ; forces script to run in single instance instead of allowing multiple instances to run
+DetectHiddenWindows, On ; allows script to detect hidden windows
+
+; ---PROCESS CSV FILE---
+; open file dialog to select CSV file
+FileSelectFile, filePath, %A_ScriptDir%, , Select CSV File
+; create file object using selected file path
+file := FileOpen(filePath,"r")
+; create array to store parsed data
+csvData := []
+; loop through file line by line
+Loop, Read, file
+{
+    ; remove newline characters
+    line := StrReplace(A_LoopReadLine, "`n")
+    ; split line at comma delimiters
+    arr := StrSplit(line, ",")
+    ; add data to csvData array
+    csvData.Insert(arr)
+}
+FileClose(file)
+
+; ---FORMATTING OUTPUT TABLE---
+; create header for table
+TableHeader :=
+(
+    <tr>
+        <th>Column 1</th>
+        <th>Column 2</th>
+        <th>Column 3</th>
+    </tr>
+)
+; loop through csvData to create rows for table
+TableRows :=
+(
+    loop, % csvData.Count()
+    {
+        ; initialize row for table
+        TableRow := "<tr>"
+        ; loop through columns in current row
+        loop, % csvData[A_Index].Count()
+        {
+            ; add data to current row
+            TableRow := TableRow . "<td>" . csvData[A_Index, A_Index2] . "</td>"
+        }
+        ; close row
+        TableRow := TableRow . "</tr>"
+    }
+    return TableRow
+)
+
+; ---OUTPUT FORMATTED TABLE---
+; create HTML document for formatted table output
+outputHTML := ""
+(
+<html>
+<head>
+    <title>CSV Data</title>
+    <style>
+        table, td, th
+        {
+            border: 1px solid black;
+            border-collapse: collapse;
+            text-align: center;
+        }
+        th
+        {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>CSV Data</h1>
+    <table>
+        ; add header to table
+        % TableHeader
+        ; add rows to table
+        % TableRows
+    </table>
+</body>
+</html>
+)
+
+; output HTML document to default web browser
+Gui, 1: +Container -SysMenu ; create GUI container to hold HTML output
+GuiControl, 1: -Background -Border ; remove background and border from container
+; load HTML document into container
+Obj := ComObjCreate("Shell.Explorer.2")
+Obj.navigate("about:blank")
+While Obj.readyState!=4 || Obj.document.readyState!="complete" || Obj.busy
+    continue
+Obj.Document.write(outputHTML)
+Obj.Document.close()
+; set GUI container size and show it
+guiControlGetSize(outputWidth, outputHeight)
+outputWidth := outputWidth+15 ; add buffer space for table borders
+Gui, 1: Show, w%outputWidth% h%outputHeight%, CSV Data
+; wait for user to close container before exiting script
+guiClose:
+GuiControlGet, event, event
+if event="Escape" || event="Cancel"
+    ExitApp
+else
+    goto, guiClose

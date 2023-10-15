@@ -1,0 +1,94 @@
+/*
+This code snippet is a complex class called 'MyWeapon' in UnrealScript.
+It includes a variety of functions, variables, and annotations for readability and organization.
+*/
+
+class MyWeapon extends UTWeapon;
+
+/*
+This function checks if the weapon is in the middle of a fire tick. If true, it applies damage. If false, stops the fire.
+*/
+function ServerStartFire() 
+{
+	if(bPendingFire) //Check if the fire is pending
+	{
+		//Apply damage to the target hit
+		local float Damage = ProjectileClass(DamagePerTick,DamageType,HitLocation,HitNormal,HitProjectile);
+		InstantFire(Damage,DamageSpeed,HitLocation,, DamageType,HitLocation,, HitNormal,HitProjectile);
+		
+		if(Damage>0) //If damage was applied, call the function to do the actual damage
+		{
+			InstantFireDamage(DamageType,HitLocation,, HitNormal,HitProjectile, GetHitActor());
+		}
+		else //If no damage was applied, stop the fire
+		{
+			StopFire();
+		}
+	}
+}
+
+/*
+This function is called server-side when the fire button is released. It stops the fire on the client side.
+*/
+function ServerStopFire()
+{
+	//Logic to stop fire on the server
+	bPendingFire = false;
+	StopFire();
+}
+
+/*
+This function checks if the weapon has enough ammo to fire. If it does, it starts the fire tick.
+*/
+function ServerReload()
+{
+	if(GetAmmoCount() >= AmmoPerFire) //Check if the weapon has enough ammo
+	{
+		IncrementAmmoCounter(-AmmoPerFire); //Decrement ammo by the amount used per fire
+		bPendingFire = true; //Set pending fire to true
+	}
+}
+
+/*
+This function aims and rotates the weapon to face the target location.
+*/
+simulated function AimTowards(const vector Target)
+{
+	local vector AimVector;
+	local rotator AimRot;
+
+	if (Target != vect(0, 0, 0)) //Check if the target is not at the origin
+	{
+		//Calculate the direction vector to aim at the target
+		AimVector = Target - Location;
+		AimRot = rotor(AimVector);
+
+		//Smoothly rotate towards the target
+		SetRotation(RInterpTo( Rotation, AimRot, AimSpeed, , , AimAccuracy));
+	}
+	else //If the target is at the origin, stop aiming
+	{
+		SetRotation(RInterpTo( Rotation, DefaultRotation, ResetAimSpeed, , , AimAccuracy));
+	}
+
+	//Call the function to adjust the aiming pitch and yaw
+	AdjustAim(Rotation);
+}
+
+defaultproperties
+{
+	//Weapon properties
+	InstantHit = true;
+	InstantRange = 1000.0;
+	FireRate = 1.0;
+	ReloadTime = 2.0;
+	HitInfoMax = 4.0;
+
+	AmmoPerFire = 1;
+	bSmoothAim = true;
+	AimSpeed = 0.05;
+	ResetAimSpeed = 0.2;
+	AimAccuracy = 1.0;
+
+	AmmoPickupAmount = 10;
+}

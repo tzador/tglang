@@ -1,0 +1,45 @@
+server {
+  listen 80;  # Listening to port 80 for HTTP requests
+  listen [::]:80;  # Listening to IPv6 connections on port 80
+  server_name example.com;  # Server name that this configuration block will apply to
+
+  # Setting up location for root directory of the server
+  location / {
+    root /var/www/example.com;
+    index index.html;
+  }
+
+  # Allowing certain file types to be served as static files
+  location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+    expires 7d;  # Setting a 7-day caching time for these files
+    add_header Pragma public;
+    add_header Cache-Control "public, must-revalidate, proxy-revalidate";
+  }
+
+  # Handling requests to the /admin endpoint
+  location /admin {
+    # Adding authentication for this endpoint using basic HTTP authentication
+    auth_basic "Restricted"; 
+    auth_basic_user_file /etc/nginx/.htpasswd; # Path to the file containing usernames and passwords
+      
+    # Setting up a proxy for incoming requests to /admin endpoint
+    proxy_pass http://localhost:8080; # Forwarding requests to port 8080 on localhost
+    proxy_set_header Host $host; # Setting the hostname header to the original domain
+    proxy_set_header X-Real-IP $remote_addr; # Setting the client's real IP address
+  }
+
+  # Handling requests to the /api endpoint
+  location /api {
+    # Enabling rate limiting for this endpoint with a limit of 10 requests per second
+    limit_req zone=api burst=10 nodelay;
+
+    # Adding custom headers to all responses from this endpoint
+    add_header X-Powered-By "NGINX";
+    add_header X-RateLimit-Limit $limit_req;
+  }
+
+  # Redirecting all requests to the server's index page
+  location / {
+    return 301 http://example.com;
+  }
+}

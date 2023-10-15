@@ -1,0 +1,35 @@
+server {
+    listen 80; # Specifies the port to listen on
+    listen [::]:80; # Specifies the IPv6 address to listen on
+    server_name example.com; # Specifies the domain name for the server
+
+    rewrite ^/(.*) https://example.com/$1 permanent; # Redirects HTTP requests to HTTPS
+
+    location / { # Denotes the URL path
+      proxy_pass http://localhost:3000; # Specifies the upstream server to pass requests to
+      proxy_http_version 1.1; # Specifies the version of the HTTP protocol for communication
+      proxy_set_header Upgrade $http_upgrade; # Sets the Upgrade header for the request
+      proxy_set_header Connection 'upgrade'; # Sets the Connection header for the request
+      proxy_set_header Host $host; # Sets the Host header for the request
+      proxy_set_header X-Forwarded-Proto $scheme; # Sets the X-Forwarded-Proto header for the request
+      proxy_cache_bypass $http_upgrade; # Bypasses the proxy cache for the request
+    }
+
+    location /images/ {
+      root /var/www/example.com; # Specifies the root directory for serving files
+      expires 30d; # Sets the caching time for responses
+      add_header Cache-Control "public"; # Specifies the caching strategy for browsers
+      try_files $uri $uri/ /images/error_placeholder.png; # Tries multiple paths to find the requested file
+    }
+
+    error_page 404 /images/error_placeholder.png; # Specifies the file to use for error pages
+
+    location ~* \.php$ {
+      fastcgi_pass unix:/run/php/php7.4-fpm.sock; # Specifies the upstream server for processing PHP requests
+      include /etc/nginx/fastcgi_params; # Includes additional Nginx configuration directives
+    }
+
+    location ~ /\.ht {
+      deny all; # Denies access to hidden files and folders
+    }
+  }

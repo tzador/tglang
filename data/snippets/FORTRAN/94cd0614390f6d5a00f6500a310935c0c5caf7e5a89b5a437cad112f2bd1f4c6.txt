@@ -1,0 +1,155 @@
+MODULE matrixOperations
+! This module contains subroutines for performing various operations on matrices
+
+      CONTAINS
+! Subroutine for computing the transpose of a matrix
+      SUBROUTINE transpose(matrix, transposed_matrix)
+        INTEGER, DIMENSION(:,:), INTENT(IN) :: matrix
+        INTEGER, DIMENSION(:,:), INTENT(OUT) :: transposed_matrix
+        INTEGER :: rows, cols, i, j
+
+        rows = SIZE(matrix, 1)
+        cols = SIZE(matrix, 2)
+
+        DO i = 1, rows
+          DO j = 1, cols
+            transposed_matrix(j,i) = matrix(i,j)
+          END DO
+        END DO
+
+      END SUBROUTINE transpose
+
+! Subroutine for computing the inverse of a matrix
+      SUBROUTINE inverse(matrix, inverse_matrix)
+        INTEGER, DIMENSION(:,:), INTENT(IN) :: matrix
+        REAL, DIMENSION(:,:), INTENT(OUT) :: inverse_matrix
+        INTEGER :: n, i, j
+        REAL :: determinant
+
+        n = SIZE(matrix, 1)
+
+! Calculate the determinant of the matrix
+        determinant = det(matrix)
+
+! Check if the determinant is equal to zero
+        IF (determinant == 0.0) THEN
+          PRINT*, "Error: The matrix is singular, cannot compute inverse."
+          inverse_matrix = matrix
+          RETURN
+        END IF
+
+! Compute the adjugate matrix
+        DO i = 1, n
+          DO j = 1, n
+            inverse_matrix(j,i) = (-1.0)**(i+j) * det(minor(matrix,i,j))
+          END DO
+        END DO
+
+! Divide the adjugate matrix by the determinant to get the inverse
+        inverse_matrix = inverse_matrix/determinant
+
+      END SUBROUTINE inverse
+
+! Function for calculating the determinant of a matrix
+      FUNCTION det(matrix)
+        INTEGER, DIMENSION(:,:), INTENT(IN) :: matrix
+        REAL :: det
+        INTEGER :: rows, cols, i, j, k
+        REAL, DIMENSION(:, :), ALLOCATABLE :: temp
+        REAL :: sign
+
+        rows = SIZE(matrix, 1)
+        cols = SIZE(matrix, 2)
+
+! Initialize temporary matrix with same dimensions as input matrix
+        ALLOCATE(temp(rows, cols))
+
+! Initialize determinant to 0.0
+        det = 0.0
+
+! Loop through columns of first row
+        DO j = 1, cols
+          IF (j == 1) THEN
+            sign = 1.0
+          ELSE
+            sign = (-1.0)**(j-1)
+          END IF
+
+! Get minor matrix for current element
+          temp = minor(matrix, 1, j)
+
+! Multiply by the current element and add to determinant
+          det = det + sign * matrix(1,j) * det(temp)
+        END DO
+
+! Deallocate temporary matrix
+        DEALLOCATE(temp)
+
+      END FUNCTION det
+
+! Function for calculating the minor matrix for element at row i, column j
+      FUNCTION minor(matrix, i, j)
+        INTEGER, DIMENSION(:,:), INTENT(IN) :: matrix
+        INTEGER, INTENT(IN) :: i, j
+        INTEGER :: rows, cols, i_row, i_col
+        REAL, DIMENSION(:, :), ALLOCATABLE :: minor
+        INTEGER :: m, n
+
+        rows = SIZE(matrix, 1)
+        cols = SIZE(matrix, 2)
+
+! Initialize temporary matrix with dimensions one less than input matrix
+        ALLOCATE(minor(rows-1, cols-1))
+
+! Loop through rows of input matrix
+        DO m = 1, rows
+          IF (m == i) CYCLE ! Skip current row
+! Loop through columns of input matrix
+          DO n = 1, cols
+            IF (n == j) CYCLE ! Skip current column
+! Assign element from input matrix to temporary matrix
+            minor(i_row, i_col) = matrix(m,n)
+            i_col = i_col + 1
+          END DO
+          i_row = i_row + 1
+          i_col = 1
+        END DO
+
+      END FUNCTION minor
+
+! Main program for testing the matrix operations
+      PROGRAM TestMatrix
+        INTEGER :: rows, cols, i, j
+        INTEGER, DIMENSION(2,2) :: matrix, transposed_matrix
+        REAL, DIMENSION(2,2) :: inverse_matrix
+
+! Initialize matrix
+        matrix = RESHAPE((/1,2,3,4/), (/2,2/))
+        PRINT*, "Original Matrix:"
+        DO i = 1, rows
+          DO j = 1, cols
+            PRINT*, matrix(i,j)
+          END DO
+        END DO
+
+! Calculate and print transpose of matrix
+        CALL transpose(matrix, transposed_matrix)
+        PRINT*, "Transpose Matrix:"
+        DO i = 1, rows
+          DO j = 1, cols
+            PRINT*, transposed_matrix(i,j)
+          END DO
+        END DO
+
+! Calculate and print inverse of matrix
+        CALL inverse(matrix, inverse_matrix)
+        PRINT*, "Inverse Matrix:"
+        DO i = 1, rows
+          DO j = 1, cols
+            PRINT*, inverse_matrix(i,j)
+          END DO
+        END DO
+
+      END PROGRAM TestMatrix
+
+      END MODULE matrixOperations

@@ -1,0 +1,106 @@
+/*
+This code snippet creates a custom AI controller for an enemy character in a game.
+It defines various settings and behaviors for the AI, such as detecting and chasing the player,
+decision-making for attacking or retreating, and handling damage and death.
+*/
+
+class EnemyAIController extends AIController;
+
+/*
+Initialization function for the AI controller.
+Sets the default settings for behavior and sensing.
+*/
+
+function InitController() {
+    bUpdatePawn = true; // enable updating of pawn (character) location for pathfinding
+    bUpdateSearchLocation = false; // disable searching for a new location every tick
+    bSuppressRepath = false; // let the AI recalculate path if it gets stuck
+    bWantsPlayerState = true; // allow accessing player state for detecting player health and other info
+
+    SetPawn(Owner); // set the pawn to the owner of this controller (the enemy character)
+    GetInstigator();
+    SetPerceptionComponent(*PerceptionComp); // set the perception component for sensing the player
+
+    // Set default settings for behavior
+    MaxAttackDistance = 500; // maximum distance for attacking the player
+    MaxRetreatDistance = 1000; // maximum distance for retreating from the player
+    MeleeAttackDamage = 50; // amount of damage caused by a melee attack
+    RangedAttackDamage = 25; // amount of damage caused by a ranged attack
+    MaxHealth = 100; // maximum health for the enemy character
+    Health = MaxHealth; // set health to maximum on initialization
+}
+
+/*
+Event function that handles the AI's perception of the player.
+Uses a switch statement to handle different types of perceived objects (such as the player or projectiles).
+*/
+
+event SeePlayer(Actor SeenActor) {
+    switch (SeenActor) {
+        case Player:
+            // start chasing the player if they are within the maximum attack distance
+            if (VSize(Player.Location - Pawn.Location) < MaxAttackDistance) {
+                StartChase();
+            }
+            else {
+                // if the player is out of range, decide whether to retreat or continue chasing based on health
+                if (Pleayer.PlayerState.Health < Health) {
+                    StartRetreat();
+                }
+                else {
+                    StartChase();
+                }
+            }
+            break;
+        case Projectile:
+            // dodge the projectile by moving to a random location
+            RandomMove();
+            break;
+    }
+}
+
+/*
+Function for starting the behavior of chasing the player.
+Uses the MoveTo function to move towards the player's location
+and sets the desired speed and accuracy for pathfinding.
+*/
+
+function StartChase() {
+    MoveTo(Player.Location, 300, True, True, True); // move towards player's location at a speed of 300 and with the ability to pathfind on slopes and around obstacles
+    SetDesiredSpeed(300); // set the desired speed for pathfinding
+    SetTargetAccuracy(1); // set the desired accuracy for pathfinding (higher values take more time but are more precise)
+}
+
+/*
+Function for starting the behavior of retreating from the player.
+Uses the MoveTo function to move away from the player's location
+and sets the desired speed and accuracy for pathfinding.
+*/
+
+function StartRetreat() {
+    MoveTo(Player.Location, 300, False, False, True); // move away from player's location at a speed of 300 and with the ability to pathfind on slopes and around obstacles
+    SetDesiredSpeed(300); // set the desired speed for pathfinding
+    SetTargetAccuracy(1); // set the desired accuracy for pathfinding (higher values take more time but are more precise)
+}
+
+/*
+Function that handles the enemy character taking damage.
+Subtracts the damage amount from the AI's health and checks for death.
+*/
+
+function TakeDamage(int Damage, Controller EventInstigator, Pawn DamageCauser) {
+    Health -= Damage; // subtract damage from health
+    if (Health < 0) {
+        Die();
+    }
+}
+
+/*
+Function for handling the enemy character's death.
+Disables movement and sets the controller's pawn to null.
+*/
+
+function Die() {
+    Pawn.SetPhysics(PHYS_None); // disable movement by setting physics to None
+    Pawn.SetController(None); // set controller's pawn to null
+}

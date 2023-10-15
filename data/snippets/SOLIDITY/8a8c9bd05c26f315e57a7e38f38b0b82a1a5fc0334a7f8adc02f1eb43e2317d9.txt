@@ -1,0 +1,64 @@
+// This contract implements a basic lottery system with the rules of participation and winning defined by the creator.
+pragma solidity ^0.4.24;
+
+// Import SafeMath library for secure mathematical operations
+import "./SafeMath.sol";
+
+// Create a contract called Lottery with public visibility
+contract Lottery {
+    
+    // Variable declarations
+    address public creator; // public variable to store creator's address
+    uint public entryFee; // public variable to store entry fee amount
+    uint public totalEntries; // public variable to store total number of entries
+    uint public winningEntry; // public variable to store the winning entry
+    mapping (uint => address) public entries; // public mapping to store entry numbers and corresponding addresses
+    address[] public participants; // public array to store all the participants' addresses
+    
+    // Event to be emitted when a new entry is made
+    event NewEntry(uint _entryNumber, address _participant);
+    
+    // Event to be emitted when a new winner is chosen
+    event WinnerChosen(uint _winningEntry, address _winner);
+    
+    // Constructor function to be executed only once, when the contract is deployed
+    constructor(uint _entryFee) public {
+        creator = msg.sender; // sets the creator's address as the deployer of the contract
+        entryFee = _entryFee; // sets the entry fee amount defined by the creator
+    }
+    
+    // Make a new entry by sending the specified entry fee amount to the contract
+    function makeEntry() public payable {
+        require(msg.value == entryFee); // require that the sender sends the exact entry fee amount
+        totalEntries++; // update total number of entries
+        entries[totalEntries] = msg.sender; // store the sender's address as the corresponding entry number
+        participants.push(msg.sender); // add the sender's address to the participants' array
+        emit NewEntry(totalEntries, msg.sender); // emit the NewEntry event with the entry number and sender's address
+    }
+    
+    // Choose a winner by generating a random number within the range of total entries
+    function chooseWinner() public {
+        require(msg.sender == creator); // require that only the creator can choose a winner
+        require(totalEntries > 0); // require at least one entry to choose a winner
+        winningEntry = uint(keccak256(abi.encodePacked(block.timestamp, block.difficulty))) % totalEntries + 1; // generate a random number based on block timestamp and difficulty, within the range of total entries
+        emit WinnerChosen(winningEntry, entries[winningEntry]); // emit the WinnerChosen event with the winning entry and corresponding address
+        entries[winningEntry].transfer(address(this).balance); // transfer the total balance of the contract to the winning entry's address
+    }
+    
+    // Function to check the current balance of the contract
+    function checkBalance() public view returns(uint) {
+        return address(this).balance; // returns the current balance of the contract
+    }
+    
+    // Function to return the total number of participants
+    function getParticipantsCount() public view returns(uint) {
+        return participants.length; // returns the length of the participants' array
+    }
+    
+    // Function to withdraw the remaining balance from the contract, only allowed for the creator
+    function withdrawBalance() public payable {
+        require(msg.sender == creator); // require that only the creator can withdraw the remaining balance
+        require(address(this).balance > 0); // require that there is remaining balance to withdraw
+        creator.transfer(address(this).balance); // transfer the remaining balance to the creator's address
+    }
+}

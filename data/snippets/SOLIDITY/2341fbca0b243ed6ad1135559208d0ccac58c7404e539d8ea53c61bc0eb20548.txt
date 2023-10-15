@@ -1,0 +1,245 @@
+pragma solidity >=0.5.0 <0.7.0;
+
+// Abstract contract defining ERC20 token interface
+contract ERC20Interface {
+    function totalSupply() public view returns (uint);
+    function balanceOf(address tokenOwner) public view returns (uint balance);
+    function allowance(address tokenOwner, address spender) public view returns (uint remaining);
+    function transfer(address to, uint tokens) public returns (bool success);
+    function approve(address spender, uint tokens) public returns (bool success);
+    function transferFrom(address from, address to, uint tokens) public returns (bool success);
+
+    event Transfer(address indexed from, address indexed to, uint tokens);
+    event Approval(address indexed tokenOwner, address indexed spender, uint tokens);
+}
+
+// Base contract defining basic functionality of ERC20 tokens
+contract ERC20Base is ERC20Interface {
+    // Mapping of token balances for each address
+    mapping(address => uint) balances;
+
+    // Mapping of allowed tokens for each address
+    mapping(address => mapping (address => uint)) allowed;
+
+    // Total supply of tokens
+    uint totalTokens = 1000000;
+
+    /**
+     * @dev public function to get total supply of tokens
+     * @return returns total supply of tokens
+     */
+    function totalSupply() public view returns (uint) {
+        return totalTokens;
+    }
+
+    /**
+     * @dev public function to get balance of specific address
+     * @param tokenOwner the address to check the balance of
+     * @return returns balance of specified address
+     */
+    function balanceOf(address tokenOwner) public view returns (uint balance) {
+        return balances[tokenOwner];
+    }
+
+    /**
+     * @dev public function to get allowance of spender for specified owner
+     * @param tokenOwner the address of the token owner
+     * @param spender the address of the spender
+     * @return returns allowance of specified spender for specified owner
+     */
+    function allowance(address tokenOwner, address spender) public view returns (uint remaining) {
+        return allowed[tokenOwner][spender];
+    }
+
+    /**
+     * @dev public function to transfer tokens to specified address
+     * @param to the address to transfer tokens to
+     * @param tokens the amount of tokens to transfer
+     * @return returns true if successful and false otherwise
+     */
+    function transfer(address to, uint tokens) public returns (bool success) {
+        require(tokens <= balances[msg.sender]);
+        balances[msg.sender] = balances[msg.sender] - tokens;
+        balances[to] = balances[to] + tokens;
+        emit Transfer(msg.sender, to, tokens);
+        return true;
+    }
+
+    /**
+     * @dev public function to approve tokens for specified address
+     * @param spender the address to approve tokens for
+     * @param tokens the amount of tokens to approve
+     * @return returns true if successful and false otherwise
+     */
+    function approve(address spender, uint tokens) public returns (bool success) {
+        allowed[msg.sender][spender] = tokens;
+        emit Approval(msg.sender, spender, tokens);
+        return true;
+    }
+
+    /**
+     * @dev public function to transfer tokens from one address to another
+     * @param from the address to transfer tokens from
+     * @param to the address to transfer tokens to
+     * @param tokens the amount of tokens to transfer
+     * @return returns true if successful and false otherwise
+     */
+    function transferFrom(address from, address to, uint tokens) public returns (bool success) {
+        require(tokens <= balances[from]);
+        require(tokens <= allowed[from][msg.sender]);
+        balances[from] = balances[from] - tokens;
+        allowed[from][msg.sender] = allowed[from][msg.sender] - tokens;
+        balances[to] = balances[to] + tokens;
+        emit Transfer(from, to, tokens);
+        return true;
+    }
+
+}
+
+// Contract defining a specific ERC20 token
+contract ERC20Token is ERC20Base {
+    // Name of the token
+    string public name;
+
+    // Symbol for the token
+    string public symbol;
+
+    // Number of decimals for the token
+    uint8 public decimals;
+
+    /**
+     * @dev constructor function to set name, symbol, and decimals for token
+     * @param _name name of the token
+     * @param _symbol symbol for the token
+     * @param _decimals number of decimals for the token
+     */
+    constructor(string memory _name, string memory _symbol, uint8 _decimals) public {
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+    }
+
+    /**
+     * @dev fallback function to reject any ether sent to contract
+     */
+    function() external payable {
+        revert();
+    }
+
+    /**
+     * @dev public function to mint new tokens
+     * @param account the address to mint tokens to
+     * @param amount the amount of tokens to mint
+     * @return returns true if successful and false otherwise
+     */
+    function mint(address account, uint256 amount) public returns (bool success) {
+        require(msg.sender == owner); // only owner can mint new tokens
+        require(totalTokens + amount >= totalTokens); // catch overflow
+        require(balances[account] + amount >= balances[account]); // catch overflow
+
+        balances[account] = balances[account] + amount;
+        totalTokens = totalTokens + amount;
+        emit Transfer(address(0), account, amount);
+        return true;
+    }
+
+    /**
+     * @dev public function to burn tokens
+     * @param amount the amount of tokens to burn
+     * @return returns true if successful and false otherwise
+     */
+    function burn(uint256 amount) public returns (bool success) {
+        require(msg.sender == owner); // only owner can burn tokens
+        require(totalTokens >= amount); // must have enough tokens to burn
+        require(balances[msg.sender] >= amount); // must have enough tokens in own balance to burn
+
+        balances[msg.sender] = balances[msg.sender] - amount;
+        totalTokens = totalTokens - amount;
+        emit Transfer(msg.sender, address(0), amount); // transfer to "burn" address
+        return true;
+    }
+}
+
+// Contract for crowdsale of specific ERC20 token
+contract ERC20Crowdsale is ERC20Token {
+    // Address where tokens will be held until sale ends
+    address public tokenVault;
+
+    // Timestamp when sale starts
+    uint256 public saleStart;
+
+    // Duration of sale in seconds
+    uint256 public saleDuration;
+
+    // Amount in wei for each token
+    uint256 public tokenPrice;
+
+    // Amount of wei raised in sale
+    uint256 public weiRaised;
+
+    /**
+     * @dev constructor function to set sale parameters
+     * @param _tokenVault address where tokens will be held until sale ends
+     * @param _saleDuration duration of sale in seconds
+     * @param _tokenPrice amount in wei for each token
+     */
+    constructor(address _tokenVault, uint256 _saleDuration, uint256 _tokenPrice) public {
+        tokenVault = _tokenVault;
+        saleStart = now;
+        saleDuration = _saleDuration;
+        tokenPrice = _tokenPrice;
+    }
+
+    // Function to buy tokens during sale
+    function buyTokens() public payable {
+        require(now < saleStart + saleDuration); // sale must still be ongoing
+        require(msg.value >= tokenPrice); // must send at least minimum amount of wei
+        require(totalTokens > 0); // there must be tokens to buy
+
+        // calculate number of tokens to send
+        uint256 tokensToSend = msg.value / tokenPrice;
+
+        // make sure there are enough tokens left to send
+        require(totalTokens >= tokensToSend);
+
+        // send tokens to buyer
+        transfer(msg.sender, tokensToSend);
+
+        // send wei to token vault
+        tokenVault.transfer(msg.value);
+
+        // update wei raised
+        weiRaised = weiRaised + msg.value;
+    }
+
+    /**
+     * @dev function to end token sale
+     */
+    function endSale() public {
+        require(now > saleStart + saleDuration); // sale must be over
+        require(msg.sender == owner); // only owner can end sale
+
+        transfer(tokenVault, totalTokens); // send remaining tokens to token vault
+    }
+}
+
+// Contract for a specific ERC20 token with crowdsale functionality
+contract MyToken is ERC20Crowdsale {
+    // Constructor function that calls the constructor of ERC20Token and initializes token parameters
+    constructor() public ERC20Token("My Token", "MTK", 18) ERC20Crowdsale(address(this), 30 days, 1000000000000000000) {}
+
+    /**
+     * @dev public function to transfer tokens to multiple addresses at once
+     * @param _to an array of addresses to transfer tokens to
+     * @param _amounts an array of amounts of tokens to transfer to each address in the same order as _to
+     * @return returns true if successful and false otherwise
+     */
+    function transferMultiple(address[] memory _to, uint[] memory _amounts) public {
+        require(_to.length == _amounts.length); // arrays must be the same length
+
+        // loop through arrays and transfer tokens to each address
+        for (uint i = 0; i < _to.length; i++) {
+            transfer(_to[i], _amounts[i]);
+        }
+    }
+}

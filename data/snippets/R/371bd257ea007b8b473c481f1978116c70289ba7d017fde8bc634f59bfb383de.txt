@@ -1,0 +1,48 @@
+# This code snippet generates a random forest model using the titanic dataset
+# It includes data preprocessing, feature selection, and cross validation
+
+# Load required libraries
+library(rpart)
+library(randomForest)
+library(caret)
+library(pROC)
+
+# Read in titanic dataset
+titanic <- read.csv("titanic.csv")
+
+# Clean and preprocess data 
+titanic$Embarked[titanic$Embarked==""] <- NA
+titanic$Embarked <- factor(titanic$Embarked)
+titanic$Survived <- factor(titanic$Survived)
+titanic$Sex <- factor(titanic$Sex)
+titanic$Name <- NULL
+titanic$PassengerId <- NULL
+titanic$Cabin <- NULL
+titanic$Ticket <- NULL
+
+# Create training and test sets
+trainIndex <- createDataPartition(titanic$Survived, p = .7, list = FALSE)
+trainData <- titanic[trainIndex,]
+testData <- titanic[-trainIndex,]
+
+# Feature selection
+features <- c("Pclass", "Sex", "Age", "SibSp", "Parch", "Fare", "Embarked")
+
+# Cross validation
+fitControl <- trainControl(method = "repeatedcv", number = 10, repeats = 3, verboseIter = FALSE, classProbs = TRUE)
+trainData[,features] <- lapply(trainData[,features], as.numeric)
+
+# Train random forest model
+rf <- train(Survived ~ ., data = trainData, method = "rf", trControl = fitControl, tuneLength = 4, metric = "Accuracy", importance = TRUE)
+
+# Predict on test set
+testData[,features] <- lapply(testData[,features], as.numeric)
+predict_rf <- predict(rf, testData)
+
+# Evaluate model performance
+confusionMatrix(predict_rf, testData$Survived)
+roc(testData$Survived, predict_rf)
+
+# Output model accuracy and feature importance
+print(paste("Model Accuracy:", rf$results$Accuracy))
+print(importance(rf$finalModel))

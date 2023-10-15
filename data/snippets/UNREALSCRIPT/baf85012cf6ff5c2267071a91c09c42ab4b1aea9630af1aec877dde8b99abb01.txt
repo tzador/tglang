@@ -1,0 +1,142 @@
+/**
+ * This is a class that represents a character in the game.
+ */
+class GameCharacter extends Actor;
+
+/**
+ * Properties of the GameCharacter class.
+ * This includes information such as health, movement speed, and damage values.
+ */
+var const out int MaxHealth;
+var int Health;
+var float MovementSpeed;
+var int BaseDamage;
+var int HeadShotMultiplier;
+
+/**
+ * This function is called when the character takes damage.
+ * It subtracts the damage from the character's health.
+ *
+ * @param damage - the amount of damage to be taken
+ */
+function TakeDamage(int damage)
+{
+    Health -= damage;
+    if (Health <= 0) //if character's health reaches 0 or below, they die
+    {
+        Die();
+    }
+}
+
+/**
+ * This function is called when the character dies.
+ * It handles the death animation and removes the character from the game.
+ */
+function Die()
+{
+    PlayAnimation(DeathAnimation);
+    Destroy();
+}
+
+/**
+ * This is a virtual function that can be overridden by child classes.
+ * It calculates the damage dealt by the character's weapon.
+ * Each weapon may have its own calculation based on its stats.
+ *
+ * @return int - the damage calculated by the weapon
+ */
+virtual function GetWeaponDamage() const
+{
+    return BaseDamage;
+}
+
+/**
+ * This function handles the character's movement.
+ * It uses the MovementSpeed variable to determine how fast the character moves.
+ *
+ * @param moveDir - the direction the character should move in
+ */
+function Move(Vector moveDir)
+{
+    SetVelocity(MovementSpeed * moveDir);
+}
+
+/**
+ * This function is called when the character successfully hits an enemy.
+ * It calculates the damage dealt based on the weapon's damage and multipliers like headshot.
+ *
+ * @param enemy - the enemy being hit by the character
+ */
+function OnHit(Actor enemy)
+{
+    if (enemy.IsA('EnemyCharacter'))
+    {
+        int damage = GetWeaponDamage();
+        if (IsHeadshot(enemy))
+        {
+            damage *= HeadShotMultiplier; //increase damage for headshots
+        }
+        enemy.TakeDamage(damage);
+    }
+}
+
+/**
+ * This function checks if the hit on an enemy was a headshot.
+ * It uses a raycast to determine if the hit was on the head.
+ *
+ * @param enemy - the enemy being hit by the character
+ * @return bool - true if hit was on the head, false otherwise
+ */
+function IsHeadshot(Actor enemy) const
+{
+    //perform a raycast from the character's location to the enemy's head
+    vector startLoc = GetLocation();
+    vector endLoc = enemy.Location + enemy.HeadOffset;
+    bool hitHead = Trace(startLoc, endLoc, traceVector); //traceVector is an out parameter that returns information about the hit
+    if (hitHead && traceVector.Actor == enemy)
+    {
+        return true;
+    }
+    return false;
+}
+
+/**
+ * This function is called when the character picks up a weapon.
+ * It sets the character's weapon to the new weapon and sets its properties.
+ *
+ * @param newWeapon - the new weapon that the character picked up
+ */
+function SetWeapon(Weapon newWeapon)
+{
+    if (newWeapon != None)
+    {
+        Weapon = newWeapon;
+        BaseDamage = Weapon.Damage; //set the weapon's damage as the character's base damage
+        HeadShotMultiplier = Weapon.HeadShotMultiplier; //set multiplier for headshots based on weapon
+    }
+}
+
+/**
+ * This function handles the character's shooting.
+ * It uses the Weapon class's Shoot() function to perform the shooting logic.
+ */
+function Shoot()
+{
+    if (Weapon != None)
+    {
+        Weapon.Shoot(this); //pass in the character as the shooter
+    }
+}
+
+defaultproperties
+{
+    MaxHealth = 100; //set default value for MaxHealth
+    Health = MaxHealth; //set character's starting health
+    MovementSpeed = 500.f; //set default value for MovementSpeed
+    BaseDamage = 10; //set default value for BaseDamage
+    HeadShotMultiplier = 2; //set default value for HeadShotMultiplier
+    DeathAnimation = Animations.Death; //set default death animation
+    Begin Object Class = Weapon //set default weapon class
+        Weapon = Weapons.Rifle
+    End Object
+}

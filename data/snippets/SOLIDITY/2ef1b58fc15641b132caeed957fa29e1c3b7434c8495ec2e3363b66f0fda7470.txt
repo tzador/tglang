@@ -1,0 +1,122 @@
+/*
+This contract represents a decentralized voting system
+using the principle of "one person, one vote".
+*/
+
+pragma solidity >=0.7.0 <0.9.0;
+
+contract VotingSystem {
+    
+    // Struct representing a single voter
+    struct Voter {
+        bool hasVoted; // flag to check if the voter has already voted
+        uint256 vote; // the index of the option the voter has chosen
+    }
+    
+    // Struct representing a single voting option
+    struct Option {
+        string name; // the name of the option
+        uint256 voteCount; // the total number of votes received for this option
+    }
+    
+    // Address of the contract creator, only this address can end the voting and declare the winner
+    address private owner;
+    
+    // Boolean flag to check if the voting has ended
+    bool private votingEnded;
+    
+    // Array containing all the options available for voting
+    Option[] public options;
+    
+    // Mapping to keep track of all the voters by their address
+    mapping(address => Voter) public voters;
+    
+    // Event to be emitted when a new vote is cast
+    event NewVote(address indexed voter, uint256 indexed vote);
+    
+    // Modifier to ensure that only the contract creator can perform certain actions
+    modifier onlyOwner {
+        require(msg.sender == owner, "Only the owner can perform this action");
+        _;
+    }
+    
+    // Modifier to ensure that the voting has not ended yet
+    modifier votingNotEnded {
+        require(!votingEnded, "Voting has already ended");
+        _;
+    }
+    
+    // Constructor function to initialize the contract instance with the desired options
+    constructor(string[] memory _options) {
+        owner = msg.sender;
+        
+        // Add all the options to the options array
+        for (uint256 i = 0; i < _options.length; i++) {
+            options.push(Option({
+                name: _options[i],
+                voteCount: 0
+            }));
+        }
+        
+        // Set the initial values for the owner and votingEnded variables
+        owner = msg.sender;
+        votingEnded = false;
+    }
+    
+    // Function to cast a vote for a particular option
+    function castVote(uint256 _vote) public votingNotEnded {
+        // Check if the voter has not already voted
+        require(!voters[msg.sender].hasVoted, "You have already voted");
+        
+        // Check if the option index provided is valid
+        require(_vote < options.length, "Invalid vote");
+        
+        // Update the voter's vote and set the hasVoted flag to true
+        voters[msg.sender].vote = _vote;
+        voters[msg.sender].hasVoted = true;
+        
+        // Increment the vote count for the chosen option
+        options[_vote].voteCount++;
+        
+        // Emit the NewVote event
+        emit NewVote(msg.sender, _vote);
+    }
+    
+    // Function to end the voting and declare the winner
+    function endVoting() public onlyOwner {
+        // Check if the voting has not already ended
+        require(!votingEnded, "Voting has already ended");
+        
+        // Set the votingEnded flag to true
+        votingEnded = true;
+        
+        // Get the index of the winning option
+        uint256 winningOptionIndex;
+        uint256 highestVoteCount = 0;
+        for (uint256 i = 0; i < options.length; i++) {
+            if (options[i].voteCount > highestVoteCount) {
+                highestVoteCount = options[i].voteCount;
+                winningOptionIndex = i;
+            }
+        }
+        
+        // Emit an event to announce the winner
+        emit NewVote(address(0), winningOptionIndex);
+    }
+    
+    // Function to check if a particular voter has already voted
+    function hasVoted(address _voter) public view returns (bool) {
+        return voters[_voter].hasVoted;
+    }
+    
+    // Function to get the total number of options
+    function getOptionsCount() public view returns (uint256) {
+        return options.length;
+    }
+    
+    // Function to get the name and vote count of a particular option
+    function getOption(uint256 _option) public view returns (string memory, uint256) {
+        return (options[_option].name, options[_option].voteCount);
+    }
+    
+}

@@ -1,0 +1,57 @@
+# This Makefile targets a C++ project and includes debug and release options
+# User can specify specific file names or use default option
+
+# Define compiler and flags
+CXX = g++
+CXXFLAGS = -std=c++11 -Wall
+DEBUG_FLAGS = -g -DDEBUG
+RELEASE_FLAGS = -O3
+
+# Define debug and release versions of output target
+DEBUG_TARGET = debug
+RELEASE_TARGET = release
+
+# Define sources folder and default source files
+# User can override defaults using the command line
+SRC_DIR = src/
+SRC = $(wildcard $(SRC_DIR)*.cpp)
+
+# Define object and dependency folders
+OBJ_DIR = obj/
+DEP_DIR = deps/
+
+# Create object file names using source files
+OBJ = $(addprefix $(OBJ_DIR), $(notdir $(SRC:.cpp=.o)))
+
+# Set default target to release build
+default: $(RELEASE_TARGET)
+
+# Rule to compile and link debug build
+$(DEBUG_TARGET): $(OBJ)
+	@echo "Creating debug build..."
+	$(CXX) $(DEBUG_FLAGS) $(CXXFLAGS) $^ -o $@
+
+# Rule to compile and link release build
+$(RELEASE_TARGET): $(OBJ)
+	@echo "Creating release build..."
+	$(CXX) $(RELEASE_FLAGS) $(CXXFLAGS) $^ -o $@
+
+# Define rule to make object files from source files
+$(OBJ_DIR)%.o: $(SRC_DIR)%.cpp
+	@echo "Creating object file: $@..."
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Create dependency file for each object file
+# Use -MMD to generate dependency files
+$(DEP_DIR)%.d: $(SRC_DIR)%.cpp
+	@echo "Creating dependency file: $@..."
+	@mkdir -p $(DEP_DIR) # create dependency directory if it doesn't exist
+	@$(CXX) $(CXXFLAGS) $< -MM -MT $(patsubst $(DEP_DIR)%.d, $(OBJ_DIR)%.o, $@) > $@
+
+# Include dependency files if they exist
+-include $(addprefix $(DEP_DIR), $(notdir $(SRC:.cpp=.d)))
+
+# Clean command to remove object and dependency files
+clean:
+	@echo "Cleaning up..."
+	@rm -rf $(DEP_DIR) $(OBJ_DIR) $(DEBUG_TARGET) $(RELEASE_TARGET)  # use -f to ignore non-existent files

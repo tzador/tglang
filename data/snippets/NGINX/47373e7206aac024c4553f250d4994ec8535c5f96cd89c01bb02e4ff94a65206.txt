@@ -1,0 +1,116 @@
+# start server block
+    server {
+        # listen on port 80
+        listen 80;
+
+        # set server name to example.com
+        server_name example.com;
+
+        # enable gzip compression
+        gzip on;
+        gzip_types text/plain text/css application/json;
+
+        # define root directory for server
+        root /var/www/example.com;
+
+        # set index file to index.html
+        index index.html;
+
+        # enable caching for CSS files
+        location ~* \.css$ {
+            expires 1y;
+            add_header Cache-Control "public";
+        }
+
+        # enable caching for JavaScript files
+        location ~* \.js$ {
+            expires 1y;
+            add_header Cache-Control "public";
+        }
+
+        # enable caching for images
+        location ~* \.(jpg|jpeg|gif|png|svg)$ {
+            expires 1d;
+            add_header Cache-Control "public";
+        }
+
+        # redirect all HTTP requests to HTTPS
+        server {
+            listen 80;
+            server_name example.com;
+            return 301 https://$host$request_uri;
+        }
+
+        # define SSL configuration
+        server {
+            listen 443 ssl http2;
+
+            # set server name to example.com
+            server_name example.com;
+
+            # SSL certificate and key locations
+            ssl_certificate     /etc/ssl/certs/example.com.crt;
+            ssl_certificate_key /etc/ssl/private/example.com.key;
+
+            # enable HTTP/2 for improved performance
+            http2_push_preload on;
+
+            # enable OCSP stapling for improved security
+            ssl_stapling on;
+            ssl_stapling_verify on;
+
+            # configure SSL session timeout
+            ssl_session_timeout 1d;
+
+            # configure SSL session cache
+            ssl_session_cache shared:SSL:50m;
+
+            # configure SSL ciphers
+            ssl_ciphers 'AES128+EECDH:AES128+EDH';
+
+            # enable HSTS header for improved security
+            add_header Strict-Transport-Security "max-age=63072000; includeSubdomains; preload";
+
+            # enable OCSP stapling OCSP response storage
+            resolver 8.8.8.8 8.8.4.4;
+
+            # prevent clickjacking attacks
+            add_header X-Frame-Options SAMEORIGIN;
+            add_header X-Content-Type-Options nosniff;
+
+            # prevent cross-site scripting attacks
+            add_header X-XSS-Protection "1; mode=block";
+
+            # location block for PHP files
+            location ~ \.php$ {
+                # set path to FastCGI server
+                fastcgi_pass unix:/var/run/php/php7.2-fpm.sock;
+            }
+
+            # location block for serving static files
+            location /static/ {
+                # define root directory for files
+                root /var/www/example.com/;
+                # set caching for these files
+                expires 30d;
+                add_header Cache-Control "public";
+            }
+
+            # location block for serving media files
+            location /media/ {
+                # define root directory for files
+                root /var/www/example.com/;
+                # set caching for these files
+                expires 30d;
+                add_header Cache-Control "public";
+            }
+
+            # location block for handling 404 errors
+            error_page 404 /404.html;
+            location = /404.html {
+                root /var/www/example.com/;
+                internal;
+            }
+        }
+    }
+    # end server block

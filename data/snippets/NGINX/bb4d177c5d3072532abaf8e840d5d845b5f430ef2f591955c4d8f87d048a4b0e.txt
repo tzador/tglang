@@ -1,0 +1,59 @@
+server {
+  listen 80;
+  server_name example.com;
+
+  # Redirect all requests to HTTPS
+  return 301 https://$server_name$request_uri;
+}
+
+# HTTP server configuration
+server {
+  listen 80 default_server;
+
+  # Request filtering
+  if ($request_method !~ "GET|HEAD|POST") {
+    return 405;
+  }
+
+  # Default server config
+  # ...
+
+  # Proxy config for PHP
+  location ~ \.php$ {
+    fastcgi_pass unix:/var/run/php/php7.4-fpm.sock;
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    include fastcgi_params;
+  }
+
+  # Proxy config for Node.js
+  location /nodeapp {
+    proxy_pass http://localhost:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection 'upgrade';
+    proxy_set_header Host $host;
+    proxy_cache_bypass $http_upgrade;
+  }
+
+  # Static file serving
+  location /static {
+    root /var/www/example.com;
+    expires 30d;
+    add_header Pragma public;
+    add_header Cache-Control "public, must-revalidate, proxy-revalidate";
+  }
+
+  # Server-side compression
+  gzip on;
+  gzip_disable "MSIE [1-6]\.(?!.*SV1)";
+  gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+  gzip_proxied any;
+  gzip_comp_level 6;
+  gzip_min_length 256;
+  gzip_vary on;
+  gzip_buffers 16 8k;
+
+  # Security headers
+  add_header X-XSS-Protection "1;mode=block";
+  add_header X-Content-Type-Options "nosniff";
+}

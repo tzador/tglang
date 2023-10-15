@@ -1,0 +1,88 @@
+defmodule Account do
+  @moduledoc """
+  Module for handling user account data
+  """
+  
+  use Ecto.Schema
+  import Ecto.Changeset
+  
+  schema "accounts" do
+    field :username, :string
+    field :email, :string
+    field :password_hash, :string
+    
+    timestamps()
+  end
+  
+  @doc """
+  Changeset for creating a new account
+  """
+  def changeset(%Account{} = account, attrs) do
+    errors = validate_username(account.username, attrs[:username])
+    errors = validate_email(account.email, attrs[:email]) ++ errors
+    errors = validate_password(attrs[:password_hash]) ++ errors
+    
+    account
+    |> cast(attrs, [:username, :email, :password_hash])
+    |> validate_required([:username, :email, :password_hash])
+    |> unique_constraint(:username)
+    |> unique_constraint(:email)
+    |> cast_password(attrs[:password_hash])
+    |> validate_changeset(attrs)
+    |> handle_errors(errors)
+  end
+  
+  defp validate_username(curr_username, new_username) do
+    if curr_username != new_username do
+      if new_username != nil do
+        []
+      else
+        [{:username, "can't be blank"}]
+      end
+    else
+      []
+    end
+  end
+  
+  defp validate_email(curr_email, new_email) do
+    if curr_email != new_email do
+      case String.valid?(new_email) do
+        true -> []
+        _ -> [{:email, "is invalid"}]
+      end
+    else
+      []
+    end
+  end
+  
+  defp validate_password(password_hash) do
+    case String.valid?(password_hash) do
+      true -> []
+      _ -> [{:password_hash, "is invalid"}]
+    end
+  end
+  
+  defp cast_password(changeset, password_hash) do
+    changeset
+    |> cast_assoc(:password, fragment("crypt(?)", password_hash))
+  end
+  
+  defp validate_changeset(changeset, attrs) do
+    if attrs[:password_hash] == nil && params_exists?(attrs[:password]) do
+      changeset
+      |> add_error(:password_hash, "can't be blank")
+    else
+      changeset
+    end
+  end
+  
+  defp handle_errors(changeset, errors) do
+    if errors != [] do
+      changeset
+      |> add_errors(errors)
+      |> cast(attrs, ~w(username email password_hash changes))
+    else
+      changeset
+    end
+  end
+end

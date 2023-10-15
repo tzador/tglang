@@ -1,0 +1,106 @@
+# Define the user and group that the Nginx worker processes will run as
+# This is necessary to allow Nginx to have permission to read and serve files
+user nginx;
+worker_processes auto;
+
+# Set the number of worker processes based on the number of CPU cores
+# This allows Nginx to efficiently handle multiple requests simultaneously
+# The max number of worker processes is configured to be 4 times the number of CPU cores
+# If there are 8 CPU cores, Nginx will have up to 32 worker processes
+worker_processes auto * 4;
+
+# Set a default number of connections per worker process based on the number of CPU cores
+# This helps determine the maximum number of concurrent connections that Nginx can handle
+worker_connections auto;
+
+# Set the location of the error log file
+error_log /var/log/nginx/error.log;
+
+# Define a default 'events' block
+# This configures various parameters related to how Nginx handles events
+events {
+    # Specify the events that Nginx will handle
+    # In this case, Nginx will handle HTTP connections
+    worker_connections 1024;
+
+    # Set the maximum amount of connections Nginx will accept before dropping new connections
+    # This is to prevent overloading of the server
+    use epoll;
+
+    # Set the maximum number of worker processes that can run at the same time on one CPU core
+    multi_accept on;
+
+    # Set the maximum number of pending connections that can be queued by a worker process
+    accept_mutex on;
+}
+
+# Define a default 'http' block
+# This configures various parameters related to the HTTP protocol
+http {
+    # Include the mime.types file
+    # This defines the mapping between file extensions and MIME types
+    include mime.types;
+
+    # Set the default MIME type for all files served by Nginx
+    # This can be overridden in individual location blocks
+    default_type application/octet-stream;
+
+    # Configure the 'log_format' directive
+    # This defines the format for the Nginx access logs
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"';
+
+    # Define the location of the access log file
+    access_log /var/log/nginx/access.log main;
+
+    # Configure the 'sendfile' directive
+    # This enables Nginx to use the operating system's sendfile system call to serve files
+    sendfile on;
+
+    # Configure the 'tcp_nopush' directive
+    # This enables the operating system to send data to the client immediately
+    # This improves the transfer speed of small files
+    tcp_nopush on;
+
+    # Configure the 'tcp_nodelay' directive
+    # This disables the Nagle buffering algorithm, improving the transfer speed of small packets
+    tcp_nodelay on;
+
+    # Set the keepalive timeout
+    # This specifies the maximum amount of time that a connection between a client and the server can be idle
+    # If no data is transmitted during this time, the connection will be closed
+    keepalive_timeout 65;
+
+    # Configure gzip compression
+    gzip on;
+    # Set the compression level to 5
+    gzip_comp_level 5;
+    # Set the minimum required size for data to be compressed
+    gzip_min_length 256;
+    # Set the types of files that will be compressed
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    # Configure server tokens
+    # This disables the server and version number from being displayed in error pages
+    server_tokens off;
+
+    # Configure the 'server_names_hash_bucket_size' directive
+    # This specifies the size of the bucket for server names hashes
+    # This needs to be increased to prevent conflicts with long server names
+    server_names_hash_bucket_size 64;
+
+    # Configure the 'charset' directive
+    # This specifies the default charset for all response headers and files
+    charset utf-8;
+
+    # Configure the 'proxy_temp_path' directive
+    # This specifies the location where temporary files will be stored when using Nginx as a reverse proxy
+    # This location must have enough free disk space for the largest file that will be cached
+    proxy_temp_path /var/lib/nginx/tmp;
+
+    # Configure the 'fastcgi_temp_path' directive
+    # This specifies the location where temporary files will be stored when using Nginx with FastCGI
+    # This location must have enough free disk space for the largest file that will be cached
+    fastcgi_temp_path /var/lib/nginx/fastcgi;
+}

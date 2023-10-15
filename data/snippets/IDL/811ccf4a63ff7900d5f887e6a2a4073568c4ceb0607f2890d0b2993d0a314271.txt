@@ -1,0 +1,77 @@
+PRO Open_Dataset, filename, dataset
+;
+; This procedure opens a dataset and populates the given dataset variable
+; with the data from the specified file.
+;
+; Parameters:
+; filename: string, the name of the file to open
+; dataset: variable, the variable to store the dataset in
+;
+; Returns:
+; Nothing.
+;
+IF FILE_TEST(filename, /READ) THEN BEGIN
+    ;
+    ; Open the file for reading
+    ;
+    OPENR, lun, filename
+    
+    ;
+    ; Read the first line to determine the number of columns
+    ;
+    READF, lun, first_line, error=error
+    
+    ;
+    ; Close the file
+    ;
+    FREE_LUN, lun
+ENDIF ELSE BEGIN
+    ;
+    ; If the file does not exist, print an error message
+    ;
+    MESSAGE, 'File does not exist.', /CONTINUE
+    EXIT
+ENDELSE
+    
+;
+; Parse the first line to determine the number of columns
+; and populate the column_names array
+;
+column_names = STRSPLIT(first_line, ',', /REMOVE_EMPTY)
+num_columns = N_ELEMENTS(column_names)
+
+;
+; Create an empty structure to store the data
+;
+data_struct = {col1: 0, col2: '', col3: 0.0, col4: DOUBLE(10, num_columns-3)}
+
+;
+; Loop through the file and populate the data_struct with the data
+;
+WHILE NOT EOF(lun) DO BEGIN
+    ;
+    ; Read the next line and split it into columns
+    ;
+    READF, lun, next_line, error=error
+    columns = STRSPLIT(next_line, ',', /REMOVE_EMPTY)
+    
+    ;
+    ; Populate the data_struct with the data from the current line
+    ;
+    data_struct.col1 = columns[0]
+    data_struct.col2 = columns[1]
+    data_struct.col3 = columns[2]
+    FOR i=3, num_columns-1 DO data_struct.col4[i-2] = columns[i]
+    
+    ;
+    ; Add the data_struct to the dataset variable
+    ;
+    dataset = datasetAdd(dataset, data_struct)
+ENDWHILE
+
+;
+; Close the file
+;
+FREE_LUN, lun
+
+END

@@ -1,0 +1,46 @@
+//This code snippet generates a custom object in Salesforce using Apex programming language
+//Define the object name and label
+String objectName = 'Custom_Object__c'; 
+String objectLabel = 'Custom Object';
+ 
+//Create the custom object
+Schema.SObjectType customObject = Schema.getGlobalDescribe().get(objectName);
+if(customObject == null) {
+    Schema.SObjectType customObjectType = Schema.createSObjectType('Custom_Object__c', objectLabel);
+ 
+    //Define the fields for the custom object
+    Schema.SObjectField fieldId = new Schema.SObjectField('UniqueId__c', Schema.sObjectType.Text, 255);
+    fieldId.addDescription('Unique id for each record');
+    fieldId.setExternalId(true);
+ 
+    Schema.SObjectField fieldName = new Schema.SObjectField('Name', Schema.sObjectType.Text, 100);
+    fieldName.addDescription('Name of the record');
+    fieldName.setLabel('Record Name');
+ 
+    Schema.SObjectField fieldDescription = new Schema.SObjectField('Description__c', Schema.sObjectType.Text);
+    fieldDescription.addDescription('Description of the record');
+ 
+    //Add fields to custom object type
+    customObjectType.addField(fieldId);
+    customObjectType.addField(fieldName);
+    customObjectType.addField(fieldDescription); 
+    Schema.SObjectField[] fields = new Schema.SObjectField[] {fieldId, fieldName, fieldDescription};
+ 
+    //Create the custom object in Salesforce
+    Database.SaveResult result = Schema.getGlobalDescribe().get(objectName).getDescribe().create();
+    if(result.isSuccess()) {
+        System.debug('Custom object created successfully.');
+        //Create custom permissions for the object
+        Schema.SObjectType objectType = Schema.getGlobalDescribe().get(objectName);
+        Profile defaultProfile = [SELECT Id FROM Profile WHERE Name='System Administrator'];
+        if(defaultProfile != null) {
+            //Assign permission to the profile
+            ProfileApexProfiling.addCustomPermissions(defaultProfile.Id, objectType.getDescribe().getKeyPrefix(), 'Create', 'Read', 'Edit', 'Delete');
+        }
+    } else {
+        //Display error if object creation fails 
+        System.debug('Custom object creation failed. Error: ' + result.getErrors()[0].getMessage()); 
+    }
+} else {
+    System.debug('Custom object already exists.');
+}

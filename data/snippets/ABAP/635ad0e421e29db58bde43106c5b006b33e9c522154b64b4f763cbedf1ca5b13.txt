@@ -1,0 +1,40 @@
+*&---------------------------------------------------------------------*
+*& Report  Z_CALCULATE_PRICES
+*&
+*&---------------------------------------------------------------------*
+
+REPORT z_calculate_prices.
+ 
+TABLES zproduct
+       zcustomer.
+
+DATA: lv_total_price TYPE p DECIMALS 2.
+
+CONSTANTS: c_discount_rate TYPE p DECIMALS 2 VALUE '0.1',
+           c_min_order_amt TYPE p DECIMALS 2 VALUE '500'.
+
+*-- Fetch data from zproduct table
+SELECT * FROM zproduct INTO TABLE @DATA(lt_products).
+
+*-- Loop through the products and calculate total price
+LOOP AT lt_products ASSIGNING FIELD-SYMBOL(<fs_product>).
+  IF <fs_product>-price > c_min_order_amt.
+    lv_total_price = <fs_product>-quantity * <fs_product>-price * (1 - c_discount_rate).
+  ELSE.
+    lv_total_price = <fs_product>-quantity * <fs_product>-price.
+  ENDIF.
+ENDLOOP.
+
+*-- Fetch data from zcustomer table
+SELECT * FROM zcustomer INTO TABLE @DATA(lt_customers).
+
+*-- Loop through the customers and update their prices
+LOOP AT lt_customers ASSIGNING FIELD-SYMBOL(<fs_customer>).
+  <fs_customer>-total_price = lv_total_price.
+ENDLOOP. 
+
+*-- Update the zcustomer table with new price data
+UPDATE zcustomer FROM TABLE @lt_customers.
+
+*-- Print a success message
+WRITE 'Total prices have been updated for all customers.'.

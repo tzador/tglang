@@ -1,0 +1,37 @@
+{-# LANGUAGE FlexibleInstances, UndecidableInstances #-}
+
+class Functor f => Foldable f where
+  fold :: Monoid m => f m -> m
+  fold = foldMap id
+
+  foldMap :: Monoid m => (a -> m) -> f a -> m
+  foldMap f = foldr (mappend . f) mempty
+
+  foldr :: (a -> b -> b) -> b -> f a -> b
+  foldr f z t = appEndo (foldMap (Endo . f) t) z
+
+  foldl :: (a -> b -> a) -> a -> f b -> a
+  foldl f z t = appEndo (getDual (foldMap (Dual . Endo . flip f) t)) z
+
+  foldl' :: (a -> b -> a) -> a -> f b -> a
+  foldl' f z0 xs = foldr k (const z0) xs z0
+    where
+      k x b a = b $! f a x
+
+{-# INLINE toList #-}
+
+instance Foldable (Either a) where
+  fold (Left _) = mempty
+  fold (Right y) = y
+
+  foldMap _ (Left _) = mempty
+  foldMap f (Right y) = f y
+
+  foldr _ z (Left _) = z
+  foldr f z (Right y) = f y z
+
+  foldl _ z (Left _) = z
+  foldl f z (Right y) = f z y
+
+  foldl' _ z (Left _) = z
+  foldl' f z (Right y) = f z y

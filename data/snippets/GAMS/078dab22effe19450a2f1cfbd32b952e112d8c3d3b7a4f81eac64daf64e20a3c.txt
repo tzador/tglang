@@ -1,0 +1,60 @@
+Sets
+    i 'index for production plants' / 1*5 /
+    j 'available products' / "p1", "p2", "p3", "p4", "p5", "WASTE" /;
+    
+Scalars
+    supply(i) 'production capacity of plant i'
+    demand(j) 'demand for product j';
+    
+Parameters
+    prod_cost(i,j) 'production cost for product j at plant i'
+    store_cost(j) 'storage cost for product j';
+    
+Table transp(i,j) 'transportation costs from plant i to demand j'
+          "p1"  "p2"  "p3"  "p4"  "p5"  "WASTE"
+   1  30.00  50.00  90.00  40.00  60.00  20.00
+   2  40.00  35.00  75.00  60.00  50.00  25.00
+   3  20.00  60.00  40.00  80.00  70.00  15.00
+   4  50.00  45.00  30.00  70.00  55.00  35.00
+   5  10.00  70.00  55.00  50.00  90.00  10.00;
+   
+Variable
+    obj 'objective function'
+    prod(i,j) 'production quantity of product j at plant i'
+    store(j) 'storage quantity of product j'
+    trans(i,j) 'transport quantity from plant i to demand j';
+
+Positive Variable
+    prod, store, trans;
+    
+Equations
+    bal(i) 'balance constraint at plant i'
+    sup(j) 'supply constraint for product j'
+    dem(j) 'demand constraint for product j'
+    objdef 'objective definition';
+    
+bal(i) .. sum(j, prod(i,j)) =l= supply(i);
+
+sup(j) .. sum(i, prod(i,j)) =l= store(j) + sum(i, trans(i,j));
+
+dem(j) .. sum(i, trans(i,j)) =g= demand(j);
+
+objdef .. obj =e= sum((i,j), prod_cost(i,j)*prod(i,j) + store_cost(j)*store(j) + trans(i,j)*transp(i,j));
+
+Model transport /all/;
+
+Set i demand 'demand set' j supply 'supply set';
+
+supply(i) = uniform(1000, 2000) for all i;
+
+demand(j)$(j <> "WASTE") = uniform(500, 1000);
+
+demand('WASTE') = sum(j, demand(j));
+
+Option limcol = 0, solprint = off;
+
+Solve transport using lp minimizing obj;
+
+Display obj.l, demand.l, supply.l;
+
+abort$[transport.solvestat <> %solvestat.NormalCompletion%] "model cannot be solved to optimality";

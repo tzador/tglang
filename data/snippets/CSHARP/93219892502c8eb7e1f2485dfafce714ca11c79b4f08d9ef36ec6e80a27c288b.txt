@@ -1,0 +1,425 @@
+// This code creates a blackjack game with a deck of cards and allows players to bet and play against the dealer
+
+// Create a class for the deck of cards
+public class Deck
+{
+    // Create an array to hold the cards
+    private Card[] cards;
+
+    // Create a dictionary to map card values to their corresponding blackjack values
+    private Dictionary<int, int> cardValues = new Dictionary<int, int>()
+    {
+        {1, 11}, // Ace = 11
+        {2, 2}, // Two = 2
+        {3, 3}, // Three = 3
+        {4, 4}, // Four = 4
+        {5, 5}, // Five = 5
+        {6, 6}, // Six = 6
+        {7, 7}, // Seven = 7
+        {8, 8}, // Eight = 8
+        {9, 9}, // Nine = 9
+        {10, 10}, // Ten = 10
+        {11, 10}, // Jack = 10
+        {12, 10}, // Queen = 10
+        {13, 10} // King = 10
+    };
+
+    // Constructor to create a new shuffled deck of cards
+    public Deck()
+    {
+        // Initialize the array to hold 52 cards
+        cards = new Card[52];
+
+        // Use nested for loops to generate each card
+        for (int suit = 1; suit <= 4; suit++)
+        {
+            for (int num = 1; num <= 13; num++)
+            {
+                // Create a new card object with a suit and number
+                Card newCard = new Card(suit, num);
+
+                // Add the card to the array
+                cards[(suit - 1) * 13 + (num - 1)] = newCard;
+            }
+        }
+
+        // Shuffle the deck by randomly swapping cards
+        Random rng = new Random();
+        for (int i = 0; i < cards.Length; i++)
+        {
+            // Generate a random index to swap the current card with
+            int swapIndex = rng.Next(i + 1);
+
+            // Swap the cards
+            Card temp = cards[i];
+            cards[i] = cards[swapIndex];
+            cards[swapIndex] = temp;
+        }
+    }
+
+    // Method to deal a card from the deck
+    public Card Deal()
+    {
+        // Remove the top card from the deck and return it
+        Card topCard = cards[0];
+        for (int i = 0; i < cards.Length - 1; i++)
+        {
+            cards[i] = cards[i + 1];
+        }
+        return topCard;
+    }
+}
+
+// Create a class for a card
+public class Card
+{
+    // Define properties for the card's suit and number
+    public int suit { get; set; }
+    public int number { get; set; }
+
+    // Constructor to create a new card
+    public Card(int suit, int number)
+    {
+        this.suit = suit;
+        this.number = number;
+    }
+}
+
+// Create a class for the game of blackjack
+public class Blackjack
+{
+    // Define properties for the players, deck, dealer, and current round
+    private List<Player> players;
+    private Deck deck;
+    private Player dealer;
+    private int round;
+
+    // Constructor to create a new game of blackjack with the specified number of players
+    public Blackjack(int numPlayers)
+    {
+        // Initialize the list of players
+        players = new List<Player>();
+
+        // Create the specified number of players and add them to the list
+        for (int i = 0; i < numPlayers; i++)
+        {
+            Player player = new Player();
+            players.Add(player);
+        }
+
+        // Create a new deck of cards
+        deck = new Deck();
+
+        // Create the dealer
+        dealer = new Player();
+    }
+
+    // Method to start a new round of blackjack
+    public void NewRound()
+    {
+        // Reset the players' hands and the dealer's hand
+        foreach (Player player in players)
+        {
+            player.hand.Clear();
+        }
+        dealer.hand.Clear();
+
+        // Deal two cards to each player and the dealer
+        foreach (Player player in players)
+        {
+            player.AddToHand(deck.Deal());
+            player.AddToHand(deck.Deal());
+        }
+        dealer.AddToHand(deck.Deal());
+        dealer.AddToHand(deck.Deal());
+
+        // Increment the round number
+        round++;
+    }
+
+    // Method to allow players to place their bets
+    public void PlaceBets()
+    {
+        foreach (Player player in players)
+        {
+            // Get the player's bet from the console
+            Console.WriteLine("Player " + player.id + ", place your bet:");
+            int bet = Convert.ToInt32(Console.ReadLine());
+
+            // Check that the bet is valid (at least 1 and no more than the player's current balance)
+            while (bet < 1 || bet > player.balance)
+            {
+                Console.WriteLine("Invalid bet. Enter a bet between 1 and " + player.balance + ":");
+                bet = Convert.ToInt32(Console.ReadLine());
+            }
+
+            // Set the player's bet
+            player.bet = bet;
+        }
+    }
+
+    // Method to show the current state of the game
+    public void ShowCurrentState()
+    {
+        // Show the dealer's top card and the players' hands
+        Console.WriteLine("Dealer's top card:");
+        Console.WriteLine("[" + dealer.hand[0].number + " of " + dealer.hand[0].suit + "]");
+
+        Console.WriteLine("\nPlayers' hands:");
+        foreach (Player player in players)
+        {
+            Console.WriteLine("Player " + player.id + "'s hand:");
+            Console.WriteLine(Player.HandToString(player.hand) + "\n");
+        }
+
+        // Show the players' current balances and bets
+        Console.WriteLine("Players' current balances:");
+        foreach (Player player in players)
+        {
+            Console.WriteLine("Player " + player.id + ": $" + player.balance + " (bet: $" + player.bet + ")");
+        }
+    }
+
+    // Method to play out the dealer's turn
+    public void DealerTurn()
+    {
+        // Reveal the dealer's hidden card
+        Console.WriteLine("\nDealer's hidden card:");
+        Console.WriteLine("[" + dealer.hand[1].number + " of " + dealer.hand[1].suit + "]\n");
+
+        // Keep hitting until the dealer's hand is at least 17 or busts
+        while (dealer.GetHandValue() < 17)
+        {
+            dealer.AddToHand(deck.Deal());
+            Console.WriteLine("Dealer hits!");
+        }
+
+        // Show the dealer's final hand
+        Console.WriteLine("\nDealer's final hand:");
+        Console.WriteLine(Player.HandToString(dealer.hand) + "\n");
+    }
+
+    // Method to play out each player's turn
+    public void PlayersTurn()
+    {
+        foreach (Player player in players)
+        {
+            // Show the player's current hand
+            Console.WriteLine("\nPlayer " + player.id + "'s current hand:");
+            Console.WriteLine(Player.HandToString(player.hand) + "\n");
+
+            // Keep hitting until the player stands or busts
+            while (true)
+            {
+                // Ask the player if they want to hit or stand
+                Console.WriteLine("Player " + player.id + ", would you like to hit or stand? (Enter 'h' for hit, 's' for stand)");
+                string input = Console.ReadLine();
+                if (input == "h")
+                {
+                    // Hit and show the new hand
+                    player.AddToHand(deck.Deal());
+                    Console.WriteLine("Player hits!\nNew hand:");
+                    Console.WriteLine(Player.HandToString(player.hand) + "\n");
+
+                    // Check if the player has busted
+                    if (player.GetHandValue() > 21)
+                    {
+                        Console.WriteLine("Player " + player.id + " busts!");
+                        break;
+                    }
+                }
+                else if (input == "s")
+                {
+                    // Stand and show the final hand
+                    Console.WriteLine("Player stands with a hand of " + player.GetHandValue() + ":\n");
+                    Console.WriteLine(Player.HandToString(player.hand) + "\n");
+                    break;
+                }
+                else
+                {
+                    Console.WriteLine("Invalid input. Please enter 'h' for hit or 's' for stand.");
+                }
+            }
+        }
+    }
+
+    // Method to determine the winner of the round and update player balances
+    public void DetermineWinner()
+    {
+        // Calculate the dealer's hand value
+        int dealerHandValue = dealer.GetHandValue();
+
+        // Determine if the dealer has busted
+        bool dealerBust = false;
+        if (dealerHandValue > 21)
+        {
+            dealerBust = true;
+        }
+
+        // Check each player's hand against the dealer's hand
+        foreach (Player player in players)
+        {
+            // Calculate the player's hand value and determine if they have busted
+            int playerHandValue = player.GetHandValue();
+            bool playerBust = false;
+            if (playerHandValue > 21)
+            {
+                playerBust = true;
+            }
+
+            // Compare the player's hand value to the dealer's hand value
+            // If the player has busted, they automatically lose
+            if (playerBust)
+            {
+                Console.WriteLine("Player " + player.id + " loses $" + player.bet + ".");
+                player.LoseBet();
+            }
+            else
+            {
+                // If the dealer has busted, the player automatically wins
+                if (dealerBust)
+                {
+                    Console.WriteLine("Player " + player.id + " wins $" + player.bet + "!");
+                    player.WinBet();
+                }
+                else
+                {
+                    // Compare the player's hand value to the dealer's hand value
+                    // If the player's hand value is higher, they win
+                    if (playerHandValue > dealerHandValue)
+                    {
+                        Console.WriteLine("Player " + player.id + " wins $" + player.bet + "!");
+                        player.WinBet();
+                    }
+                    // If the player's hand value is lower, they lose
+                    else if (playerHandValue < dealerHandValue)
+                    {
+                        Console.WriteLine("Player " + player.id + " loses $" + player.bet + ".");
+                        player.LoseBet();
+                    }
+                    // If the player's hand value is equal to the dealer's hand value, it's a tie
+                    else
+                    {
+                        Console.WriteLine("Player " + player.id + " ties with the dealer.");
+                    }
+                }
+            }
+        }
+
+        // Show the players' updated balances
+        Console.WriteLine("\nPlayers' updated balances:");
+        foreach (Player player in players)
+        {
+            Console.WriteLine("Player " + player.id + ": $" + player.balance);
+        }
+    }
+}
+
+// Create a class for a player
+public class Player
+{
+    // Define properties for the player's id, hand, balance, and bet
+    public int id { get; set; }
+    public List<Card> hand { get; set; }
+    public int balance { get; set; }
+    public int bet { get; set; }
+
+    // Constructor to create a player with an id and an initial balance of $1000
+    public Player(int id)
+    {
+        this.id = id;
+        balance = 1000;
+        hand = new List<Card>();
+    }
+
+    // Method to add a card to the player's hand
+    public void AddToHand(Card card)
+    {
+        hand.Add(card);
+    }
+
+    // Method to calculate the value of the player's hand, using the blackjack values dictionary
+    public int GetHandValue()
+    {
+        int handValue = 0;
+        foreach (Card card in hand)
+        {
+            handValue += Deck.cardValues[card.number];
+        }
+        return handValue;
+    }
+
+    // Method to convert the player's hand into a string representation
+    public static string HandToString(List<Card> hand)
+    {
+        string handString = "";
+        foreach (Card card in hand)
+        {
+            handString += "[" + card.number + " of " + card.suit + "] ";
+        }
+        return handString;
+    }
+
+    // Method to update the player's balance when they win a bet
+    public void WinBet()
+    {
+        balance += bet;
+    }
+
+    // Method to update the player's balance when they lose a bet
+    public void LoseBet()
+    {
+        balance -= bet;
+    }
+}
+
+// Code to initialize a game of blackjack with 2 players, play 5 rounds, and keep playing until the player decides to quit
+Blackjack blackjackGame = new Blackjack(2);
+while (true)
+{
+    // Start a new round
+    blackjackGame.NewRound();
+
+    // Allow players to place their bets
+    blackjackGame.PlaceBets();
+
+    // Show the current state of the game
+    blackjackGame.ShowCurrentState();
+
+    // Play out the dealer's turn
+    blackjackGame.DealerTurn();
+
+    // Play out each player's turn
+    blackjackGame.PlayersTurn();
+
+    // Determine the winner of the round and update player balances
+    blackjackGame.DetermineWinner();
+
+    // Check if the player wants to continue playing
+    Console.WriteLine("\nDo you want to play another round? (Enter 'y' for yes, 'n' for no)");
+    string input = Console.ReadLine();
+    if (input == "n")
+    {
+        // End the game if the player chooses to quit
+        break;
+    }
+    else if (input != "y")
+    {
+        // Continue playing if the player enters an invalid input
+        Console.WriteLine("Invalid input. Continuing to next round...");
+    }
+
+    // Check that the deck has enough cards for the next round, otherwise create a new deck
+    if (blackjackGame.deck.Deal() == null)
+    {
+        blackjackGame.deck = new Deck();
+        Console.WriteLine("New deck created for next round.");
+    }
+
+    // Check that each player has enough money to continue playing, otherwise remove them from the game
+    List<Player> playersToRemove = new List<Player>();
+    foreach (Player player in blackjackGame.players)
+    {
+        if (player.balance < 1)
+        {
+            Console.WriteLine("Player " + player.id + " has

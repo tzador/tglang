@@ -1,0 +1,54 @@
+procedure encrypt (input: text, key: text);
+# This procedure encrypts the given text using the given key
+# Inputs:
+#   input: the text to be encrypted
+#   key: the key to use for encryption
+# Output:
+#   encrypted: the encrypted text
+# Using 8-round substitution-permutation network (SPN)
+local input_length, key_length, expanded_key, sbox, sbox_inverse, temp, i, j, k, encrypted;
+input_length := len(input);
+key_length := len(key);
+if key_length > input_length or key_length < 1 then
+    error("Key length must be between 1 and the length of the input");
+    return;
+# Expand the key to match the length of the input
+i := 1;
+while len(expanded_key) < input_length do
+    # Expansion using circular shifts
+    expanded_key := expanded_key || key[i];
+    i := (i mod key_length) + 1;
+endwhile
+# Declare the S-box and its inverse
+sbox := [251, 215, 72, 221, 100, 76, 4, 236, 233, 202, 27, 207, 253, 136, 47, 112, 11, 55, 8, 220, 95, 217, 44, 1, 135, 199, 238, 108, 128, 90, 85, 192, 39, 117, 195, 15, 116, 252, 235, 22, 78, 5, 46, 179, 251, 153, 61, 10, 56, 48, 202, 9, 212, 162, 125, 133, 205, 165, 240, 176, 34, 71, 198, 2, 36, 87, 93, 97, 31, 58, 104, 74, 202, 116, 40, 126, 150, 77, 37, 64, 99, 62, 74, 82, 65, 215, 234, 207, 146, 135, 73, 38, 134, 247, 235, 133, 149, 185, 58, 155, 212, 157, 84, 192, 253, 82, 23, 126, 64, 132, 166, 201, 244, 90, 231, 245, 47, 40, 248, 184, 112, 161, 183, 241, 37, 206, 116, 152, 224, 121, 145, 130, 74, 190, 80, 96, 150, 167, 81, 201, 207, 71, 14, 195, 112, 165, 83, 206, 195, 83, 60, 246, 5, 29, 151, 98, 85, 99, 199, 32, 97, 102, 25, 220, 119, 11, 38, 235, 12, 105, 217, 231, 79, 251, 250, 180, 17, 182, 25, 39, 230, 121, 73, 185, 107, 248, 126, 85, 89, 20, 113, 128, 186, 22, 27, 207, 42, 125, 183, 151, 190, 175, 128, 250, 89, 213, 109, 184, 205, 74, 62, 219, 11, 92, 144, 231, 11, 240];
+sbox_inverse := [145, 155, 24, 105, 71, 201, 104, 19, 227, 219, 146, 33, 239, 103, 252, 238, 230, 77, 47, 225, 106, 235, 97, 141, 43, 91, 236, 224, 137, 37, 186, 4, 159, 40, 81, 238, 156, 125, 243, 63, 216, 67, 98, 9, 184, 164, 178, 117, 90, 207, 147, 79, 89, 187, 35, 83, 143, 255, 237, 107, 12, 222, 137, 51, 20, 49, 76, 147, 168, 218, 199, 10, 83, 40, 103, 87, 154, 78, 198, 148, 190, 175, 198, 72, 39, 124, 243, 207, 54, 142, 55, 79, 228, 111, 8, 114, 64, 48, 18, 6, 75, 228, 30, 136, 52, 175, 52, 120, 248, 168, 240, 69, 205, 78, 159, 151, 42, 26, 87, 12, 163, 134, 172, 189, 191, 110, 15, 243, 223, 174, 155, 11, 154, 214, 223, 196, 13, 248, 157, 56, 47, 235, 224, 46, 70, 179, 87, 76, 91, 187, 41, 71, 221, 68, 37, 30, 174, 101, 244, 89, 76, 139, 144, 115, 185, 176, 139, 123, 200, 41, 193, 245, 243, 118, 224, 187, 208, 204, 136, 171, 219, 19, 232, 159, 138, 146, 19, 250, 64, 152, 148, 206, 249, 128, 232, 174, 230, 5, 10, 28, 205, 131, 14, 72, 128, 109, 186, 255, 54, 175, 9, 59, 29];
+temp := [];
+# Run 8 rounds of substitution and permutation
+for i := 1 to 8 do
+    # Add the expanded key to the input
+    for j := 1 to input_length do
+        temp[j] := byte_to_array(ord(expanded_key[(j mod key_length) + 1]));
+        temp[j][i] := temp[j][i] ^ byte_to_array(ord(input[j]));
+        temp[j][i] := temp[j][i] ^ byte_to_array(ord(sbox_inverse[i]));
+        temp[j][i] := temp[j][i] ^ byte_to_array(ord(input[j]));
+    endfor
+    # Substitute bytes using S-box
+    for j := 1 to input_length do
+        for k := 1 to byte_length(temp[j][i]) do
+            temp[j][i] := replace(temp[j][i], byte_to_array(ord(input[j])[k]), byte_to_array(ord(sbox[byte_to_int(input[j])])));
+        endfor
+    endfor
+    # Permute bytes using a fixed permutation
+    for j := 1 to input_length do
+        temp[j][i] := temp[j][i][[5, 9, 1, 3, 11, 9, 7, 6, 2, 10, 14, 13, 1, 12, 14, 2]];
+    endfor
+    # Shift the bytes using a variable shift length
+    for j := 1 to input_length do
+        temp[j][i] := circular_shift(temp[j][i], byte_to_int(input[i]));
+    endfor
+    # Add the round key to the input
+    for j := 1 to input_length do
+        input := replace(input, byte_to_array(ord(input[j])), temp[j][i]);
+    endfor
+endfor
+encrypted := input;

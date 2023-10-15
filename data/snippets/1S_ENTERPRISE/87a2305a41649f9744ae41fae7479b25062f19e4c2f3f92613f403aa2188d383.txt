@@ -1,0 +1,95 @@
+&AtClient
+Procedure getInvoiceDetails(InvoiceNumber) // Creates a procedure to get details of an invoice in 1C Enterprise
+    If InvoiceNumber = 0 Then // Checks if invoice number is valid
+        Message("Invalid Invoice Number") // Displays an error message if the invoice number is invalid
+    Else
+        SelectInvoice = XDTO.ProcessingFactory.CreateXDTOStructure() // Creates an XDTO structure to store the invoice data
+        SelectInvoice.Number = InvoiceNumber // Assigns the invoice number to the XDTO structure
+        
+        // Gets invoice details from the database
+        SelectQuery = New Query;
+        SelectQuery.Text = "SELECT * FROM Invoices WHERE InvoiceNumber = &InvoiceNumber";
+        SelectQuery.SetParameter("InvoiceNumber", InvoiceNumber);
+        SelectResult = SelectQuery.Execute(); // Executes the query and stores the result
+        
+        If SelectResult.Next() Then // Checks if there is a result
+            SelectInvoice.Date = SelectResult.Get("InvoiceDate"); // Gets the invoice date from the database and assigns it to the XDTO structure
+            SelectInvoice.Customer = SelectResult.Get("Customer"); // Gets the customer name from the database and assigns it to the XDTO structure
+            SelectInvoice.Total = SelectResult.Get("TotalAmount"); // Gets the total amount from the database and assigns it to the XDTO structure
+            SelectInvoice.Items = XDTO.ProcessingFactory.CreateXDTOStructure(); // Creates another XDTO structure to store the invoice items
+            
+            // Gets invoice items from the database
+            SelectItemsQuery = New Query;
+            SelectItemsQuery.Text = "SELECT * FROM InvoiceItems WHERE InvoiceNumber = &InvoiceNumber";
+            SelectItemsQuery.SetParameter("InvoiceNumber", InvoiceNumber);
+            SelectItemsResult = SelectItemsQuery.Execute(); // Executes the query and stores the result
+            
+            While SelectItemsResult.Next() Do // Loops through the result to get all the invoice items
+                SelectItem = XDTO.ProcessingFactory.CreateXDTOStructure(); // Creates an XDTO structure to store each item
+                SelectItem.Name = SelectItemsResult.Get("ItemName"); // Gets the item name from the database and assigns it to the XDTO structure
+                SelectItem.Quantity = SelectItemsResult.Get("ItemQuantity"); // Gets the item quantity from the database and assigns it to the XDTO structure
+                SelectItem.Price = SelectItemsResult.Get("ItemPrice"); // Gets the item price from the database and assigns it to the XDTO structure
+                SelectInvoice.Items.Add(SelectItem); // Adds the item to the invoice items XDTO structure
+            EndDo;
+            
+            // Calculates the total price of the invoice by looping through all the items
+            For Each Item In SelectInvoice.Items Do
+                SelectInvoice.Total += Item.Price * Item.Quantity; // Multiplies the price by quantity and adds it to the total
+            EndDo;
+        EndIf;
+        
+        Return SelectInvoice; // Returns the XDTO structure with all the invoice details
+    EndIf;
+EndProcedure;
+&AtClient
+Procedure createInvoice(Date, Customer, Items) // Creates a procedure to create a new invoice
+    Invoice = XDTO.ProcessingFactory.CreateXDTOStructure(); // Creates an XDTO structure to store the new invoice data
+    Invoice.Date = Date; // Assigns the date to the invoice
+    Invoice.Customer = Customer; // Assigns the customer to the invoice
+    
+    // Calculates the total price of the new invoice
+    Total = 0;
+    For Each Item In Items Do
+        Total += Item.Price * Item.Quantity; // Multiplies the price by quantity and adds it to the total
+    EndDo;
+    
+    Invoice.Total = Total; // Assigns the total price to the invoice
+    
+    // Saves the new invoice to the database
+    NewQuery = New Query;
+    NewQuery.Text = "INSERT INTO Invoices (InvoiceDate, Customer, TotalAmount) VALUES (&Date, &Customer, &Total)";
+    NewQuery.SetParameter("Date", Invoice.Date);
+    NewQuery.SetParameter("Customer", Invoice.Customer);
+    NewQuery.SetParameter("Total", Invoice.Total);
+    NewQuery.Execute(); // Executes the query
+    
+    // Gets the invoice number from the database after saving
+    SelectQuery = New Query;
+    SelectQuery.Text = "SELECT TOP 1 InvoiceNumber FROM Invoices ORDER BY InvoiceNumber DESC"; // Retrieves the latest invoice number
+    SelectResult = SelectQuery.Execute(); // Executes the query and stores the result
+    
+    If SelectResult.Next() Then // Checks if there is a result
+        InvoiceNumber = SelectResult.Get("InvoiceNumber"); // Assigns the invoice number to the invoice
+        Invoice.Items = XDTO.ProcessingFactory.CreateXDTOStructure(); // Creates an XDTO structure to store the invoice items
+        
+        // Adds the new items to the invoice
+        For Each Item In Items Do
+            NewItem = XDTO.ProcessingFactory.CreateXDTOStructure(); // Creates an XDTO structure to store each item
+            NewItem.Name = Item.Name; // Assigns the name to the item
+            NewItem.Quantity = Item.Quantity; // Assigns the quantity to the item
+            NewItem.Price = Item.Price; // Assigns the price to the item
+            Invoice.Items.Add(NewItem); // Adds the item to the invoice items XDTO structure
+            
+            // Saves the item to the database
+            NewItemsQuery = New Query;
+            NewItemsQuery.Text = "INSERT INTO InvoiceItems (InvoiceNumber, ItemName, ItemQuantity, ItemPrice) VALUES (&InvoiceNumber, &ItemName, &ItemQuantity, &ItemPrice)";
+            NewItemsQuery.SetParameter("InvoiceNumber", InvoiceNumber);
+            NewItemsQuery.SetParameter("ItemName", Item.Name);
+            NewItemsQuery.SetParameter("ItemQuantity", Item.Quantity);
+            NewItemsQuery.SetParameter("ItemPrice", Item.Price);
+            NewItemsQuery.Execute(); // Executes the query
+        EndDo;
+        
+        Return Invoice; // Returns the XDTO structure with the newly created invoice data
+    EndIf;
+EndProcedure;

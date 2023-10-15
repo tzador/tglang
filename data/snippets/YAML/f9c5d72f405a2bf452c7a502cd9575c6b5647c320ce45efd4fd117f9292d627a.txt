@@ -1,0 +1,41 @@
+- name: Deploy to production
+  hosts: production
+  gather_facts: no
+  vars:
+    database_name: prod_database
+    app_env: production
+  tasks:
+    - name: Install dependencies
+      apt:
+        pkg: "{{ item }}"
+        state: present
+      with_items:
+        - nginx
+        - php-fpm
+        - mysql-server
+    - name: Configure NGINX
+      template:
+        src: ./nginx.conf
+        dest: /etc/nginx/sites-available/{{ database_name }}
+      notify:
+        - Restart NGINX
+    - name: Setup database
+      mysql_db:
+        name: "{{ database_name }}"
+        state: present
+    - name: Restart NGINX
+      service:
+        name: nginx
+        state: restarted
+    - name: Deploy application
+      git:
+        repo: git://github.com/username/app.git
+        dest: /var/www/app
+      register: deploy_status
+      notify:
+        - Restart PHP-FPM
+    - name: Restart PHP-FPM
+      service:
+        name: php-fpm
+        state: restarted
+      when: deploy_status.changed

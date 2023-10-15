@@ -1,0 +1,142 @@
+class MyCharacter extends GameInfo;
+
+/** This is the main function used to initialize the character and its default properties. */
+function InitializeCharacter()
+{
+    Default.Mesh = string'MyMesh'; //assigns the mesh for the character
+
+    MaxWalkSpeed = 400; //sets the maximum walk speed for the character
+    RunAccelRate = 1000; //sets the acceleration rate for running
+    JumpZ = 400; //sets the height of the character's jump
+
+    InventoryType[0] = class'RedWeapon'; //assigns a weapon to the character's first slot
+    InventoryType[1] = class'BlueWeapon'; //assigns a weapon to the character's second slot
+
+    bAllowSelectedMovement = true; //allows the character to move even when selected by the player
+    bDoubleJump = true; //enables the character to perform a double jump
+    
+    //sets the rotation and scale of the character
+    SetRotation(rot(0,0,0));
+    SetScale(1);
+
+    //sets which animations to use for different actions
+    Animation('Walk')=x;
+    Animation('Run')=y;
+    Animation('Jump')=z;
+    Animation('Fire')=a;
+    Animation('Reload')=b;
+}
+
+/** This function is used to handle input from the player, such as movement and firing weapons. */
+function PlayerMove(PlayerInput Input, out float Forward, out float Strafe)
+{
+    Forward = 0;
+    Strafe = 0;
+
+    //checks for movement input from the player
+    if (Input.aMovementButtons[1] || Input.aMovementButtons[2] || Input.aMovementButtons[3] || Input.aMovementButtons[4]) 
+    {
+        Forward = Input.aMovementButtons[1] - Input.aMovementButtons[2]; //forward/backward movement
+        Strafe = Input.aMovementButtons[3] - Input.aMovementButtons[4]; //strafe movement
+    }
+
+    //checks for jump input from the player
+    if (Input.aActionButtons[4])
+    {
+        Jump();
+    }
+
+    //checks for fire input from the player
+    if (Input.aActionButtons[2])
+    {
+        Fire();
+    }
+
+    //checks for reload input from the player
+    if (Input.aActionButtons[3])
+    {
+        Reload();
+    }
+}
+
+/** This function is used to handle character movement, such as walking, running, and jumping. */
+function Tick(float DeltaSeconds)
+{
+    Super.Tick(DeltaSeconds);
+
+    //normal walking
+    WalkNormalStyle();
+
+    //running
+    if (bRun)
+        RunNormalStyle();
+    
+    //handles double jump
+    if (bAllowDoubleJump)
+        HandleDoubleJump();
+} 
+
+/** This function is used to handle character animations based on their current action. */
+function Tick(float DeltaSeconds)
+{
+    Super.Tick(DeltaSeconds);
+    
+    //loops through all animations 
+    foreach Animation(Animations)
+    {
+        //checks if the character is currently performing that animation
+        if (Animations == CurrentActionState)
+        {
+            PlayAnimation(Animations()); //plays the corresponding animation
+        }
+    }
+}
+
+/** This function is called when the player inputs a jump command. */
+function Jump()
+{
+    Super.Tick(DeltaSeconds);
+
+    //checks if the character is on the ground
+    if (PhysicsMode != PHYS_Falling)
+    {
+        //applies upward impulse to simulate a jump
+        ApplyImpulse(Vector(0,0,1) * JumpZ);
+    }
+}
+
+/** This function is called when the player inputs a fire command. */
+function Fire()
+{
+    Super.Tick(DeltaSeconds);
+
+    //spawns the selected weapon from the character's inventory at the character's location
+    Spawn(class(InventoryType[SelectedWeapon]),,Location);
+}
+
+/** This function is called when the player inputs a reload command. */
+function Reload()
+{
+    Super.Tick(DeltaSeconds);
+
+    //checks if the selected weapon has a valid Reload function
+    if (SelectedWeapon != None && InventoryType[SelectedWeapon].IsA(class'ReloadableWeapon'))
+    {
+        //calls the Reload function
+        InventoryType[SelectedWeapon].Reload();
+    }
+}
+
+/** This function is used to handle the character's double jump ability. */
+function HandleDoubleJump()
+{
+    Super.Tick(DeltaSeconds);
+
+    //checks if the character has performed a single jump and is currently falling
+    if (NumJumps == 1 && PhysicsMode == PHYS_Falling)
+    {
+        //applies upward impulse to simulate a second jump
+        ApplyImpulse(Vector(0,0,1) * JumpZ);
+        NumJumps++; //increases the number of jumps performed by the character
+    }
+}

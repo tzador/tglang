@@ -1,0 +1,83 @@
+// Define a contract, named 'Market'
+contract Market {
+
+  // Define a variable, named 'seller', of type 'address'
+  address public seller;
+
+  // Define an 'enum' named 'State'
+  enum State {
+    Open,
+    Sold,
+    Expired
+  }
+
+  // Define a 'struct' named 'Item'
+  struct Item {
+    string name;
+    uint price;
+    State state;
+  }
+
+  // Define an array named 'items', of type 'Item'
+  Item[] public items;
+
+  // Define an 'event' named 'NewItem'
+  event NewItem(string name, uint price, State state);
+
+  // Define a 'modifier' named 'onlySeller', to restrict access to seller
+  modifier onlySeller() {
+    require(msg.sender == seller);
+    _;
+  }
+
+  // Define a constructor function, to set the 'seller' variable
+  constructor() public {
+    seller = msg.sender;
+  }
+
+  // Define a function, named 'addItem', which adds an item to the 'items' array
+  function addItem(string memory _name, uint _price) public onlySeller {
+    // Create a new instance of 'Item' struct
+    Item memory newItem = Item({
+      name: _name,
+      price: _price,
+      state: State.Open
+    });
+    // Push the new item to the 'items' array
+    items.push(newItem);
+    // Emit the 'NewItem' event
+    emit NewItem(_name, _price, State.Open);
+  }
+
+  // Define a function, named 'buyItem', which changes the state of an item to 'Sold'
+  function buyItem(uint _itemId) public payable {
+    // Check if the item exists
+    require(_itemId >= 0 && _itemId < items.length);
+    // Check if the item is still available for sale
+    require(items[_itemId].state == State.Open);
+    // Check if the buyer has sent the correct amount
+    require(msg.value == items[_itemId].price);
+    // Change the state of the item to 'Sold'
+    items[_itemId].state = State.Sold;
+  }
+
+  // Define a function, named 'withdrawFunds', which allows the seller to withdraw their funds
+  function withdrawFunds() public onlySeller {
+    // Check if there are any items that are 'Sold'
+    for (uint i = 0; i < items.length; i++) {
+      require(items[i].state != State.Sold);
+    }
+    // Transfer the funds to the seller
+    seller.transfer(address(this).balance);
+  }
+
+  // Define a function, named 'expireItem', which changes the state of an item to 'Expired'
+  function expireItem(uint _itemId) public onlySeller {
+    // Check if the item exists
+    require(_itemId >= 0 && _itemId < items.length);
+    // Check if the item is still available for sale
+    require(items[_itemId].state == State.Open);
+    // Change the state of the item to 'Expired'
+    items[_itemId].state = State.Expired;
+  }
+}

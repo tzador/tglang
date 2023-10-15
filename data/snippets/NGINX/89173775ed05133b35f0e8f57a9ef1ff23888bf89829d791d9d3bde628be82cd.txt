@@ -1,0 +1,63 @@
+# location block for server
+server {
+    # listen on port 80
+    listen 80;
+
+    # set server name
+    server_name example.com;
+
+    # enable gzip compression
+    gzip on;
+
+    # set HTTP response headers
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-Content-Type-Options "nosniff";
+    add_header X-XSS-Protection "1; mode=block";
+
+    # location block for root directory
+    location / {
+        # set root directory
+        root /var/www/example.com;
+
+        # enable index file
+        index index.html;
+        
+        # restrict access to specific IP addresses
+        allow 192.168.1.1;
+        allow 10.0.0.1;
+        deny all;
+    }
+
+    # location block for API endpoint
+    location /api {
+        # set proxy pass to backend server
+        proxy_pass http://localhost:3000;
+
+        # set request headers
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Host $http_host;
+        
+        # set caching options
+        proxy_cache_bypass $http_pragma;
+        proxy_cache_valid 200 302 5m;
+        proxy_cache_valid 404 1m;
+    }
+
+    # location block for static assets
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+        # set root directory
+        root /var/www/example.com/public;
+
+        # set caching duration
+        expires 30d;
+        access_log off;
+    }
+
+    # location block for error pages
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html {
+        root /var/www/example.com/error;
+    }
+}

@@ -1,0 +1,120 @@
+"AndreScript: A dynamic language inspired by Smalltalk"
+
+Object subclass: #AndreScript
+	instanceVariableNames: 'vars'
+	classVariableNames: 'messageQueue'
+	poolDictionaries: ''
+	category: 'AndreScript'
+
+"The initialization method for AndreScript class"
+init
+	"Initialize instance variables"
+	vars := Dictionary new.
+	
+	"Initializing class variables"
+	messageQueue := OrderedCollection new.
+	
+	"Return self to indicate successful initialization"
+	^ self
+
+"AndreScript method for declaring variables"
+vars:
+	"This method takes in a list of variables as parameters and initializes them in the 'vars' dictionary."
+	| varList |
+	varList := self extractVariables: self unpackScriptArguments.
+	"Loop through the list of variables and add them to the dictionary"
+	varList do: [:var | vars at: var put: nil].
+	
+	"Return self to allow for method chaining"
+	^ self
+	
+"Method for extracting variables from script arguments (i.e. expressions inside parentheses)"
+extractVariables: scriptArgs
+	"Initialize variables to keep track of brackets and variables"
+	| brackets varList lastOpenBracket |
+	brackets := 0.
+	varList := OrderedCollection new.
+	
+	"Loop through the script arguments"
+	scriptArgs do: [:arg |
+		"Count the number of brackets and add to variable list if brackets == 0 (i.e. not inside any parentheses)"
+		(arg = '(') ifTrue: [brackets := brackets + 1].
+		(arg = ')') ifTrue: [brackets := brackets - 1].
+		"Add variable to list if not in parentheses"
+		(brackets = 0) ifTrue: [varList add: arg].
+		lastOpenBracket := arg].
+	
+	"Return the variable list"
+	^ varList
+	
+"AndreScript method for storing and sending messages"
+sendMessage: selector withArguments: arguments
+	"Add message to class variable messageQueue"
+	messageQueue add: (selector -> arguments).
+	
+	"Return self for method chaining"
+	^ self
+	
+"Method for executing a script (i.e. a series of messages)"
+executeScript: aScript
+	"Initialize variables"
+	| varList |
+	varList := OrderedCollection new.
+	
+	"Loop through the script, extracting variables from parentheses, and sending messages to those variables"
+	aScript do: [:message |
+		"Check if variable exists in vars dictionary"
+		(vars includesKey: message) ifTrue: [
+			"Check if message is a variable declaration"
+			(message = ':=') ifTrue: [
+				"Add variables to varList for later initialization"
+				varList addAll: self extractVariables: aScript between: lastOpenBracket and: message.
+				"Send message to variable with arguments"
+				self vars at: varList last put: self executeScript: aScript between: message and: ')'
+			] ifFalse: [
+				"Send message to variable with arguments"
+				self vars at: message sendMessage: aScript executeScript between: lastOpenBracket and: ')'
+			]
+		]
+	].
+	
+	"Loop through the variable list and initialize variables"
+	varList do: [:var | vars at: var put: nil].
+	
+	"Send messages in the messageQueue to the appropriate variables with arguments"
+	messageQueue do: [:pair |
+		self vars at: pair key sendMessage: pair value.
+	].
+	
+	"Return self for method chaining"
+	^ self
+	
+"AndreScript method for getting the value of a variable"
+getVar: aVariable
+	"Return the value of the variable if it exists"
+	(vars includesKey: aVariable) ifTrue: [^ vars at: aVariable].
+	
+	"Otherwise, throw an error"
+	self error: 'Variable ' , aVariable , ' does not exist.'
+
+"AndreScript method for setting the value of a variable"
+setVar: aVariable to: aValue
+	"Set the value of the variable if it exists"
+	(vars includesKey: aVariable) ifTrue: [
+		vars at: aVariable put: aValue.
+		^ self
+	].
+	
+	"Otherwise, throw an error"
+	self error: 'Variable ' , aVariable , ' does not exist.'
+
+"AndreScript method for printing a variable"
+printVar: aVariable
+	"Print the value of the variable if it exists"
+	(vars includesKey: aVariable) ifTrue: [
+		Transcript show: aVariable , ' = ' , (vars at: aVariable) asString.
+		^ self
+	].
+	
+	"Otherwise, throw an error"
+	self error: 'Variable ' , aVariable , ' does not exist.

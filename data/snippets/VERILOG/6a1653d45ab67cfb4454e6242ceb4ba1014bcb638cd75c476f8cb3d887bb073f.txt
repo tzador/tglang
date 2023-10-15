@@ -1,0 +1,83 @@
+/*
+This code snippet shows an example of a state machine design in Verilog.
+It implements a simple coin-operated vending machine that dispenses a product
+after the correct amount of money has been inserted.
+*/
+// Define the input and output ports of the module
+module vending_machine(
+input wire clk, // clock signal
+input wire reset, //reset signal
+input wire coin, //input signal indicating a coin has been inserted
+input wire [2:0] product_price, // price of the product
+output reg release_product //output signal indicating product should be released
+);
+
+// Define the state enumeration
+typedef enum logic [2:0] {
+    IDLE,
+    ACCEPTING_COINS,
+    CHECKING_PRICE,
+    DISPENSING,
+    CHANGE_RETURN
+} state_t;
+
+// Define the current state variable
+reg [2:0] current_state;
+
+// Define the next state variable
+reg [2:0] next_state;
+
+// Initialize the state variables
+initial begin
+    current_state = IDLE;
+    next_state = IDLE;
+end
+
+// Implement the combinational logic for the next state
+always_comb begin
+    case(current_state)
+        // If in IDLE state and coin is inserted, go to ACCEPTING_COINS state
+        IDLE: if(coin) next_state = ACCEPTING_COINS;
+        // If in ACCEPTING_COINS state and no coin is inserted, go back to IDLE state
+        ACCEPTING_COINS: if(!coin) next_state = IDLE;
+        // If in ACCEPTING_COINS state and coin is inserted, stay in that state
+        // Wait until enough coins are inserted to check price
+        CHECKING_PRICE: if(coin) next_state = CHECKING_PRICE;
+        // If in DISPENSING state, go to CHANGE_RETURN state after dispensing product
+        DISPENSING: next_state = CHANGE_RETURN;
+        // If in CHANGE_RETURN state, go back to IDLE state
+        CHANGE_RETURN: next_state = IDLE;
+    endcase
+end
+
+// Implement the sequential logic for the current state
+always_ff @(posedge clk or posedge reset) begin
+    if(reset) begin
+        current_state <= IDLE;
+    end
+    else begin
+        current_state <= next_state;
+    end
+end
+
+// Implement the output logic
+always_comb begin
+    // By default, do not release product
+    release_product = 0;
+
+    case(current_state)
+        // In CHECKING_PRICE state, check if enough money has been inserted
+        CHECKING_PRICE: begin
+            if(coin && product_price == 3) begin
+                // If enough money was inserted, release product
+                release_product = 1;
+            end
+        end
+        // In DISPENSING state, release product for one cycle and go to CHANGE_RETURN state
+        DISPENSING: begin
+            release_product = 1;
+        end
+    endcase
+end
+
+endmodule // end of vending_machine module

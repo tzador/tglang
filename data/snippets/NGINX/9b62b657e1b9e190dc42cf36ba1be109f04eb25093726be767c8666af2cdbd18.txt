@@ -1,0 +1,59 @@
+worker_processes 4;
+worker_rlimit_nofile 8192;
+pid /var/run/nginx.pid;
+events {
+  worker_connections 4096;
+}
+http {
+  # Set the gzip compression type
+  gzip on;
+  gzip_types text/plain application/xml;
+
+  # Set the upstream server
+  upstream backend {
+    server 127.0.0.1:8000;
+  }
+
+  # Create server block
+  server {
+    # Listen on port 80 for IPv4 connections
+    listen 80;
+    # Server name
+    server_name example.com;
+
+    # Configure logging
+    access_log /var/log/nginx/example.com_access.log;
+    error_log /var/log/nginx/example.com_error.log;
+
+    # Set location for static files
+    location /static/ {
+      alias /var/www/example.com/static/;
+    }
+
+    # Set location for media files
+    location /media/ {
+      alias /var/www/example.com/media/;
+    }
+
+    # Set location for Django app
+    location / {
+      # Set root directory for Django app
+      root /var/www/example.com/app/;
+      # Include Django-specific configurations
+      include uwsgi_params;
+      uwsgi_pass unix:/var/run/uwsgi.sock;
+
+      # Enable caching
+      proxy_cache_path /var/www/example.com/cache levels=1:2 keys_zone=example_cache:10m inactive=60m;
+      proxy_cache_key "$scheme$request_method$host$request_uri";
+      proxy_cache_valid 200 60m;
+      proxy_cache_valid 404 1m;
+
+      # Set proxy timeouts
+      proxy_connect_timeout 5s;
+      proxy_read_timeout 15s;
+      proxy_send_timeout 10s;
+    }
+  }
+
+}

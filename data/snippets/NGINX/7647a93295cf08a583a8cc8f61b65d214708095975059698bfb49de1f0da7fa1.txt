@@ -1,0 +1,80 @@
+# This is a sample context to explain NGINX
+# It is a web server and reverse proxy that focuses on high performance and scalability
+
+# Basic settings for the HTTP server
+http {
+
+    # Listen on port 80 for incoming connections
+    listen 80;
+
+    # Define the server name as example.com
+    server_name example.com;
+
+    # Set the root directory for all requests on this server
+    root /var/www/example.com;
+
+    # Enable gzip compression for faster transfer of files
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
+
+    # Configure caching for static files
+    location ~* \.(png|jpg|jpeg|gif|ico)$ {
+        expires 1y;
+        add_header Cache-Control "public";
+    }
+
+    # Set up reverse proxy configuration
+    location / {
+        # Proxy pass to the upstream server
+        proxy_pass http://127.0.0.1:3000;
+
+        # Enable caching for responses from the upstream server
+        proxy_cache          cache1;
+        proxy_cache_valid    200 302 60m;
+        proxy_cache_valid    404      1m;
+        proxy_cache_use_stale error timeout invalid_header http_500;
+    }
+
+    # Configure HTTPS server
+    server {
+        # Listen on port 443 for SSL traffic
+        listen 443 ssl;
+
+        # Configure SSL certificate and key
+        ssl_certificate /etc/nginx/ssl/example.com.crt;
+        ssl_certificate_key /etc/nginx/ssl/example.com.key;
+
+        # Disable SSLv2 and SSLv3
+        ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+        ssl_prefer_server_ciphers on;
+        ssl_dhparam /etc/ssl/certs/dhparam.pem;
+
+        # Enable client-side caching for HTTPS requests
+        location / {
+            proxy_pass http://127.0.0.1:3000;
+            proxy_cache          ssl_cache;
+            proxy_cache_valid    any      1h;
+            proxy_cache_bypass   $http_pragma;
+            proxy_cache_revalidate on;
+        }
+    }
+
+    # Enable load balancing for multiple upstream servers
+    # This configuration assumes 2 upstream servers
+    upstream backend {
+        server 127.0.0.1:8000;
+        server 127.0.0.1:8001;
+    }
+
+    # Configure server blocks for load balancing
+    # All requests will be distributed between the two servers
+    server {
+        listen 80;
+        server_name backend.example.com;
+
+        location / {
+            proxy_pass http://backend;
+            proxy_set_header X-Forwarded-For $remote_addr;
+        }
+    }
+}

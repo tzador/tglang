@@ -1,0 +1,68 @@
+# Set the minimum required version of CMake
+cmake_minimum_required(VERSION 3.10)
+
+# Define a project and its version
+project(MyProject VERSION 1.0)
+
+# Add a subdirectory for external library dependencies
+add_subdirectory(external)
+
+# Add source files for the project
+file(GLOB_RECURSE SOURCES src/*.cpp)
+
+# Set compile options
+if (MSVC)
+    # Set flags for Microsoft Visual C++ compiler
+    add_compile_options(/W4 /WX)
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    # Set flags for GNU compiler
+    add_compile_options(-Wall -Wextra -Werror)
+endif ()
+
+# Specify target executable
+add_executable(my_executable ${SOURCES})
+
+# Link the target executable with external libraries
+target_link_libraries(my_executable PUBLIC ExternalLibrary1 ExternalLibrary2)
+
+# Set the output directory for the executable
+set_target_properties(my_executable PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+
+# Install the executable and its dependencies
+install(TARGETS my_executable EXPORT MyProjectTargets
+    RUNTIME DESTINATION bin
+)
+
+# Generate a file that contains version information for the project
+configure_file(src/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/version.h)
+
+# Add the generated file to the list of source files
+list(APPEND SOURCES ${CMAKE_CURRENT_BINARY_DIR}/version.h)
+
+# Include the header directories for the target
+target_include_directories(my_executable PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_include_directories(my_executable PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+# Create an installation rule for the generated version header file
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/version.h
+        DESTINATION include
+)
+
+# Create an export set for the project
+install(EXPORT MyProjectTargets
+    FILE MyProjectTargets.cmake
+    DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/cmake
+)
+
+# Include the installed export file in the project
+include(${CMAKE_CURRENT_BINARY_DIR}/cmake/MyProjectTargets.cmake)
+
+# Generate a configuration file for the project
+configure_file(MyProjectConfig.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/cmake/MyProjectConfig.cmake @ONLY)
+
+# Install the configuration file
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/cmake/MyProjectConfig.cmake
+    DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/cmake
+)

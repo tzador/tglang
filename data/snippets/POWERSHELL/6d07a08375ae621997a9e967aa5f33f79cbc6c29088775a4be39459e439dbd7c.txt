@@ -1,0 +1,51 @@
+function Get-SiteInfo {
+    <#
+    .SYNOPSIS
+        Retrieves information about a website using HTTP request.
+    .PARAMETER SiteUrl
+        The URL of the website to get information for.
+    .NOTES
+        Author: John Doe
+        Date: 02/02/2022
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true, Position = 0)]
+        [ValidateNotNullOrEmpty()]
+        [string]$SiteUrl
+    )
+
+    # Create HTTP client object
+    $client = New-Object System.Net.WebClient
+
+    # Send GET request to website and retrieve response
+    $response = $client.DownloadString($SiteUrl)
+
+    # Split response into lines
+    $responseLines = $response.Split("`n")
+
+    # Get site title from response
+    $titleLine = $responseLines | Where-Object { $_ -like "<title>*" }
+    $siteTitle = $titleLine.Replace("<title>", "").Replace("</title>", "")
+
+    # Get site description from response
+    $metaDescription = ($responseLines | Where-Object { $_ -like "<meta name=`"description`" content=`"*" }) -split '"' | Select-Object -Index 3
+
+    # Create custom object with extracted information
+    $siteInfo = [pscustomobject]@{
+        SiteUrl = $SiteUrl
+        SiteTitle = $siteTitle
+        SiteDescription = $metaDescription
+    }
+
+    # Return site info object
+    return $siteInfo
+}
+
+# Run function and save output to variable
+$site = Get-SiteInfo -SiteUrl "www.example.com"
+
+# Print site info
+Write-Host "Site URL: $($site.SiteUrl)"
+Write-Host "Site Title: $($site.SiteTitle)"
+Write-Host "Site Description: $($site.SiteDescription)"

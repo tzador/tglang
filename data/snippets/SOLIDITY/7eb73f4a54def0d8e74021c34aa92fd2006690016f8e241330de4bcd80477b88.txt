@@ -1,0 +1,164 @@
+// Example contract implementing the SOLID principles
+
+pragma solidity ^0.8.0;
+
+// Interface for a contract that will handle the receiving of tokens
+interface ITokenReceiver {
+    function onTokenReceived(address _from, uint256 _value) external returns (bool);
+}
+
+// Contract implementing a token with a fixed supply
+contract FixedSupplyToken {
+    
+    // variables for managing supply, balances and allowances
+    string public symbol; 
+    string public name;
+    uint8 public constant decimals = 18;
+    uint256 public totalSupply;
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+
+    // event to be emitted when a transfer is made
+    event Transfer(address indexed _from, address indexed _to, uint256 _value);
+
+    // event to be emitted when an approval is made
+    event Approval(address indexed _owner, address indexed _spender, uint _value);
+
+    // event to be emitted when a token transfer is received
+    event ReceivedTokens(address indexed _from, uint256 _value);
+
+    // constructor to initialize the token with a name, symbol and initial supply
+    constructor(string memory _symbol, string memory _name, uint256 _initialSupply) {
+        symbol = _symbol;
+        name = _name;
+        totalSupply = _initialSupply * 10 ** uint256(decimals);
+        balanceOf[msg.sender] = totalSupply;
+    }
+
+    // function to transfer tokens from one account to another
+    function transfer(address _to, uint256 _value) external returns (bool) {
+        require(_value <= balanceOf[msg.sender]);
+        require(_to != address(0));
+
+        // update sender and receiver balances
+        balanceOf[msg.sender] -= _value;
+        balanceOf[_to] += _value;
+
+        // emit transfer event
+        emit Transfer(msg.sender, _to, _value);
+
+        return true;
+    }
+
+    // function to approve a certain amount of tokens to be spent by a third party
+    function approve(address _spender, uint256 _value) external returns (bool) {
+        // update allowance
+        allowance[msg.sender][_spender] = _value;
+
+        // emit approval event
+        emit Approval(msg.sender, _spender, _value);
+
+        return true;
+    }
+
+    // function to transfer tokens from one account to another on behalf of the owner
+    function transferFrom(address _from, address _to, uint256 _value) external returns (bool) {
+        require(_value <= balanceOf[_from]);
+        require(_value <= allowance[_from][msg.sender]);
+        require(_to != address(0));
+
+        // update sender, receiver and spender balances
+        balanceOf[_from] -= _value;
+        balanceOf[_to] += _value;
+        allowance[_from][msg.sender] -= _value;
+
+        // emit transfer event
+        emit Transfer(_from, _to, _value);
+
+        return true;
+    }
+
+    // function to receive tokens from another contract
+    function receiveTokens(address _from, uint256 _value) external returns (bool) {
+        // only accept tokens from a trusted contract
+        require(msg.sender == address(0x123...)); // address of the trusted contract
+
+        // update receiver balance
+        balanceOf[msg.sender] += _value;
+
+        // emit received tokens event
+        emit ReceivedTokens(_from, _value);
+
+        return true;
+    }
+}
+
+// Contract implementing a crowdsale for the fixed supply token
+contract FixedSupplyCrowdsale {
+    
+    // variables for managing crowdsale parameters and participants
+    FixedSupplyToken public token;
+    address payable public beneficiary;
+    uint256 public crowdsaleEnd; // timestamp when the crowdsale ends
+    uint256 public crowdsaleCap; // maximum amount of Ether that can be raised
+    uint256 public crowdsaleRate; // conversion rate of Ether to tokens
+    uint256 public totalRaised; // total amount of Ether raised
+    mapping(address => uint256) public contributions; // mapping of participant addresses to their contributions
+
+    // event to be emitted when a contribution is made
+    event ContributionMade(address indexed contributor, uint256 amount);
+
+    // event to be emitted when the beneficiary withdraws the funds
+    event FundsWithdrawn(address beneficiary, uint256 amount);
+
+    // constructor to initialize the crowdsale with the token, beneficiary, end time, cap and rate
+    constructor(FixedSupplyToken _token, address payable _beneficiary, uint256 _end, uint256 _cap, uint256 _rate) {
+        token = _token;
+        beneficiary = _beneficiary;
+        crowdsaleEnd = _end;
+        crowdsaleCap = _cap;
+        crowdsaleRate = _rate;
+    }
+
+    // function to contribute Ether to the crowdsale
+    function contribute() external payable {
+        require(block.timestamp < crowdsaleEnd);
+        require(totalRaised + msg.value <= crowdsaleCap);
+
+        // update sender's contribution
+        contributions[msg.sender] += msg.value;
+
+        // update total raised
+        totalRaised += msg.value;
+
+        // mint tokens and transfer to sender
+        token.transfer(msg.sender, msg.value * crowdsaleRate);
+
+        // emit contribution event
+        emit ContributionMade(msg.sender, msg.value);
+    }
+
+    // function to withdraw funds from the crowdsale
+    function withdrawFunds() external {
+        require(block.timestamp > crowdsaleEnd);
+        require(totalRaised >= crowdsaleCap);
+
+        // transfer funds to beneficiary
+        beneficiary.transfer(address(this).balance);
+
+        // emit funds withdrawn event
+        emit FundsWithdrawn(beneficiary, address(this).balance);
+    }
+    
+    // function to transfer tokens received from the crowdsale to a specific address
+    function transferTokens(address _receiver, uint256 _value) external {
+        require(block.timestamp > crowdsaleEnd);
+        require(totalRaised >= crowdsaleCap);
+
+        // transfer tokens to receiver
+        token.transfer(_receiver, _value);
+
+        // update receiver contribution
+        contributions[_receiver] = _value / crowdsaleRate;
+    }
+}

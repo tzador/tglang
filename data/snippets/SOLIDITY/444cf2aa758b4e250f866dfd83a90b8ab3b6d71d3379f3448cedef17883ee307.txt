@@ -1,0 +1,94 @@
+//This contract performs a simple auction
+pragma solidity ^0.8.0; //Version of Solidity used
+
+contract Auction {
+    address public owner; //Variable to store the owner of the contract
+    uint public startBlock; //Variable to store the starting block of the auction
+    uint public endBlock; //Variable to store the ending block of the auction
+    string public ipfsHash; //Variable to store the IPFS hash of the auction details
+    
+    //Struct to store the details of each bid
+    struct Bid {
+        address bidder; //Address of the bidder
+        uint amount; //Bid amount in wei (smallest unit of ether)
+        bool withdrawn; //Flag to indicate if the bid has been withdrawn
+    }
+    
+    //Array to store all the bids
+    Bid[] public bids;
+    
+    //Variable to store the highest Bid
+    Bid public highestBid;
+    
+    //Mapping to store the amount that has been deposited by each address
+    mapping(address => uint256) public deposits;
+    
+    //Event to be triggered when a new bid is placed
+    event NewBid(address bidder, uint amount);
+    
+    //Event to be triggered when a bid is withdrawn
+    event BidWithdrawn(address bidder, uint amount);
+    
+    //Event to be triggered when the auction is closed and the owner has withdrawn the funds
+    event AuctionEnded(address winner, uint amount);
+
+    //Constructor function to set the owner and the IPFS hash of the auction details
+    constructor(string memory _ipfsHash) {
+        owner = msg.sender;
+        startBlock = block.number;
+        endBlock = block.number + 1000; // The auction lasts for 1000 blocks
+        ipfsHash = _ipfsHash;
+    }
+
+    //Function to place a bid
+    function bid() public payable {
+        require(block.number >= startBlock, "Auction has not started yet");
+        require(block.number < endBlock, "Auction has ended");
+        require(msg.value > highestBid.amount, "There is already a higher bid");
+        
+        //If there is a previous highest bid, the amount is refunded to the corresponding address
+        if(highestBid.bidder != address(0)) {
+            deposits[highestBid.bidder] += highestBid.amount;
+        }
+        
+        //The new highest bid is added to the bids array and the new highest bid variable is updated
+        highestBid = Bid(msg.sender, msg.value, false);
+        bids.push(highestBid);
+        
+        //Emitting the NewBid event
+        emit NewBid(msg.sender, msg.value);
+    }
+    
+    //Function to withdraw a bid
+    function withdraw() public returns (bool) {
+        require(msg.sender == highestBid.bidder, "You are not the highest bidder");
+        require(block.number < endBlock, "Auction has ended");
+        require(!highestBid.withdrawn, "Bid has already been withdrawn");
+        
+        uint amount = highestBid.amount;
+        highestBid.amount = 0;
+        
+        //The amount is refunded to the corresponding address
+        payable(msg.sender).transfer(amount);
+        
+        //Updating the withdrawn flag
+        highestBid.withdrawn = true;
+        
+        //Emitting the BidWithdrawn event
+        emit BidWithdrawn(msg.sender, amount);
+        
+        return true;
+    }
+
+    //Function to close the auction and withdraw the funds
+    function closeAuction() public {
+        require(block.number >= endBlock, "Auction has not ended yet");
+        require(msg.sender == owner, "You are not the owner of the auction");
+        
+        //Transferring the funds to the owner
+        payable(msg.sender).transfer(address(this).balance);
+        
+        //Emitting the AuctionEnded event
+        emit AuctionEnded(highestBid.bidder, highestBid.amount);
+    }
+}

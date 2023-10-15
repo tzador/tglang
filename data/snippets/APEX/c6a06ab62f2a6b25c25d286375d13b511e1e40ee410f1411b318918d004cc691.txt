@@ -1,0 +1,47 @@
+public with sharing class OrderController {
+     //this class handles the logic for creating, updating, and deleting orders
+     ApexPages.StandardController controller;
+     
+     public OrderController(ApexPages.StandardController con) {
+         //constructor for accepting StandardController
+         controller = con;
+     }
+     
+     private List<Order> orders;
+     private List<OrderItem> orderItems;
+     private Map<Id, List<OrderItem>> orderItemMap;
+     
+     //method to retrieve all orders related to the current account
+     public void retrieveOrders() {
+         orders = [SELECT Id, Name, Status, TotalAmount FROM Order WHERE AccountId = :controller.getRecord().Id];
+     }
+     
+     //method to retrieve all order items related to the current order
+     public void retrieveOrderItems() {
+         orderItems = [SELECT Id, Name, Quantity, Price, OrderId FROM OrderItem WHERE OrderId IN :orderItemMap.keySet()];
+     }
+     
+     //method to group order items by their associated order
+     public void groupOrderItems() {
+         orderItemMap = new Map<Id, List<OrderItem>>();
+         
+         for(OrderItem item : orderItems) {
+             if(orderItemMap.containsKey(item.OrderId)) {
+                 orderItemMap.get(item.OrderId).add(item);
+             }
+             else {
+                 orderItemMap.put(item.OrderId, new List<OrderItem>{item});
+             }
+         }
+     }
+      
+     //method to update the status of an order
+     public void updateOrderStatus(String newStatus) {
+         Order selectedOrder = (Order) controller.getRecord();
+         
+         if(newStatus != null && selectedOrder.Status != newStatus) {
+             selectedOrder.Status = newStatus;
+             update selectedOrder;
+         }
+     }
+}

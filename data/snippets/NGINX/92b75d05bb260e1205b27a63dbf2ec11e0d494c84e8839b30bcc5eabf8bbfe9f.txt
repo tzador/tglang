@@ -1,0 +1,71 @@
+# declare a variable for the server name
+set $server_name "example.com";
+
+# set up a server block
+server {
+    # declare the listen port
+    listen 80;
+
+    # set the server name using the variable we created
+    server_name $server_name;
+
+    # define the root directory for the server
+    root /var/www/$server_name;
+
+    # declare the location block for the homepage
+    location / {
+        # set the index file for the homepage
+        index index.html;
+
+        # enable server-side caching
+        proxy_cache on;
+
+        # set the cache expiration time to 1 hour
+        proxy_cache_valid 200 302 304 1h;
+
+        # set the cache key based on the URL and Host header
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+
+        # specify the backend server to proxy requests to
+        proxy_pass http://backend;
+
+        # declare additional proxy settings
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    # declare the location block for static assets
+    location ~* \.(js|css|png|jpg|gif)$ {
+        # enable server-side caching
+        proxy_cache on;
+
+        # set the cache expiration time to 1 week
+        proxy_cache_valid 200 302 304 1w;
+
+        # set the cache key based on the URL and Host header
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+
+        # specify the backend server to proxy requests to
+        proxy_pass http://backend;
+
+        # declare additional proxy settings
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    # declare the location block for API requests
+    location /api/ {
+        # disable server-side caching
+        proxy_cache off;
+
+        # specify the backend server to proxy requests to
+        proxy_pass http://api_backend;
+
+        # declare additional proxy settings
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}

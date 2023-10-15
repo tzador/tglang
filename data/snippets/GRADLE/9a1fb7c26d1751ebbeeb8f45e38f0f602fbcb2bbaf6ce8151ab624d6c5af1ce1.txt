@@ -1,0 +1,138 @@
+apply plugin: 'java'
+
+// Specify the Java version to be used
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+// Specify the repositories to be used
+repositories {
+    jcenter() // access to public Maven repositories
+    mavenCentral() // access to public Maven Central repositories
+    mavenLocal() // access to local Maven repository
+    flatDir {  // access to local flat directory repositories
+        dirs 'lib'
+        name = 'libs'
+    }
+    maven { // access to custom Maven repositories
+        url "https://custom.repo.example.com/maven"
+        credentials {
+            username 'username' // specify username for authentication
+            password 'password' // specify password for authentication
+        }
+    }
+    ivy { // access to custom Ivy repositories
+        url "https://custom.repo.example.com/ivy"
+        patternLayout {
+            // specify pattern layout for Ivy repositories
+            artifact '[module]/[revision]/[artifact]-[revision].[ext]'
+            ivy 'ivy-[revision].[ext]'
+        }
+        credentials {
+            username 'username' // specify username for authentication
+            password 'password' // specify password for authentication
+        }
+    }
+}
+
+// Specify the dependencies for the project
+dependencies {
+    // group:module:version
+    implementation 'com.example:library:1.0.0' // specify implementation dependency
+    compileOnly 'com.example:api:1.0.0' // specify compile-only dependency
+    runtimeOnly 'com.example:runtime:1.0.0' // specify runtime-only dependency
+    testImplementation 'com.example:test:1.0.0' // specify test implementation dependency
+    testCompileOnly 'com.example:test-api:1.0.0' // specify test compile-only dependency
+    testRuntimeOnly 'com.example:test-runtime:1.0.0' // specify test runtime-only dependency
+    annotationProcessor 'com.example:processor:1.0.0' // specify annotation processor dependency
+    compile project(':project') // specify project dependency
+    implementation fileTree(dir: 'libs', include: ['*.jar']) // specify implementation dependency using fileTree
+    runtime fileTree(dir: 'libs', include: ['*.jar']) // specify runtime dependency using fileTree
+    testCompile fileTree(dir: 'libs', include: ['*.jar']) // specify test compile-only dependency using fileTree
+    testRuntime fileTree(dir: 'libs', include: ['*.jar']) // specify test runtime-only dependency using fileTree
+    classpath files('lib/dependency.jar') // specify classpath dependency
+    classpath project(':dependencyProject') // specify classpath dependency on another project
+    compile project(path: ':dependencyProject', configuration: 'default') // specify compile dependency with specific configuration
+    testCompile sourceSets.main.output // specify test compile-only dependency on main source set output
+    androidTestCompile sourceSets.main.output // specify android test compile-only dependency on main source set output
+}
+
+// Specify the tasks for the project
+tasks {
+    // Create a custom task
+    task myTask(type: Exec) {
+        // specify task properties
+        workingDir 'src' // specify working directory for task
+        executable 'java' // specify executable for task
+        classpath = sourceSets.main.runtimeClasspath // specify classpath for task
+        args 'com.example.MyClass' // specify arguments for task
+        environment JAVA_HOME: '/usr/java/jdk1.8.0_181' // specify environment variables for task
+    }
+    // Create a task that depends on another task
+    task dependentTask(dependsOn: myTask) {
+        // specify task properties
+        doLast {
+            // specify actions to be performed
+            println "Executed dependentTask"
+        }
+    }
+    // Create a build task that depends on another build task
+    task build(dependsOn: ['assemble', 'test']) {
+        // specify task properties
+        doLast {
+            // specify actions to be performed
+            println "Build successful"
+        }
+    }
+    // Create a task with a custom name and description
+    task clean(type: Delete, description: 'Cleans the build directory') {
+        // specify task properties
+        delete 'build' // specify directories/files to be deleted
+    }
+    
+    // Create a custom source set
+    sourceSets {
+        mySourceSet {
+            // specify properties for source set
+            java.srcDir 'src/main/custom/java' // specify directory containing Java source files
+            resources.srcDir 'src/main/custom/resources' // specify directory containing resource files
+        }
+    }
+
+    // Create a test source set for android tests
+    android.sourceSets {
+        instrumentTest.java.srcDirs += 'src/androidTest/java' // specify directory containing Java source files for android tests
+        instrumentTest.resources.srcDir 'src/androidTest/res' // specify directory containing resource files for android tests
+        instrumentTest.jni.srcDirs = [] // specify no JNI sources for android tests
+        instrumentTest.setRoot('src/androidTest') // specify root directory for android tests
+    }
+    
+    // Create a custom archive task
+    task customJar(type: Jar) {
+        // specify task properties
+        from sourceSets.main.output // specify files to be included in the jar
+        archiveClassifier = 'custom' // specify classifier for the jar
+        destinationDir = file("${buildDir}/jars") // specify destination directory for the jar
+    }
+}
+
+// Specify the build types for the project
+// and their properties for android projects
+android {
+    buildTypes {
+        release {
+            // specify release build properties
+            minifyEnabled true // enable code shrinking
+            shrinkResources true // enable resource shrinking
+            signingConfig signingConfigs.release // specify signing config for release build
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro' // specify proguard files for release build
+        }
+        debug {
+            // specify debug build properties
+            applicationIdSuffix ".debug" // specify application ID suffix for debug build
+            versionNameSuffix "-DEBUG" // specify version name suffix for debug build
+        }
+    }
+}
+
+// Specify the default tasks to be executed when Gradle is run
+defaultTasks 'build', 'test'

@@ -1,0 +1,138 @@
+%{
+    /* start of definitions section */
+    #include <stdio.h>
+    #include <string.h>
+    #define MAXLEN 100
+    /* end of definitions section */
+%}
+
+/* start of declarations section */
+%token <stringVal> IDENTIFIER
+%token <intVal> INTEGER
+%token <boolVal> BOOLEAN
+
+/* start of grammar rules section */
+input: /* empty */
+    | input statement
+    ;
+
+statement: assignment
+    | condition
+    | loop
+    ;
+
+assignment: IDENTIFIER '=' expression
+    ;
+
+condition: IF expression THEN statement %prec IFX
+    | IF expression THEN statement ELSE statement
+    ;
+
+loop: WHILE expression DO statement
+    | FOR '(' assignment ';' expression ';' assignment ')' DO statement
+
+expression: INTEGER
+    | BOOLEAN
+    | IDENTIFIER
+    | '(' expression ')'
+    | expression '+' expression
+    | expression '-' expression
+    | expression '*' expression
+    | expression '/' expression
+    ;
+
+%%
+/* end of grammar rules section */
+
+/* start of auxiliary code section */
+int yylex(void);
+void yyerror(char *);
+
+struct Variable {
+    char name[MAXLEN];
+    int intVal;
+    bool boolVal;
+};
+
+static struct Variable symbolTable[MAXLEN]; /* symbol table */
+static int symIndex = 0; /* current index in symbol table */
+
+/* start of parsing code section */
+int main(void) {
+    yylex();
+    return 0;
+}
+
+int yywrap(void) {
+    return 1;
+}
+
+void yyerror(char *s) {
+    printf("%s", s);
+}
+
+int yylex(void) {
+    int c;
+    while ((c = getchar()) == ' ' || c == '\t')
+        ;
+    /* check for identifiers */
+    if (isalpha(c)) {
+        char identifier[MAXLEN];
+        int i = 0;
+        identifier[i++] = c;
+        while ((c = getchar()) != EOF && isalnum(c)) {
+            identifier[i++] = c;
+        }
+        identifier[i] = '\0';
+        yylval.stringVal = strdup(identifier); /* store identifier in yylval */
+        return IDENTIFIER;
+    }
+    /* check for integers */
+    else if (isdigit(c)) {
+        int num = c - '0';
+        while ((c = getchar()) != EOF && isdigit(c)) {
+            num = num * 10 + (c - '0');
+        }
+        yylval.intVal = num; /* store integer value in yylval */
+        return INTEGER;
+    }
+    /* check for booleans */
+    else if (c == 't' || c == 'f') {
+        char boolean[6];
+        int i = 0;
+        boolean[i++] = c;
+        while ((c = getchar()) != EOF && isalpha(c)) {
+            boolean[i++] = c;
+        }
+        boolean[i] = '\0';
+        if (strcmp(boolean, "true") == 0) {
+            yylval.boolVal = true; /* store boolean value in yylval */
+            return BOOLEAN;
+        }
+        else {
+            yylval.boolVal = false; /* store boolean value in yylval */
+            return BOOLEAN;
+        }
+    }
+    /* all other characters are returned as is */
+    else {
+        return c;
+    }
+}
+/* end of parsing code section */
+
+/* start of semantic actions section */
+void addToSymbolTable(char *name, int intVal, bool boolVal) {
+    strcpy(symbolTable[symIndex].name, name);
+    symbolTable[symIndex].intVal = intVal;
+    symbolTable[symIndex].boolVal = boolVal;
+    symIndex++;
+}
+
+void printSymbolTable() {
+    printf("Symbol Table:\n");
+    for (int i = 0; i < symIndex; i++) {
+        printf("%s\t%d\t%d\n", symbolTable[i].name, symbolTable[i].intVal, symbolTable[i].boolVal);
+    }
+}
+/* end of semantic actions section */

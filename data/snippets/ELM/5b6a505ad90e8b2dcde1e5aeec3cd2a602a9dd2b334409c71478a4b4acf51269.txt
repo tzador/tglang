@@ -1,0 +1,166 @@
+-- This code snippet creates a model that represents a blackjack game.
+-- It uses the ELM architecture and includes multiple functions to handle different game actions.
+
+module Blackjack exposing (Model, Msg(..), update, init, view)
+
+import Html exposing (..)
+import Html.Attributes exposing (..)
+
+-- MODEL --
+
+type alias Card =
+    { value : Int
+    , suit : String
+    }
+
+type alias Hand =
+    List Card
+
+type alias Deck =
+    List Card
+
+type alias Model =
+    { playerHand : Hand
+    , dealerHand : Hand
+    , deck : Deck
+    , playerTurn : Bool
+    , gameOver : Bool
+    , winner : Maybe String
+    }
+
+init : Model
+init =
+    { playerHand = []
+    , dealerHand = []
+    , deck = []
+    , playerTurn = True
+    , gameOver = False
+    , winner = Nothing
+    }
+
+-- UPDATE --
+
+type Msg
+    = StartGame
+    | DealCard
+    | Stand
+    | Hit
+    | EndGame
+
+update : Msg -> Model -> Model
+update msg model =
+    case msg of
+        StartGame ->
+            { model | deck = createDeck, playerHand = [drawCard model.deck], dealerHand = [drawCard (tail model.deck)] }
+
+        EndGame ->
+            { model | gameOver = True }
+
+        DealCard ->
+            let
+                drawnCard =
+                    drawCard (tail model.deck)
+
+                updatedPlayerHand =
+                    updateHand model.playerHand drawnCard
+            in
+            if getPoints updatedPlayerHand < 21 then
+                { model | playerHand = updatedPlayerHand, deck = (shuffleDeck model.deck) }
+            else
+                { model | playerHand = updatedPlayerHand, deck = [], winner = Just "Player", gameOver = True }
+
+        Stand ->
+            let
+                dealerScore =
+                    getPoints model.dealerHand
+                playerScore =
+                    getPoints model.playerHand
+                winner =
+                    if dealerScore < playerScore then
+                        "Player"
+                    else
+                        "Dealer"
+            in
+            { model | gameOver = True, deck = [], winner = Just winner }
+
+        Hit ->
+            let
+                drawnCard =
+                    drawCard (tail model.deck)
+
+                updatedPlayerHand =
+                    updateHand model.playerHand drawnCard
+            in
+            if getPoints updatedPlayerHand < 21 then
+                { model | playerHand = updatedPlayerHand, deck = (shuffleDeck model.deck) }
+            else
+                { model | playerHand = updatedPlayerHand, deck = [], winner = Just "Player", gameOver = True }
+
+-- VIEW --
+
+view : Model -> Html Msg
+view model =
+    div []
+        [ H2 [] [ text "BLACKJACK" ]
+        , div [ style "display" "flex" ]
+            [ div []
+                [ h4 [] [ text "Dealer's hand" ]
+                , div [] (List.map renderCard model.dealerHand)
+                ]
+            , div []
+                [ h4 [] [ text "Player's hand" ]
+                , div [] (List.map renderCard model.playerHand)
+                ]
+            ]
+        , div []
+            [ button [ onClick StartGame ] [ text "Start Game" ]
+            , button [ attribute "disabled" (toString model.gameOver), onClick DealCard ] [ text "Deal Card" ]
+            , button [ attribute "disabled" (toString model.gameOver), onClick Stand ] [ text "Stand" ]
+            , button [ attribute "disabled" (toString model.gameOver), onClick Hit ] [ text "Hit" ]
+            ]
+        , p [ style "margin-top" "20px" ] [ text (getResult model) ]
+        ]
+
+-- HELPER FUNCTIONS --
+
+createDeck : Deck
+createDeck =
+    let
+        suits =
+            [ "Hearts", "Diamonds", "Spades", "Clubs" ]
+
+        values =
+            [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10 ]
+    in
+    List.concatMap (\suit -> List.map (\value -> { suit = suit, value = value }) values) suits
+
+getPoints : Hand -> Int
+getPoints hand =
+    let
+        cardValues =
+            List.map .value hand
+    in
+    List.sum cardValues
+
+shuffleDeck : Deck -> Deck
+shuffleDeck deck =
+    deck |> Array.fromList |> Array.shuffle |> Array.toList
+
+drawCard : Deck -> Card
+drawCard deck =
+    let
+        topCard =
+            List.head deck
+    in
+    topCard |> Maybe.withDefault { value = 0, suit = "Joker" }
+
+updateHand : Hand -> Card -> Hand
+updateHand hand card =
+    card :: hand
+
+renderCard : Card -> Html Msg
+renderCard card =
+    div [ style "border" "1px solid black", style "width" "60px", style "height" "80px", style "display" "inline-block", style "margin-right" "10px" ]
+        [ p [] [ text (toString card.value) ]
+        , p [] [ text card.suit ]
+        ]

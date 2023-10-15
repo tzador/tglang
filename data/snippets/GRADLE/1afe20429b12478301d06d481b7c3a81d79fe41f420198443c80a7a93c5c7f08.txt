@@ -1,0 +1,42 @@
+plugins {
+  id 'java'
+  id 'org.springframework.boot' version '2.0.2.RELEASE'
+  id 'io.spring.dependency-management' version '1.0.5.RELEASE'
+  id 'com.github.johnrengelman.shadow' version '2.0.4'
+}
+
+group = 'com.example'
+version = '1.0-SNAPSHOT'
+sourceCompatibility = '1.8'
+
+repositories {
+  mavenCentral()
+}
+
+dependencies {
+  implementation 'org.springframework.boot:spring-boot-starter-web'
+  testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+task buildLinux64Tar(type: Tar, dependsOn: shadowJar) {
+  compression = Compression.GZIP
+  from(sourceSets.main.output) {
+    include '**/*.class'
+    includeEmptyDirs = false
+    into 'bin'
+  }
+  from(shadowJar.archivePath) {
+    rename { String fileName ->
+      fileName.replace('.jar', '-all.jar')
+    }
+    includeEmptyDirs = false
+    into 'lib'
+  }
+  eachFile { FileCopyDetails file ->
+    file.mode = 755
+  }
+  destinationDirectory = layout.buildDirectory.dir('distributions')
+  archiveFileName = "${project.name}-${project.version}-linux.tar.gz"
+}
+
+build.dependsOn buildLinux64Tar

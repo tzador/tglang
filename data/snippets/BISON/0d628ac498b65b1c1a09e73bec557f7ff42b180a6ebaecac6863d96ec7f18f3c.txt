@@ -1,0 +1,86 @@
+%start program
+%token ID NUM STRING
+%%
+program:
+    ID ':' statements { /* Rule for program name and statements */;
+}
+statements:
+    statements statement;
+    /* Recursive rule for multiple statements */
+statement:
+    ID '=' expression ';' { /* Rule for assignment statement */};
+    | 'while' expression ':' statements 'end' ';' { /* Rule for while loop statement */ };
+    | 'if' expression ':' statements 'end' ';' { /* Rule for if statement */ };
+    | 'print' expression ';' { /* Rule for print statement */ };
+expression:
+    NUM { /* Rule for numbers */ };
+    | ID { /* Rule for variables */ };
+    | expression '+' expression { /* Rule for addition operation */ };
+    | expression '-' expression { /* Rule for subtraction operation */ };
+    | expression '*' expression { /* Rule for multiplication operation */ };
+    | '(' expression ')' { /* Rule for parentheses */ };
+    | STRING { /* Rule for strings */ };
+%%
+/* Custom error message for invalid syntax */
+void yyerror(char *s) {
+    fprintf(stderr, "%s\n", s); /* Print error message */
+}
+/* Main function for executing the program */
+int main() {
+    yyparse(); /* Parse and execute the program */
+    return 0;
+}
+/* Function for getting the next token */
+int yylex() {
+    char c = getchar(); /* Read the next character from input */
+    if (c == EOF) return 0; /* Return 0 if end of file is reached */
+    if (c == '+' || c == '-' || c == '*' || c == '(' || c == ')' || c == ';' || c == ':') return c; /* If the character is a special symbol, return it as a token */
+    if (c == '=') return 256; /* Token for assignment operator */
+    /* Token for identifier */
+    if (c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z') {
+        /* Read the rest of the identifier */
+        char temp[30];
+        temp[0] = c;
+        int i = 1;
+        while ((c = getchar()) != EOF && c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z') {
+            temp[i++] = c;
+        }
+        temp[i] = '\0';
+        ungetc(c, stdin); /* Put back the last character read */
+        /* Check if the identifier is a reserved keyword */
+        if (strcmp(temp, "while") == 0) return 257; /* Token for while keyword */
+        if (strcmp(temp, "if") == 0) return 258; /* Token for if keyword */
+        if (strcmp(temp, "print") == 0) return 259; /* Token for print keyword */
+        else return ID; /* Return the token for identifier */
+    }
+    /* Token for number */
+    if (c >= '0' && c <= '9') {
+        /* Read the rest of the number */
+        char temp[10];
+        temp[0] = c;
+        int i = 1;
+        while ((c = getchar()) != EOF && c >= '0' && c <= '9') {
+            temp[i++] = c;
+        }
+        temp[i] = '\0';
+        ungetc(c, stdin); /* Put back the last character read */
+        /* Convert the string to an integer */
+        int num = atoi(temp);
+        yylval = num; /* Store the value in a global variable for later use */
+        return NUM; /* Return the token for number */
+    }
+    /* Token for string */
+    if (c == '"') {
+        /* Read the string between quotes */
+        char temp[30];
+        int i = 0;
+        while ((c = getchar()) != EOF && c != '"') {
+            temp[i++] = c;
+        }
+        temp[i] = '\0';
+        yylval = temp; /* Store the string in a global variable for later use */
+        return STRING; /* Return the token for string */
+    }
+    /* Invalid syntax, return error token */
+    return -1;
+}

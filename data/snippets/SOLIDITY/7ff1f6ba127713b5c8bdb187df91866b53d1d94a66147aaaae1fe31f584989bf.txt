@@ -1,0 +1,149 @@
+// This is a contract implementing an ERC-20 token, following the standard set by Ethereum 
+// ERC-20 Token Standard: https://eips.ethereum.org/EIPS/eip-20
+pragma solidity ^0.8.0;
+
+// 1. Importing necessary libraries
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/math/SafeMath.sol";
+
+// 2. Defining the interface for the ERC-20 token standard
+interface IERC20 {
+    // a. Functions that return token information
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function allowance(address owner, address spender) external view returns (uint256);
+
+    // b. Functions that handle token transfers
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+
+    // c. Events emitted for token transfers
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+}
+
+// 3. Defining the ERC-20 token contract
+contract MyToken is Ownable, IERC20 {
+    using SafeMath for uint256; // using SafeMath library for safe arithmetic operations
+
+    // a. Token information
+    string private _name; // name of token
+    string private _symbol; // symbol of token
+    uint8 private _decimals; // number of decimals for token value
+
+    // b. Address of the contract creator
+    address private _owner;
+
+    // c. Mapping to track token balances of all addresses
+    mapping (address => uint256) private _balances;
+
+    // d. Allowed token transfers between addresses
+    mapping (address => mapping (address => uint256)) private _allowances;
+
+    // e. Total supply of tokens
+    uint256 private _totalSupply;
+
+    // 4. Constructor function to set token information and initial supply
+    constructor (string memory name, string memory symbol, uint8 decimals, uint256 initialSupply) {
+        _name = name;
+        _symbol = symbol;
+        _decimals = decimals;
+        _totalSupply = initialSupply;
+        _balances[msg.sender] = initialSupply; // set initial supply to contract creator's address
+        _owner = msg.sender; // set contract creator as owner
+    }
+
+    // 5. Functions that return token information
+    function name() public view returns (string memory) {
+        return _name;
+    }
+
+    function symbol() public view returns (string memory) {
+        return _symbol;
+    }
+
+    function decimals() public view returns (uint8) {
+        return _decimals;
+    }
+
+    function totalSupply() public view override returns (uint256) {
+        return _totalSupply;
+    }
+
+    function balanceOf(address account) public view override returns (uint256) {
+        return _balances[account];
+    }
+
+    function allowance(address owner, address spender) public view override returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    // 6. Functions that handle token transfers
+    function transfer(address recipient, uint256 amount) public override returns (bool) {
+        _transfer(msg.sender, recipient, amount);
+        return true;
+    }
+
+    function approve(address spender, uint256 amount) public override returns (bool) {
+        _approve(msg.sender, spender, amount);
+        return true;
+    }
+
+    function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
+        _transfer(sender, recipient, amount);
+        _approve(sender, msg.sender, _allowances[sender][msg.sender].sub(amount));
+        return true;
+    }
+
+    // 7. Internal functions that handle token transfers and approvals
+    function _transfer(address sender, address recipient, uint256 amount) internal {
+        require(sender != address(0), "ERC20: transfer from the zero address");
+        require(recipient != address(0), "ERC20: transfer to the zero address");
+
+        _balances[sender] = _balances[sender].sub(amount);
+        _balances[recipient] = _balances[recipient].add(amount);
+        emit Transfer(sender, recipient, amount);
+    }
+
+    function _approve(address owner, address spender, uint256 amount) internal {
+        require(owner != address(0), "ERC20: approve from the zero address");
+        require(spender != address(0), "ERC20: approve to the zero address");
+
+        _allowances[owner][spender] = amount;
+        emit Approval(owner, spender, amount);
+    }
+
+    // 8. Function to mint new tokens - can only be called by the owner of the contract
+    function mint(uint256 amount) public onlyOwner {
+        _mint(msg.sender, amount);
+    }
+
+    // 9. Internal function to mint new tokens
+    function _mint(address account, uint256 amount) internal {
+        require(account != address(0), "ERC20: mint to the zero address");
+
+        _totalSupply = _totalSupply.add(amount);
+        _balances[account] = _balances[account].add(amount);
+        emit Transfer(address(0), account, amount);
+    }
+
+    // 10. Function to burn tokens - can only be called by the owner of the contract
+    function burn(uint256 amount) public onlyOwner {
+        _burn(msg.sender, amount);
+    }
+
+    // 11. Internal function to burn tokens
+    function _burn(address account, uint256 amount) internal {
+        require(account != address(0), "ERC20: burn from the zero address");
+
+        _balances[account] = _balances[account].sub(amount);
+        _totalSupply = _totalSupply.sub(amount);
+        emit Transfer(account, address(0), amount);
+    }
+    // 12. Function to transfer ownership of the contract - can only be called by the current owner
+    function transferOwnership(address newOwner) public onlyOwner {
+        require(newOwner != address(0), "Ownable: new owner is the zero address");
+        _owner = newOwner;
+    }
+}

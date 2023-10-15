@@ -1,0 +1,100 @@
+plugins {
+    //This block applies the 'application' plugin to the project and creates a start script
+    id 'application'
+    //This block applies the 'java' plugin to the project
+    id 'java'
+    //This block applies the 'jacoco' plugin to the project for code coverage analysis
+    id 'jacoco'
+}
+
+//This block sets the source compatibility to Java 11 for all source sets
+sourceCompatibility = JavaVersion.VERSION_11
+
+//This block sets the repositories for dependencies to be resolved from
+repositories {
+    mavenCentral()
+    jcenter()
+}
+
+//This block defines the dependencies for the project
+dependencies {
+    //Specifies the 'junit' library as a test dependency
+    testImplementation 'junit:junit:4.12'
+    //Specifies the 'hamcrest' library as a test dependency
+    testImplementation 'org.hamcrest:hamcrest-library:1.3'
+    //Specifies the 'mockito' library as a test dependency
+    testImplementation 'org.mockito:mockito-core:2.27.0'
+}
+
+//This block configures the test task for unit tests
+test {
+    //Enables HTML test report generation
+    reports.html.enabled = true
+    //Specifies the location for the HTML test report
+    reports.html.destination = file("$buildDir/reports/tests")
+    //Sets the test logging level to 'INFO'
+    testLogging {
+        events 'passed', 'failed', 'skipped'
+        showStandardStreams = true
+    }
+}
+
+//This block defines the tasks for code coverage analysis using 'jacoco'
+jacoco {
+    //Defines the task for generating the code coverage report
+    report {
+        //Specifies the source directories to be analyzed for code coverage
+        sourceDirectories = files(sourceSets.main.allSource.srcDirs)
+        //Specifies the class directories to be analyzed for code coverage
+        classDirectories = files(sourceSets.main.output)
+        //Specifies the report format to be used for the code coverage report
+        reports {
+            html.enabled = true
+            xml.enabled = true
+            csv.enabled = true
+        }
+    }
+}
+
+//This block configures the tasks for building and packaging the project using 'application' plugin
+application {
+    //Specifies the main class for the project
+    mainClassName = 'com.example.Main'
+    //Specifies the JVM arguments to be used for the start script
+    applicationDefaultJvmArgs = ['-Xmx512m', '-XX:MaxPermSize=128m']
+    //Specifies the distribution properties for the project
+    distributions {
+        //Specifies the type of distribution to be generated (e.g. ZIP, TAR, etc.)
+        main {
+            distributionBaseName = 'my-app'
+            //Disables the creation of a ZIP file for the distribution
+            //This distribution will be generated as a folder structure instead
+            baseName = ''
+            //Includes the runtime libraries in the distribution
+            contents {
+                from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+                into 'libs'
+            }
+        }
+    }
+}
+
+//This block defines custom tasks for the project
+task createDocs(type: Exec) {
+    //Runs the 'javadoc' command to generate Java documentation
+    commandLine 'javadoc', '-d', 'docs', '-sourcepath', 'src/main/java', '-private'
+}
+
+task run(type: JavaExec) {
+    //Specifies the main class to be executed
+    main = 'com.example.Main'
+    //Specifies the classpath for the execution
+    classpath = sourceSets.main.runtimeClasspath
+    //Specifies the JVM arguments to be used for the execution
+    jvmArgs = ['-Xmx512m', '-XX:MaxPermSize=128m']
+    //Specifies the arguments to be passed to the main class
+    args 'some argument'
+}
+
+//This block adds a 'run' dependency on 'application' task to the 'build' task
+build.dependsOn run

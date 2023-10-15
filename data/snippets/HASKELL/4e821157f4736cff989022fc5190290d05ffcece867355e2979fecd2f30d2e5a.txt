@@ -1,0 +1,66 @@
+import Data.List (nub, sort)  -- import necessary modules
+import Control.Monad (foldM)  -- import Monad Foldable
+
+data Color = Red | Green | Blue deriving (Eq, Ord, Enum, Show)  -- define custom data type
+type Coordinates = (Int, Int)  -- define type synonym
+type PlacedTiles = [Coordinates]  -- define type synonym
+type InvalidMoves = [(Coordinates, String)]  -- define type synonym
+
+-- | Function that takes in a list of placed tiles and returns a list of invalid moves, along with corresponding error messages if any.
+checkValidMoves :: PlacedTiles -> InvalidMoves
+checkValidMoves tiles = 
+  let uniqueTiles = nub tiles  -- remove any duplicate tiles
+      validTiles = filter isValidTile uniqueTiles  -- filter out any invalid tiles
+   in map (\tile -> (tile, "Invalid coordinates")) (invalidCoordinates tiles)  -- map function to pair each invalid tile with corresponding error message
+
+-- | Function to check if a tile is a valid placement on the game board.
+isValidTile :: Coordinates -> Bool
+isValidTile (x,y) = x `elem` [0..7] && y `elem` [0..7]  -- checks if coordinates are within the range of the game board
+
+-- | Function to return a list of invalid coordinates from a list of placed tiles.
+invalidCoordinates :: PlacedTiles -> [Coordinates]
+invalidCoordinates tiles = 
+  let rowCheck = any (\(x,_) -> x > 7 || x < 0) tiles  -- check if any x-coordinate is out of bounds
+      colCheck = any (\(_,y) -> y > 7 || y < 0) tiles  -- check if any y-coordinate is out of bounds
+      diagonalCheck = any diagonallyAdjacent tiles  -- check if any tiles are diagonally adjacent
+      horizontalCheck = any horizontallyAdjacent tiles  -- check if any tiles are horizontally adjacent
+      verticalCheck = any verticallyAdjacent tiles  -- check if any tiles are vertically adjacent
+   in if rowCheck || colCheck || diagonalCheck || horizontalCheck || verticalCheck
+        then filter (not . isValidTile) tiles  -- filter out any valid tiles
+        else []  -- return empty list if all tiles are valid
+
+-- | Function to check if any tiles are diagonally adjacent.
+diagonallyAdjacent :: Coordinates -> Bool
+diagonallyAdjacent (x,y) = 
+  let adjacentTiles = [(x+1,y+1),(x-1,y+1),(x+1,y-1),(x-1,y-1)]  -- list of adjacent coordinates
+      adjacentTilesCheck = any (\coords -> coords `elem` tiles) adjacentTiles  -- check if any of the adjacent coordinates are in the list of placed tiles
+   in adjacentTilesCheck
+
+-- | Function to check if any tiles are horizontally adjacent.
+horizontallyAdjacent :: Coordinates -> Bool
+horizontallyAdjacent (x,y) = 
+  let adjacentTiles = [(x+1,y),(x-1,y)]  -- list of adjacent coordinates
+      adjacentTilesCheck = any (\coords -> coords `elem` tiles) adjacentTiles  -- check if any of the adjacent coordinates are in the list of placed tiles
+   in adjacentTilesCheck
+
+-- | Function to check if any tiles are vertically adjacent.
+verticallyAdjacent :: Coordinates -> Bool
+verticallyAdjacent (x,y) = 
+  let adjacentTiles = [(x,y+1),(x,y-1)]  -- list of adjacent coordinates
+      adjacentTilesCheck = any (\coords -> coords `elem` tiles) adjacentTiles  -- check if any of the adjacent coordinates are in the list of placed tiles
+   in adjacentTilesCheck
+
+-- | Function to compute the total number of possible moves on a 8x8 game board.
+totalPossibleMoves :: Int
+totalPossibleMoves = 
+  let coordinates = [(x,y) | x <- [0..7], y <- [0..7]]  -- list of all possible coordinates on a 8x8 game board
+      validMoves = filter isValidTile coordinates  -- filter out any invalid coordinates
+   in length validMoves  -- compute the total number of valid coordinates
+
+-- | Function to generate a list of all possible moves on a 8x8 game board.
+generateMoves :: [PlacedTiles]
+generateMoves = 
+  let coordinates = [(x,y) | x <- [0..7], y <- [0..7]]  -- list of all possible coordinates on a 8x8 game board
+      validMoves = filter isValidTile coordinates  -- filter out any invalid coordinates
+      allMoves = foldM (\acc coord -> [coord] : acc) [] validMoves  -- fold over the valid coordinates to generate all possible combinations of moves
+   in allMoves

@@ -1,0 +1,66 @@
+buildscript {
+    repositories {
+        jcenter()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:3.6.1'
+    }
+}
+plugins {
+    id 'java'
+    id 'com.github.johnrengelman.shadow' version '5.2.0'
+}
+repositories {
+    mavenCentral()
+    jcenter()
+}
+apply plugin: 'java'
+apply plugin: 'com.github.johnrengelman.shadow'
+
+// Create a task to run unit tests.
+task unitTest(type: Test) {
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+    }
+}
+
+// Set the main source file to be the main class.
+sourceSets.main.java.srcDir 'src'
+
+// Set the output directory to be dist.
+jar {
+    archiveBaseName = 'application' // Name of the file created.
+    manifest {
+        attributes 'Main-Class': 'example.Main' // Main class to run when the jar is executed.
+    }
+}
+
+// Set the dependencies for the runtime.
+configurations {
+    runtime.extendsFrom compile
+    runtime {
+        transitive = false
+    }
+}
+
+// Set the output directory for the jar.
+shadowJar {
+    baseName = 'fatjar'
+    classifier = null
+    version = '1.0'
+
+    manifest {
+        // Set the main class to be the main class of the application.
+        attributes 'Main-Class': 'example.Main'
+    }
+
+    // Set the dependencies to be included in the fat jar.
+    from { configurations.runtime.collect { it.isDirectory() ? it : zipTree(it) } }
+
+    // Exclude specific dependencies from the fat jar.
+    exclude 'META-INF/*.RSA', 'META-INF/*.SF', 'META-INF/*.DSA'
+}
+
+// Specify the test task to be run before the build task.
+build.dependsOn unitTest

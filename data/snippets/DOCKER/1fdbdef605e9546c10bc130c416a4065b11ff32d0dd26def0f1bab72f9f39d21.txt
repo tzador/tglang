@@ -1,0 +1,39 @@
+# This is a sample Dockerfile for a Node.js application
+# with multi-stage build to optimize production image size
+
+# Build Stage
+FROM node:14 as builder
+
+# Set working directory
+WORKDIR /app
+
+# Copy package.json and package-lock.json
+COPY package*.json /app/
+
+# Install dependencies
+RUN npm ci
+
+# Copy app source code
+COPY . /app/
+
+# Build app for production
+RUN npm run build
+
+# Final Stage
+FROM node:14-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Install production dependencies
+COPY --from=builder /app/package.json /app/package-lock.json ./
+RUN npm ci --production
+
+# Copy built app from build stage
+COPY --from=builder /app/build ./build
+
+# Expose port
+EXPOSE 3000
+
+# Start app
+CMD ["npm", "start"]

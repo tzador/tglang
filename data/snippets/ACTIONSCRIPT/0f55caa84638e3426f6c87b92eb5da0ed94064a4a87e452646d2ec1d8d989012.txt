@@ -1,0 +1,329 @@
+// This code snippet generates a random maze using the Recursive Backtracking algorithm
+// and allows the player to move through the maze using the arrow keys
+// For more information on Recursive Backtracking: https://en.wikipedia.org/wiki/Maze_generation_algorithm
+
+import flash.display.Sprite;
+import flash.events.Event;
+import flash.events.KeyboardEvent;
+
+// Creating a Class for the maze game
+class MazeGame extends Sprite {
+
+    // Defining variables for the size of the maze
+    private const CELL_SIZE:Number = 20;
+    private const MAZE_WIDTH:int = 25;
+    private const MAZE_HEIGHT:int = 25;
+
+    // Defining variables for starting and ending points in the maze
+    private var startCell:Cell;
+    private var endCell:Cell;
+
+    // Defining variables for the current cell and the stack of visited cells
+    private var currentCell:Cell;
+    private var stack:Array = new Array();
+
+    // Defining variables for the maze grid and maze player
+    private var grid:Array = new Array();
+    private var player:Player;
+
+    // Constructor for the MazeGame class
+    public function MazeGame() {
+        // Calling the method to generate the maze
+        generateMaze();
+
+        // Creating an instance of the Player class
+        player = new Player();
+
+        // Adding the player to the stage
+        addChild(player);
+
+        // Adding event listeners for when a key is pressed
+        stage.addEventListener(KeyboardEvent.KEY_DOWN, movePlayer);
+    }
+
+    // Method to generate the maze
+    private function generateMaze():void {
+        // Looping through each column and row in the maze grid
+        for (var i:int = 0; i < MAZE_WIDTH; i++) {
+            for (var j:int = 0; j < MAZE_HEIGHT; j++) {
+                // Creating a new cell at each location in the maze grid
+                var cell:Cell = new Cell(i, j);
+
+                // Adding the cell to the maze grid
+                grid.push(cell);
+            }
+        }
+
+        // Setting the current cell to the cell at the starting point
+        currentCell = grid[0];
+
+        // Setting the starting cell to be the current cell
+        startCell = currentCell;
+
+        // Marking the starting cell as visited
+        currentCell.visited = true;
+
+        // Adding the starting cell to the stack
+        stack.push(currentCell);
+
+        // Looping until the stack is empty
+        while (stack.length > 0) {
+            // Setting the current cell to the last cell in the stack
+            var current = stack[stack.length-1];
+
+            // Removing the current cell from the stack
+            stack.pop();
+
+            // Getting a random neighbor of the current cell
+            var neighbor = current.getRandomNeighbor(grid);
+
+            // If there are no available neighbors, backtrack by popping an item from the stack
+            if (!neighbor) {
+                currentCell = stack.pop();
+
+            // If there is a neighbor, remove the wall between the two cells and mark the neighbor as visited
+            } else {
+                stack.push(currentCell);
+                neighbor.visited = true;
+
+                // Checking which wall to remove
+                if (neighbor.x > currentCell.x) {
+                    neighbor.walls.left = false;
+                    currentCell.walls.right = false;
+
+                } else if (neighbor.x < currentCell.x) {
+                    neighbor.walls.right = false;
+                    currentCell.walls.left = false;
+
+                } else if (neighbor.y > currentCell.y) {
+                    neighbor.walls.top = false;
+                    currentCell.walls.bottom = false;
+
+                } else if (neighbor.y < currentCell.y) {
+                    neighbor.walls.bottom = false;
+                    currentCell.walls.top = false;
+                }
+
+                // Setting the current cell to be the neighbor
+                currentCell = neighbor;
+                stack.push(currentCell);
+            }
+        }
+
+        // Setting the ending cell to the current cell
+        endCell = currentCell;
+    }
+
+    // Method to move the player through the maze using arrow keys
+    private function movePlayer(event:KeyboardEvent):void {
+        // Switch statement to move the player based on the pressed key
+        switch (event.keyCode) {
+            case Keyboard.UP:
+                // Checking if there is no wall above the player
+                if (!player.currentCell.walls.top) {
+                    // Moving the player one cell up
+                    player.moveUp();
+                }
+                break;
+            case Keyboard.DOWN:
+                // Checking if there is no wall below the player
+                if (!player.currentCell.walls.bottom) {
+                    // Moving the player one cell down
+                    player.moveDown();
+                }
+                break;
+            case Keyboard.LEFT:
+                // Checking if there is no wall to the left of the player
+                if (!player.currentCell.walls.left) {
+                    // Moving the player one cell to the left
+                    player.moveLeft();
+                }
+                break;
+            case Keyboard.RIGHT:
+                // Checking if there is no wall to the right of the player
+                if (!player.currentCell.walls.right) {
+                    // Moving the player one cell to the right
+                    player.moveRight();
+                }
+                break;
+        }
+
+        // Checking if the player has reached the end cell
+        if (player.currentCell == endCell) {
+            // Displaying a message when the player reaches the end of the maze
+            trace("Congratulations, you have reached the end of the maze!");
+
+            // Removing the event listener for moving the player
+            stage.removeEventListener(KeyboardEvent.KEY_DOWN, movePlayer);
+        }
+    }
+}
+
+// Creating a Class for the cells in the maze
+class Cell extends Sprite {
+    // Defining variables for the position of the cell in the maze grid and its size
+    private var posX:int;
+    private var posY:int;
+    private var size:int;
+
+    // Defining a variable for whether the cell has been visited or not
+    public var visited:Boolean = false;
+
+    // Defining variables for the walls of the cell
+    public var walls:Object = {top: true, right: true, bottom: true, left: true};
+
+    // Constructor for the Cell class
+    public function Cell(posX:int, posY:int) {
+        // Setting the position and size of the cell
+        this.posX = posX;
+        this.posY = posY;
+        this.size = 20;
+
+        // Drawing the cell
+        drawCell();
+    }
+
+    // Method to draw the cell
+    private function drawCell():void {
+        // Setting the color and alpha of the cell
+        var color:uint = 0xCCCCCC;
+        var alpha:Number = 1;
+
+        // Drawing the cell with a fill and stroke
+        graphics.beginFill(color, alpha);
+        graphics.drawRect(posX * size, posY * size, size, size);
+        graphics.endFill();
+
+        graphics.lineStyle(1, 0x000000);
+        graphics.drawRect(posX * size, posY * size, size, size);
+
+        // Checking which walls need to be drawn
+        if (walls.top) {
+            graphics.moveTo(posX * size, posY * size);
+            graphics.lineTo((posX + 1) * size, posY * size);
+        }
+
+        if (walls.right) {
+            graphics.moveTo((posX + 1) * size, posY * size);
+            graphics.lineTo((posX + 1) * size, (posY + 1) * size);
+        }
+
+        if (walls.bottom) {
+            graphics.moveTo(posX * size, (posY + 1) * size);
+            graphics.lineTo((posX + 1) * size, (posY + 1) * size);
+        }
+
+        if (walls.left) {
+            graphics.moveTo(posX * size, posY * size);
+            graphics.lineTo(posX * size, (posY + 1) * size);
+        }
+    }
+
+    // Method to get a list of the neighbors of the cell
+    public function getNeighbors(grid:Array):Array {
+        // Defining a new array to store the neighbors
+        var neighbors:Array = new Array();
+
+        // Checking if the neighbor to the top exists and if it has been visited already
+        if (grid[(posX-1) + posY * MAZE_WIDTH] && !grid[(posX-1) + posY * MAZE_WIDTH].visited) {
+            // Adding the neighbor to the top to the neighbors array
+            neighbors.push(grid[(posX-1) + posY * MAZE_WIDTH]);
+        }
+
+        // Checking if the neighbor to the right exists and if it has been visited already
+        if (grid[posX + (posY+1) * MAZE_WIDTH] && !grid[posX + (posY+1) * MAZE_WIDTH].visited) {
+            // Adding the neighbor to the right to the neighbors array
+            neighbors.push(grid[posX + (posY+1) * MAZE_WIDTH]);
+        }
+
+        // Checking if the neighbor to the bottom exists and if it has been visited already
+        if (grid[(posX+1) + posY * MAZE_WIDTH] && !grid[(posX+1) + posY * MAZE_WIDTH].visited) {
+            // Adding the neighbor to the bottom to the neighbors array
+            neighbors.push(grid[(posX+1) + posY * MAZE_WIDTH]);
+        }
+
+        // Checking if the neighbor to the left exists and if it has been visited already
+        if (grid[posX + (posY-1) * MAZE_WIDTH] && !grid[posX + (posY-1) * MAZE_WIDTH].visited) {
+            // Adding the neighbor to the left to the neighbors array
+            neighbors.push(grid[posX + (posY-1) * MAZE_WIDTH]);
+        }
+
+        // Returning the neighbors array
+        return neighbors;
+    }
+
+    // Method to get a random neighbor of the cell
+    public function getRandomNeighbor(grid:Array):Cell {
+        // Getting a list of all the neighbors of the cell
+        var neighbors:Array = getNeighbors(grid);
+
+        // Checking if there are any available neighbors
+        if (neighbors.length > 0) {
+            // Returning a random neighbor from the neighbors array
+            return neighbors[int(Math.random() * neighbors.length)];
+        } else {
+            // If there are no available neighbors, return null
+            return null;
+        }
+    }
+}
+
+// Creating a Class for the player in the maze
+class Player extends Sprite {
+    // Defining a variable for the current cell of the player
+    public var currentCell:Cell;
+
+    // Constructor for the Player class
+    public function Player() {
+        // Setting the starting position of the player
+        this.x = 10;
+        this.y = 10;
+
+        // Adding a red circle as the player
+        graphics.beginFill(0xFF0000);
+        graphics.drawCircle(0, 0, 5);
+        graphics.endFill();
+    }
+
+    // Method to move the player up
+    public function moveUp():void {
+        // Setting the new y coordinate for the player
+        this.y -= 20;
+
+        // Setting the new current cell for the player
+        currentCell = grid[(this.x/20) + ((this.y-10)/20) * MAZE_WIDTH];
+    }
+
+    // Method to move the player down
+    public function moveDown():void {
+        // Setting the new y coordinate for the player
+        this.y += 20;
+
+        // Setting the new current cell for the player
+        currentCell = grid[(this.x/20) + ((this.y-10)/20) * MAZE_WIDTH];
+    }
+
+    // Method to move the player to the left
+    public function moveLeft():void {
+        // Setting the new x coordinate for the player
+        this.x -= 20;
+
+        // Setting the new current cell for the player
+        currentCell = grid[(this.x/20) + ((this.y-10)/20) * MAZE_WIDTH];
+    }
+
+    // Method to move the player to the right
+    public function moveRight():void {
+        // Setting the new x coordinate for the player
+        this.x += 20;
+
+        // Setting the new current cell for the player
+        currentCell = grid[(this.x/20) + ((this.y-10)/20) * MAZE_WIDTH];
+    }
+}
+
+// Creating an instance of the MazeGame class
+var mazeGame:MazeGame = new MazeGame();
+
+// Adding the maze game to the stage
+addChild(mazeGame);

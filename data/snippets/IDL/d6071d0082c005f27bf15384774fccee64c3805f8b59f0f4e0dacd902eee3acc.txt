@@ -1,0 +1,69 @@
+PRO fit_curve, x, y, err
+; This procedure fits a curve to a set of data points using least-squares fitting method
+; Inputs:
+;   x - array of independent variable values
+;   y - array of dependent variable values
+;   err - array of uncertainties in the dependent variable values
+; Outputs:
+;   a - fitted intercept
+;   b - fitted slope
+;   est_err - estimated error in the fitted slope
+;   fit_data - array containing the fitted curve with the same size as x
+
+; Check for input errors
+if (N_ELEMENTS(x) NE N_ELEMENTS(y) OR N_ELEMENTS(x) EQ 0) THEN BEGIN
+	print, 'Error: the input arrays must have the same length and cannot be empty!'
+	return
+endif
+
+; Determine the number of data points
+n = N_ELEMENTS(x)
+
+; Initialize arrays to store intermediate results
+sum_xy = DOUBLE(n)
+sum_x2 = DOUBLE(n)
+sum_y2 = DOUBLE(n)
+sum_err2 = DOUBLE(n)
+sum_x_err2 = DOUBLE(n)
+sum_y_err2 = DOUBLE(n)
+
+; Calculate sums of products and squares
+FOR i = 0, n-1 DO BEGIN
+	sum_xy[i] = x[i]*y[i]*err[i] ; x_i * y_i * err_i
+	sum_x2[i] = x[i]^2 * err[i] ; x_i^2 * err_i
+	sum_y2[i] = y[i]^2 * err[i] ; y_i^2 * err_i
+	sum_err2[i] = err[i]^2 ; err_i^2
+	sum_x_err2[i] = x[i]*err[i]^2 ; x_i * err_i^2
+	sum_y_err2[i] = y[i]*err[i]^2 ; y_i * err_i^2
+ENDFOR
+
+; Calculate sums of products and squares over all data points
+tot_sum_xy = TOTAL(sum_xy)
+tot_sum_x2 = TOTAL(sum_x2)
+tot_sum_y2 = TOTAL(sum_y2)
+tot_sum_err2 = TOTAL(sum_err2)
+tot_sum_x_err2 = TOTAL(sum_x_err2)
+tot_sum_y_err2 = TOTAL(sum_y_err2)
+
+; Calculate the slope and intercept
+b = (tot_sum_xy - tot_sum_x_err2) / (tot_sum_x2 - tot_sum_err2) ; (sum(x*y) - sum(x*err^2)) / (sum(x^2) - sum(err^2))
+a = MEAN(y) - b*MEAN(x) ; mean(y) - b*mean(x)
+
+; Calculate the estimated error in the slope
+est_err = SQRT(tot_sum_y_err2) / ((n-2)*SQRT(tot_sum_x2) + b*SQRT(n*tot_sum_err2)) ; sqrt(sum(y*err^2)) / ((n-2)*sqrt(sum(x^2)) + b*sqrt(n*sum(err^2)))
+
+; Generate the fitted curve data
+fit_data = DOUBLE(n)
+FOR i = 0, n-1 DO BEGIN
+	fit_data[i] = a + b*x[i]
+ENDFOR
+
+; Plot the original data and the fitted curve
+PLOT, x, y, PSYM=2
+OPLOT, x, fit_data, LINESTYLE=1, COLOR='red'
+
+; Print the results
+PRINT, 'Intercept (a) = ', a
+PRINT, 'Slope (b) = ', b
+PRINT, 'Estimated error in slope = ', est_err
+end

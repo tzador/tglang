@@ -1,0 +1,68 @@
+%% 1. Load Data
+% Load the dataset 'iris_dataset.mat'
+load iris_dataset.mat;
+
+%% 2. Preprocess Data
+% Convert all categorical variables into different numerical indicators
+% Convert the 'class' column into a categorical variable
+X = double(X);
+Y = categorical(Y);
+
+% Convert the 'SepalWidth_cm' variable into a binary variable based on the
+% mean value
+meanSepalWidth = mean(X(:,2));
+X(:,2) = X(:,2) > meanSepalWidth;
+
+%Normalize data
+X = normalize(X);
+
+%% 3. Feature Extraction using PCA
+% Perform Principal Component Analysis on the dataset
+[coeff,score,~,~,explained] = pca(X);
+
+% Determine the number of principal components required to explain 95% of the 
+% variance in the data
+totalVar = 0;
+comp = 0;
+for i = 1:length(explained)
+    totalVar = totalVar + explained(i);
+    if(totalVar >= 95)
+        comp = i;
+        break;
+    end
+end
+
+% Create a new dataset with the selected principal components
+newX = score(:,1:comp);
+
+%% 4. Train a Classification Model
+% Split data into training and testing sets (80:20 split)
+cv = cvpartition(Y,'HoldOut',0.2);
+Xtrain = newX(training(cv),:);
+Ytrain = Y(training(cv),:);
+Xtest = newX(test(cv),:);
+Ytest = Y(test(cv),:);
+
+% Train a logistic regression model on the training data
+mdl = fitglm(Xtrain,Ytrain,'Distribution','binomial','Link','logit');
+
+%% 5. Evaluate the Model
+% Use the trained model to make predictions on the test data
+Ypred = predict(mdl,Xtest);
+
+% Calculate the confusion matrix and display the results
+cm = confusionmat(Ytest,Ypred);
+disp(cm)
+
+% Calculate the accuracy of the model
+accuracy = (cm(1,1) + cm(2,2)) / sum(sum(cm));
+disp("Accuracy: " + accuracy * 100 + "%"); 
+
+% Visualize the ROC curve and calculate the AUC score
+[X_ROC,Y_ROC,T_ROC,AUC] = perfcurve(Ytest,Ypred,'versus','Positive','PositiveClass','Iris-versicolor');
+figure;
+plot(X_ROC,Y_ROC);
+xlabel('False Positive Rate');
+ylabel('True Positive Rate');
+title('ROC Curve');
+disp("AUC Score: " + AUC);

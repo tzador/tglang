@@ -1,0 +1,165 @@
+.TITLE Complex_Addition
+
+;This program performs addition of two complex numbers (a+bi) and (c+di)
+;The result is stored in (a+bi) format
+
+.DATA
+a       DD      10.5                ;Real part of first complex number
+b       DD      5.3                 ;Imaginary part of first complex number
+c       DD      -3.2                ;Real part of second complex number
+d       DD      2.7                 ;Imaginary part of second complex number
+result1 DD      ?                   ;Variable to store real part of result
+result2 DD      ?                   ;Variable to store imaginary part of result
+
+.CODE
+main PROC                            ;Beginning of main procedure
+
+    FLD     b                       ;Load b into FPU stack
+    FLD     d                       ;Load d into FPU stack
+    FADD                            ;Add b and d, result in FPU stack
+    FSTP    result2                 ;Store result into result2 variable
+
+    FLD     a                       ;Load a into FPU stack
+    FLD     c                       ;Load c into FPU stack
+    FADD                            ;Add a and c, result in FPU stack
+    FSTP    result1                 ;Store result into result1 variable
+
+    ;Printing the result
+    MOV     EAX, result1            ;Move real part of result to EAX register
+    MOV     EBX, result2            ;Move imaginary part of result to EBX register
+
+    MOV     ESI, OFFSET msg1        ;Move address of msg1 to ESI register
+    CALL    writestring             ;Printing 'The result is: '
+    
+    FLD     dword ptr [EAX]         ;Load value in EAX register into FPU stack
+    FLD     dword ptr [EBX]         ;Load value in EBX register into FPU stack
+    FSTP    dword ptr [ESP]         ;Store result on top of stack
+    FLD1                            ;Load 1 for comparison in FPU stack
+    FCOMPP                          ;Compare top two values on stack
+    FSTSW   AX                      ;Store the compare result in AX register
+    SAHF                            ;Put AH register value in flags
+    JAE     rspos                   ;Jump if top value is greater than or equal to second value
+    CALL    writestring_minus       ;Print negative sign for imaginary result
+    JNE     rsneg                   ;Jump if top value is not equal to second value
+    CALL    writestring_zero        ;Print 0 for imaginary result
+
+    CALL    readchar                ;Read in an enter key
+    CALL    readchar                ;Read in a second enter key
+
+    MOV     EAX, 0                  ;Store 0 in EAX register
+    MOV     EBX, 0                  ;Store 0 in EBX register
+
+    ;Adding a second real number to result
+    MOV     ESI, OFFSET msg2        ;Move address of msg2 to ESI register
+    CALL    readstring              ;Read in a string
+    CVRTF   EAX                     ;Convert string to float and store in EAX register
+    FADD    dword ptr [EAX]         ;Add EAX register value to FPU stack
+    FSTP    result1                 ;Store result into result1 variable
+
+    ;Adding a second imaginary number to result
+    MOV     ESI, OFFSET msg3        ;Move address of msg3 to ESI register
+    CALL    readstring              ;Read in a string
+    CVRTF   EAX                     ;Convert string to float and store in EAX register
+    FADD    dword ptr [EAX]         ;Add EAX register value to FPU stack
+    FSTP    result2                 ;Store result into result2 variable
+
+    ;Printing the final result
+    MOV     EAX, result1            ;Move real part of result to EAX register
+    MOV     EBX, result2            ;Move imaginary part of result to EBX register
+
+    MOV     ESI, OFFSET msg1        ;Move address of msg1 to ESI register
+    CALL    writestring             ;Printing 'The result is: '
+    
+    FLD     dword ptr [EAX]         ;Load value in EAX register into FPU stack
+    FLD     dword ptr [EBX]         ;Load value in EBX register into FPU stack
+    FSTP    dword ptr [ESP]         ;Store result on top of stack
+    FLD1                            ;Load 1 for comparison in FPU stack
+    FCOMPP                          ;Compare top two values on stack
+    FSTSW   AX                      ;Store the compare result in AX register
+    SAHF                            ;Put AH register value in flags
+    JAE     rspos                   ;Jump if top value is greater than or equal to second value
+    CALL    writestring_minus       ;Print negative sign for imaginary result
+    JNE     rsneg                   ;Jump if top value is not equal to second value
+    CALL    writestring_zero        ;Print 0 for imaginary result
+
+    ;End of program
+    CALL    readchar                ;Read in enter key to end program
+    MOV     EAX, 0                  ;Store 0 in EAX register
+    MOV     EBX, 0                  ;Store 0 in EBX register
+    CALL    ExitProcess             ;Exit the program
+main ENDP                            ;End of main procedure
+
+;Procedure for writing a string to output
+writestring PROC
+    LPR     $                       ;Begin string with $
+    CALL    strcat                  ;Concatenate string with current value on stack
+    MOV     $, "$                   ;Move $ into $ for next string
+    CALL    strcat                  ;Concatenate string with current value on stack
+
+    MOV     $, ","
+    CALL    strcat
+    RET                             ;Return to main procedure
+writestring ENDP
+
+;Procedure for writing a negative sign for imaginary result
+writestring_minus PROC
+    LPR     $                       ;Begin string with $
+    MOV     $, "-"
+    CALL    strcat                  ;Concatenate string with current value on stack
+
+    MOV     $, "$                   ;Move $ into $ for next string
+    CALL    strcat                  ;Concatenate string with current value on stack
+
+    MOV     $, ","
+    CALL    strcat
+    RET                             ;Return to main procedure
+writestring_minus ENDP
+
+;Procedure for writing a 0 for imaginary result
+writestring_zero PROC
+    LPR     $
+    MOV     $, "0"
+    CALL    strcat
+    CALL    strcat
+    CALL    strcat
+    RET                             ;Return to main procedure
+writestring_zero ENDP
+
+;Procedure for reading a character
+readchar PROC
+    INVOKE  ReadConsoleA, STDINPUT_HANDLE, ADDR character, 1, ADDR chars_read, 0
+    RET                             ;Return to main procedure
+readchar ENDP
+
+;Procedure for reading in a string
+readstring PROC
+    INVOKE  ReadConsoleA, STDINPUT_HANDLE, ADDR inputBuffer, 10, ADDR chars_to_read, 0
+    MOV     EDI, chars_to_read      ;Move number of chars read into EDI
+
+    ;Removing the last null character from the string
+    DEC     EDI                     ;Decrement EDI to get index of last character
+    MOV     byte ptr [inputBuffer+EDI], 0 ;Set last character to 0
+    DEC     EDI                     ;Decrement EDI to get index of second last character
+    MOV     [inputBuffer+EDI], 1A   ;Set second last character to 1A to indicate end of string
+
+    RET                             ;Return to main procedure
+readstring ENDP
+
+;Procedure for converting string to float
+CVRTF   PROC uses EAX ECX
+    FLDZ                            ;Load 0 into FPU stack
+    MOV     EBX, ESI                ;Move string address into EBX
+    SUB     EBX, offset msg2        ;Subtract msg2 offset to get length of string
+    MOV     ECX, EBX                ;Move length of string into ECX
+
+    _crt_atof                       ;Convert string to float and store in ST(0) of FPU stack
+    FSTPT   EAX                     ;Store value from ST(0) into EAX register
+    FLDZ                            ;Load 0 into FPU stack
+    FCOMPP                          ;Compare top two values on FPU stack and pop both
+    RET                             ;Return to main procedure
+CVRTF ENDP
+
+;Exit the program upon completion
+ExitProcess PROTO STDCALL: DWORD
+
+END main      ;End of program

@@ -1,0 +1,31 @@
+DEFINE VARIABLE myTable AS HANDLE NO-UNDO.
+DEFINE VARIABLE hQuery AS HANDLE NO-UNDO.
+DEFINE VARIABLE hBuffer AS HANDLE NO-UNDO.
+FIND FIRST myTable WHERE myTable.date = TODAY.
+
+/* Start a manual transaction */
+DO TRANSACTION:
+    myTable.date = TODAY - 1.
+    hQuery = QUERY myTable:HANDLE.
+    hBuffer = BUFFER myTable:HANDLE.
+    hBuffer:BUFFER-FIELD("date") = TODAY + 1.
+END.
+
+/* Start an automatic transaction */
+FOR EACH myTable:
+    IF LAST-KEY = FALSE THEN
+        ASSIGN myTable.date = TODAY - 1.
+    ELSE IF LAST-KEY = TRUE THEN
+        UNDO, RETRY.
+        /* Retry the automatic transaction */
+        FOR EACH myTable BY myTable.date EXCLUSIVE-LOCK:
+            myTable.date = TODAY + 1.
+        END.
+        /* Retry automatic transaction again */
+        RUN TRANSACTION.
+    END.
+    /* This will run until no more records are found */
+    IF LAST-KEY THEN
+        LEAVE.
+    END.
+END.

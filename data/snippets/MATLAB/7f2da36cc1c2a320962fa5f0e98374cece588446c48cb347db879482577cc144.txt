@@ -1,0 +1,87 @@
+%% Import data from Excel
+
+% Set the file path for the Excel file
+file_path = 'C:\Users\Documents\data.xlsx';
+
+% Define the sheet name to be imported
+sheet_name = 'Sheet1';
+
+% Import data from the Excel file using the specified sheet name
+data = xlsread(file_path, sheet_name);
+
+%% Data preprocessing
+
+% Replace any missing values with the mean value of the corresponding column
+data(isnan(data)) = nanmean(data);
+
+% Scale the data using min-max normalization
+min_val = min(data);
+max_val = max(data);
+scaled_data = (data - min_val) ./ (max_val - min_val);
+
+% Split the data into training and testing sets (80% for training, 20% for testing)
+train_size = round(0.8 * size(data, 1));
+train_data = scaled_data(1:train_size, :);
+test_data = scaled_data(train_size+1:end, :);
+
+%% Construct and train a neural network model
+
+% Define the input and target for the neural network
+input = train_data(:, 1:end-1);
+target = train_data(:, end);
+
+% Specify the architecture and training parameters for the neural network
+num_inputs = size(input, 2);
+num_hidden1 = 50;
+num_hidden2 = 30;
+num_outputs = 1;
+learning_rate = 0.01;
+epochs = 100;
+
+% Initialize the weights and biases for the neural network
+W1 = randn(num_inputs, num_hidden1);
+b1 = zeros(1, num_hidden1);
+W2 = randn(num_hidden1, num_hidden2);
+b2 = zeros(1, num_hidden2);
+W3 = randn(num_hidden2, num_outputs);
+b3 = zeros(1, num_outputs);
+
+% Train the neural network using backpropagation algorithm
+for i = 1:epochs
+    % Forward pass
+    z1 = input * W1 + b1;
+    a1 = tanh(z1);
+    z2 = a1 * W2 + b2;
+    a2 = tanh(z2);
+    y = a2 * W3 + b3;
+    
+    % Calculate the error and cost
+    error = target - y;
+    cost = 0.5 * sum(error.^2);
+    
+    % Backward pass
+    delta3 = error;
+    delta2 = delta3 * W3' .* (1-a2.^2);
+    delta1 = delta2 * W2' .* (1-a1.^2);
+    
+    % Update the weights and biases using gradient descent
+    W3 = W3 + learning_rate * a2' * delta3;
+    b3 = b3 + learning_rate * sum(delta3, 1);
+    W2 = W2 + learning_rate * a1' * delta2;
+    b2 = b2 + learning_rate * sum(delta2, 1);
+    W1 = W1 + learning_rate * input' * delta1;
+    b1 = b1 + learning_rate * sum(delta1, 1);
+end
+
+%% Evaluate the trained model on the testing set
+
+% Perform forward pass with the updated weights and biases
+z1 = test_data(:, 1:end-1) * W1 + b1;
+a1 = tanh(z1);
+z2 = a1 * W2 + b2;
+a2 = tanh(z2);
+y_pred = a2 * W3 + b3;
+
+% Calculate the error and mean squared error on the testing set
+error = test_data(:, end) - y_pred;
+mse = mean(error.^2);

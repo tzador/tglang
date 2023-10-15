@@ -1,0 +1,113 @@
+/**
+ * This is a complex code snippet in UNREALSCRIPT that creates a custom weapon with multiple functions and properties.
+ * It includes annotations explaining each section of the code.
+ */
+
+class CustomWeapon extends Weapon;
+
+#exec OBJ LOAD FILE=myweapon.3ds
+#exec MESH ORIGIN MESH=myweapon.3ds X=125 Y=50 Z=0
+
+var() int WeaponDamage;
+// The damage that this weapon will deal
+
+var() int MagazineSize;
+// The number of bullets that can be fired before reloading
+
+var() int CurrentAmmo;
+// The current number of bullets in the magazine
+
+var() int MaxAmmo;
+// The maximum number of bullets that can be held for this weapon
+
+var UTPlayerController myPC;
+// The player controller that owns this weapon
+
+var private Sound FireSound;
+// The sound to play when firing the weapon
+
+defaultproperties
+{
+    /* Set default values for properties */
+    WeaponDamage=50;
+    MagazineSize=30;
+    MaxAmmo=120;
+    FireSound=sndWeaponFireM16;
+
+    /* Configure the weapon */
+    WeaponSlot=1;
+    bAutoSwitchTo=True;
+    bAutoReload=True;
+
+    /* Set up basic animations */
+    FireOffset=(Y=9.0,Z=-5.0);
+    BobDamping=0.1;
+    TimeBetweenShots=0.125;
+
+    /* Set inventory icon and mesh */
+    PickUpMesh=StaticMesh'COW_Final.chaoscow';
+    PickUpName=FriendlyName;
+
+    /* Set ammo used per shot */
+    AmmoPerShot=1;
+    ReloadAmmoCount=1;
+
+    /* Set states for weapon fire, idle, and reloading */
+    FireStateClass=class 'myweapon.WeaponFire';
+    IdleStateClass=class 'myweapon.WeaponIdle';
+    ReloadStateClass=class 'myweapon.ReloadOpen';
+
+    /* Override the base fire function to include our custom functionality */
+    function Fire(bool bAlternateFire)
+    {
+        Super.Fire(bAlternateFire);
+        if (CurrentAmmo > 0) {
+            // Check if we hit an enemy
+            local Actor HitActor;
+            HitActor = Trace(HitLocation, HitNormal, End, Start, Start + End, vector(0,0,-0.01),,,,,,,-1, true);
+
+            if (HitActor != None) {
+                // Deal damage to enemy
+                HitActor.TakeDamage(WeaponDamage, myPC, HitLocation, HitNormal, makevector(0,0,0), class 'myweapon.DamageType');
+            }
+            // Play firing sound
+            if (FireSound != None) {
+                PlaySound(FireSound,,FIREDELAY);
+            }
+            // Use up one bullet from the magazine
+            CurrentAmmo--;
+            if (CurrentAmmo <= 0) {
+                // If we run out of bullets in the magazine, start reloading
+                GotoState('Reloading');
+            }
+        } else {
+            // If we have no more bullets, start reloading
+            GotoState('Reloading');
+        }
+    }
+
+    /* Override the base reload function to include our custom functionality */
+    function Reload()
+    {
+        if (CurrentAmmo < MagazineSize) {
+            // Check if we have enough ammo to reload
+            if (myPC.HasAmmunition(WeaponType)) {
+                // If we have enough ammo, start reloading
+                GotoState('Reloading');
+            }
+        }
+    }
+
+    /* Override the base Tick function to include our custom functionality */
+    function Tick(float DeltaTime)
+    {
+        Super.Tick(DeltaTime);
+        // Check if the player is using the weapon in the alternate firing mode
+        local bool bAltFiring;
+        bAltFiring = myPC.Actor != None && myPC.Actor.bNoWeaponRotation;
+        // Play alternate fire sound if necessary
+        if (bAltFiring && AlterFireMode==VER_FireAlt) {
+            PlaySound(FireSound,,FIREDELAY);
+        }
+    }
+}

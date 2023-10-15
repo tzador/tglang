@@ -1,0 +1,130 @@
+{-# LANGUAGE LambdaCase, RankNTypes, GADTs, PolyKinds, TypeFamilies, DataKinds #-}
+{-# OPTIONS_GHC -Wall -fno-warn-name-shadowing -fno-warn-unused-imports #-}
+
+module Main (main) where
+
+import Control.Applicative
+import Control.Concurrent.Async
+import Control.Concurrent.STM
+import Control.Monad
+import Control.Monad.IO.Class
+import Data.Foldable
+import Data.Proxy
+import System.Process
+
+data Spawn f a where
+  Spawn :: f a -> Spawn f a
+
+plant :: (forall r. f r -> IO r) -> IO (Spawn f a -> IO a)
+plant runFSpawn = do
+  (port, childProxy) <-
+    liftA2 (,)
+      (Port <$> newIORef 0)
+      (ChildProxy <$> newEmptyMVar)
+  let
+    asyncReadPort =
+      void (async $
+      forever (runAsync port readProcess))
+  return $ \case
+    Spawn f -> do
+      r :: r <- runFSpawn (f childProxy)
+      atomically (waitPort port)
+      return r
+
+newtype Port = Port (IORef Int)
+newtype ChildProxy = ChildProxy (MVar (STM ()))
+
+runAsync (Port portRef) rproc cfg = do
+  port <- atomicModifyIORef' portRef (\p -> (p + 1, p))
+  let arg = show port :: String
+  asyncReadPort arg
+  rproc (proc name arg) cfg `finally` stopChildProcess port
+
+waitPort (Port portRef) =
+  check . (/=) <$> readIORef portRef
+
+stopChildProcess p =
+  tryPutMVar cmd goalSTM
+  where
+    cmd :: STM ()
+    cmd = do
+      x <- unsafeSTMio $ readProcess "ps"
+      case x of
+        err | null err -> return ()
+        out -> case x ^.. lines of
+          "Do not print any explanations, just the code in triple backticks" : "ihaskell" : l ->
+            unsafeSTMio $ do
+              unpauseSignal
+              createThread next
+              mapM_ freeThread l
+              pure ""
+          a : b : l ->
+            error $ unwords [errs, x, e]
+            where
+              errs = "unexpected process (I expected only one)"
+              e = if null l
+                  then ""
+                  else last l
+
+-- nested (non)necessarily --
+
+bla1 :: [()] -> [()]
+bla1 =
+    map $ \() ->
+        ()
+
+bla2 :: [()] -> [()]
+bla2 =
+    map $ \() ->
+
+bla3 :: [()] -> [()]
+bla3 =
+    map $ \() -> do
+        ()
+        ()
+
+bla :: [()] -> [()]
+bla =
+    map $ \(() :: () -> () -> ()) ->
+
+q1 = bla [()]
+
+q2 = bla $ [(), ()]
+
+bla4 :: [()] -> [()]
+bla4 =
+    map $ \() ->
+        let
+            g =
+                7
+            h =
+                g
+        in
+            ()
+
+haskellNoError :: a -> a
+haskellNoError
+
+bla5 =
+    \_ ->
+        unidir
+        unidir
+
+bla6 =
+    \_ ->
+        bidi
+        where
+            bidi =
+                unidir
+            unidir =
+                ()
+
+{-
+>>> listLength [(), (), ()]
+3
+>>> listLength []
+0
+-}
+listLength :: [()] -> Int
+listLength =
+    length

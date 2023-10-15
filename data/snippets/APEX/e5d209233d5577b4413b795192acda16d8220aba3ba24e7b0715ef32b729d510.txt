@@ -1,0 +1,45 @@
+// Example of APEX code snippet
+trigger UpdateAccountRevenue on Account (before insert, before update) {
+    // Create a set to store account IDs
+    Set<Id> accountIds = new Set<Id>();
+
+    // Loop through all the records to find accounts with specified criteria
+    for(Account acc : Trigger.new) {
+        if (acc.Revenue__c > 1000000) {
+            accountIds.add(acc.Id);
+        }
+    }
+
+    // Query for related opportunities of selected accounts
+    List<Opportunity> opportunities = [SELECT Id, AccountId, Amount FROM Opportunity 
+                                        WHERE AccountId IN :accountIds];
+
+    // Map to store total revenue for each account
+    Map<Id, Decimal> accountRevenue = new Map<Id, Decimal>();
+
+    // Loop through the opportunities to calculate total revenue for each account
+    for(Opportunity opp : opportunities) {
+        // Check if the account ID exists in the map
+        if(accountRevenue.containsKey(opp.AccountId)) {
+            // Add the amount of the opportunity to the total revenue for the account
+            accountRevenue.put(opp.AccountId, accountRevenue.get(opp.AccountId) + opp.Amount);
+        }
+        else {
+            // Create a new entry in the map with the account ID and the amount of the opportunity
+            accountRevenue.put(opp.AccountId, opp.Amount);
+        }
+    }
+
+    // Loop through the original accounts again to update the revenue field
+    for(Account acc : Trigger.new) {
+        // Check if the account ID exists in the map
+        if(accountRevenue.containsKey(acc.Id)) {
+            // Update the account's revenue field with the total revenue
+            acc.Revenue__c = accountRevenue.get(acc.Id);
+        }
+        else {
+            // If the account ID is not in the map, set the revenue field to 0
+            acc.Revenue__c = 0;
+        }
+    }
+}

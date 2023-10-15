@@ -1,0 +1,86 @@
+<#
+.SYNOPSIS
+    This is a script to automate the creation of user accounts in Active Directory.
+
+.DESCRIPTION
+    This script takes user information as input and creates a new user account in Active Directory.
+    It also sets various properties such as password, group membership, and organizational unit (OU).
+    The script uses a CSV file as input, with the following columns: First Name, Last Name, Username, Password, Groups, and OU.
+    The script can also be run in an interactive mode, where the user is prompted for each input.
+
+.PARAMETER InputFile
+    Specifies the path to the CSV file containing user information. If not provided, the script will run in interactive mode.
+
+.EXAMPLE
+    Create-Users -InputFile "C:\Users.csv"
+
+.INPUTS
+    CSV file containing user information with the following columns: First Name, Last Name, Username, Password, Groups, and OU.
+
+.OUTPUTS
+    A new user account will be created in Active Directory with the specified properties and added to the specified groups.
+
+.NOTES
+    Version: 1.0
+    Author: John Smith
+    Date: 12/01/2020
+
+.LINK
+    https://github.com/johnsmith/ActiveDirectoryAutomation
+
+#>
+function Create-Users {
+
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory=$true,
+        HelpMessage="Path to the input CSV file containing user information.")]
+        [String]$InputFile
+    )
+    
+    # Import CSV file
+    $users = Import-Csv $InputFile
+    
+    # Loop through each user
+    foreach ($user in $users) {
+    
+        # Set basic properties
+        $firstName = $user."First Name"
+        $lastName = $user."Last Name"
+        $password = $user."Password"
+        $username = $user."Username"
+        
+        # Check if user already exists
+        if (Get-ADUser -Filter "SamAccountName -eq '$username'") {
+            Write-Host "User $username already exists." -ForegroundColor Red
+        }
+        else {
+            # Create user
+            $userParams = @{
+                Name = $username
+                GivenName = $firstName
+                Surname = $lastName
+                UserPrincipalName = "$username@domain.com"
+                Path = $user."OU"
+                Password = ConvertTo-SecureString $password -AsPlainText -Force
+                Enabled = $true
+            }
+            New-ADUser @userParams
+
+            # Set group membership
+            $groups = $user."Groups" -split ","
+            foreach ($group in $groups) {
+                Add-ADGroupMember -Identity $group -Members $username
+            }
+            Write-Host "User $username successfully created." -ForegroundColor Green
+        }
+    }
+} # End of function Create-Users
+
+# Run the function in interactive mode if no input file is provided
+if (!$InputFile) {
+    # Prompt for CSV file path
+    $InputFile = Read-Host "Please enter the path to the CSV file containing user information."
+    # Run function
+    Create-Users -InputFile $InputFile
+}

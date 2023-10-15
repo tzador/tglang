@@ -1,0 +1,259 @@
+/*
+    This is a complex BISON code snippet that can handle arithmetic operations on fractions.
+    It supports addition, subtraction, multiplication, and division.
+    It also has features to handle fractions with different denominators.
+*/
+
+%code requires
+{
+    #include <stdbool.h> /* importing library for boolean data type */
+    #include <stdio.h> /* importing library for standard input/output */
+    #include <stdlib.h> /* importing library for dynamic memory allocation */
+}
+
+%{
+    /* defining structs to represent fractions */
+    struct Fraction {
+        int numerator; /* integer to store numerator of fraction */
+        int denominator; /* integer to store denominator of fraction */
+    };
+
+    /* function prototypes for arithmetic operations */
+    struct Fraction add(struct Fraction a, struct Fraction b);
+    struct Fraction subtract(struct Fraction a, struct Fraction b);
+    struct Fraction multiply(struct Fraction a, struct Fraction b);
+    struct Fraction divide(struct Fraction a, struct Fraction b);
+
+    /* function to reduce fraction to lowest terms */
+    struct Fraction reduceFraction(struct Fraction a);
+
+    /* function to find greatest common divisor of two integers */
+    int gcd(int a, int b);
+
+    /* global variable to store error message */
+    char* error;
+
+    /* global variables to keep track of fractions with different denominators */
+    int lcm; /* least common multiple of denominators */
+    int multiplier_1; /* multiplier for first fraction to convert to lcm */
+    int multiplier_2; /* multiplier for second fraction to convert to lcm */
+%}
+
+/* defining tokens */
+%token FRACTION
+%token PLUS
+%token MINUS
+%token TIMES
+%token DIVIDED_BY
+%token NEWLINE
+%token ERROR
+
+/* grammar rules for arithmetic expressions */
+%%
+
+/* grammar rule for program */
+program:
+    | program line
+;
+
+/* grammar rule for line */
+line:
+    arithmetic_expression NEWLINE
+;
+
+/* grammar rule for arithmetic expression */
+arithmetic_expression:
+      /* handling addition */
+      arithmetic_expression PLUS arithmetic_expression {
+        $$ = add($1, $3);
+      }
+    | arithmetic_expression MINUS arithmetic_expression {
+        $$ = subtract($1, $3);
+      }
+    | arithmetic_expression TIMES arithmetic_expression {
+        $$ = multiply($1, $3);
+      }
+    | arithmetic_expression DIVIDED_BY arithmetic_expression {
+        $$ = divide($1, $3);
+      }
+    | FRACTION {
+        $$ = $1;
+      }
+;
+
+/* handling errors in input */
+error:
+    | /* empty rule */
+{
+    /* creating error message using global variables */
+    char* new_error = (char*)malloc(500);
+    sprintf(new_error, "%s: Invalid input. Please enter a valid arithmetic expression.", error);
+    YYBEGIN(0); /* resetting to initial state */
+    error = new_error; /* updating global variable */
+    $$ = NULL; /* setting output to NULL */
+}
+;
+
+/* handling fractions */
+fraction:
+    /* handling fractions with different denominators */
+    FRACTION {
+        /* converting numerator to lcm and updating global variables */
+        $$.numerator = $1.numerator * multiplier_1;
+        $$.denominator = lcm;
+    }
+    | fraction PLUS fraction {
+        $$ = add($1, $3);
+    }
+    | fraction MINUS fraction {
+        $$ = subtract($1, $3);
+    }
+    | fraction TIMES fraction {
+        $$ = multiply($1, $3);
+    }
+    | fraction DIVIDED_BY fraction {
+        $$ = divide($1, $3);
+    }
+;
+
+/* handling denominators */
+denominator:
+    denominator DIVIDED_BY denominator {
+        $$.numerator = $1.numerator * $2.denominator;
+        $$.denominator = $1.denominator * $2.numerator;
+    }
+    | fraction DIVIDED_BY fraction
+;
+
+%%
+/* C code for arithmetic operations */
+
+struct Fraction add(struct Fraction a, struct Fraction b) {
+    struct Fraction result;
+    result.numerator = (a.numerator * lcm) + (b.numerator * lcm);
+    result.denominator = lcm;
+    result = reduceFraction(result);
+    return result;
+}
+
+struct Fraction subtract(struct Fraction a, struct Fraction b) {
+    struct Fraction result;
+    result.numerator = (a.numerator * lcm) - (b.numerator * lcm);
+    result.denominator = lcm;
+    result = reduceFraction(result);
+    return result;
+}
+
+struct Fraction multiply(struct Fraction a, struct Fraction b) {
+    struct Fraction result;
+    result.numerator = a.numerator * b.numerator;
+    result.denominator = a.denominator * b.denominator;
+    result = reduceFraction(result);
+    return result;
+}
+
+struct Fraction divide(struct Fraction a, struct Fraction b) {
+    struct Fraction result;
+    result.numerator = a.numerator * b.denominator;
+    result.denominator = a.denominator * b.numerator;
+    result = reduceFraction(result);
+    return result;
+}
+
+struct Fraction reduceFraction(struct Fraction a) {
+    int divisor = gcd(a.numerator, a.denominator);
+    a.numerator /= divisor;
+    a.denominator /= divisor;
+    return a;
+}
+
+int gcd(int a, int b) {
+    if (a == 0 || b == 0) {
+        return a + b;
+    }
+    while (a != b) {
+        if (a > b) {
+            a -= b;
+        } else {
+            b -= a;
+        }
+    }
+    return a;
+}
+
+/* main function */
+int main() {
+    /* reading input from user */
+    printf("Enter two fractions to perform arithmetic operation on, separated by a space: ");
+    struct Fraction fraction_1, fraction_2, result;
+
+    /* scanning input */
+    scanf("%d/%d", &fraction_1.numerator, &fraction_1.denominator);
+    scanf("%d/%d", &fraction_2.numerator, &fraction_2.denominator);
+
+    /* checking if denominators are equal */
+    if (fraction_1.denominator == fraction_2.denominator) {
+        lcm = fraction_1.denominator; /* setting global variable to denominator */
+        multiplier_1 = fraction_2.denominator / fraction_1.denominator; /* calculating multipliers to convert numerators to lcm */
+        multiplier_2 = fraction_1.denominator / fraction_2.denominator;
+    } else {
+        /* finding lcm of denominators */
+        lcm = (fraction_1.denominator * fraction_2.denominator) / gcd(fraction_1.denominator, fraction_2.denominator);
+        multiplier_1 = lcm / fraction_1.denominator;
+        multiplier_2 = lcm / fraction_2.denominator;
+    }
+
+    /* performing arithmetic operation */
+    result = add(fraction_1, fraction_2);
+
+    /* checking for error */
+    if (error) {
+        printf("%s\n", error);
+    } else {
+        /* printing result */
+        printf("%d/%d + %d/%d = ", fraction_1.numerator, fraction_1.denominator, fraction_2.numerator, fraction_2.denominator);
+        printf("%d/%d\n", result.numerator, result.denominator);
+    }
+
+    return 0; /* exiting program */
+}
+
+/* lexer function */
+int yylex() {
+    char ch = getchar(); /* reading input from stdin */
+    /* handling end of file */
+    if (ch == EOF) {
+        return 0;
+    }
+    /* handling new line and error token */
+    if (ch == '\n') {
+        YYBEGIN(1); /* switching state to 1 (handle new lines) */
+        return NEWLINE;
+    } else if (ch == '\0' || ch == '\t' || ch == ' ') {
+        return yylex(); /* ignoring white spaces, tabs, and null characters */
+    } else if (ch >= '0' && ch <= '9') {
+        /* handling fraction token */
+        int numerator = ch - '0';
+        ch = getchar();
+        int denominator = ch - '0';
+        ch = getchar();
+        /* checking if input is valid (contains two numbers and a slash) */
+        if (ch != EOF && ch != '/' && ch != '\t' && ch != '\n' && ch != '\0' && ch != ' ') {
+            YYBEGIN(0); /* resetting to initial state */
+            /* setting error message */
+            error = "Invalid input. Fraction must be in form of a/b, where a and b are integers.";
+            return ERROR;
+        }
+        struct Fraction fraction;
+        fraction.numerator = numerator;
+        fraction.denominator = denominator;
+        /* returning fraction token */
+        yylval = fraction;
+        return FRACTION;
+    } else {
+        YYBEGIN(0); /* resetting to initial state */
+        /* setting error message */
+        error = "Invalid input. Please enter a valid arithmetic expression.";
+        return ERROR;
+    }
+}

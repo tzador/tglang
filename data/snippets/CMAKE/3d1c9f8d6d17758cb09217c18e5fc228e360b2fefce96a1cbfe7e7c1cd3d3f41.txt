@@ -1,0 +1,96 @@
+# CMakeLists.txt
+
+# Set the minimum required version of CMake
+cmake_minimum_required(VERSION 3.10)
+
+# Create a project called "my_project"
+project(my_project)
+
+# Set the target executable name
+set(TARGET my_executable)
+
+# Add source files to the project
+set(SOURCES 
+    src/main.cpp
+    src/helper.cpp
+)
+
+# Add header files to the project
+set(HEADERS
+    include/helper.h
+)
+
+# Create the target executable
+add_executable(${TARGET} ${SOURCES} ${HEADERS})
+
+# Set include directories for the target
+target_include_directories(${TARGET} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+# Set compiler flags for the target
+target_compile_options(${TARGET} PRIVATE -Wall -Wextra -pedantic)
+
+# Add a custom target for building a static library
+add_library(my_static_lib STATIC ${SOURCES})
+
+# Add dependencies for the static library
+target_link_libraries(my_static_lib PRIVATE ${CMAKE_THREAD_LIBS_INIT})
+
+# Add a custom target for building a shared library
+add_library(my_shared_lib SHARED ${SOURCES})
+
+# Add dependencies for the shared library
+target_link_libraries(my_shared_lib PRIVATE ${CMAKE_THREAD_LIBS_INIT})
+
+# Create a macro for installing the library
+macro(my_install_library TARGET)
+
+    # Install the static library
+    install(TARGETS ${TARGET}
+        EXPORT ${TARGET}_Targets
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+        RUNTIME DESTINATION bin
+    )
+
+    # Install the header files
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
+        DESTINATION include
+        FILES_MATCHING PATTERN "*.h"
+    )
+
+    # Install the CMake configuration files
+    install(EXPORT ${TARGET}_Targets
+        FILE ${TARGET}Targets.cmake
+        DESTINATION lib/cmake/${TARGET}
+    )
+endmacro()
+
+# Call the macro for installing the libraries
+my_install_library(my_static_lib)
+my_install_library(my_shared_lib)
+
+# Add a custom target for creating a zip file with the source code
+add_custom_target(source_zip
+    COMMAND ${CMAKE_COMMAND} -E tar "cf" "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_PROJECT_NAME}_source.zip" "--format=zip" "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+
+# Add a custom target for creating a zip file with the built library
+add_custom_target(library_zip
+    COMMAND ${CMAKE_COMMAND} -E tar "cf" "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_PROJECT_NAME}_library.zip" "--format=zip" "${CMAKE_CURRENT_BINARY_DIR}/lib"
+)
+
+# Add a custom target for creating a zip file with the built executable
+add_custom_target(executable_zip
+    COMMAND ${CMAKE_COMMAND} -E tar "cf" "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_PROJECT_NAME}_executable.zip" "--format=zip" "${CMAKE_CURRENT_BINARY_DIR}/bin"
+)
+
+# Add a custom target for building and packaging everything together
+add_custom_target(package
+    COMMAND ${CMAKE_BUILD_TOOL} install
+    COMMAND ${CMAKE_COMMAND} -E tar "cf" "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_PROJECT_NAME}.zip" "--format=zip" "${CMAKE_INSTALL_PREFIX}"
+)
+
+# Add a custom target for cleaning up
+add_custom_target(cleanup
+    COMMAND ${CMAKE_COMMAND} -E remove_directory "${CMAKE_CURRENT_BINARY_DIR}"
+)

@@ -1,0 +1,62 @@
+CLASS lcl_deque DEFINITION FINAL.
+  PUBLIC SECTION.
+    METHODS dequeue
+      IMPORTING iv_index TYPE i
+      RETURNING VALUE(rv_value) TYPE any
+      RAISING cx_deque_error.
+    METHODS enqueue
+      IMPORTING iv_value TYPE any
+      RAISING cx_deque_error.
+  PRIVATE SECTION.
+    TYPES: BEGIN OF ty_node,
+             data TYPE any,
+             next TYPE REF TO ty_node,
+             prev TYPE REF TO ty_node,
+           END OF ty_node.
+    DATA: root TYPE REF TO ty_node,
+          back TYPE REF TO ty_node.
+ENDCLASS.
+CLASS lcl_deque IMPLEMENTATION.
+  METHOD dequeue.
+    DATA(lr_node) = root.
+    DATA(lv_count) = 1.
+    DO iv_index TIMES.
+      lv_count = lv_count + 1.
+      IF lr_node IS INITIAL.
+        RAISE EXCEPTION TYPE cx_deque_error
+          EXPORTING
+            textid = 'INDEX_OUT_OF_RANGE'
+            iv_index = iv_index.
+      ENDIF.
+      lr_node = lr_node->next.
+    ENDDO.
+    IF lv_count <> iv_index + 1.
+      RAISE EXCEPTION TYPE cx_deque_error
+        EXPORTING
+          textid = 'INDEX_OUT_OF_RANGE'
+          iv_index = iv_index.
+    ENDIF.
+    rv_value = lr_node->data.
+    IF lr_node->prev IS INITIAL.
+      root = lr_node->next.
+    ELSE.
+      lr_node->prev->next = lr_node->next.
+    ENDIF.
+    IF lr_node->next IS INITIAL.
+      back = lr_node->prev.
+    ELSE.
+      lr_node->next->prev = lr_node->prev.
+    ENDIF.
+  ENDMETHOD.
+  METHOD enqueue.
+    DATA(lr_node) = NEW ty_node( data = iv_value ).
+    IF root IS INITIAL.
+      root = lr_node.
+      back = lr_node.
+    ELSE.
+      back->next = lr_node.
+      lr_node->prev = back.
+      back = lr_node.
+    ENDIF.
+  ENDMETHOD.
+ENDCLASS.

@@ -1,0 +1,32 @@
+REPORT ZPROGRAM.
+
+DATA: lv_counter TYPE I.
+
+FIELD-SYMBOLS: <lv_value> TYPE STANDARD TABLE,
+               <lv_line> TYPE ANY.
+
+PARAMETERS: p_num TYPE I.
+
+START-OF-SELECTION.
+
+SELECT carrid, connid, fldate
+FROM spfli
+INTO TABLE @DATA(lt_spfli).
+
+SORT lt_spfli BY carrid connid fldate ASCENDING.
+
+LOOP AT lt_spfli ASSIGNING FIELD-SYMBOL(<ls_spfli>).
+  ADD 1 TO lv_counter.
+  IF lv_counter = p_num.
+    EXIT.
+  ENDIF.
+  CONCATENATE <ls_spfli>-carrid <ls_spfli>-connid INTO DATA(lv_concatenated) SEPARATED BY '-'. "Concatenate carrier and connection
+  SELECT SINGLE * FROM sflight WHERE carrid = <ls_spfli>-carrid AND connid = <ls_spfli>-connid INTO @DATA(ls_sflight).
+  CHECK ls_sflight-deptime > '1200'. "Only select flights departing after 12:00 PM
+  DATA(lv_formatted_date) = |Flight date: { <ls_spfli>-fldate YYYYMMDD}.{ <ls_sflight>-connid }|.
+
+  WRITE: / sy-vline, lv_formatted_date, sy-vline.
+  WRITE: / sy-vline, lv_concatenated, sy-vline.
+  WRITE: / sy-vline, ls_sflight-carrid, ls_sflight-connid, ls_sflight-fldate, ls_sflight-deptime, sy-vline.
+  WRITE: / sy-vline, lv_formatted_date, sy-vline.
+ENDLOOP.

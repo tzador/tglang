@@ -1,0 +1,72 @@
+// Contract to create a marketplace for buying and selling goods using ERC20 tokens
+
+pragma solidity ^ 0.7 .2;
+
+// Import ERC20 token standard from OpenZeppelin library
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol";
+
+contract Marketplace {
+  address public owner;
+
+  // Struct for an item to be listed on the marketplace
+  struct Item {
+    string name;
+    string description;
+    address payable seller;
+    uint price;
+    bool purchased;
+  }
+
+  // Mapping to store all the listed items on the marketplace
+  mapping(uint => Item) public itemsForSale;
+
+  // Event to be emitted when an item is purchased
+  event ItemPurchased(uint itemId, string name, string description, address payable seller, uint price);
+
+  // Constructor function to set the contract owner
+  constructor() {
+    owner = msg.sender;
+  }
+
+  // Modifier to check if the caller is the contract owner
+  modifier onlyOwner() {
+    require(msg.sender == owner, "Caller must be the owner of the contract");
+    _;
+  }
+
+  // Function to list an item for sale
+  function listItem(string memory _name, string memory _description, uint _price) public onlyOwner {
+    // Calculate the item id based on previous items
+    uint itemId = 1;
+    if (itemsForSale[1].price != 0) {
+      itemId = itemsForSale[itemId - 1];
+    }
+    itemsForSale[itemId] = Item(_name, _description, msg.sender, _price, false);
+
+  }
+
+  // Function to purchase an item using ERC20 tokens
+  function purchaseItem(uint _itemId, address _tokenAddress, uint _amount) public payable {
+    // Retrieve the ERC20 token contract
+    IERC20 token = IERC20(_tokenAddress);
+
+    // Retrieve the specified item from the marketplace
+    Item memory item = itemsForSale[_itemId];
+
+    // Check if the item is already purchased
+    require(!item.purchased, "Item has already been purchased");
+
+    // Check if the correct amount of tokens are sent
+    require(_amount == item.price, "Incorrect amount of tokens sent");
+
+    // Transfer the tokens from the buyer to the seller
+    token.transferFrom(msg.sender, item.seller, _amount);
+
+    // Mark the item as purchased
+    item.purchased = true;
+
+    // Emit an event for the purchase
+    emit ItemPurchased(_itemId, item.name, item.description, item.seller, _amount);
+  }
+
+}

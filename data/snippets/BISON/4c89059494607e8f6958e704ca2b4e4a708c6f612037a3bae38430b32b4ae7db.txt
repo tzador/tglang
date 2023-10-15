@@ -1,0 +1,92 @@
+%{
+//This is a comment in BISON programming language
+//This section is used for including any necessary libraries or files
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+%}
+
+//Declaration section, here we define our tokens and variables
+%token <val> NUMBER
+%token <name> VARIABLE
+%type <val> expr
+%type <val> term
+%type <val> factor
+%type <name> str
+
+//Start symbol, where the parsing begins
+%start program
+
+//Rules section, where the grammar rules are defined
+program:
+    | statement
+    | program statement
+    ;
+
+statement:
+    | expr ';' {printf("%.2f\n", $1);} //Prints out the result of the expression with 2 decimal points
+    | VARIABLE '=' expr ';' {printf("%s = %.2f\n", $1, $3);} //Assigns the value of the expression to the variable and prints out the assignment
+    ;
+
+expr:
+    | term
+    | '+' term %prec '+'
+    | '-' term %prec '-'
+    | expr '+' term | { $$ = $1 + $3; } //Evaluates the addition expression and stores the result in the symbol $$
+    | expr '-' term | { $$ = $1 - $3; } //Evaluates the subtraction expression and stores the result in the symbol $$
+    ;
+
+term:
+    | factor
+    | '*' factor
+    | '/' factor
+    | term '*' factor | { $$ = $1 * $3; } //Evaluates the multiplication expression and stores the result in the symbol $$
+    | term '/' factor | { $$ = $1 / $3; } //Evaluates the division expression and stores the result in the symbol $$
+    ;
+
+factor:
+    | NUMBER
+    | '(' expr ')' | { $$ = $2; } //Evaluates the expression inside the parentheses and stores the result in the symbol $$
+    | '-' factor | { $$ = -$2; } //Evaluates the negative factor and stores the result in the symbol $$
+    | VARIABLE | { $$ = $1; } //Returns the value of the variable
+    ;
+
+str:
+    | VARIABLE
+    | str VARIABLE | { strcat($$, $2); } //Concatenates the values of the variables in the string
+    ;
+
+//Lexer section, where the regular expressions for tokens are defined
+%lex
+%x IN_STRING
+
+NUMBER           [0-9]+(\.[0-9]+)? //Match a number with optional decimal point
+VARIABLE         [a-zA-Z]+[a-zA-Z0-9]* //Match a variable name - can be letters or numbers, but must start with a letter
+BLANK            [ \t] //Match whitespace characters
+
+//Rules for recognizing tokens
+<INITIAL>{
+    {BLANK}+ //Ignore whitespace
+    {VARIABLE}  { yylval.name = strdup(yytext); return VARIABLE; } //Return token 'VARIABLE' and store its value in yylval
+    [0-9]+(\.[0-9]+)?  { yylval.val = atof(yytext); return NUMBER; } //Return token 'NUMBER' and store its value in yylval
+    [\n] { return '\n'; } //Return newline character
+    "\\\""  { BEGIN(IN_STRING); } //Change lexer state to IN_STRING when encountering a double quote
+}
+
+//Rules for recognizing tokens in string literals
+<IN_STRING>{
+    \" { BEGIN(INITIAL); return strndup(yytext, yyleng - 1); } //Return a string literal without the double quotes
+    [a-zA-Z]+ { yylval.name = strdup(yytext); return VARIABLE; } //Return token 'VARIABLE' and store its value in yylval
+    [0-9]+(\.[0-9]+)?  { yylval.val = atof(yytext); return NUMBER; } //Return token 'NUMBER' and store its value in yylval
+    [ \n] return yytext[0]; //Return space or newline character as is
+}
+
+//Error handling
+%error-verbose
+%define parse.error verbose
+
+//Main function, where the parsing happens
+int main(void) {
+    yyparse(); //Initiates the parsing process
+    return 0;
+}

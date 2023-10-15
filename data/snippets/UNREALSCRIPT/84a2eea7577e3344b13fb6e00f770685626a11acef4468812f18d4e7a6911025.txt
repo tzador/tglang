@@ -1,0 +1,153 @@
+class UTGameMachine
+  extends Actor
+  implements Interface1, Interface2;
+
+// Declare variables
+var config int InitialHealth;
+var bool bIsAlive;
+var Sound HitSound;
+
+// Declare structures
+struct Weapon
+{
+  var () Pickup Proxy;
+  var string Name;
+  var int Damage;
+}
+
+// Create enumerator for game state
+enum EGameState
+{
+  Waiting,
+  Playing,
+  RoundOver,
+  GameOver
+}
+
+// Event that fires when actor takes damage
+event TakeDamage(int Damage, Pawn instigatedBy, Vector HitLocation, Vector Momentum, class<DamageType> DamageType)
+{
+  if(Damage > 0)
+  {
+    // Play hit sound
+    if(HitSound != None)
+    {
+      UTHUD(HUD).PlaySound(HitSound);
+    }
+    // Update health
+    InitialHealth -= Damage;
+    // Check if actor is still alive
+    if(InitialHealth <= 0)
+    {
+      bIsAlive = false;
+      // Call interface function on death
+      if(Interface1 != None)
+      {
+        Interface1.OnDeath(self);
+      }
+    }
+  }
+}
+
+// Function to update game state
+function UpdateGameState(EGameState NewState)
+{
+  // Use switch statement to handle different game states
+  switch(NewState)
+  {
+    case EGameState.Waiting:
+      // Print a message to players
+      `Print("Waiting for players to join")`;
+      break;
+    case EGameState.Playing:
+      // Start game logic
+      `StartGame()`;
+      break;
+    case EGameState.RoundOver:
+      // End current round and prepare for next one
+      `EndRound()`;
+      break;
+    case EGameState.GameOver:
+      // End game and declare a winner
+      `EndGame()`;
+      break;  
+  }
+}
+
+// Function to spawn a weapon
+function SpawnWeapon(Vector SpawnLocation, Rotator SpawnRotation, Weapon NewWeapon)
+{
+  local Pickup newPickup;
+  newPickup = Spawn(NewWeapon.Proxy, , SpawnLocation, SpawnRotation);
+  newPickup.SetName(NewWeapon.Name);
+  newPickup.SetDamage(NewWeapon.Damage);
+}
+
+// Event that fires when a round is over
+event RoundOver()
+{
+  // Update game state
+  UpdateGameState(EGameState.RoundOver);
+  // Give all players a new weapon
+  `foreach AllActors(class'UTPawn', Player)
+  {
+    // Create a new weapon for each player
+    local Weapon newWeapon;
+    newWeapon.Name = "Rocket Launcher";
+    newWeapon.Proxy = "UTRocketLauncherPickup";
+    newWeapon.Damage = 100;
+    // Spawn the weapon for the player
+    SpawnWeapon(Player.Location, Player.Rotation, newWeapon);
+  }`
+}
+
+// Event that fires when a game is over
+event GameOver()
+{
+  // Update game state
+  UpdateGameState(EGameState.GameOver);
+}
+
+// Interface function to handle player death
+Interface1.OnDeath(Actor KilledBy)
+{
+  // Remove player from game
+  Destroy();
+  // Call function to handle death statistics
+  `UpdateDeathStats(KilledBy);`
+}
+
+// Event that fires when game is started
+event GameStarted()
+{
+  // Update game state
+  UpdateGameState(EGameState.Playing);
+  // Give all players initial health
+  `foreach AllActors(class'UTPawn', Player)
+  {
+    Player.InitialHealth = InitialHealth;
+  }`
+  // Set initial game timer
+  SetTimer(60.f, false, `EndGame()`);
+}
+
+// Event that fires when game is ended prematurely
+event GameEnded()
+{
+  // Update game state
+  UpdateGameState(EGameState.GameOver);
+  // Cancel game timer
+  `ClearTimer();`
+  // Declare a winner
+  `Print("Player 1 wins!")`;
+}
+
+defaultproperties
+{
+  // Set default values for variables
+  InitialHealth = 100;
+  bIsAlive = true;
+  HitSound = Sound'UTGameSounds.Hit';
+  Interfaces.Add(Interface1);
+  Interfaces.Add(Interface2);
+}

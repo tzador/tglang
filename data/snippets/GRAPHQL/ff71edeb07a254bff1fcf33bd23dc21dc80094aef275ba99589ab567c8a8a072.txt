@@ -1,0 +1,227 @@
+// Define a GraphQL object type
+const PersonType = new GraphQLObjectType({
+  // Naming the type
+  name: 'Person',
+  // Defining the fields
+  fields: () => ({
+    id: { type: GraphQLID },
+    name: { type: GraphQLString },
+    age: { type: GraphQLInt },
+    friends: {
+      // Specifying the type as a list of strings
+      type: new GraphQLList(GraphQLString),
+      // Defining a resolver function to retrieve data
+      resolve: (parent, args) => {
+        // Accessing data from parent object
+        const { friends } = parent
+        // Returning the appropriate data
+        return friends.map(friend => friend.name)
+      }
+    },
+    address: {
+      // Creating a custom AddressType
+      type: AddressType,
+      // Defining a resolver function to retrieve data
+      resolve: (parent, args) => {
+        // Accessing data from parent object
+        const { address } = parent
+        // Returning the appropriate data
+        return {
+          street: address.street,
+          city: address.city,
+          state: address.state,
+          zip: address.zip
+        }
+      }
+    }
+  })
+})
+
+// Define a GraphQL root query
+const RootQuery = new GraphQLObjectType({
+  // Naming the type
+  name: 'Query',
+  // Defining the fields
+  fields: () => ({
+    // Creating a field for retrieving a single person
+    person: {
+      // Specifying the type as the previously defined PersonType
+      type: PersonType,
+      // Defining the arguments
+      args: {
+        id: { type: GraphQLID }
+      },
+      // Defining a resolver function to retrieve data
+      resolve: (parent, args) => {
+        // Retrieving the id argument
+        const { id } = args
+        // Returning the appropriate data based on id
+        return PersonData.find(person => person.id === id)
+      }
+    },
+    // Creating a field for retrieving a list of persons
+    persons: {
+      // Specifying the type as a list of PersonTypes
+      type: new GraphQLList(PersonType),
+      // Defining a resolver function to retrieve data
+      resolve: (parent, args) => {
+        // Returning a copy of the PersonData array
+        return [...PersonData]
+      }
+    }
+  })
+})
+
+// Define a GraphQL schema
+module.exports = new GraphQLSchema({
+  // Specifying the root query and mutation
+  query: RootQuery,
+  // Defining the mutation
+  mutation: {
+    // Creating a field for adding a new person
+    addPerson: {
+      // Specifying the type as the previously defined PersonType
+      type: PersonType,
+      // Defining the arguments
+      args: {
+        name: { type: new GraphQLNonNull(GraphQLString) },
+        age: { type: GraphQLInt },
+        address: { type: AddressInputType }
+      },
+      // Defining a resolver function to add the person to the PersonData array
+      resolve: (parent, args) => {
+        // Retrieving the arguments
+        const { name, age, address } = args
+        // Creating a new person object
+        const newPerson = {
+          id: uuid(),
+          name,
+          age,
+          address: {
+            street: address.street,
+            city: address.city,
+            state: address.state,
+            zip: address.zip
+          }
+        }
+        // Adding the new person to the PersonData array
+        PersonData.push(newPerson)
+        // Returning the newly created person
+        return newPerson
+      }
+    }
+  }
+})
+
+// Sample data for person
+const PersonData = [{
+  id: '1',
+  name: 'John Doe',
+  age: 25,
+  friends: [{
+    name: 'Jane Smith'
+  }, {
+    name: 'Bob Johnson'
+  }],
+  address: {
+    street: '123 Main Street',
+    city: 'New York',
+    state: 'NY',
+    zip: '10001'
+  }
+}, {
+  id: '2',
+  name: 'Jane Smith',
+  age: 30,
+  friends: [{
+    name: 'John Doe'
+  }, {
+    name: 'Bob Johnson'
+  }],
+  address: {
+    street: '456 Park Ave',
+    city: 'Los Angeles',
+    state: 'CA',
+    zip: '90001'
+  }
+}, {
+  id: '3',
+  name: 'Bob Johnson',
+  age: 35,
+  friends: [{
+    name: 'John Doe'
+  }, {
+    name: 'Jane Smith'
+  }],
+  address: {
+    street: '789 Maple Street',
+    city: 'Chicago',
+    state: 'IL',
+    zip: '60007'
+  }
+}]
+
+// Creating a custom AddressInputType for the mutation
+const AddressInputType = new GraphQLInputObjectType({
+  // Naming the type
+  name: 'AddressInput',
+  // Defining the fields
+  fields: () => ({
+    street: { type: new GraphQLNonNull(GraphQLString) },
+    city: { type: new GraphQLNonNull(GraphQLString) },
+    state: { type: new GraphQLNonNull(GraphQLString) },
+    zip: { type: new GraphQLNonNull(GraphQLString) }
+  })
+})
+
+// Sample output for querying a single person
+{
+  person(id: "1") {
+    id
+    name
+    age
+    friends
+    address {
+      street
+      city
+      state
+      zip
+    }
+  }
+}
+
+// Sample output for querying a list of persons
+{
+  persons {
+    id
+    name
+    age
+    friends
+    address {
+      street
+      city
+      state
+      zip
+    }
+  }
+}
+
+// Sample output for adding a new person
+mutation {
+  addPerson(name: "Sarah Jones", age: 27, address: {
+    street: "456 Main Street",
+    city: "Miami",
+    state: "FL",
+    zip: "33101"
+  }) {
+    id
+    name
+    age
+    address {
+      street
+      city
+      state
+      zip
+    }
+  }
+}

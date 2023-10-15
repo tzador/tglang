@@ -1,0 +1,76 @@
+# Import required libraries
+using DataFrames
+using CSV
+
+# Define function to read and preprocess data
+function preprocess_data(filename)
+    # Read data from CSV file
+    df = CSV.read(filename, header=true)
+    
+    # Drop NA values
+    df = dropmissing(df)
+    
+    # Add new column for total cost
+    df[!, :total_cost] = df[!, :quantity] .* df[!, :unit_cost]
+    
+    # Calculate average cost
+    avg_cost = mean(df[!, :total_cost])
+    
+    # Convert units to cost per unit
+    df[!, :cost_per_unit] = df[!, :total_cost] .\ df[!, :quantity]
+    
+    # Return preprocessed data frame
+    return df
+end
+
+# Define function to perform linear regression
+function linear_regression(df, x_col, y_col)
+    # Define and fit linear regression model
+    lr = lm(@formula($y_col ~ $x_col), df)
+    
+    # Get coefficients
+    slope = coef(lr)[2]
+    intercept = coef(lr)[1]
+    
+    # Calculate predicted y values
+    pred_y = slope .* df[!, x_col] .+ intercept
+    
+    # Calculate mean squared error
+    mse = sum((df[!, y_col] .- pred_y).^2) ./ length(df[!, y_col])
+    
+    # Return slope, intercept, and mse
+    return slope, intercept, mse
+end
+
+# Define function to plot data and regression line
+function plot_data(df, x_col, y_col, slope, intercept)
+    # Create scatter plot with original data
+    scatter(df[!, x_col], df[!, y_col], label="Data")
+    
+    # Plot regression line
+    plot!(df[!, x_col], slope .* df[!, x_col] .+ intercept, label="Regression Line")
+    
+    # Add axes labels and legend
+    xlabel(x_col)
+    ylabel(y_col)
+    legend()
+    
+    # Show plot
+    show()
+end
+
+# Load and preprocess data
+data = preprocess_data("sales_data.csv")
+
+# Perform linear regression on sales and marketing data
+slope, intercept, mse = linear_regression(data, :marketing_budget, :sales)
+
+# Plot data and regression line
+plot_data(data, :marketing_budget, :sales, slope, intercept)
+
+# Print results
+println("Linear Regression Results:")
+println("------------------------------------------")
+println("Slope: ", slope)
+println("Intercept: ", intercept)
+println("Mean Squared Error: ", mse)

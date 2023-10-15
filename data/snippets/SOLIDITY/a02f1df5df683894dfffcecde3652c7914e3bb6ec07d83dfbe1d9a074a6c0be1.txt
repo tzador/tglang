@@ -1,0 +1,139 @@
+/**
+* Contract Name: Token
+* Description: This contract implements ERC20 token functionality with added security measures for fund protection and permission-based transfers.
+* Author: John Smith
+* Date: 2021-10-15
+*/
+
+// Importing libraries and interfaces
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/ERC20.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol"; 
+
+// Contract definition
+contract Token is ERC20, Ownable {
+
+    /* Variables and mappings declaration */
+    uint256 private totalSupply;
+    mapping (address => uint256) private balances;
+    mapping (address => mapping (address => uint256)) private allowed;
+
+    /* Events declaration */
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+
+    /* Constructor function */
+    constructor(uint256 initialSupply) ERC20("Token", "TKN") {
+        totalSupply = initialSupply;
+        balances[msg.sender] = initialSupply;
+    }
+
+    /* ERC20 token standard functions */
+    // Returns the total supply of tokens in existence
+    function totalSupply() public view returns (uint256) {
+        return totalSupply;
+    }
+
+    // Returns the token balance of a specified address
+    function balanceOf(address owner) public view returns (uint256) {
+        return balances[owner];
+    }
+
+    // Transfers tokens from the caller's account to the specified account
+    function transfer(address to, uint256 value) public returns (bool) {
+        require(value <= balances[msg.sender], "Insufficient balance.");
+        require(to != address(0), "Cannot transfer to zero address.");
+        
+        balances[msg.sender] -= value;
+        balances[to] += value;
+        
+        emit Transfer(msg.sender, to, value);
+        
+        return true;
+    }
+
+    // Approves another account to spend tokens on behalf of the caller
+    function approve(address spender, uint256 value) public returns (bool) {
+        require(spender != address(0), "Cannot approve zero address.");
+        
+        allowed[msg.sender][spender] = value;
+        
+        emit Approval(msg.sender, spender, value);
+        
+        return true;
+    }
+
+    // Returns the amount of tokens spender is allowed to spend on behalf of owner
+    function allowance(address owner, address spender) public view returns (uint256) {
+        return allowed[owner][spender];
+    }
+
+    // Transfers tokens from one account to another on behalf of the owner
+    function transferFrom(address from, address to, uint256 value) public returns (bool) {
+        require(value <= balances[from], "Insufficient balance.");
+        require(value <= allowed[from][msg.sender], "Insufficient allowance.");
+        require(to != address(0), "Cannot transfer to zero address.");
+        
+        balances[from] -= value;
+        balances[to] += value;
+        
+        allowed[from][msg.sender] -= value;
+        
+        emit Transfer(from, to, value);
+        
+        return true;
+    }
+
+    /* Additional functionality */
+    // Increases the total supply by the specified amount and adds it to the owner's balance
+    function mint(uint256 amount) public onlyOwner returns (bool) {
+        require(amount > 0, "Amount must be greater than zero.");
+        
+        totalSupply = totalSupply + amount;
+        balances[owner()] += amount;
+        
+        emit Transfer(address(0), owner(), amount);
+        
+        return true;
+    }
+
+    // Decreases the total supply by the specified amount and removes it from the owner's balance
+    function burn(uint256 amount) public onlyOwner returns (bool) {
+        require(amount > 0, "Amount must be greater than zero.");
+        require(amount <= balances[owner()], "Insufficient balance.");
+        
+        totalSupply = totalSupply - amount;
+        balances[owner()] -= amount;
+        
+        emit Transfer(owner(), address(0), amount);
+        
+        return true;
+    }
+
+    // Allows the owner to transfer tokens from the contract to the specified account
+    function transferTokens(address to, uint256 value) public onlyOwner returns (bool) {
+        require(value <= balances[address(this)], "Insufficient balance.");
+        require(to != address(0), "Cannot transfer to zero address.");
+        
+        balances[address(this)] -= value;
+        balances[to] += value;
+        
+        emit Transfer(address(this), to, value);
+        
+        return true;
+    }
+
+    // Allows the owner to withdraw all ETH from the contract
+    function withdraw() public onlyOwner returns (bool) {
+        uint256 balance = address(this).balance;
+        require(balance > 0, "No ETH to withdraw.");
+        
+        owner().transfer(balance);
+        
+        return true;
+    }
+
+    // Returns the balance of ETH held by the contract
+    function getContractETHBalance() public view returns (uint256) {
+        return address(this).balance;
+    }
+}

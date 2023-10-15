@@ -1,0 +1,69 @@
+// This is a code snippet in VERILOG that implements a 3-bit ALU (Arithmetic Logic Unit)
+
+// Defining input and output ports:
+module ALU (
+    input [2:0] A, B,        // 3-bit inputs A and B
+    input [1:0] select,      // 2-bit select lines for choosing operation
+    output [3:0] result,     // 4-bit output for storing result
+    output zero,             // single-bit output for zero flag
+    output overflow          // single-bit output for overflow flag
+    );
+
+// Defining internal signals and variables:
+wire [3:0] sum;              // 4-bit wire for storing sum of A and B
+wire [3:0] difference;       // 4-bit wire for storing difference between A and B
+wire [3:0] AND;              // 4-bit wire for storing bitwise AND of A and B
+wire [3:0] OR;               // 4-bit wire for storing bitwise OR of A and B
+wire [2:0] negA;             // 3-bit wire for storing negation of A
+wire [2:0] negB;             // 3-bit wire for storing negation of B
+reg zeroFlag;                // single-bit register for storing zero flag
+reg overflowFlag;            // single-bit register for storing overflow flag
+
+// Defining cases for select lines:
+always @(*)
+    case(select)
+        2'b00: begin        // if select lines are both 0, perform ADD operation
+            sum = A + B;
+            zeroFlag = (sum == 0) ? 1 : 0;    // setting zero flag based on result
+            overflowFlag = (A[2] == B[2] && sum[2] != A[2]) ? 1 : 0;    // calculating overflow flag
+        end
+        2'b01: begin        // if select lines are 0 and 1, perform SUBTRACT operation
+            difference = A - B;
+            zeroFlag = (difference == 0) ? 1 : 0;   // setting zero flag based on result
+            overflowFlag = (A[2] != B[2] && difference[2] != A[2]) ? 1 : 0;   // calculating overflow flag
+        end
+        2'b10: begin        // if select lines are 1 and 0, perform BITWISE AND operation
+            AND = A & B;
+            zeroFlag = (AND == 0) ? 1 : 0;        // setting zero flag based on result
+            overflowFlag = 0;                     // bitwise AND cannot result in overflow
+        end
+        2'b11: begin        // if select lines are both 1, perform BITWISE OR operation
+            OR = A | B;
+            zeroFlag = (OR == 0) ? 1 : 0;         // setting zero flag based on result
+            overflowFlag = 0;                     // bitwise OR cannot result in overflow
+        end 
+    endcase
+
+// Calculating negation of input wires:
+assign negA = ~A + 1;
+assign negB = ~B + 1;
+
+// Defining zero flag calculations for negation case:
+always @(*)
+    if ((A == 3'b000 && B == 3'b000) || (A == negA && B == negB))
+        zeroFlag = 1;
+
+// Assigning output based on select lines:
+always @(*)
+    case(select)
+        2'b00: result = sum;
+        2'b01: result = difference;
+        2'b10: result = AND;
+        2'b11: result = OR;
+    endcase
+    
+// Assigning output flags:
+assign zero = zeroFlag;
+assign overflow = overflowFlag;
+
+endmodule

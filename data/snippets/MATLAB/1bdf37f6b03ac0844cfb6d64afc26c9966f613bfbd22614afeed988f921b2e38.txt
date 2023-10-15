@@ -1,0 +1,82 @@
+%%% Solve the heat equation using the Crank-Nicolson method %%%
+
+%% Define parameters %%
+
+% Spatial domain
+L = 1; % length of domain
+Nx = 100; % number of grid points
+dx = L/Nx; % grid spacing
+
+% Time domain
+t0 = 0; % initial time
+tf = 1; % final time
+Nt = 100; % number of time steps
+dt = (tf-t0)/Nt; % time step size
+
+% Thermal diffusivity
+alpha = 0.1; 
+
+%% Initialize variables %%
+
+% Grid points 
+x = linspace(0,L,Nx+1); % includes endpoints
+
+% Time points
+t = linspace(t0,tf,Nt+1); % includes endpoints
+
+% Temperature at t=0
+u0 = sin(pi*x); 
+
+% Solution matrix
+Ucn = zeros(Nx+1,Nt+1); 
+Ucn(:,1) = u0; % set initial conditions
+
+%% Apply boundary conditions %%
+
+% Dirichlet boundary conditions
+Ucn(1,:) = 0; % u(0,t) = 0
+Ucn(end,:) = 1; % u(L,t) = 1
+
+%% Implement Crank-Nicolson method %%
+
+% Define coefficient matrices
+a = (alpha*dt)/(4*dx^2);
+b = 1-(alpha*dt)/(2*dx^2);
+
+% Construct tridiagonal matrix for implicit step
+A = diag(b*ones(1,Nx-1)) + diag(-a*ones(1,Nx-2),1) + diag(-a*ones(1,Nx-2),-1);
+
+% Construct tridiagonal matrix for explicit step
+B = diag(b*ones(1,Nx-1)) + diag(a*ones(1,Nx-2),1) + diag(a*ones(1,Nx-2),-1);
+
+% Time loop
+for n=1:Nt
+    % Solve implicit step using Thomas algorithm
+    d = Ucn(2:end-1,n); % RHS of equation (known)
+    d(1) = d(1) + a*Ucn(1,n+1); % add boundary condition
+    d(end) = d(end) + a*Ucn(end,n+1); % add boundary condition
+    Utmp = thomas(A,d); % solve using Thomas algorithm
+    % Explicit step
+    Ucn(2:end-1,n+1) = B*Utmp; % set next time step
+end
+
+% Transpose and flip to sort by increasing x-coordinate
+Ucn = Ucn'; % transpose
+Ucn = fliplr(Ucn); % flip
+
+%% Plot solution %%
+
+% Plot every 10th time step to reduce plot clutter
+skip = 10;
+
+% Create meshgrid for plotting
+[X,T] = meshgrid(x(1:skip:end),t(1:skip:end));
+
+% Plot surface
+figure;
+surf(X,T,Ucn(1:skip:end,1:skip:end)');
+shading interp;
+xlabel('x');
+ylabel('t');
+zlabel('u');
+title('Solution of Heat Equation using Crank-Nicolson Method');

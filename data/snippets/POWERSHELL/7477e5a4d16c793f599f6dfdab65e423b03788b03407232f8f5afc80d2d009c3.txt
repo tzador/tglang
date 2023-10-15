@@ -1,0 +1,58 @@
+function Encrypt
+{
+
+<#
+.SYNOPSIS
+    Encrypt function uses the Triple DES algorithm to encrypt a file.
+
+.DESCRIPTION
+    This function encrypts a file using the Triple DES algorithm. It takes two parameters, the path to the file to be encrypted and the path where the encrypted file will be saved.
+
+.PARAMETER FilePath
+    This parameter specifies the path to the file that will be encrypted.
+
+.PARAMETER EncryptedFilePath
+    This parameter specifies the path where the encrypted file will be saved.
+
+.EXAMPLE
+    Encrypt -FilePath C:\Users\Username\Documents\test.txt -EncryptedFilePath C:\Users\Username\Documents\test_encrypted.txt
+
+.NOTES
+    This function requires the "System.Security.Cryptography" .NET class to be loaded.
+
+.LINK
+    https://docs.microsoft.com/en-us/dotnet/api/system.security.cryptography.tripledescryptoserviceprovider
+#>
+
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [ValidateScript({Test-Path -Path $_ -PathType Leaf})]
+    [string]$FilePath,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$EncryptedFilePath
+)
+
+$DES = New-Object System.Security.Cryptography.TripleDESCryptoServiceProvider
+$key = [System.Text.Encoding]::UTF8.GetBytes("MySecretKey123456789")
+$DES.Key = $key
+$DES.Mode = 'CBC'
+
+# Opens a read-only FileStream for the original file
+$fileStream = [System.IO.File]::OpenRead($FilePath)
+$encryptStream = New-Object System.Security.Cryptography.CryptoStream `
+    -ArgumentList (New-Object System.IO.FileInfo($EncryptedFilePath).Create()), `
+    $DES.CreateEncryptor($DES.Key, $DES.IV), `
+    [System.Security.Cryptography.CryptoStreamMode]::Write)
+# Reads the original file and writes the encrypted output to the encrypted file
+$fileStream.CopyTo($encryptStream)
+$fileStream.Flush()
+$fileStream.Close()
+$encryptStream.FlushFinalBlock()
+$encryptStream.Close()
+
+Write-Output "The file has been successfully encrypted and saved to $EncryptedFilePath"
+}

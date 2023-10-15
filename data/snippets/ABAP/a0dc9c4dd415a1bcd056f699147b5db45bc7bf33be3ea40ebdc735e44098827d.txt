@@ -1,0 +1,65 @@
+*&---------------------------------------------------------------------*
+*& Report Z_GET_EMPLOYEE_DETAILS
+*&
+*&---------------------------------------------------------------------*
+*& This report retrieves the details of an employee from the database
+*& table PA0001 and displays them in an ALV grid.
+*&---------------------------------------------------------------------*
+REPORT z_get_employee_details.
+
+*&---------------------------------------------------------------------*
+*& Types
+*&---------------------------------------------------------------------*
+TYPES: BEGIN OF ty_employee_details,
+        empid   TYPE pa0001-pernr,
+        name    TYPE pa0001-vorna,
+        surname TYPE pa0001-nachn,
+        dob     TYPE pa0001-gbdat,
+        gender  TYPE pa0001-gesch,
+        email   TYPE adr6-smtp_addr,
+        city    TYPE adr6-city1,
+        country TYPE adr6-country,
+      END OF ty_employee_details.
+
+*&---------------------------------------------------------------------*
+*& Internal Tables
+*&---------------------------------------------------------------------*
+DATA: it_employee_details TYPE STANDARD TABLE OF ty_employee_details,
+      wa_employee_details TYPE ty_employee_details.
+
+*&---------------------------------------------------------------------*
+*& Selection Screen
+*&---------------------------------------------------------------------*
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE text-001.
+PARAMETERS: p_empid TYPE pa0001-pernr OBLIGATORY.
+SELECTION-SCREEN END OF BLOCK b1.
+
+*&---------------------------------------------------------------------*
+*& Start-of-selection
+*&---------------------------------------------------------------------*
+START-OF-SELECTION.
+
+  SELECT pernr vorna nachn gbdat gesch
+         FROM pa0001
+         INTO TABLE @it_employee_details
+         WHERE pernr = @p_empid.
+
+  LOOP AT it_employee_details INTO wa_employee_details.
+    SELECT SINGLE smtp_addr city1 country
+           FROM adr6
+           INTO @(wa_employee_details-email, wa_employee_details-city, wa_employee_details-country)
+           WHERE pernr = @wa_employee_details-empid.
+  ENDLOOP.
+
+  *&---------------------------------------------------------------------*
+  *& ALV Grid Display
+  *&---------------------------------------------------------------------*
+  CL_SALV_TABLE=>FACTORY(
+    EXPORTING
+      LIST_DISPLAY = IF_SALV_C_BOOL_SAP=>TRUE
+    IMPORTING
+      R_SALV_TABLE = DATA(lr_alv_grid)
+    CHANGING
+      T_TABLE      = it_employee_details ).
+
+  lr_alv_grid->display( ).

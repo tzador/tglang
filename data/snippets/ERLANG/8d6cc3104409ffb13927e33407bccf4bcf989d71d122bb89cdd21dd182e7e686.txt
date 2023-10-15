@@ -1,0 +1,96 @@
+-module(database).
+%% This is a module that handles database queries and operations.
+
+-export([connect/2, execute_query/2, create_table/3, insert_record/2, update_record/2, delete_record/2, disconnect/1]).
+
+%% Function: connect/2
+%% Purpose: Connects to a specified database using the given credentials
+%% Args:
+%%      Host - The host address of the database
+%%      Port - The port number of the database
+%% Returns:
+%%      {ok, Connection} - If successful, returns a connection to the database
+%%      {error, Reason} - If unsuccessful, returns an error with the reason
+connect(Host, Port) ->
+    {ok, Connection} = odbc:connect("Driver={MySQL};Server=" ++ Host ++ ";Port=" ++ Port ++ ";Database=example_db", []),
+    Connection.
+
+%% Function: execute_query/2
+%% Purpose: Executes a SQL query on the given database connection
+%% Args:
+%%      Connection - The connection to the database
+%%      Query - The SQL query to be executed
+%% Returns:
+%%      {ok, Result} - If successful, returns the result of the query
+%%      {error, Reason} - If unsuccessful, returns an error with the reason
+execute_query(Connection, Query) ->
+    {ok, Result} = odbc:sql_query(Connection, Query),
+    Result.
+
+%% Function: create_table/3
+%% Purpose: Creates a new table in the database
+%% Args:
+%%      Connection - The connection to the database
+%%      Table - The name of the table to be created
+%%      Columns - A list of column names and their corresponding data types
+%% Returns:
+%%      {ok, Table} - If successful, returns the name of the created table
+%%      {error, Reason} - If unsuccessful, returns an error with the reason
+create_table(Connection, Table, Columns) ->
+    ColumnString = lists:foldl(fun({Name, Type}, Acc) -> Acc ++ Name ++ " " ++ Type ++ ", " end, "", Columns),
+    TableString = "CREATE TABLE " ++ Table ++ " (" ++ string:substr(ColumnString, 1, string:len(ColumnString) - 2) ++ ")",
+    {ok, _} = odbc:sql_query(Connection, TableString),
+    Table.
+
+%% Function: insert_record/2
+%% Purpose: Inserts a new record into the given table
+%% Args:
+%%      Connection - The connection to the database
+%%      Record - A list of column names and their corresponding values for the new record
+%% Returns:
+%%      {ok, Id} - If successful, returns the ID of the inserted record
+%%      {error, Reason} - If unsuccessful, returns an error with the reason
+insert_record(Connection, Record) ->
+    ColumnString = lists:foldl(fun({Name, Value}, Acc) -> Acc ++ Name ++ ", " end, "", Record),
+    ValueString = lists:foldl(fun({_, Value}, Acc) -> Acc ++ "?," end, "", Record),
+    Query = "INSERT INTO " ++ TableString ++ " (" ++ string:substr(ColumnString, 1, string:len(ColumnString) - 2) ++ ") VALUES (" ++ string:substr(ValueString, 1, string:len(ValueString) - 1) ++ ")",
+    {ok, [_|Ids]} = odbc:param_query(Connection, Query, lists:map(fun({_ , Value}) -> Value end, Record)),
+    lists:nth(1, Ids).
+
+%% Function: update_record/2
+%% Purpose: Updates an existing record in the given table
+%% Args:
+%%      Connection - The connection to the database
+%%      Record - A list of column names and their corresponding values for the record to be updated
+%% Returns:
+%%      {ok, Id} - If successful, returns the ID of the updated record
+%%      {error, Reason} - If unsuccessful, returns an error with the reason
+update_record(Connection, Record) ->
+    ColumnString = lists:foldl(fun({Name, Value}, Acc) -> Acc ++ Name ++ " = ?," end, "", Record),
+    Query = "UPDATE " ++ Table ++ " SET " ++ string:substr(ColumnString, 1, string:len(ColumnString) - 1) ++ " WHERE id = ?",
+    {ok, []} = odbc:param_query(Connection, Query, lists:map(fun({_ , Value}) -> Value end, Record) ++ [{"id", lists:nth(1, Record)}]),
+    lists:nth(1, Record).
+
+%% Function: delete_record/2
+%% Purpose: Deletes an existing record from the given table
+%% Args:
+%%      Connection - The connection to the database
+%%      Id - The ID of the record to be deleted
+%% Returns:
+%%      {ok, Id} - If successful, returns the ID of the deleted record
+%%      {error, Reason} - If unsuccessful, returns an error with the reason
+delete_record(Connection, Id) ->
+    Query = "DELETE FROM " ++ Table ++ " WHERE id = ?",
+    {ok, []} = odbc:param_query(Connection, Query, [{"id", Id}]),
+    Id.
+
+%% Function: disconnect/1
+%% Purpose: Disconnects from the given database connection
+%% Args:
+%%      Connection - The connection to be disconnected
+%% Returns:
+%%      ok - If successful, returns ok
+%%      {error, Reason} - If unsuccessful, returns an error with the reason
+disconnect(Connection) ->
+    ok = odbc:disconnect(Connection),
+    ok.

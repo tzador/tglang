@@ -1,0 +1,61 @@
+(*** Annotated list implementation ***)
+
+(* Define a type for an annotated list *)
+type 'a annotated_list = {
+  values : 'a list; (* The values in the list *)
+  length : int; (* The length of the list *)
+  sorted : bool; (* Whether the list is sorted or not *)
+} 
+
+(* Function to create an empty annotated list *)
+let empty_list = {
+  values = []; 
+  length = 0; 
+  sorted = true;
+}
+
+(* Function to append an element to the end of the list *)
+let rec append lst a = 
+  match lst with
+  | {values = []; length = 0; sorted = true} -> {values = [a]; length = 1; sorted = true} (* If the list is empty, create a new list with the element *)
+  | {values = vs; length = l; sorted = true} -> {values = vs @ [a]; length = l + 1; sorted = true} (* If the list is sorted, simply concatenate the element at the end *)
+  | {values = vs; length = l; sorted = false} -> (* If the list is not sorted *)
+    let rec insert_sorted acc = function
+      | [] -> acc @ [a] (* If the end of the list is reached, append the element to the end *)
+      | h :: t when h <= a -> insert_sorted (acc @ [h]) t (* If the current element is less than or equal to the element to be inserted, add it to the accumulator *)
+      | l -> acc @ [a] @ l (* Otherwise, add the element to be inserted and the rest of the list to the accumulator *)
+    in
+    {values = insert_sorted [] vs; length = l + 1; sorted = true} (* Call the helper function to insert the element in the correct place and update the list *)
+
+(* Function to sort a list *)
+let rec sort lst =
+  match lst with
+  | {values = []; length = 0; sorted = true} -> empty_list (* If the list is empty, return an empty list *)
+  | {values = vs; length = l; sorted = true} -> lst (* If the list is already sorted, return the list *)
+  | {values = vs; length = l; sorted = false} ->
+    let rec merge_sorted xs ys = (* Helper function to merge two sorted lists *)
+      match xs, ys with
+      | [], _ -> ys (* If one list is empty, return the other list *)
+      | _, [] -> xs
+      | hx :: tx, hy :: ty -> (* If both lists are non-empty, compare the heads of the lists and add the smaller one to the result *)
+        if hx < hy then hx :: merge_sorted tx ys else hy :: merge_sorted xs ty
+    in
+    let left, right = split_list vs [] [] l in (* Divide the list into two halves for sorting *)
+    let sorted_left = sort left in (* Sort the left half *)
+    let sorted_right = sort right in (* Sort the right half *)
+    merge_sorted sorted_left sorted_right (* Merge the two sorted halves *)
+
+(* Function to split a list into two halves *)
+and split_list lst left right l =
+  if l = 0 then (left, right) (* If the length is 0, return the two halves *)
+  else split_list (List.tl lst) (left @ [List.hd lst]) right (l - 1) (* Recursive call to split the list *)
+
+(* Function to check if a list is sorted *)
+let rec is_sorted lst =
+  match lst with
+  | {values = []; length = 0; sorted = true} -> true (* If the list is empty, it is sorted *)
+  | {values = [_]; length = 1; sorted = true} -> true (* If the list has only one element, it is sorted *)
+  | {values = v1 :: v2 :: _; length = l; sorted = true} when v1 > v2 -> false (* If the list is sorted and the first element is greater than the second, it is not sorted *)
+  | {values = v1 :: v2 :: _; length = l; sorted = true} when v1 <= v2 -> is_sorted {values = List.tl v2; length = l - 1; sorted = true} (* If the list is sorted and the first element is less than or equal to the second, call is_sorted recursively on the rest of the list *)
+  | {values = vs; length = l; sorted = false} -> is_sorted (sort lst) (* If the list is not sorted, call the sort function and then check if it is sorted *)
+  | _ -> false (* If none of the above cases match, the list is not sorted *)

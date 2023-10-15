@@ -1,0 +1,70 @@
+# Example server block for a website
+server {
+
+  # Listen on port 80
+  listen 80;
+
+  # Set the server name
+  server_name www.example.com;
+
+  # Set the root directory for the website
+  root /var/www/example;
+
+  # Enable gzip compression for improved performance
+  gzip on;
+
+  # Configure caching for frequently accessed files
+  location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+    expires 7d;
+    add_header Pragma public;
+    add_header Cache-Control "public, must-revalidate, proxy-revalidate";
+  }
+
+  # Redirect HTTP requests to HTTPS for added security
+  if ($scheme = http) {
+    return 301 https://$server_name$request_uri;
+  }
+
+  # Configure HTTPS server block
+  server {
+    
+    # Listen on port 443
+    listen 443 ssl;
+
+    # Set the server name
+    server_name www.example.com;
+
+    # Configure SSL certificate and key
+    ssl_certificate /etc/ssl/certs/example.crt;
+    ssl_certificate_key /etc/ssl/private/example.key;
+
+    # Enable HTTP/2 support for improved performance
+    http2 on;
+
+    # Configure HTTPS security
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:50m;
+
+    # Configure secure headers for improved security
+    add_header X-Content-Type-Options nosniff;
+    add_header X-XSS-Protection "1; mode=block";
+    add_header X-Frame-Options "SAMEORIGIN";
+
+    # Configure cipher suite for added security
+    ssl_ciphers 'ECDHE-RSA-CHACHA20-POLY1305:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-SHA';
+
+    # Configure client certificate verification for added security
+    ssl_client_certificate /etc/ssl/certs/ca.crt;
+    ssl_verify_client on;
+    
+    # Configure reverse proxy for improved performance
+    location / {
+      proxy_pass http://127.0.0.1:8080;
+      proxy_set_header Host $host;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+    }
+  }
+}

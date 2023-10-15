@@ -1,0 +1,148 @@
+/**********Encryption Module**********/
+
+//Import required libraries
+#include <iostream>
+#include <string>
+
+//Constants for encryption
+const int keySize = 128; //Size of encryption key
+const int blockSize = 64; //Size of encryption blocks
+
+//Function to generate random encryption key
+void generateKey(int key[]) {
+	for (int i = 0; i < keySize; i++) {
+		key[i] = rand() % 256; //Generating a random key value between 0-255
+	}
+}
+
+//Function to encrypt a single block
+void encryptBlock(int block[], int key[]) {
+	int tmp[blockSize];
+
+	//XOR operation on block and key
+	for (int i = 0; i < blockSize; i++) {
+		tmp[i] = block[i] ^ key[i];
+	}
+
+	//Substitution operation on block
+	for (int i = 0; i < blockSize; i++) {
+		tmp[i] = (tmp[i] + i) * (tmp[i] + key[i]);
+	}
+
+	//Permutation operation on block
+	for (int i = 0; i < blockSize; i++) {
+		block[i] = tmp[(i * (key[i] % 8)) % blockSize];
+	}
+}
+
+//Function to encrypt a message
+//Takes in a string and returns the encrypted message as an array of blocks
+int* encryptMessage(std::string message) {
+	int numBlocks = message.length() / blockSize; //Calculating number of blocks needed
+	if (message.length() % blockSize != 0) numBlocks++; //Need an extra block if message length is not a multiple of block size
+
+	//Creating an array to store the encrypted blocks
+	int* encryptedMessage = new int[numBlocks * blockSize];
+
+	//Generating a random encryption key
+	int key[keySize];
+	generateKey(key);
+
+	//Looping through each block in the message
+	for (int i = 0; i < numBlocks; i++) {
+		int block[blockSize]; //Array to store current block
+
+		//Filling block array with characters from the message
+		for (int j = 0; j < blockSize; j++) {
+			int index = i * blockSize + j; //Calculating index for current block
+			if (index < message.length()) block[j] = message.at(index); //Copying character to block array
+			else block[j] = 0; //Padding with 0s if block is not full
+		}
+
+		//Encrypting the block
+		encryptBlock(block, key);
+
+		//Copying encrypted block to the encrypted message array
+		for (int j = 0; j < blockSize; j++) {
+			encryptedMessage[i * blockSize + j] = block[j];
+		}
+	}
+
+	return encryptedMessage; //Returning the encrypted message
+}
+
+/**********Decryption Module**********/
+
+//Function to decrypt a single block
+void decryptBlock(int block[], int key[]) {
+	int tmp[blockSize];
+
+	//Permutation operation on block
+	for (int i = 0; i < blockSize; i++) {
+		tmp[i] = block[(i * (key[i] % 8)) % blockSize];
+	}
+
+	//Substitution operation on block
+	for (int i = 0; i < blockSize; i++) {
+		tmp[i] = (tmp[i] + i) / (tmp[i] + key[i]);
+	}
+
+	//XOR operation on block and key
+	for (int i = 0; i < blockSize; i++) {
+		block[i] = tmp[i] ^ key[i];
+	}
+}
+
+//Function to decrypt a message
+//Takes in an encrypted message as an array of blocks and returns the decrypted message as a string
+std::string decryptMessage(int* encryptedMessage, int numBlocks) {
+	std::string decryptedMessage = ""; //Creating an empty string for decrypted message
+
+	//Generating a random encryption key
+	int key[keySize];
+	generateKey(key);
+
+	//Looping through each block in the encrypted message
+	for (int i = 0; i < numBlocks; i++) {
+		int block[blockSize]; //Array to store current block
+
+		//Copying encrypted block to the block array
+		for (int j = 0; j < blockSize; j++) {
+			block[j] = encryptedMessage[i * blockSize + j];
+		}
+
+		//Decrypting the block
+		decryptBlock(block, key);
+
+		//Converting block array back to characters and adding them to the decrypted message string
+		for (int j = 0; j < blockSize; j++) {
+			if (block[j] != 0) decryptedMessage += char(block[j]); //Ignore any padded 0s
+		}
+	}
+
+	return decryptedMessage; //Returning the decrypted message
+}
+
+//Driver code to test encryption and decryption
+int main() {
+	std::string message = "This is a secret message"; //Message to encrypt
+	std::cout << "Original message: " << message << std::endl;
+
+	int* encryptedMessage = encryptMessage(message); //Encrypting the message
+	int numBlocks = message.length() / blockSize; //Calculating number of blocks needed
+	if (message.length() % blockSize != 0) numBlocks++; //Need an extra block if message length is not multiple of block size
+	std::cout << "Encrypted message: ";
+
+	//Looping through and printing each encrypted block
+	for (int i = 0; i < numBlocks * blockSize; i++) {
+		std::cout << encryptedMessage[i];
+	}
+	std::cout << std::endl;
+
+	std::string decryptedMessage = decryptMessage(encryptedMessage, numBlocks); //Decrypting the encrypted message
+	std::cout << "Decrypted message: " << decryptedMessage << std::endl;
+
+	delete[] encryptedMessage; //Freeing up memory used for encrypted message
+
+	return 0;
+}

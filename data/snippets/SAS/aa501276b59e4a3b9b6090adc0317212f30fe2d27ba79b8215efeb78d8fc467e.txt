@@ -1,0 +1,38 @@
+/* This is a macro program that calculates the sum of squares for a given dataset */
+
+/* First, we define a macro called 'sum_squares' with two parameters - dataset and variable */
+/* This macro will create a variable called 'sum_of_squares' in the dataset containing the sum of squares */
+
+%macro sum_squares(dataset, variable);
+  /* We use the data step to create a temporary dataset '&dataset._temp' which contains the squared values of 'variable' */
+  data &dataset._temp;
+    set &dataset;
+    &variable_squared = &variable**2;
+  run;
+
+  /* Next, we use the proc sql procedure to calculate the sum of squares from the temporary dataset */
+  proc sql noprint;
+    /* Create a macro variable 'data_cols' to store the column names of the temporary dataset */
+    select name into :data_cols separated by ' '
+    from dictionary.columns
+    where libname = work and memname = "&dataset._temp";
+    
+    /* Calculate the sum of squares using the 'sum' function for each column in 'data_cols' */
+    /* The 'quote' function is used to properly enclose the column names in quotes */
+    select sum(&quote(&data_cols)) into :sum_of_squares
+    from &dataset._temp;
+  quit;
+
+  /* Finally, we delete the temporary dataset and the macro variable used to store the column names */
+  proc datasets library=work nolist;
+    delete &dataset._temp;
+  quit;
+  %symdel data_cols;
+%mend sum_squares;
+
+/* We call the macro with the dataset 'mydata' and the variable 'x' */
+/* The sum of squares will be stored in the new variable 'mydata.sum_of_squares' */
+data mydata;
+  set mydata;
+  %sum_squares(mydata, x);
+run;

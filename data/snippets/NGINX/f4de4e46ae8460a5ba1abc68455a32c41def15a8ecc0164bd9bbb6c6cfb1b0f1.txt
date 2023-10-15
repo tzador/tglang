@@ -1,0 +1,77 @@
+events{
+    # Sets the maximum number of simultaneous connections that
+    # can be opened by a worker process.
+    worker_connections 4096;
+
+    # Accept as many connections as possible, after nginx gets notification
+    # about a new connection.
+    # May flood worker_connections, if that option is set too low.
+    use epoll;
+}
+
+http {
+    ##
+    # Basic Settings
+    ##
+
+    # This directive sets the path, format, and configuration for a buffered
+    # log written by the ngx_http_log_module.
+    access_log /var/log/nginx/access.log;
+
+    # Disable compressed responses for clients with known weak capabilities
+    gzip_disable "msie6";
+
+    # Expose nginx version number on error pages
+    server_tokens on;
+
+    ##
+    # Configuration intended to be included by all server blocks.
+    ##
+    include /etc/nginx/conf.d/*.conf;
+
+    ##
+    # gzip Settings
+    ##
+    gzip on;
+    gzip_types text/plain text/css application/x-javascript text/xml application/xml application/rss+xml application/atom+xml image/svg+xml;
+
+    ##
+    # Virtual Host Configs
+    ##
+    server {
+        listen 80;
+
+        # Defines a named location for use in error_page, ssi, or rewrite directives
+        location @app {
+            # This file exists because Nginx handles requests 
+            # out of order. `Rails::Server` passes blocks to
+            # services, which provides a call method calling .start,
+            # which forks and starts. Unfortunately, this is
+            # not something Nginx can wait for, hence this little
+            # delay until it starts responding to requests normally.
+            proxy_pass http://upstream_app;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header Host $host;
+            # If the odysseus client `Connection` header is "close",
+            # force the Nginx worker to close the backend connection.
+            # This is needed for daemons and some other clients
+            # which NGINX can’t tell if there is still a live connection
+            # when it has buffered responses written to it.
+            proxy_http_version 1.1;
+            proxy_set_header Connection "";
+            # Avoids buffering by nginx for the response from the proxied server
+            proxy_buffering off;
+        }
+
+        location / {
+            # Redirects all requests to the specified location
+            return 301 /blog;
+        }
+
+        location ~ ^/assets/ {
+            # First we try to serve the file from the /public directory directly
+            try_files $uri @app;
+            # Requests are passed to the Rails app
+        }
+    }
+}

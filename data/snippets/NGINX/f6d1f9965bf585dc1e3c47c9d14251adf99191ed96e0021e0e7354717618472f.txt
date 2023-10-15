@@ -1,0 +1,80 @@
+# This is a complex NGINX configuration code snippet for a reverse proxy server
+# This snippet configures NGINX to act as a load balancer for two upstream servers
+# and performs various application-specific routing and caching actions
+
+# Begin by defining the upstream servers
+upstream backend {
+    server 10.0.0.1;    # IP address of first backend server
+    server 10.0.0.2;    # IP address of second backend server
+}
+
+# Enable HTTP and HTTPS server modules
+http {
+    server {
+        # Listen for requests on port 80
+        listen 80;
+
+        # Handle requests for the root directory
+        location / {
+            # Define caching behavior
+            proxy_cache_path /var/cache/nginx levels=1:2
+                keys_zone=main_cache:10m inactive=60m;
+
+            # Set caching options
+            proxy_cache main_cache;
+            proxy_cache_bypass $http_pragma;
+            proxy_cache_revalidate on;
+            proxy_cache_min_uses 3;
+            proxy_cache_use_stale error timeout invalid_header updating
+                http_500 http_502 http_503 http_504;
+
+            # Set proxy headers
+            proxy_set_header Accept-Encoding "";
+            proxy_set_header Host $host;
+
+            # Proxy requests to backend servers
+            proxy_pass http://backend;
+        }
+    }
+
+    server {
+        # Listen for requests on port 443 and enable SSL
+        listen 443 ssl;
+
+        # Handle requests for the blog subdomain
+        server_name blog.example.com;
+
+        # Configure SSL
+        ssl_certificate /etc/nginx/ssl/blog.example.com.crt;
+        ssl_certificate_key /etc/nginx/ssl/blog.example.com.key;
+
+        # Define caching behavior
+        proxy_cache_path /var/cache/nginx levels=1:2
+            keys_zone=blog_cache:10m inactive=30m;
+
+        # Set caching options
+        proxy_cache blog_cache;
+        proxy_cache_bypass $http_pragma;
+        proxy_cache_revalidate on;
+        proxy_cache_min_uses 3;
+        proxy_cache_use_stale error timeout invalid_header updating
+            http_500 http_502 http_503 http_504;
+
+        # Set proxy headers
+        proxy_set_header Accept-Encoding "";
+        proxy_set_header Host $host;
+
+        # Proxy requests to backend servers
+        proxy_pass http://backend;
+
+        # Perform additional routing based on request path
+        location /page1 {
+            # Proxy requests to first backend server
+            proxy_pass http://10.0.0.1;
+        }
+        location /page2 {
+            # Proxy requests to second backend server
+            proxy_pass http://10.0.0.2;
+        }
+    }
+}

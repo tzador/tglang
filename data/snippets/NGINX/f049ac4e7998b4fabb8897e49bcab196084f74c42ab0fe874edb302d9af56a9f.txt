@@ -1,0 +1,36 @@
+stream {
+    # create upstream servers for load balancing
+    upstream backend-servers {
+        server 192.168.1.2:80 weight=3;
+        server 192.168.1.3:80;
+        server 192.168.1.4:80 backup;
+    }
+
+    # set server for reverse proxy
+    server {
+        listen 80;
+        proxy_pass backend-servers;
+
+        # enable keep-alive connections with clients
+        keepalive 100;
+
+        # enable session persistence for clients
+        # based on assigned cookie value
+        sticky cookie SRVNAME expires=1h;
+
+        # set load balancing method to least connections
+        least_conn;
+
+        # increase timeout for slow backend servers
+        proxy_connect_timeout 5s;
+        proxy_timeout 10s;
+        proxy_next_upstream_timeout 0s;
+
+        # enable compression for responses from backend server
+        proxy_set_header Accept-Encoding gzip;
+
+        # set custom headers for backend server requests
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}

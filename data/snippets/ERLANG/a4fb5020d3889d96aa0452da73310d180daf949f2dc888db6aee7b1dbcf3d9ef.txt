@@ -1,0 +1,124 @@
+-module(matrix).
+-export([multiply/2, transpose/1, determinant/1]).
+
+%% Function to multiply two matrices
+multiply(Matrix1, Matrix2) ->
+    NumberOfColumns1 = length(hd(Matrix1)), % Get number of columns in first matrix
+    NumberOfRows2 = length(Matrix2), % Get number of rows in second matrix
+    NumberOfColumns2 = length(hd(Matrix2)), % Get number of columns in second matrix
+    Result = init_matrix(NumberOfRows2, NumberOfColumns1), % Initialize matrix to hold result
+    multiply_helper(Matrix1, Matrix2, NumberOfRows2, NumberOfColumns2, 1, 1, Result).
+
+%% Helper function for matrix multiplication
+multiply_helper(_, _, _, _, _, _, Result) when is_list(Result) -> Result. % Base case
+multiply_helper(Matrix1, Matrix2, NumberOfRows2, NumberOfColumns2, Row, Column, Result) ->
+    % Get row and column from first matrix
+    Row1 = get_row(Matrix1, Row),
+    Column2 = get_column(Matrix2, Column),
+    % Calculate dot product of row and column
+    Product = dot_product(Row1, Column2),
+    % Insert product into result matrix
+    NewResult = set_element(Result, {Row, Column}, Product),
+    % Increment column and row values
+    {NewRow, NewColumn} = increment_position(Row, Column, NumberOfRows2, NumberOfColumns2),
+    multiply_helper(Matrix1, Matrix2, NumberOfRows2, NumberOfColumns2, NewRow, NewColumn, NewResult).
+
+%% Function to transpose a matrix
+transpose(Matrix) ->
+    NumberOfRows = length(Matrix), % Get number of rows in matrix
+    NumberOfColumns = length(hd(Matrix)), % Get number of columns in matrix
+    Result = init_matrix(NumberOfColumns, NumberOfRows), % Initialize matrix to hold result
+    transpose_helper(Matrix, NumberOfRows, NumberOfColumns, 1, 1, Result).
+
+%% Helper function for transposing a matrix
+transpose_helper(_, _, _, _, _, Result) when is_list(Result) -> Result. % Base case
+transpose_helper(Matrix, NumberOfRows, NumberOfColumns, Row, Column, Result) ->
+    % Get element at current row and column
+    Element = get_element(Matrix, {Row, Column}),
+    % Insert element into new position in result matrix
+    NewResult = set_element(Result, {Column, Row}, Element),
+    % Increment column and row values
+    {NewRow, NewColumn} = increment_position(Row, Column, NumberOfRows, NumberOfColumns),
+    transpose_helper(Matrix, NumberOfRows, NumberOfColumns, NewRow, NewColumn, NewResult).
+
+%% Function to calculate the determinant of a square matrix
+determinant(Matrix) ->
+    NumberOfRows = length(Matrix), % Get number of rows in matrix
+    NumberOfColumns = length(hd(Matrix)), % Get number of columns in matrix
+    case NumberOfRows of
+        1 -> % Base case: matrix is 1x1 and determinant is the single element
+            get_element(Matrix, {1, 1});
+        _ ->
+            % Calculate determinant using Laplace expansion
+            determinant_helper(Matrix, NumberOfRows, NumberOfColumns, 1).
+    end.
+
+%% Helper function for calculating determinant
+determinant_helper(_, 1, _, Determinant) -> Determinant. % Base case: matrix is 1x1 and determinant is final value
+determinant_helper(Matrix, NumberOfRows, NumberOfColumns, Determinant) ->
+    %% Loop through first row of matrix
+    determinant_loop(Matrix, NumberOfRows, NumberOfColumns, 1, Determinant, 1, 1).
+
+%% Function to handle loop in determinant calculation
+determinant_loop(Matrix, NumberOfRows, NumberOfColumns, Row, Determinant, Column, SignMultiplier) ->
+    case NumberOfColumns of
+        1 -> % Base case: last element in row
+            % Get element and multiply by sign based on position
+            Element = get_element(Matrix, {Row, Column}),
+            Determinant + (SignMultiplier * Element);
+        _ ->
+            % Calculate each element's minor matrix using Laplace expansion and add/subtract to determinant
+            Element = get_element(Matrix, {Row, Column}),
+            MinorMatrix = get_minor_matrix(Matrix, Row, Column),
+            NewDeterminant = Determinant + (SignMultiplier * Element * determinant(MinorMatrix)),
+            % Increment column, loop through next element using same row and updated determinant
+            determinant_loop(Matrix, NumberOfRows, NumberOfColumns, Row, NewDeterminant, Column+1, SignMultiplier);
+    end.
+
+%% Function to initialize a matrix with all zeroes
+init_matrix(NumberOfRows, NumberOfColumns) ->
+    [lists:duplicate(NumberOfColumns, 0) || _ <- lists:seq(1, NumberOfRows)].
+
+%% Function to get a specific row from a matrix
+get_row(Matrix, Row) ->
+    % Use pattern matching to get row from matrix
+    [H|_] = lists:nth(Row, Matrix),
+    H.
+
+%% Function to get a specific column from a matrix
+get_column(Matrix, Column) ->
+    % Use list comprehension to get column by looping through rows and getting specific element from each
+    [lists:nth(Column, Row) || Row <- Matrix].
+
+%% Function to get a specific element from a matrix
+get_element(Matrix, {Row, Column}) ->
+    % Use pattern matching to get row and column from matrix
+    [H|_] = lists:nth(Row, Matrix),
+    [Element|_] = lists:nth(Column, H),
+    Element.
+
+%% Function to set a specific element in a matrix
+set_element(Matrix, {Row, Column}, Element) ->
+    % Use list comprehensions to update row and matrix with new element
+    UpdatedRow = [if X == Column -> Element; true -> X end || X <- lists:nth(Row, Matrix)],
+    [if X == Row -> UpdatedRow; true -> X end || X <- Matrix].
+
+%% Function to increment row and column values
+increment_position(Row, Column, NumberOfRows, NumberOfColumns) ->
+    case {Row == NumberOfRows, Column == NumberOfColumns} of
+        {true, true} -> % End of matrix
+            {NumberOfRows, NumberOfColumns};
+        {true, false} -> % End of row, go to next row and reset column
+            {Row+1, 1};
+        {false, _} -> % Not end of row, just increment column
+            {Row, Column+1}
+    end.
+
+%% Function to calculate the dot product of two lists
+dot_product(List1, List2) ->
+    lists:foldl(fun(X, Y) -> X * Y end, 0, lists:zipwith(fun(X, Y) -> X * Y end, List1, List2)).
+
+%% Function to get the minor matrix of a given element in a matrix
+get_minor_matrix(Matrix, Row, Column) ->
+    % Get rows above and below current row
+    [lists:sublist(RowAbove, 1, Column-1) ++ lists:sublist(RowBelow, Column+1, length(RowBelow)) || [RowAbove, _RowBelow] <- lists:split(Row-1, Matrix)].

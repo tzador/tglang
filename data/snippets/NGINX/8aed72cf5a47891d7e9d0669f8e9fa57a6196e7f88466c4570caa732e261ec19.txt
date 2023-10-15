@@ -1,0 +1,120 @@
+# NGINX configuration file
+
+# Set the user and group for nginx processes
+user www-data;
+# nginx will drop privileges to this user and group so that it can access
+# various resources on the system
+
+# Set the number of worker processes, usually the number of cores on the system
+worker_processes auto;
+
+# Set the maximum file descriptors that can be opened by nginx
+worker_rlimit_nofile 8192;
+
+# Define the events block, this block is being used to specify
+# the usage of the epoll channel
+events {
+    use epoll;
+    # This indicates that the nginx event loop will use the epoll
+    # demultiplex method (required for Linux kernels 2.6+)
+    multi_accept on;
+    # Enables NGINX to accept multiple connections at the same time
+    # Can improve performance under high load
+    worker_connections 1024;
+    # Sets the maximum number of connections that each worker process can handle
+}
+
+# Define the http block, this block is used to define
+# global configuration for HTTP servers
+http {
+    # Enable strict MIME type checking
+    # Recommended to prevent potential XSS attacks
+    # See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-XSS-Protection
+    add_header X-XSS-Protection "1; mode=block" always;
+    
+    # Enable HSTS (HTTP Strict Transport Security)
+    # Redirects all HTTP requests to HTTPS to enhance security
+    # See: https://developer.mozilla.org/en-US/docs/Web/Security/HTTP_strict_transport_security
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    
+    # Enable MIME type sniffing prevention
+    # Helps prevent malicious files from being executed on the server
+    # See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Content-Type-Options
+    add_header X-Content-Type-Options "nosniff";
+    
+    # Enable cross-site scripting (XSS) protection
+    # See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-XSS-Protection
+    add_header X-Xss-Protection "1; mode=block" always;
+    
+    # Set the MIME type for all files ending in .html, .htm, or .shtml
+    # Necessary for proper content type header recognition for static files
+    # See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types
+    types {
+        text/html html htm shtml;
+    }
+    
+    # Define the log format for HTTP requests
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"';
+                    
+    # Turn off server tokens
+    # Removes identifying information from server header response
+    # See: https://www.nginx.com/resources/wiki/start/topics/tutorials/config_pitfalls/#server-tokens
+    server_tokens off;
+    
+    # Set the root directory for serving static files
+    root /var/www/html;
+    
+    # Define the server block, this block is used to define
+    # configuration for a particular virtual server
+    server {
+        # Defines the listen port for incoming connections
+        listen 80;
+        
+        # Defines the server name
+        # Can use wildcard for multiple domain names,
+        # or specify specific domain name
+        server_name example.com;
+        
+        # Define the location block, this block is used
+        # to specify configuration for a particular
+        # location or URL
+        location / {
+            # Define the root directory for this location
+            root /var/www/html/example;
+            
+            # Enable gzip compression for files larger than 1KB
+            # Helps improve loading speed of large files
+            # See: https://www.nginx.com/blog/file-compression-and-gzip-best-practices/
+            gzip on;
+            gzip_min_length 1001;
+            
+            # Enable caching of static files for 1 week
+            # Helps improve loading speed for returning visitors
+            # See: https://www.nginx.com/resources/wiki/start/topics/examples/reverseproxycachingexample/
+            expires 1w;
+            
+            # Disable access to hidden files
+            # Can prevent potential security risks
+            # See: https://security.openstack.org/guidelines/dg_security-considerations.html#do-not-serve-unexpected-content
+            location ~ /\. {
+                deny all;
+            }
+            
+            # Set the index file for the location
+            # This file will be served if no other file is specified in the URL
+            index index.html;
+        }
+        
+        # Define configuration for handling PHP requests
+        location ~ \.php$ {
+            # Define the location of the PHP-FPM socket file
+            fastcgi_pass unix:/var/run/php/php7.4-fpm.sock;
+            # Defines the file type for the socket
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            include fastcgi_params;
+        }
+    }
+
+}

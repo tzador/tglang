@@ -1,0 +1,59 @@
+/******************************************************************************
+* Description: This is a complex code snippet in SAS programming language.
+* The code performs a logistic regression analysis on a dataset, evaluates the 
+* model performance, and then generates a set of graphical outputs.
+******************************************************************************/
+/* Import necessary SAS procedures and set the graphics options */
+options mlogic mprint symbolgen mlogic nostsuffix;
+proc sql outobs=100;
+    /* Create a temporary dataset from an existing dataset */
+    create table temp_data as
+        select distinct product_id, customer_id, sales, date
+        from sales_data;
+quit;
+
+/* Perform data preparation and cleaning */
+data clean_data;
+    /* Remove missing values/observations */
+    set temp_data (where=(not missing(product_id) and not missing(customer_id)));
+    /* Convert string dates to SAS dates */
+    date = input(date, yymmdd10.);
+    /* Create a variable to indicate if a sale was made */
+    if sales > 0 then sale = 1;
+    else sale = 0;
+run;
+
+/* Fit a logistic regression model on the cleaned dataset */
+proc logistic data=clean_data plots=(roc(noprint) effect);
+    class product_id / param=ref;
+    model sale = product_id / link=logit;
+    /* Specify the desired model performance metrics */
+    fitstat c nobs maxrsq ader;
+    /* Save the predicted probabilities and actual labels */
+    ods output fitstatistics=metrics predictedvalues=preds actuals=actuals;
+run;
+
+/* Create a scatter plot of predicted vs actual probabilities */
+ods graphics / reset width=700px height=500px;
+proc sgplot data=metrics noautolegend;
+    /* Add a reference line at y=x */
+    scatter x=predicted y=actual / markerattrs=(symbol=circlefilled size=8px color=black)
+                                   yaxisopts=(grid)
+                                   x2axis;
+    series x=x y=x / lineattrs=(pattern=dot color=gray);
+run;
+
+/* Create a ROC curve plot */
+proc sgplot data=metrics noautolegend;
+    roc y=actual x=predicted;
+    /* Add labels and title */
+    xaxis label='False Positive Rate' values=(0 to 1 by 0.1) grid;
+    yaxis label='True Positive Rate' values=(0 to 1 by 0.1) grid;
+    title 'Receiver Operating Characteristic Curve';
+run;
+
+/* Generate a table of model coefficients */
+proc print data=coefficients noobs label ;
+    title 'Model Coefficients';
+    var product_id parameter;
+run;

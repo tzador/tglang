@@ -1,0 +1,103 @@
+//Contract that allows users to create and manage a marketplace
+
+contract Marketplace {
+
+    //List of registered products
+    Product[] products;
+    
+    //Mapping of product to seller address
+    mapping (Product => address) productSeller;
+    
+    //Mapping of product to buyer address
+    mapping (Product => address) productBuyer;
+    
+    //Event emitted when a new product is created
+    event ProductCreated(uint id, string name, uint price, address seller);
+    
+    //Event emitted when a product is purchased
+    event ProductPurchased(uint id, string name, uint price, address buyer, address seller);
+    
+    //Struct representing a product
+    struct Product {
+        uint id;
+        string name;
+        uint price;
+    }
+    
+    //Function to create a new product
+    function createProduct(string memory _name, uint _price) public {
+        //Require that the product name is not empty
+        require(bytes(_name).length > 0);
+        
+        //Require that the price is greater than 0
+        require(_price > 0);
+        
+        //Create a new product and add it to the products list
+        Product memory newProduct = Product(products.length, _name, _price);
+        products.push(newProduct);
+        
+        //Map the new product to the seller's address
+        productSeller[newProduct] = msg.sender;
+        
+        //Emit the ProductCreated event
+        emit ProductCreated(newProduct.id, newProduct.name, newProduct.price, newProduct.seller);
+    }
+    
+    //Function to purchase a product
+    function purchaseProduct(uint _id) public payable {
+        //Require that the id is valid
+        require(_id >= 0 && _id < products.length);
+        
+        //Get the product from the products list
+        Product storage product = products[_id];
+        
+        //Require that the product has not already been purchased
+        require(productBuyer[product] == address(0));
+        
+        //Require that the value sent is equal to the product price
+        require(msg.value == product.price);
+        
+        //Transfer the purchased product to the buyer
+        productBuyer[product] = msg.sender;
+        
+        //Transfer the payment to the seller
+        productSeller[product].transfer(msg.value);
+        
+        //Emit the ProductPurchased event
+        emit ProductPurchased(product.id, product.name, product.price, productBuyer[product], productSeller[product]);
+    }
+    
+    //Function to get a list of all products
+    function getProducts() public view returns (Product[] memory) {
+        return products;
+    }
+    
+    //Function to get a specific product's details
+    function getProduct(uint _id) public view returns (uint, string memory, uint) {
+        //Require that the id is valid
+        require(_id >= 0 && _id < products.length);
+        
+        //Get the product from the products list
+        Product storage product = products[_id];
+        
+        //Return the product's details
+        return (product.id, product.name, product.price);
+    }
+    
+    //Function to check if a product has been purchased
+    function isProductPurchased(uint _id) public view returns (bool) {
+        //Require that the id is valid
+        require(_id >= 0 && _id < products.length);
+        
+        //Get the product from the products list
+        Product storage product = products[_id];
+        
+        //Check if the product has a buyer
+        if(productBuyer[product] != address(0)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+    
+}

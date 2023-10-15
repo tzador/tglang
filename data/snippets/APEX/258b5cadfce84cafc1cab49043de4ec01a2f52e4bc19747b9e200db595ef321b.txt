@@ -1,0 +1,48 @@
+trigger AccountTrigger on Account (before insert, after update) {
+    // Before insert trigger logic
+    if(Trigger.isBefore && Trigger.isInsert) {
+        Map<Id, List<Account>> newAccounts = new Map<Id, List<Account>>();
+        
+        for(Account acc : Trigger.new) {
+            if(acc.Name != null) {
+                // Add account to map with first letter as key
+                String firstLetter = acc.Name.substring(0,1);
+                if(newAccounts.containsKey(firstLetter)) {
+                    newAccounts.get(firstLetter).add(acc);
+                } else {
+                    newAccounts.put(firstLetter, new List<Account>{acc});
+                }
+            }
+        }
+        
+        // Update account names
+        for(String letter : newAccounts.keySet()) {
+            Integer count = 1;
+            
+            // Add next integer to account names starting with the key letter
+            for(Account acc : newAccounts.get(letter)) {
+                acc.Name = letter + count;
+                count++;
+            }
+        }
+    }
+    
+    // After update trigger logic
+    if(Trigger.isAfter && Trigger.isUpdate) {
+        for(Account acc : Trigger.new) {
+            if(Trigger.oldMap.get(acc.Id).Description != acc.Description) {
+                // Update child contacts based on account description change
+                List<Contact> contactsToUpdate = [SELECT Id, Description FROM Contact WHERE AccountId = :acc.Id];
+                for(Contact con : contactsToUpdate) {
+                    con.Description = acc.Description;
+                }
+                
+                // Update child opportunities based on account description change
+                List<Opportunity> opportuntiesToUpdate = [SELECT Id, Description FROM Opportunity WHERE AccountId = :acc.Id];
+                for(Opportunity opp : opportuntiesToUpdate) {
+                    opp.Description = acc.Description;
+                }
+            }
+        }
+    }
+}

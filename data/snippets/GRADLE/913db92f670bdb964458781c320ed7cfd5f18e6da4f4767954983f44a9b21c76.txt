@@ -1,0 +1,91 @@
+apply plugin: 'java'
+ 
+repositories {
+    jcenter()
+    mavenCentral()
+}
+ 
+dependencies {
+    // Spring Framework
+    compile 'org.springframework:spring-core:5.2.3.RELEASE'
+    compile 'org.springframework:spring-context:5.2.3.RELEASE'
+    compile 'org.springframework:spring-web:5.2.3.RELEASE'
+    compile 'org.springframework:spring-webmvc:5.2.3.RELEASE'
+
+    // Hibernate
+    compile 'org.hibernate:hibernate-core:5.4.18.Final'
+    compile 'org.hibernate:hibernate-entitymanager:5.4.18.Final'
+    compile 'org.hibernate:hibernate-validator:6.1.2.Final'
+
+    // PostgreSQL Driver
+    compile 'org.postgresql:postgresql:42.2.10'
+
+    // Log4j
+    compile 'log4j:log4j:1.2.17'
+
+    // JUnit
+    testCompile 'junit:junit:4.13'
+
+    // Mock MVC
+    testCompile 'org.springframework:spring-test:5.2.3.RELEASE'
+    testCompile 'org.springframework:spring-test-mvc:1.0.0.M1'
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir "src/main/java"
+        }
+        resources {
+            srcDir "src/main/resources"
+        }
+    }
+    test {
+        java {
+            srcDir "src/test/java"
+        }
+        resources {
+            srcDir "src/test/resources"
+        }
+    }
+}
+
+task('copyLibs', type: Copy) {
+    from configurations.runtime
+    into 'build/lib'
+}
+
+task('compileJava', type: JavaCompile) {
+    source sourceSets.main.java.srcDirs
+    classpath = configurations.compile
+    destinationDir = file('build/classes/main')
+}
+
+task('compileTest', type: JavaCompile) {
+    dependsOn compileJava
+    source sourceSets.test.java.srcDirs
+    classpath = sourceSets.test.compileClasspath
+    destinationDir = file('build/classes/test')
+    options.fork = true
+    options.forkOptions.executable = 'javac'
+}
+
+task('test', type: Test) {
+    useJUnit()
+    dependsOn compileTest
+    testClassesDir = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+}
+
+task('assemble', type: Jar) {
+    baseName = project.name
+    version = 1.0
+    from sourceSets.main.output
+    from configurations.runtime
+    with jar
+}
+
+task('deploy', type: Copy) {
+    from project(':myapp-core')
+    into 'build/deploy'
+}

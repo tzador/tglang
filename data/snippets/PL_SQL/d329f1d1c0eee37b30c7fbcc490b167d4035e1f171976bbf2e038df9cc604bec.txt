@@ -1,0 +1,67 @@
+CREATE OR REPLACE TYPE address_type AS OBJECT ( -- Begin type definition
+    street VARCHAR2(50),
+    city VARCHAR2(50),
+    state VARCHAR2(20),
+    zip_code VARCHAR2(10)
+); -- End type definition
+
+CREATE OR REPLACE TYPE phone_list_type AS TABLE OF VARCHAR2(20); -- Define table type
+
+CREATE OR REPLACE PROCEDURE add_employee( -- Begin procedure definition
+    emp_id NUMBER,
+    first_name VARCHAR2(50),
+    last_name VARCHAR2(50),
+    address address_type, -- Add custom type as parameter
+    phone_list phone_list_type, -- Add table type as parameter
+    department VARCHAR2(50)
+) IS
+BEGIN
+    INSERT INTO employee (id, first_name, last_name, department) VALUES (emp_id, first_name, last_name, department); -- Insert employee data into employee table
+
+    SELECT COUNT(*) INTO num_phones FROM TABLE(phone_list); -- Get number of phones in table
+    FOR i IN 1..num_phones LOOP -- Loop through table
+        INSERT INTO employee_phone (emp_id, phone_number) VALUES (emp_id, phone_list(i)); -- Insert phone numbers into employee_phone table
+    END LOOP;
+
+    INSERT INTO employee_address (emp_id, street, city, state, zip_code) -- Insert employee address into employee_address table
+    VALUES (
+        emp_id,
+        address.street,
+        address.city,
+        address.state,
+        address.zip_code
+    );
+END;
+/ -- End procedure definition
+
+CREATE OR REPLACE PROCEDURE get_employee( -- Begin procedure definition
+    emp_id NUMBER
+) IS
+    emp_name VARCHAR2(100); -- Declare variable to hold employee name
+    emp_department VARCHAR2(50); -- Declare variable to hold employee department
+    emp_address address_type; -- Declare variable of custom type
+
+    CURSOR c_phone IS SELECT phone_number FROM employee_phone WHERE emp_id = emp_id; -- Create cursor to retrieve phone numbers for employee
+    v_phone_list phone_list_type := phone_list_type(); -- Declare and initialize table variable
+    v_counter NUMBER := 1; -- Create counter for loop
+
+BEGIN
+    SELECT first_name || ' ' || last_name INTO emp_name FROM employee WHERE id = emp_id; -- Get employee name
+    SELECT department INTO emp_department FROM employee WHERE id = emp_id; -- Get employee department
+    SELECT street, city, state, zip_code INTO emp_address FROM employee_address WHERE emp_id = emp_id; -- Get employee address into custom type variable
+
+    FOR r_phone IN c_phone LOOP -- Loop through cursor
+        v_phone_list.EXTEND; -- Method to add new element to table at next index
+        v_phone_list(v_counter) := r_phone.phone_number; -- Add phone number to table variable at current index
+        v_counter := v_counter + 1; -- Increment counter
+    END LOOP;
+
+    DBMS_OUTPUT.PUT_LINE('Employee Name: ' || emp_name); -- Print employee name
+    DBMS_OUTPUT.PUT_LINE('Employee Department: ' || emp_department); -- Print employee department
+    DBMS_OUTPUT.PUT_LINE('Employee Address: ' || emp_address.street || ', ' || emp_address.city || ', ' || emp_address.state || ' ' || emp_address.zip_code); -- Print employee address
+    DBMS_OUTPUT.PUT_LINE('Employee Phone Numbers: '); -- Print label for phone numbers
+    FOR i IN v_phone_list.FIRST..v_phone_list.LAST LOOP -- Loop through table variable
+        DBMS_OUTPUT.PUT_LINE(v_phone_list(i)); -- Print phone numbers
+    END LOOP;
+END;
+/ -- End procedure definition

@@ -1,0 +1,67 @@
+%code {
+    #include <stdio.h>
+    #include <stdlib.h>
+    int token, lineno = 1;
+    char *buffer
+    #define SIZE 100
+}
+%token <str> ID
+%token <num> NUM
+%type <str> mystr
+%type <num> mynum
+%right '+' '-'
+%left '*' '/'
+%%
+start: expr { printf("Final result: %d", $1); }
+    ;
+expr: NUM { $$ = $1; }
+    | mystr { printf("Error: Expected a number on line %d, got string instead.", lineno); exit(EXIT_FAILURE); }
+    | expr '+' factor { $$ = $1 + $3; }
+    | expr '-' factor { $$ = $1 - $3; }
+    | expr '*' factor { $$ = $1 * $3; }
+    | expr '/' factor { $$ = $1 / $3; }
+    ;
+factor: NUM { $$ = $1; }
+    | '(' expr ')' { $$ = $2; }
+    ;
+mystr: ID { $$ = (char*)malloc(sizeof(char)*SIZE); strcpy($$, yytext); }
+    | mystr '+' ID { strcat($$, yytext); }
+    ;
+mynum: NUM { $$ = atoi(yytext); }
+    | mynum '*' NUM { $$ = $1 * atoi(yytext); }
+    ;
+%%
+int main(void) {
+    buffer = (char*)malloc(sizeof(char)*SIZE);
+    printf("Enter an arithmetic expression: ");
+    scanf("%[^\n]", buffer);
+    yyparse();
+    return 0;
+}
+int yyerror(const char *msg) {
+    printf("%s on line %d", msg, lineno);
+    exit(EXIT_FAILURE);
+}
+int yywrap(void) {
+    return 0;
+}
+int yylex() {
+    char c;
+    while((c = getchar()) != EOF && isspace(c));
+    if(c == EOF) return 0;
+    if(isdigit(c)) {
+        ungetc(c, stdin);
+        scanf("%d", &token);
+        return NUM;
+    }
+    if(isalpha(c)) {
+        ungetc(c, stdin);
+        scanf("%[a-zA-Z0-9_]", buffer);
+        return ID;
+    }
+    if(c == '+') return '+';
+    if(c == '-') return '-';
+    if(c == '*') return '*';
+    if(c == '/') return '/';
+    return c;
+}

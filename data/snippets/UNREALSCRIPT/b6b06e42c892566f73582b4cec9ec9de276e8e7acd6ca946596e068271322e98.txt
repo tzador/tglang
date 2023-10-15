@@ -1,0 +1,56 @@
+//This snippet creates a custom projectile class with additional properties and functions.
+
+class CustomProjectile extends Projectile;
+
+var() float CustomDamage; //Damage value for this projectile
+var() Material CustomTrailMaterial; //Material used for the trail effect
+var() float ProjectileLifetime; //Lifetime of the projectile in seconds
+var() float ExplosionRadius; //Radius for explosion damage
+var bool bExplodeOnImpact; //Flag for exploding on impact
+
+function InitProjectile(Vector Direction, float StartSpeed)
+{
+    Super.InitProjectile(Direction, StartSpeed);
+    //Set initial values for custom properties
+    CustomDamage = 25.0;
+    CustomTrailMaterial = Material'FX_Particles.Trail.P_Trail03_Gold';
+    ProjectileLifetime = 5.0;
+    ExplosionRadius = 100.0;
+    bExplodeOnImpact = true;
+}
+
+function ReplicateInitialBounce(Vector HitNormal)
+{
+    Super.ReplicateInitialBounce(HitNormal);
+    //Check if projectile should explode on impact
+    if (bExplodeOnImpact)
+        Explode();
+}
+
+function Tick(float DeltaTime)
+{
+    Super.Tick(DeltaTime);
+    //Check if projectile has exceeded its lifetime
+    if (LifeSpan > ProjectileLifetime)
+        Destroy();
+}
+
+function Explode()
+{
+    //Play explosion particle effect at current location
+    SpawnEmitter(ParticleSystem'FX_Particles.Explosion.P_Explosion',,, Location);
+    //Get a list of all actors in explosion radius
+    local array<Actor> OverlappedActors;
+    GetActorsInRadius(OverlappedActors, Location, ExplosionRadius, Class);
+    //Loop through list and apply damage to each actor
+    for (local Actor OverlappedActor in OverlappedActors)
+    {
+        //Skip over any actors that are not pawns
+        if (!OverlappedActor.IsA('Pawn'))
+            continue;
+        local Pawn OverlappedPawn;
+        OverlappedPawn = Pawn(OverlappedActor);
+        //Apply damage to pawn based on custom damage value
+        OverlappedPawn.TakeDamage(CustomDamage, InstigatorController.Pawn,, Location, vect(0,0,0));
+    }
+}

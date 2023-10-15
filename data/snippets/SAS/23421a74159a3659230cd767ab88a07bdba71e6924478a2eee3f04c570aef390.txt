@@ -1,0 +1,31 @@
+/* This is a SAS code snippet that creates a random sample and performs logistic regression on the data. */
+
+/* First, we create a random sample of 1000 observations from the dataset "customers". */
+data customers_sample;
+	set customers;
+	seed = 1234; /* setting the seed for reproducibility */
+	call streaminit(seed);
+	/* using the RAND function to generate a random number between 0 and 1 for each observation */
+	rand = rand("uniform");
+	keep customer_id rand; /* keeping only the customer id and random number in the sample */
+run;
+
+/* Next, we create a dummy variable for the target variable "purchased" which takes value 1 if the customer purchased and 0 if not. */
+data customers_sample2;
+	set customers_sample;
+	if purchased = "Yes" then target = 1 else target = 0;
+run;
+
+/* Then, we perform a logistic regression to predict the likelihood of a customer making a purchase based on their income, age, and gender. */
+proc logistic data = customers_sample2;
+	model target(event = '1') = income age gender; /* using the LOGISTIC procedure and specifying the target variable and predictor variables */
+	score data = customers_sample2 out = predictions; /* scoring the model and outputting the results to a dataset called "predictions" */
+run;
+
+/* Finally, we output the predicted probabilities for each customer and group them into quartiles for further analysis. */
+proc rank data = predictions out = predictions_ranked groups = 4; /* using the RANK procedure to group the predicted probabilities into 4 quartiles */
+	rank quartile; /* specifying the variable to be created for the quartile groups */
+	var P_yes; /* specifying the variable to rank, in this case the predicted probability of making a purchase */
+run;
+
+/* The final dataset "predictions_ranked" contains the predicted probabilities for each customer and their respective quartile group. */

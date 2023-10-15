@@ -1,0 +1,117 @@
+// This program implements a linear regression algorithm on a dataset
+package main
+
+import (
+	"encoding/csv"
+	"fmt"
+	"log"
+
+	"github.com/gonum/floats"
+	"github.com/gonum/matrix/mat64"
+)
+
+func main() {
+	// Load the dataset from a CSV file
+	file, err := os.Open("dataset.csv")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	// Read the CSV data as a [][]string
+	rows, err := csv.NewReader(file).ReadAll()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Parse the CSV data into []float64
+	xData, yData := parseData(rows)
+
+	// Normalize the data
+	xData = normalizeData(xData)
+	yData = normalizeData(yData)
+
+	// Create a matrix from the xData slice
+	xMat := mat64.NewDense(len(xData), 2, addIntercept(xData))
+
+	// Create a vector from the yData slice
+	yVec := mat64.NewVector(len(yData), yData)
+
+	// Create a new 2x2 identity matrix
+	identity := mat64.NewDiagonalIdentity(2)
+
+	// Create a new 2x1 zero vector
+	theta := mat64.NewVector(2, nil)
+
+	// Run gradient descent to update theta
+	theta, err = gradientDescent(xMat, yVec, theta, identity, 0.01, 10000)
+
+	// Make predictions on test data
+	xTest := []float64{1.0, 5.0}
+	yPred := predict(xTest, theta)
+
+	// Print the predicted value for xTest
+	fmt.Printf("Predicted value for xTest: %.2f\n", yPred)
+}
+
+// Function that parses the raw CSV data into []float64
+func parseData(rows [][]string) (xData, yData []float64) {
+	for _, row := range rows {
+		xData = append(xData, parseFloat(row[0]))
+		yData = append(yData, parseFloat(row[1]))
+	}
+	return xData, yData
+}
+
+// Function that converts the []float64 into a normalized range of 0-1
+func normalizeData(data []float64) []float64 {
+	min := floats.Min(data)
+	max := floats.Max(data)
+	for i, val := range data {
+		data[i] = (val - min) / (max - min)
+	}
+	return data
+}
+
+// Function that adds a column of 1's to the beginning of the data matrix
+func addIntercept(data []float64) [][]float64 {
+	dataWithIntercept := make([][]float64, len(data), len(data)+1)
+	for i, val := range data {
+		dataWithIntercept[i] = append([]float64{1.0}, val)
+	}
+	return dataWithIntercept
+}
+
+// Function that implements gradient descent to update theta
+func gradientDescent(xMat *mat64.Dense, yVec *mat64.Vector, theta *mat64.Vector, identity *mat64.Dense, alpha float64, iterations int) (*mat64.Vector, error) {
+	var err error
+	for i := 0; i < iterations; i++ {
+		predictions := mat64.NewDense(xMat.RawMatrix().Rows, 1, nil)
+		predictions.Mul(xMat, theta)
+		errors := mat64.NewDense(xMat.RawMatrix().Rows, 1, nil)
+		errors.Sub(predictions, yVec)
+		gradients := mat64.NewDense(2, 1, nil)
+		gradients.Mul(identity, errors)
+		gradients.Scale(alpha, gradients)
+		theta.Sub(theta, gradients.ColView(0))
+	}
+	return theta, err
+}
+
+// Function that makes predictions on new data using the calculated theta values
+func predict(xData []float64, theta *mat64.Vector) float64 {
+	xVec := mat64.NewVecDense(len(xData), nil)
+	xVec.SetVec(0, 1.0)
+	xVec.SetVec(1, xData[0])
+	prediction := mat64.Dot(xVec, theta)
+	return prediction
+}
+
+// Function that converts a string to a float64
+func parseFloat(str string) float64 {
+	val, err := strconv.ParseFloat(str, 64)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return val
+}

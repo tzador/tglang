@@ -1,0 +1,73 @@
+# Set up CMake version and project name 
+cmake_minimum_required(VERSION 3.12)
+project(my_project)
+
+# Add a library target
+add_library(my_library STATIC 
+    lib1.cpp
+    lib2.cpp
+)
+
+# Set include directories for library
+target_include_directories(my_library PRIVATE include)
+
+# Set compiler options for library
+target_compile_options(my_library PRIVATE -Wall -Wextra -pedantic)
+
+# Set up options for configuring executable
+option(ENABLE_TESTS "Enable unit tests" OFF)
+option(ENABLE_COVERAGE "Enable code coverage" OFF)
+
+# Add an executable target
+add_executable(my_executable main.cpp)
+
+# Set dependencies for executable
+target_link_libraries(my_executable PRIVATE my_library)
+
+# Set compiler options for executable
+target_compile_options(my_executable PRIVATE -O3)
+
+# If ENABLE_TESTS is turned on
+if (ENABLE_TESTS)
+    # Download and set up GoogleTest library
+    include(ExternalProject)
+    ExternalProject_Add(googletest
+        PREFIX ${CMAKE_BINARY_DIR}/gtest
+        URL https://github.com/google/googletest/archive/release-1.10.0.tar.gz
+        TIMEOUT 600
+        INSTALL_COMMAND ""
+    )
+    ExternalProject_Get_Property(googletest source_dir binary_dir)
+    set(GTEST_INCLUDE_DIRS ${source_dir}/googletest/include)
+    set(GTEST_LIBRARIES_DIR ${binary_dir}/googlemock/gtest)
+    set(GTEST_LIBRARIES gtest)
+    add_dependencies(googletest my_executable)
+    enable_testing()
+  
+    # Add unit tests target
+    add_executable(my_tests test.cpp)
+    target_link_libraries(my_tests PRIVATE ${GTEST_LIBRARIES})
+    target_include_directories(my_tests PRIVATE include "${GTEST_INCLUDE_DIRS}")
+    target_link_directories(my_tests PRIVATE "${GTEST_LIBRARIES_DIR}")
+    add_test(my_tests my_tests)
+  
+    # If ENABLE_COVERAGE is turned on
+    if (ENABLE_COVERAGE)
+        # Set compiler options for coverage 
+        target_compile_options(my_tests PRIVATE --coverage)
+        
+        # Set linker options for coverage
+        target_link_options(my_tests PRIVATE --coverage)
+
+        # Generate code coverage report
+        include(CodeCoverage)
+        append_coverage_compiler_flags()
+        setup_target_for_coverage_lcov(
+            NAME coverage                # Name for custom target.
+            EXECUTABLE my_tests # Name of the test driver executable that runs the tests.
+                                    # This is assumed to be in the build directory.
+            DEPENDENCIES my_tests # Dependencies of the custom target to build first.
+                                   # This is assumed to be in the build directory.
+        )
+    endif()
+endif()

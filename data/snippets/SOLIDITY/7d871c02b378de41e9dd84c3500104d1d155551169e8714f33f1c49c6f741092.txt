@@ -1,0 +1,73 @@
+pragma solidity ^0.8.0;
+
+contract Voting {
+    address public manager;
+    mapping(address => bool) public voters;
+    mapping(string => uint) public candidateVoteCount;
+    mapping(string => bool) public candidateNames;
+    
+    constructor() {
+        manager = msg.sender;
+    }
+    
+    modifier restricted() {
+        require(msg.sender == manager, "Only manager can perform this action");
+        _;
+    }
+    
+    modifier onlyVoter() {
+        require(voters[msg.sender], "Only registered voters can perform this action");
+        _;
+    }
+
+    enum CandidateState { Running, Ended, Withdrawn }
+    struct Candidate {
+        string name;
+        CandidateState state;
+    }
+    
+    event CandidateAdded(string name);
+    event CandidateEnded(string name);
+    
+    Candidate[] public candidates;
+    
+    function addCandidate(string memory name) public restricted {
+        require(!candidateNames[name], "Candidate name already exists");
+        candidates.push(Candidate(name, CandidateState.Running));
+        candidateNames[name] = true;
+        emit CandidateAdded(name);
+    }
+    
+    function endCandidate(string memory name) public restricted {
+        require(candidateNames[name], "Candidate name does not exist");
+        for (uint i = 0; i < candidates.length; i++) {
+            if (keccak256(abi.encodePacked(candidates[i].name)) == keccak256(abi.encodePacked(name))) {
+                require(candidates[i].state == CandidateState.Running, "Candidate has already ended");
+                candidates[i].state = CandidateState.Ended;
+                emit CandidateEnded(name);
+                break;
+            }
+        }
+    }
+    
+    function withdrawCandidate(string memory name) public onlyVoter {
+        require(candidateNames[name], "Candidate name does not exist");
+        for (uint i = 0; i < candidates.length; i++) {
+            if (keccak256(abi.encodePacked(candidates[i].name)) == keccak256(abi.encodePacked(name))) {
+                require(candidates[i].state == CandidateState.Running, "Candidate has already ended");
+                candidates[i].state = CandidateState.Withdrawn;
+                emit CandidateEnded(name);
+                break;
+            }
+        }
+    }
+    
+    function vote(string memory candidateName) public onlyVoter {
+        require(candidateNames[candidateName], "Candidate name does not exist");
+        require(candidates.length > 0, "No candidates added");
+        require(candidates[0].state == CandidateState.Running, "Voting has ended");
+        require(!voters[msg.sender], "Cannot vote more than once");
+        candidateVoteCount[candidateName]++;
+        voters[msg.sender] = true;
+    }
+}

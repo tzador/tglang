@@ -1,0 +1,120 @@
+# NGINX configuration file
+
+# Sets the number of worker processes that will be created to handle requests
+# The value should be equal to the number of CPU cores available
+worker_processes        auto;
+
+# Sets the maximum number of simultaneous connections that can be opened by each worker process
+# A higher value allows for more concurrent connections but may use more memory
+worker_connections    1024;
+
+# Defines the user and group for the main NGINX processes
+user  www-data;
+
+# Defines the maximum file descriptors that can be opened by this process
+# A higher value allows for more concurrent connections but may use more memory
+worker_rlimit_nofile   8192;
+
+# Configures the error logging level
+# Possible values are debug, info, notice, warn, error, crit, alert, emerg
+error_log  /var/log/nginx/error.log notice;
+
+# Configures the path and format for the process ID file
+pid        /var/run/nginx.pid;
+
+# Defines the location of the NGINX server root, where configuration files and static files are stored
+root  /var/www/html;
+
+# Specifies the default file to serve when a user visits the server
+index  index.html;
+
+# Defines server block for the default server configuration
+server {
+    # Listen on port 80 for incoming requests
+    listen       80 default_server;
+    # Defines the server_name, which can be a domain name or IP address
+    server_name  localhost;
+    
+    # Specifies the root directory for this server block
+    root  /var/www/html;
+    
+    # Specifies the default file to serve when a user visits this server block
+    index  index.html;
+    
+    # Defines the location and properties of the server's error pages
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html {
+        root  /var/www/html;
+    }
+
+    # Defines the location of the server's static files
+    # This can be a directory or a wildcard route
+    # Any file that is requested from this location will be served directly
+    location /static {
+        root  /var/www/html;
+    }
+    
+    # Defines a proxy for handling requests to backend servers
+    location /api/ {
+        # Sets the URL of the backend server
+        proxy_pass  http://backend_server;
+        
+        # Defines the timeout for proxied requests
+        proxy_read_timeout 300;
+        
+        # Sets any additional header fields to be passed to the backend server
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header Host $http_host;
+    }
+}
+
+# Defines server block for a secondary server configuration
+server {
+    # Listen on port 443 for SSL requests
+    listen       443 ssl;
+    
+    # Specifies the server_name, which can be a domain name or IP address
+    server_name  example.com;
+    
+    # Specifies the root directory for this server block
+    root  /var/www/html;
+    
+    # Specifies the certificate and key files for SSL encryption
+    ssl_certificate      /etc/ssl/certs/example.com.crt;
+    ssl_certificate_key  /etc/ssl/private/example.com.key;
+    
+    # Defines the location of the server's static files
+    # This can be a directory or a wildcard route
+    # Any file that is requested from this location will be served directly
+    location /static {
+        root  /var/www/html;
+        # Enables caching of static files for improved performance
+        expires 1d;
+        
+        # Defines the behavior when a file is not found
+        error_page 404 = @fallback;
+    }
+
+    # Defines a proxy for handling requests to backend servers
+    location /api/ {
+        # Sets the URL of the backend server
+        proxy_pass  http://backend_server;
+        
+        # Defines the timeout for proxied requests
+        proxy_read_timeout 300;
+        
+        # Sets any additional header fields to be passed to the backend server
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header Host $http_host;
+    }
+    
+    # Defines a fallback location for when a static file is not found in the /static location
+    location @fallback {
+        # Sets the URL of the 404 error page
+        error_page 404 /404.html;
+        # Defines the path of the 404 error page
+        root  /var/www/html;
+        # Sets the internal redirect for the 404 error page
+        internal;
+    }
+}

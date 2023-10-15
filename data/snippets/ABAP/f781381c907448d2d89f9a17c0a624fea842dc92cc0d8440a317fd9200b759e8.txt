@@ -1,0 +1,91 @@
+*&---------------------------------------------------------------------
+*& Report ZDEMO_TABLE
+*&---------------------------------------------------------------------
+*
+* This report creates a demonstration table with separate static and
+* dynamic columns
+*
+*----------------------------------------------------------------------
+
+REPORT zdemo_table.
+
+*----------------------------------------------------------------------*
+*  Declaration of Macros
+*----------------------------------------------------------------------*
+
+* Macro for adding the control level to the table
+DEFINE add_control_level.
+  data:
+    flag TYPE flag,
+    level TYPE c LENGTH 1.
+
+  IF flag EQ abap_true.
+    CONTROLS:
+      control_level TYPE currentlevel AS CHECKBOX.
+  ENDIF.
+END-OF-DEFINITION.
+
+* Macro for adding the fields to the table
+DEFINE add_fields.
+  field-symbols:
+    <field> TYPE any.
+  loop at it_fields.
+    assign it_fields-field to <field>.
+    IF sy-subrc EQ 0.
+      ADD SECTION TEXTLINE sy-lsind(20) +'(' sy-lsind(1) ').
+      FIELD <field>.
+      ADD SECTION TEXTLINE').
+    ENDIF.
+  endloop.
+END-OF-DEFINITION.
+
+*----------------------------------------------------------------------*
+*  Declaration of Types and Data
+*----------------------------------------------------------------------*
+
+* Type declarations
+TYPES:
+  BEGIN OF ty_fields,
+    field TYPE string,
+  END OF ty_fields.
+
+* Data declarations
+DATA:
+  it_fields TYPE STANDARD TABLE OF ty_fields,
+  wa_fields TYPE ty_fields.
+
+*----------------------------------------------------------------------*
+*  Initialization
+*----------------------------------------------------------------------*
+INITIALIZATION.
+* Filling the fields table
+wa_fields-field = 'Field 1'.
+APPEND wa_fields TO it_fields.
+wa_fields-field = 'Field 2'.
+APPEND wa_fields TO it_fields.
+wa_fields-field = 'Field 3'.
+APPEND wa_fields TO it_fields.
+
+*&---------------------------------------------------------------------*
+*&      START-OF-SELECTION
+*&---------------------------------------------------------------------*
+START-OF-SELECTION.
+* Creating the dynamic table control
+DATA:
+  lo_table TYPE REF TO cl_gui_alv_grid,
+  wa_fields TYPE lvc_s_fcat.
+
+* Loop at fields table and add fields dynamically
+LOOP AT it_fields INTO wa_fields.
+  CALL METHOD lo_table->set_table_for_first_display
+    EXPORTING
+      i_structure_name       = 'TY_FIELDS'
+      is_variant             = wa_fields
+    CHANGING
+      it_outtab              = it_fields.
+ENDLOOP.
+
+* Add control level
+add_control_level flag = abap_true.
+* Add fields to table
+add_fields.

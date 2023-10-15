@@ -1,0 +1,54 @@
+pro mapgrid, image, longitude, latitude, xrange, yrange, /device, /aspect, /nodata, dim=0
+;
+;Produce a map grid around the given image using the longitude and latitude coordinates
+;and specified x and y ranges.
+;
+;Parameters:
+;   image: input image
+;   longitude: array of longitude coordinates
+;   latitude: array of latitude coordinates
+;   xrange: x range around image center
+;   yrange: y range around image center
+;   /device: optional keyword indicating the image should be displayed on a graphics device
+;   /aspect: optional keyword to maintain aspect ratio of image
+;   /nodata: optional keyword to ignore pixels with nodata values
+;   dim: optional keyword to specify which dimension of the image to use (default=0)
+;
+; Returns:
+;   Image displayed on graphics device or returned as an array, depending on the presence
+;   of the /device keyword
+; 
+
+  ;Define grid spacing
+  dx = (xrange[1] - xrange[0]) / (n_elements(longitude) - 1)
+  dy = (yrange[1] - yrange[0]) / (n_elements(latitude) - 1)
+
+  ;Calculate image corners
+  x1 = longitude[0] - xrange[0]
+  x2 = longitude[n_elements(longitude) - 1] + xrange[1]
+  y1 = latitude[0] - yrange[0]
+  y2 = latitude[n_elements(latitude) - 1] + yrange[1]
+
+  ;Create map image
+  map = bytarr(n_elements(latitude), n_elements(longitude))
+
+  ;Loop through pixels and assign values
+  for y=0L, n_elements(latitude)-1 do begin
+    for x=0L, n_elements(longitude)-1 do begin
+      map[y,x] = image[x1+dx*x, y1+dy*y]
+    endfor
+  endfor
+
+  ;Check for nodata values
+  if keyword_set(nodata) then begin
+    mask = where(map eq nodata, count)
+    if count gt 0 then map[mask] = 0
+  endif
+
+  ;Display image on graphics device if /device keyword is present or return array
+  if keyword_set(device) then begin
+    tv, map, /aspect
+  endif else begin
+    return, map
+  endelse
+end

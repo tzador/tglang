@@ -1,0 +1,52 @@
+*&---------------------------------------------------------------------*
+*& Report ZDEMO_REPORT
+*&---------------------------------------------------------------------*
+*& This report contains a complex ABAP program
+*&---------------------------------------------------------------------*
+REPORT ZDEMO_REPORT.
+
+*&---------------------------------------------------------------------*
+*& Internal table declaration
+*&---------------------------------------------------------------------*
+DATA: lt_orders TYPE TABLE OF zorders,
+      lt_products TYPE TABLE OF zproducts.
+
+*&---------------------------------------------------------------------*
+*& Select data from orders table
+*&---------------------------------------------------------------------*
+SELECT * FROM zorders INTO CORRESPONDING FIELDS OF TABLE lt_orders
+  WHERE country = 'United States'
+  AND order_date BETWEEN '20210101' AND '20210930'.
+
+*&---------------------------------------------------------------------*
+*& Loop through orders table
+*&---------------------------------------------------------------------*
+LOOP AT lt_orders INTO ls_orders.
+  *&---------------------------------------------------------------------*
+  *& Select data from products table
+  *&---------------------------------------------------------------------*
+  SELECT * FROM zproducts INTO CORRESPONDING FIELDS OF TABLE lt_products
+    WHERE order_id = ls_orders-order_id.
+
+  *&---------------------------------------------------------------------*
+  *& Perform complex calculation on product data
+  *&---------------------------------------------------------------------*
+  LOOP AT lt_products ASSIGNING FIELD-SYMBOL(<fs_products>).
+    <fs_products>prod_price = <fs_products>quantity * <fs_products>unit_price * 1.10.
+    <fs_products>vat_amount = <fs_products>prod_price * 0.15.
+    <fs_products>total_price = <fs_products>prod_price + <fs_products>vat_amount.
+
+    *&---------------------------------------------------------------------*
+    *& Update product data in database
+    *&---------------------------------------------------------------------*
+    MODIFY zproducts FROM <fs_products>.
+  ENDLOOP.
+ENDLOOP.
+
+*&---------------------------------------------------------------------*
+*& Display results
+*&---------------------------------------------------------------------*
+WRITE: 'Products with updated prices and VAT:'.
+LOOP AT lt_products.
+  WRITE: / lt_products-product_name, lt_products-total_price.
+ENDLOOP.

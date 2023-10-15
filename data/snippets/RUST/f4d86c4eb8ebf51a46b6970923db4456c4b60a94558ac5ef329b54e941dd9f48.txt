@@ -1,0 +1,62 @@
+#![allow(dead_code)]
+use std::{ io::Read, net::TcpListener };
+use log::{ info, error };
+use hyper::{ Client, Response, Body, Request, Method, StatusCode };
+use futures::{ Future, Stream };
+use tokio_io::{ io as tokio_io, AsyncRead };
+use tokio::prelude::*;
+use tokio::net::TcpStream;
+use tokio::codec::{ FramedRead, LinesCodec };
+use tokio::runtime::Runtime;
+
+fn main() {
+    let listener = TcpListener::bind("127.0.0.1:8080").unwrap();
+
+    for stream in listener.incoming() {
+        match stream {
+            Ok(stream) => {
+                let _ = std::thread::spawn(move || {
+                    let mut rt = Runtime::new().unwrap();
+                    handle_request(stream).map(|_| ())
+                                      .map_err(|_| ())
+                                      .into_future();
+                    let res = rt.block_on(future).unwrap();
+                });
+            }
+            Err(err) => {
+                error!("Error while handling stream: {:?}", err);
+            }
+        }
+    }
+}
+
+fn handle_request(stream: TcpStream) -> impl Future<Item = (), Error = ()> + Send {
+    let mut client = Client::new();
+
+    let mut rt = Runtime::new().unwrap();
+    let handle = rt.spawn(client.get("https://www.google.com".parse().unwrap())
+        .map_err({ |_| () })
+        .and_then(move |r| {
+            let (mut p1, mut p2) = tokio_io::duplex(stream);
+            let body: Body = r.into_body();
+
+            let p1 = tokio_io::write_all(p1, body)
+                .map_err(|_| ());
+            let p2 = FramedRead::new(p2, LinesCodec::new())
+                .for_each(|line| {
+                    info!("{}", line);
+                    Ok(())
+                })
+                .map(|_| ())
+                .map_err(|_| ());
+
+            tokio::spawn(p1);
+            tokio::spawn(p2);
+
+            tokio::timer::Delay::new(std::time::Instant::now() + std::time::Duration::from_secs(10))
+                .map_err(|e| error!("timer failed; error={:?}", e))
+                .map(|_| ())
+        }));
+    let handle = handle.map_err(|_| ());
+    rt.block_on(handle).unwrap()
+}

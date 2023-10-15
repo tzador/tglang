@@ -1,0 +1,35 @@
+- name: Build and Deploy
+  hosts: all
+  vars:
+    ansible_python_interpreter: /usr/bin/python3 # Specifies the path to the python interpreter for Ansible
+    redis_version: 6.2.4
+  tasks:
+    - name: Download Redis tarball
+      get_url:
+        url: https://download.redis.io/releases/redis-{{ redis_version }}.tar.gz
+        dest: /tmp/redis.tar.gz
+      register: download_result # Stores the result of the task in a variable to be used later
+
+    - name: Unpack Redis tarball
+      shell: tar -xzf /tmp/redis.tar.gz --directory /opt
+      when: download_result is succeeded # Only run this task if download_result was successful
+
+    - name: Compile Redis
+      pip: name=redis version={{ redis_version }}
+      when: download_result is succeeded # Only run this task if download_result was successful
+
+    - name: Create Redis service file
+      template:
+        src: redis.service.j2
+        dest: /etc/systemd/system/redis.service # Creates and configures a service file for Redis
+      notify: restart redis # Sends a notification to the handler to restart Redis if the service file is changed
+
+    - name: Start Redis service
+      service:
+        name: redis
+        state: started # Starts the Redis service
+
+    - name: Enable Redis service
+      service:
+        name: redis
+        enabled: yes # Enables the Redis service to start on boot

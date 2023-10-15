@@ -1,0 +1,33 @@
+/**
+ * This code snippet is a customized trigger that updates Account fields
+ * when a related Opportunity is created or updated.
+ */
+trigger UpdateAccountFields on Opportunity (after insert, after update) {
+    // Collect all related Accounts in a set
+    Set<Id> accountIds = new Set<Id>();
+    for (Opportunity opp : Trigger.new) {
+        accountIds.add(opp.AccountId);
+    }
+    // Retrieve all related Accounts and update fields
+    List<Account> relatedAccounts = [SELECT Id, Name, Industry FROM Account WHERE Id IN :accountIds];
+    for (Account acc : relatedAccounts) {
+        // Count the number of Closed Won Opportunities
+        Integer wonCount = 0; 
+        for (Opportunity opp : acc.Opportunities) {
+            if (opp.IsWon) {
+                wonCount++;
+            }
+        }
+        // Update Account fields based on wonCount value
+        if (wonCount >= 5) {
+            acc.Stage__c = 'Major Account';
+            acc.Customer_Success_Manager__c = UserInfo.getUserId();
+        }
+        else {
+            acc.Stage__c = 'Small/Mid-size Account';
+            acc.Customer_Success_Manager__c = null;
+        }
+    }
+    // Update related Accounts
+    update relatedAccounts;
+}

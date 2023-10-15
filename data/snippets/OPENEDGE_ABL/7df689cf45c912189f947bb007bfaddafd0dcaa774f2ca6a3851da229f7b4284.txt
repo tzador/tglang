@@ -1,0 +1,43 @@
+/* This program displays a list of employees and their salaries */
+DEFINE VARIABLE empNum AS INTEGER NO-UNDO INITIAL 0. /* Define an integer variable for employee number */
+DEFINE VARIABLE empName AS CHARACTER NO-UNDO. /* Define a character variable for employee name */
+DEFINE VARIABLE empSalary AS DECIMAL NO-UNDO FORMAT "zz9,999.99". /* Define a decimal variable for employee salary */
+
+DEFINE TEMP-TABLE empTable /* Define a temporary table to hold employee data */
+    FIELD empNum AS INTEGER
+    FIELD empName AS CHARACTER
+    FIELD empSalary AS DECIMAL
+INDEX empIndex IS PRIMARY empNum. /* Create an index for the temporary table */
+
+DEFINE VARIABLE numRecords AS INTEGER NO-UNDO INITIAL 0. /* Define an integer variable to hold the number of records in the table */
+
+INPUT FROM empData.txt. /* Open a text file containing employee data */
+REPEAT: /* Loop through each record in the file */
+    IMPORT empNum empName empSalary. /* Import employee data from file into defined variables */
+    CREATE empRow. /* Create a new row in the temporary table */
+    ASSIGN empRow.empNum = empNum /* Assign values from variables to the row */
+           empRow.empName = empName
+           empRow.empSalary = empSalary.
+    FIND FIRST empTable WHERE empTable.empNum = empNum NO-ERROR. /* Check if employee already exists in table */
+    IF AVAILABLE(empTable) THEN DO:  /* If employee exists, update their salary */
+        ASSIGN empTable.empSalary = empSalary.
+    END.
+    ELSE DO: /* If employee doesn't exist, add them to the table */
+        ASSIGN empTable.empNum = empNum
+               empTable.empName = empName
+               empTable.empSalary = empSalary.
+        numRecords = numRecords + 1. /* Increment number of records in table */
+    END.
+END.
+
+/* Display the list of employees and their salaries alphabetically */
+FOR EACH empTable BY empName:
+    DISPLAY empNum empName empSalary.
+END.
+
+/* Final output: The number of records in the table */
+DISPLAY "Number of records: " numRecords.
+
+/* Close the text file and delete the temporary table */
+INPUT CLOSE.
+DELETE OBJECT empTable.

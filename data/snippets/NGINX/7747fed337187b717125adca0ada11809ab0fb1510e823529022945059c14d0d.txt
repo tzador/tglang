@@ -1,0 +1,82 @@
+config
+# This is a sample NGINX configuration file
+
+# Set the number of worker processes based on the number of available CPU cores
+worker_processes auto;
+
+# Set the location of the error log file
+error_log /var/log/nginx/error.log;
+
+# Create a variable to store the root directory for the server
+root /var/www/example.com;
+
+# Define the default server block
+server {
+    # Listen on port 80 for HTTP connections
+    listen 80;
+
+    # Set the server name to be the IP address of the server
+    server_name _;
+
+    # Set the file to be served as the default index
+    index index.html;
+
+    # Set the location of the access log file
+    access_log /var/log/nginx/access.log;
+
+    # Set the location of the error pages
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+
+    # Configure the location of static assets
+    location /static/ {
+        alias /var/www/example.com/static/;
+        
+        # Enable caching for static assets
+        expires 1d;
+        add_header Cache-Control "public";
+    }
+
+    # Configure the location of media assets
+    location /media/ {
+        alias /var/www/example.com/media/;
+    }
+
+    # Use NGINX as a reverse proxy for a backend server
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000/;
+    }
+
+    # Set up server-side caching to improve performance
+    proxy_cache_path /tmp/cache levels=1:2 keys_zone=my_cache:10m inactive=60m;
+    proxy_cache_key "$scheme$request_method$host$request_uri";
+
+    # Serve server-side cached content if available, otherwise pass request to backend server
+    proxy_cache_valid 200 60m;
+    proxy_cache_bypass $http_pragma;
+    proxy_cache_revalidate on;
+    proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+
+    # Enable gzip compression to reduce response size
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    # Configure SSL settings
+    ssl_certificate /etc/nginx/ssl/example.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/example.com.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+
+    # Enable HTTP/2
+    http2_push_preload on;
+
+    # Set HTTP headers for security
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-Content-Type-Options "nosniff";
+    add_header X-XSS-Protection "1; mode=block";
+
+    # Disable serving of hidden files
+    location ~ /\. {
+        deny all;
+    }
+}

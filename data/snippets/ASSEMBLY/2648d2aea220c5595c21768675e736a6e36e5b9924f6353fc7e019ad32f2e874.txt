@@ -1,0 +1,81 @@
+; example code snippet in assembly language
+
+section .data
+    msg db 'Hello, world!', 0xA ; declaring a string and terminating character
+
+section .bss
+    num resb 4 ; declaring a 4-byte uninitialized variable
+
+section .text
+    global _start ; global label for starting execution
+
+_start:
+    ; initializing and printing a register value
+    mov eax, 10 ; move value 10 to eax register
+    mov ebx, 0 ; move value 0 to ebx register
+    mov ecx, eax ; move value of eax register to ecx register
+    add ecx, 48 ; add 48 to ecx register
+    mov [msg], ecx ; move value of ecx register to memory location of msg
+    mov eax, 4 ; move value 4 to eax register for sys_write call
+    mov ebx, 1 ; move value 1 to ebx register for stdout
+    mov ecx, msg ; move memory location of msg to ecx register
+    mov edx, 14 ; move value 14 (length of msg) to edx register
+    int 0x80 ; call interrupt to perform sys_write to stdout
+
+    ; reading input and storing in variable
+    mov eax, 3 ; move value 3 to eax register for sys_read call
+    mov ebx, 0 ; move value 0 to ebx register for stdin
+    mov ecx, num ; move memory location of num to ecx register
+    mov edx, 4 ; move value 4 (length of variable) to edx register
+    int 0x80 ; call interrupt to perform sys_read from stdin
+
+    ; converting input to integer
+    xor eax, eax ; clear eax register
+    mov ebx, 10 ; move value 10 to ebx register for base 10 conversion
+    mov ecx, num ; move memory location of num to ecx register
+    mov edx, 4 ; move value 4 (length of variable) to edx register
+    call str_to_int ; call function to convert string to integer
+    mov [num], eax ; move converted integer to memory location of num
+
+    ; printing value of variable
+    mov eax, 4 ; move value 4 to eax register for sys_write call
+    mov ebx, 1 ; move value 1 to ebx register for stdout
+    mov ecx, num ; move memory location of num to ecx register
+    mov edx, 4 ; move value 4 (length of variable) to edx register
+    int 0x80 ; call interrupt to perform sys_write to stdout
+
+    ; exit program
+    mov eax, 1 ; move value 1 to eax register for sys_exit call
+    xor ebx, ebx ; clear ebx register
+    int 0x80 ; call interrupt to perform sys_exit
+
+; function to convert string to integer
+str_to_int:
+    ; save registers on stack
+    push eax
+    push ecx
+    push edx
+
+    mov eax, 0 ; initialize sum to 0
+    mov ecx, 0 ; initialize counter to 0
+    mov edi, [esp+12] ; move memory location of string to edi register
+    mov esi, [esp+16] ; move base to esi register
+
+    loop_conversion:
+        ; check if end of string
+        cmp byte [edi+ecx], 0 ; compare current character to null character
+        je end_conversion ; if null character, end loop
+
+        ; convert string character to decimal value
+        sub byte [edi+ecx], 48 ; subtract 48 from character to get decimal value
+        mul esi ; multiply decimal value by base
+        add eax, dword [edi+ecx] ; add decimal value to sum
+        inc ecx ; increment counter
+        jmp loop_conversion ; loop until end of string
+
+    end_conversion:
+        ; restore registers from stack
+        pop edx
+        pop ecx
+        pop eax
+        ret ; return from function, value now in eax

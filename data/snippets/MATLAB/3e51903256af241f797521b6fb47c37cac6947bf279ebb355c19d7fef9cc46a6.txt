@@ -1,0 +1,58 @@
+% This code snippet performs linear discriminant analysis on a dataset
+% with multiple classes.
+
+% Load dataset
+load fisheriris
+
+% Separate input features and class labels
+X = meas;
+Y = species;
+
+% Define number of classes
+numClasses = length(unique(Y));
+
+% Perform principal component analysis to reduce dataset dimension
+[coef, score] = pca(X);
+
+% Create class mean vector
+classMean = zeros(size(X, 2), numClasses);
+for i = 1:numClasses
+    index = find(Y == unique(Y(i)));
+    classMean(:,i) = mean(score(index, :))';
+end
+
+% Calculate within-class scatter matrix
+S_W = zeros(size(X,2), size(X,2));
+for i = 1:numClasses
+    index = find(Y == unique(Y(i)));
+    temp = score(index, :) - repmat(classMean(:,i)', length(index),1);
+    S_W = S_W + temp'*temp;
+end
+
+% Calculate between-class scatter matrix
+S_B = zeros(size(X,2), size(X,2));
+globalMean = mean(score);
+for i = 1:numClasses
+    Ni = length(find(Y == unique(Y(i))));
+    temp = classMean(:,i)' - globalMean';
+    S_B = S_B + Ni*(temp'*temp);
+end
+
+% Compute Fisher discriminants (projection vectors)
+[V, D] = eig(S_W\S_B);
+
+% Sort eigenvalues in descending order
+[~, index] = sort(diag(D), 'descend');
+
+% Keep only the first (numClasses-1) eigenvectors
+W = V(:, index(1:numClasses-1));
+
+% Project data onto Fisher discriminants
+X_lda = score * W;
+
+% Plot the projections
+figure 
+g = gscatter(X_lda(:,1),X_lda(:,2),species);
+for i = 1:numClasses
+    set(g(i), 'MarkerFaceColor', g(i).Color)
+end

@@ -1,0 +1,111 @@
+/**
+ * @title Escrow
+ * @dev The Escrow contract acts as an intermediate for secure transaction between buyer and seller
+ */
+contract Escrow {
+    address public buyer; // address of the buyer
+    address public seller; // address of the seller
+    address public arbiter; // address of the arbiter, who can step in and settle dispute if any
+
+    bool public buyerApproved; // true if the buyer has approved the transaction
+    bool public sellerApproved; // true if the seller has approved the transaction
+
+    uint256 public price; // price of the transaction
+
+    // Events for logging
+    event BuyerApproved(address buyer);
+    event SellerApproved(address seller);
+    event ArbiterSet(address arbiter);
+    event PriceSet(uint256 price);
+    event FundsDeposited(address depositor, uint256 amount);
+    event FundsReleased(uint256 amount);
+    event FundsRefunded(uint256 amount);
+
+    /**
+     * @dev Constructor function that sets the initial values
+     * @param _buyer Address of the buyer
+     * @param _seller Address of the seller
+     * @param _arbiter Address of the arbiter
+     * @param _price Price of the transaction
+     */
+    constructor(address _buyer, address _seller, address _arbiter, uint256 _price) public {
+        buyer = _buyer;
+        seller = _seller;
+        arbiter = _arbiter;
+        price = _price;
+    }
+
+    /**
+     * @dev Function to approve the transaction as a buyer
+     */
+    function approveAsBuyer() public {
+        require(msg.sender == buyer && !buyerApproved); // only the buyer can approve the transaction and can only approve once
+        buyerApproved = true;
+        emit BuyerApproved(buyer);
+    }
+
+    /**
+     * @dev Function to approve the transaction as a seller
+     */
+    function approveAsSeller() public {
+        require(msg.sender == seller && !sellerApproved); // only the seller can approve the transaction and can only approve once
+        sellerApproved = true;
+        emit SellerApproved(seller);
+    }
+
+    /**
+     * @dev Function to set the arbiter who will settle disputes if any
+     * @param _arbiter Address of the arbiter
+     */
+    function setArbiter(address _arbiter) public {
+        require(msg.sender == buyer || msg.sender == seller); // only the buyer or seller can set the arbiter
+        arbiter = _arbiter;
+        emit ArbiterSet(arbiter);
+    }
+
+    /**
+     * @dev Function to set the price of the transaction
+     * @param _price Price of the transaction
+     */
+    function setPrice(uint256 _price) public {
+        require(msg.sender == buyer || msg.sender == seller); // only the buyer or seller can set the price
+        price = _price;
+        emit PriceSet(price);
+    }
+
+    /**
+     * @dev Function to deposit funds into the Escrow contract
+     */
+    function depositFunds() public payable {
+        require(msg.value == price); // funds deposited should be equal to the price of the transaction
+        emit FundsDeposited(msg.sender, msg.value);
+    }
+
+    /**
+     * @dev Function to release funds to the seller after the transaction has been approved by both buyer and seller
+     */
+    function releaseFunds() public {
+        require(buyerApproved && sellerApproved); // funds can only be released if both buyer and seller have approved the transaction
+        address payable _seller = address(uint160(seller)); // casting seller address to payable
+        _seller.transfer(price); // transferring funds to the seller
+        emit FundsReleased(price);
+    }
+
+    /**
+     * @dev Function to refund funds to the buyer if the transaction is canceled
+     */
+    function refundFunds() public {
+        require(!buyerApproved || !sellerApproved); // funds can only be refunded if the transaction is not approved by both buyer and seller
+        address payable _buyer = address(uint160(buyer)); // casting buyer address to payable
+        _buyer.transfer(price); // transferring funds back to the buyer
+        emit FundsRefunded(price);
+    }
+
+    /**
+     * @dev Function to get the balance of the Escrow contract
+     * @return Balance of the Escrow contract
+     */
+    function getBalance() public view returns (uint256) {
+        return address(this).balance;
+    }
+}

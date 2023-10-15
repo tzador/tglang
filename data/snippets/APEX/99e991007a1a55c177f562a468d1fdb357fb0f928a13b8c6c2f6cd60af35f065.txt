@@ -1,0 +1,81 @@
+public with sharing class OrderProcessingController {
+
+    // Variables for storing order and payment information
+    private Order order;
+    private Payment payment;
+	
+	// Constructor for OrderProcessingController
+	public OrderProcessingController(Order ord, Payment py){
+	    order = ord;
+	    payment = py;
+	}
+	
+	// Method to process the order and initiate payment
+	public void processOrder(){
+	    if(order.Status__c == 'Pending'){
+	        // Call payment processor
+	        PaymentProcessor processor = new PaymentProcessor(order, payment);
+	        processor.processPayment();
+	        
+	        // Update order status
+	        order.Status__c = 'Processing';
+	        update order;
+	        
+	        // Send confirmation email
+	        EmailSender sender = new EmailSender();
+	        sender.sendConfirmationEmail(order);
+	    }
+	}
+	
+	// Inner class for payment processing logic
+	private class PaymentProcessor{
+	    
+	    // Variables for storing order and payment information
+        private Order order;
+        private Payment payment;
+	    
+	    // Constructor for PaymentProcessor
+	    public PaymentProcessor(Order ord, Payment py){
+	        order = ord;
+	        payment = py;
+	    }
+	    
+	    // Method to initiate payment
+	    public void processPayment(){
+	        if(payment.Mode__c == 'Credit Card'){
+	            // Connect to payment gateway
+	            PaymentGateway gateway = new PaymentGateway();
+	            gateway.connect();
+	            
+	            // Make the payment
+	            gateway.makePayment(payment.Amount__c, payment.CardNumber__c, payment.ExpiryDate__c);
+	            
+	            // Update payment status
+	            payment.Status__c = 'Processed';
+	            update payment;
+	        }
+	    }
+	}
+	
+	// Inner class for email sending logic
+	private class EmailSender{
+	    
+	    // Method to send confirmation email
+	    public void sendConfirmationEmail(Order ord){
+	        // Connect to email service
+	        EmailService service = new EmailService();
+	        service.connect();
+	        
+	        // Generate email content
+	        String fromAddress = 'orders@company.com';
+	        String recipientAddress = ord.Email__c;
+	        String subject = 'Order Confirmation';
+	        String body = 'Thank you for your order. Your order number is ' + ord.OrderNumber__c + '. We will send you another email once your order is shipped.'
+	        
+	        // Send email
+	        service.sendEmail(fromAddress, recipientAddress, subject, body);
+	    }
+	
+	}
+
+}

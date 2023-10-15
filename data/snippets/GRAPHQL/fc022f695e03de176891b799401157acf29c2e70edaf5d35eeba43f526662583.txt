@@ -1,0 +1,101 @@
+# Type definitions
+type Query {
+  getUser(id: ID!): User
+  getPost(id: ID!): Post
+  getComments(postId: ID!): [Comment!]!
+}
+
+type Mutation {
+  createUser(name: String!, email: String!, password: String!): User!
+  createPost(title: String!, content: String!, authorId: ID!): Post!
+  createComment(content: String!, authorId: ID!, postId: ID!): Comment!
+}
+
+type User {
+  id: ID!
+  name: String!
+  email: String!
+  posts: [Post!]!
+  comments: [Comment!]!
+}
+
+type Post {
+  id: ID!
+  title: String!
+  content: String!
+  author: User!
+  comments: [Comment!]!
+}
+
+type Comment {
+  id: ID!
+  content: String!
+  author: User!
+  post: Post!
+}
+
+# Resolvers
+const resolvers = {
+  Query: {
+    getUser: (root, { id }, context) => {
+      return context.db.User.findById(id);
+    },
+    getPost: (root, { id }, context) => {
+      return context.db.Post.findById(id);
+    },
+    getComments: (root, { postId }, context) => {
+      return context.db.Comment.findAll({
+        where: {
+          postId
+        }
+      });
+    }
+  },
+  Mutation: {
+    createUser: (root, args, context) => {
+      return context.db.User.create(args);
+    },
+    createPost: (root, args, context) => {
+      return context.db.Post.create(args);
+    },
+    createComment: (root, args, context) => {
+      return context.db.Comment.create(args);
+    }
+  },
+  User: {
+    posts: (user, args, context) => {
+      return context.db.Post.findAll({
+        where: {
+          authorId: user.id
+        }
+      });
+    },
+    comments: (user, args, context) => {
+      return context.db.Comment.findAll({
+        where: {
+          authorId: user.id
+        }
+      });
+    }
+  },
+  Post: {
+    author: (post, args, context) => {
+      return context.db.User.findById(post.authorId);
+    },
+    comments: (post, args, context) => {
+      return context.db.Comment.findAll({
+        where: {
+          postId: post.id
+        }
+      });
+    }
+  },
+  Comment: {
+    author: (comment, args, context) => {
+      return context.db.User.findById(comment.authorId);
+    },
+    post: (comment, args, context) => {
+      return context.db.Post.findById(comment.postId);
+    }
+  }
+};

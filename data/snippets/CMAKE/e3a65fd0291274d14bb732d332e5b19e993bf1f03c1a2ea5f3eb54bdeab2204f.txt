@@ -1,0 +1,82 @@
+### Random number generator ###
+
+# Sets the minimum required version of CMake
+cmake_minimum_required(VERSION 3.0)
+
+# Creates a project with the given name
+project(RandomNumberGenerator)
+
+# Sets the C++ standard and compiles with it
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
+
+# Defines the source files to be compiled
+set(SOURCE_FILES main.cpp random.cpp)
+
+# Adds an executable target with the given name and source files
+add_executable(${PROJECT_NAME} ${SOURCE_FILES}) 
+
+# Sets the include directories for the project
+include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+# Sets the output directory for compiled binaries
+set(BINARY_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/bin) 
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BINARY_OUTPUT_DIR})
+
+# Adds a custom command to generate a random number from a given range
+add_custom_command(
+    OUTPUT random_number.txt 
+    COMMAND ${CMAKE_COMMAND} -E echo "$<$<CONFIG:Debug>:Random number between 0 and 100:>:$<$<CONFIG:Release>:Random number between 0 and 100:> $<TARGET_FILE:${PROJECT_NAME}> > random_number.txt"
+    DEPENDS ${PROJECT_NAME})
+
+# Sets the location of the generated random number
+set(RANDOM_NUMBER_PATH ${CMAKE_CURRENT_BINARY_DIR}/random_number.txt)
+
+# Prints the location of the generated random number
+message("Random number path: ${RANDOM_NUMBER_PATH}")
+
+# Sets the installation directory for the project
+install(TARGETS ${PROJECT_NAME}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+# Adds a custom target to generate a random number and install it
+add_custom_target(
+    GenerateRandomNumber
+    COMMENT "Generating random number and installing it..."
+    COMMAND ${CMAKE_COMMAND} -E echo "$<$<CONFIG:Debug>:Random number between 0 and 100:>:$<$<CONFIG:Release>:Random number between 0 and 100:> $<TARGET_FILE:${PROJECT_NAME}> > ${CMAKE_INSTALL_PREFIX}/random_number.txt"
+    DEPENDS ${PROJECT_NAME}
+    COMMAND_EXPAND_LISTS)
+
+# Adds a custom target to print the generated random number
+add_custom_target(
+    PrintRandomNumber
+    COMMENT "Printing the generated random number..."
+    COMMAND ${CMAKE_COMMAND} -E echo "Generated random number: `cat ${RANDOM_NUMBER_PATH}`"
+    DEPENDS ${PROJECT_NAME}
+    COMMAND_EXPAND_LISTS)
+
+# Adds a custom target to clean up the generated files
+add_custom_target(
+    CleanUp
+    COMMENT "Cleaning up generated files..."
+    COMMAND ${CMAKE_COMMAND} -E remove ${BINARY_OUTPUT_DIR}
+    COMMAND ${CMAKE_COMMAND} -E remove ${CMAKE_INSTALL_PREFIX}/random_number.txt
+    DEPENDS ${PROJECT_NAME}
+    COMMAND_EXPAND_LISTS)
+
+# Adds a custom target to run the project with a generated random number
+add_custom_target(
+    RunWithRandomNumber
+    COMMENT "Running project with generated random number..."
+    COMMAND ${CMAKE_COMMAND} -E echo "Executing ${PROJECT_NAME} with generated random number at ${RANDOM_NUMBER_PATH}"
+    COMMAND ${CMAKE_COMMAND} -E echo "============================================================="
+    COMMAND ${CMAKE_COMMAND} -E echo " "
+    COMMAND ${PROJECT_NAME} ${RANDOM_NUMBER_PATH}
+    DEPENDS ${PROJECT_NAME}
+    COMMAND_EXPAND_LISTS)
+
+# Runs the PrintRandomNumber target before running the RunWithRandomNumber target
+add_dependencies(RunWithRandomNumber PrintRandomNumber)
+
+# Sets the default target for the project to RunWithRandomNumber
+set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT "RunWithRandomNumber")

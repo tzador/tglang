@@ -1,0 +1,62 @@
+# This shell script generates a report based on the data in a given CSV file.
+# It takes in three command line arguments: the CSV filename, the output filename and the
+# number of columns in the CSV file.
+
+#!/bin/bash
+# ^ Line 1: Shebang to indicate that this is a shell script
+
+# Check if correct number of command line arguments have been provided
+if [ $# -ne 3 ]; then
+  echo "Usage: ./report_generator.sh <csv_filename> <output_filename> <number_of_columns>"
+  exit 1
+fi
+
+# Assign command line arguments to variables
+csv_filename=$1
+output_filename=$2
+num_columns=$3
+
+# Check if the CSV file exists
+if [ ! -f "$csv_filename" ]; then
+  echo "Error: File '$csv_filename' does not exist."
+  exit 1
+fi
+
+# Create an array to store the column names
+declare -a columns
+
+# Read in the first row of the CSV file to get the column names
+read -r line < "$csv_filename"
+IFS=', ' read -a columns <<< "$line"
+
+# Create an associative array to store the data from the CSV file
+declare -A data
+
+# Read in the rest of the CSV file and store the data in the associative array
+while IFS=, read -r key value; do
+  data[$key]+="$value "
+done < "$csv_filename"
+
+# Write the report header to the output file
+echo "Report for file: $csv_filename" > "$output_filename"
+echo "Number of Columns: $num_columns" >> "$output_filename"
+echo " " >> "$output_filename"
+
+# Loop through each column and calculate the average value
+for ((i = 0; i < $num_columns; i++)); do
+  col_sum=0
+  col_values=(${data[${columns[$i]}]})
+
+  # Calculate the sum of values in the column
+  for val in "${col_values[@]}"; do
+    col_sum=$((col_sum + val))
+  done
+
+  # Calculate the average of the column
+  col_avg=$((col_sum / ${#col_values[@]}))
+
+  # Write the column header and average value to the output file
+  echo "Column: ${columns[$i]}" >> "$output_filename"
+  echo "Average Value: $col_avg" >> "$output_filename"
+  echo " " >> "$output_filename"
+done

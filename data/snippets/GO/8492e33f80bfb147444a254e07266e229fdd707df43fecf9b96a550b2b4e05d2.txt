@@ -1,0 +1,113 @@
+// Define a struct type named "Node"
+type Node struct {
+    key, value int // Fields for storing key-value pairs
+    prev, next *Node // Pointers to previous and next nodes
+    frequencies []*Node // Array for storing nodes with the same frequency
+}
+
+// Define a struct type named "LFUCache"
+type LFUCache struct {
+    nodes map[int]*Node // Map to store key-value pairs
+    head, tail *Node // Pointers to the least frequently and most frequently used nodes
+    minFrequency int // Variable to track the minimum frequency
+    capacity int // Variable for maximum capacity of the cache
+}
+
+// Define a method for the "LFUCache" struct to get the value of a given key
+func (cache *LFUCache) Get(key int) int {
+    // Check if the key exists in the cache
+    if node, ok := cache.nodes[key]; ok {
+        // Update the frequency of the node
+        cache.updateFrequency(node)
+        // Return the value of the node
+        return node.value
+    }
+    // Return -1 if the key doesn't exist
+    return -1
+}
+
+// Define a method for the "LFUCache" struct to set a key-value pair
+func (cache *LFUCache) Set(key, value int) {
+    // Check if the capacity of the cache is full
+    if cache.capacity == 0 {
+        return
+    }
+    // Check if the key already exists in the cache
+    if node, ok := cache.nodes[key]; ok {
+        // Update the value of the existing node
+        node.value = value
+        // Update the frequency of the node
+        cache.updateFrequency(node)
+    } else {
+        // Check if the cache is at maximum capacity
+        if len(cache.nodes) == cache.capacity {
+            // Evict the least frequently used node
+            cache.evict()
+        }
+        // Create a new node with the given key and value
+        newNode := &Node{key, value, nil, nil, nil}
+        // Set the node in the cache
+        cache.nodes[key] = newNode
+        // Update the frequency of the node
+        cache.updateFrequency(newNode)
+    }
+}
+
+// Define a method for the "LFUCache" struct to update the frequency of a given node
+func (cache *LFUCache) updateFrequency(node *Node) {
+    // Remove the node from its current frequency array
+    cache.removeFromFrequency(node)
+    // Check if the node has the minimum frequency
+    if node.prev == nil && node.next == nil && cache.minFrequency == node.frequencies[0] {
+        // Increment the minimum frequency
+        cache.minFrequency++
+    }
+    // Check if there are any existing nodes with the same frequency as the node
+    if len(node.frequencies) > 0 {
+        // Get the array of nodes with the same frequency
+        sameFrequency := node.frequencies[0]
+        // Add the node to the beginning of the array
+        node.frequencies = append([]*Node{node}, sameFrequency...)
+    } else {
+        // Create a new array with the node as its only element
+        node.frequencies = []*Node{node}
+    }
+}
+
+// Define a method for the "LFUCache" struct to remove a given node from its current frequency array
+func (cache *LFUCache) removeFromFrequency(node *Node) {
+    // Get the array of nodes with the same frequency as the node
+    sameFrequency := node.frequencies[0]
+    // Check if the node is the only element in the array
+    if len(sameFrequency) == 1 {
+        // Remove the frequency from the node
+        node.frequencies = []*Node{}
+        // Check if the current frequency is the minimum frequency
+        if cache.minFrequency == node.frequencies[0] {
+            // Decrement the minimum frequency
+            cache.minFrequency--
+        }
+    } else {
+        // Remove the node from the array
+        for i, n := range sameFrequency {
+            if n == node {
+                sameFrequency = append(sameFrequency[:i], sameFrequency[i+1:]...)
+                break
+            }
+        }
+        // Add the updated array back to the node
+        node.frequencies = sameFrequency
+    }
+}
+
+// Define a method for the "LFUCache" struct to evict the least frequently used node
+func (cache *LFUCache) evict() {
+    // Get the array of nodes with the minimum frequency
+    leastFrequency := cache.head.frequencies[0]
+    // Get the least frequently used node
+    leastNode := leastFrequency[len(leastFrequency)-1]
+    // Remove the node from the cache
+    delete(cache.nodes, leastNode.key)
+    // Remove the node from its current frequency array
+    cache.removeFromFrequency(leastNode)
+}

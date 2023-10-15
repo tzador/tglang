@@ -1,0 +1,68 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.4;
+
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+
+contract MyContract is ERC721 {
+    // Variables
+    uint private tokenCounter;
+    uint public maxSupply = 100;
+    string public baseURI = "https://ipfs.io/ipfs/";
+
+    // Structs
+    struct Token {
+        string name;
+        string description;
+        string imageURI;
+    }
+
+    // Mappings
+    mapping(uint => Token) public tokens;
+    mapping(string => bool) public uniqueNames;
+
+    // Events
+    event Minted(address owner, string name, string description, string imageURI);
+
+    // Constructor
+    constructor() ERC721("My NFT", "MNFT") {}
+
+    // Functions
+    function mintToken(string memory name, string memory description, string memory imageURI) external {
+        require(bytes(name).length > 0, "Name cannot be empty");
+        require(bytes(description).length > 0, "Description cannot be empty");
+        require(bytes(imageURI).length > 0, "Image URI cannot be empty");
+        require(tokenCounter < maxSupply, "Max supply reached");
+        require(uniqueNames[name] == false, "Name already exists");
+
+        // Generate token ID
+        tokenCounter++;
+        uint tokenId = tokenCounter;
+
+        // Create Token
+        Token memory newToken = Token(name, description, imageURI);
+
+        // Add token to mappings
+        tokens[tokenId] = newToken;
+        uniqueNames[name] = true;
+
+        // Mint new token to sender
+        _safeMint(msg.sender, tokenId);
+
+        // Emit event
+        emit Minted(msg.sender, name, description, imageURI);
+    }
+
+    function updateTokenImage(uint tokenId, string memory newImageURI) external {
+        require(_exists(tokenId), "Token does not exist");
+        require(_isApprovedOrOwner(_msgSender(), tokenId), "Caller is not owner");
+        require(bytes(newImageURI).length > 0, "New image URI cannot be empty");
+        
+        // Update token image URI
+        tokens[tokenId].imageURI = newImageURI;
+    }
+
+    // Override
+    function _baseURI() internal view override returns (string memory) {
+        return baseURI;
+    }
+}

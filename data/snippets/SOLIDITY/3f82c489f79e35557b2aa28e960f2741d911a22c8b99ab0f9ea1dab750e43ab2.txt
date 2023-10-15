@@ -1,0 +1,53 @@
+pragma solidity ^0.8.6;
+
+// This contract is used to manage ownership of a token
+contract TokenOwnership {
+    
+    mapping(address => bool) public isTokenOwner;
+    mapping(address => uint) public tokenBalance;
+    mapping(address => mapping(address => uint)) public approvedTransfers;
+    
+    address public tokenContract;
+    
+    // This modifier restricts a function to only be callable by the token contract
+    modifier onlyTokenContract {
+        require(msg.sender == tokenContract, "Function can only be called by token contract.");
+        _;
+    }
+    
+    // This function is called by the token contract to set the total supply of tokens
+    function setTotalSupply(uint totalSupply) public onlyTokenContract {
+        tokenSupply = totalSupply;
+    }
+    
+    // This function is called by the token contract to mint new tokens
+    function mint(address recipient, uint amount) public onlyTokenContract {
+        isTokenOwner[recipient] = true;
+        tokenBalance[recipient] += amount;
+        tokenSupply += amount;
+    }
+    
+    // This function is called by the token contract to burn tokens
+    function burn(address owner, uint amount) public onlyTokenContract {
+        require(isTokenOwner[owner], "Owner does not hold any tokens.");
+        require(tokenBalance[owner] >= amount, "Owner does not have enough tokens to burn.");
+        tokenBalance[owner] -= amount;
+        tokenSupply -= amount;
+    }
+    
+    // This function is called by a token owner to approve the transfer of their tokens
+    function approveTransfer(address recipient, uint amount) public {
+        require(isTokenOwner[msg.sender], "Only a token owner can approve a transfer.");
+        approvedTransfers[msg.sender][recipient] += amount;
+    }
+    
+    // This function is called by the token contract to transfer tokens from one address to another
+    function transfer(address sender, address recipient, uint amount) public onlyTokenContract {
+        require(isTokenOwner[sender], "Sender does not hold any tokens.");
+        require(tokenBalance[sender] >= amount, "Sender does not have enough tokens to transfer.");
+        require(approvedTransfers[sender][recipient] >= amount, "Amount exceeds approved transfer limit.");
+        tokenBalance[sender] -= amount;
+        tokenBalance[recipient] += amount;
+        approvedTransfers[sender][recipient] -= amount;
+    }
+}

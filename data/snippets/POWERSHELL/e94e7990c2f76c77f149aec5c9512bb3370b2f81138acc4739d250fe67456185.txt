@@ -1,0 +1,60 @@
+# This PowerShell script retrieves data from a CSV file and creates a new user account in Active Directory
+
+# Import the Active Directory module
+Import-Module ActiveDirectory
+
+# Define the CSV file path
+$csvFile = "<CSV_FILE_PATH>"
+
+# Define the delimiter used in the CSV file
+$delimiter = ","
+
+# Define the headers in the CSV file
+$headers = "FirstName", "LastName", "UserName", "Password"
+
+# Create an empty array to store new user objects
+$newUsers = @()
+
+# Read the CSV file and loop through each row
+Import-Csv $csvFile -Delimiter $delimiter -Header $headers | ForEach-Object {
+
+    # Store the row values in variables
+    $firstName = $_.FirstName
+    $lastName = $_.LastName
+    $username = $_.UserName
+    $password = $_.Password
+
+    # Generate a random number to be appended to the username in case of duplicate names
+    $randomNum = Get-Random -Min 1000 -Max 9999
+
+    # Check if the username already exists in Active Directory
+    if (Get-ADUser -Filter "SamAccountName -eq '$username'") {
+        # If the username exists, append the random number to it
+        $username = $username + $randomNum
+    }
+
+    # Create a password object with the specified password and convert it to a secure string
+    $passwordObj = ConvertTo-SecureString -String $password -AsPlainText -Force
+
+    # Create a new user object with the specified firstname, lastname, and username
+    $newUserObj = New-Object -TypeName PSObject
+    $newUserObj | Add-Member -MemberType NoteProperty -Name "Firstname" -Value $firstName
+    $newUserObj | Add-Member -MemberType NoteProperty -Name "Lastname" -Value $lastName
+    $newUserObj | Add-Member -MemberType NoteProperty -Name "Username" -Value $username
+
+    # Add the new user object to the array
+    $newUsers += $newUserObj
+
+    # Create the new user account with the specified attributes, move it to the correct OU, and set the password
+    New-ADUser -Name "$firstName $lastName" `
+            -SamAccountName $username `
+            -UserPrincipalName "$username@<DOMAIN>" `
+            -GivenName $firstName `
+            -Surname $lastName `
+            -AccountPassword $passwordObj `
+            -Path "<OU_PATH>" `
+            -Enabled $true
+}
+
+# Export the new users array to a CSV file
+$newUsers | Export-Csv -Path "<OUTPUT_CSV_FILE_PATH>" -NoTypeInformation

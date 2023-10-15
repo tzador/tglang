@@ -1,0 +1,54 @@
+module Main exposing (..)
+
+import Html exposing (..)
+import Http
+import Json.Decode as Json
+import Task exposing (..)
+import Process
+
+-- | Custom type representing a user
+type User
+    = User
+        { name : String
+        , age : Int
+        , email : String
+        }
+
+-- | JSON decoder for the User type
+userDecoder : Json.Decoder User
+userDecoder =
+    Json.succeed User
+        |> Json.required "name" Json.string
+        |> Json.required "age" Json.int
+        |> Json.required "email" Json.string
+
+-- | Function for making an HTTP request to get user data
+getUser : String -> Task Http.Error User
+getUser username =
+    Http.get
+        { url = "https://api.example.com/user/" ++ username
+        , expect = Http.expectJson userDecoder
+        , headers = []
+        }
+        |> Task.mapError Http.errorToString
+
+-- | Function for getting a user's name and displaying it on the page
+displayName : String -> Html msg
+displayName username =
+    let
+        userTask = getUser username
+    in
+    case Process.sleep 500 >> userTask of
+        Ok user ->
+            h1 [] [ text user.name ]
+
+        Err error ->
+            strong [] [ text error ]
+
+-- | View function for the main page
+main : Html msg
+main =
+    div []
+        [ displayName "John" -- Uses the displayName function to get and display John's name
+        , displayName "Jane" -- Uses the displayName function to get and display Jane's name
+        ]

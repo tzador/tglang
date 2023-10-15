@@ -1,0 +1,45 @@
+*&---------------------------------------------------------------------*
+ *& Report Z_GET_MATERIAL_SALES_DATA                                   *
+ *&---------------------------------------------------------------------*
+REPORT  Z_GET_MATERIAL_SALES_DATA.
+
+DATA v_material TYPE MARA-MATNR.
+PARAMETERS p_material TYPE MARA-MATNR DEFAULT 'M-001'.
+
+TYPES:
+  BEGIN OF lty_sales_data,
+    plant TYPE MSEG-WERKS,
+    sales_doc TYPE MSEG-VBELN,
+    sales_qty TYPE MSEG-MENGE,
+    sales_value TYPE KONV-KWERT,
+  END OF lty_sales_data.
+
+DATA:
+  lt_sales_data TYPE STANDARD TABLE OF lty_sales_data,
+  lv_total_sales_qty TYPE MSEG-MENGE,
+  lv_total_sales_value TYPE KONV-KWERT.
+
+SELECT-OPTIONS s_date FOR mseg-BUDAT.
+
+START-OF-SELECTION.
+
+  " Get sales data for material
+  SELECT werks vbeln menge
+         FROM mseg
+         INTO TABLE @lt_sales_data
+         WHERE matnr = @p_material
+           AND budat IN @s_date.
+
+  " Calculate total sales quantity and value
+  LOOP AT lt_sales_data ASSIGNING FIELD-SYMBOL(<sales_data>).
+    lv_total_sales_qty = lv_total_sales_qty + <sales_data>-sales_qty.
+    SELECT SINGLE kwert
+           FROM konv
+           INTO @<sales_data>-sales_value
+           WHERE knumv = <sales_data>-sales_doc.
+    lv_total_sales_value = lv_total_sales_value + <sales_data>-sales_value.
+  ENDLOOP.
+
+  " Output total sales data
+  WRITE: / 'Total Sales Quantity for Material', p_material, ':', lv_total_sales_qty.
+  WRITE: / 'Total Sales Value for Material', p_material, ':', lv_total_sales_value.

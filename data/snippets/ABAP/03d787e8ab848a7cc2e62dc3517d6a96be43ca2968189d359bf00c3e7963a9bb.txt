@@ -1,0 +1,39 @@
+* Declare internal table to store data
+DATA: lt_user TYPE STANDARD TABLE OF zuser_info.
+
+* Select data from database table using select statement
+SELECT username, age, email
+FROM zuser
+INTO CORRESPONDING FIELDS OF TABLE lt_user
+WHERE age > 18 AND email LIKE '*gmail.com'.
+
+* Sort the table based on age in descending order
+SORT lt_user BY age DESCENDING.
+
+* Loop through the data and display it in a table format
+LOOP AT lt_user ASSIGNING FIELD-SYMBOL(<ls_user>).
+      WRITE: / <ls_user>-username, <ls_user>-age, <ls_user>-email.
+ENDLOOP.
+
+* Create an instance of class CL_GUI_ALV_GRID to display the data in a grid format
+DATA: lo_alv TYPE REF TO cl_gui_alv_grid.
+CREATE OBJECT lo_alv.
+
+* Set the internal table as data source for the grid
+CALL METHOD lo_alv->set_table_for_first_display
+EXPORTING
+  i_structure_name = 'ZUSER_INFO'
+  is_layout        = ls_layout
+CHANGING
+  it_outtab        = lt_user.
+
+* Register F4 help for the age field to restrict user input to numbers only
+DATA: lo_events TYPE REF TO cl_salv_events.
+CREATE OBJECT lo_events.
+lo_events->register_selection_event( it_events = 'SFLIGHT-AGE'
+                                     r_event   = NEW lcl_event( )->TYPE_VALUE_HELP ).
+
+* Display error message if no data is found
+IF lt_user IS INITIAL.
+  MESSAGE 'No data found for the given criteria' TYPE 'I'.
+ENDIF.

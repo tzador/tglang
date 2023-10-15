@@ -1,0 +1,43 @@
+/* This is a complex code snippet in SAS */
+
+/* Create a new library and assign a location */
+libname mylib 'C:\SAS\mydata';
+
+/* Define a macro variable for the name of the dataset to be created */
+%let ds_name = mydataset;
+
+/* Create a new dataset with 5 variables and 100 observations, in the previously created library */
+data mylib.&ds_name;
+	set mylib.input_data (keep = var1-var5 obs = 100); /* Subset the data from an existing dataset */
+	if var3 ne .; /* Exclude missing values for var3 */
+	if var2 = 'yes' then var2_new = 1; /* Create a new variable based on a condition */
+	run;
+
+/* Print a summary of the created dataset */
+proc means data = mylib.&ds_name n varnum;
+	var var1-var5;
+	title 'Summary of Dataset &ds_name';
+run;
+
+/* Export the dataset to a CSV file in the specified location */
+proc export data = mylib.&ds_name
+	outfile = 'C:\SAS\export\&ds_name..csv'
+	dbms = csv replace;
+run;
+
+/* Create a macro to calculate the average of a numeric variable across multiple datasets in the same library */
+%macro calc_average(var);
+	proc sql noprint;
+		select count(*) into :num_obs from mylib;
+		select sum(&var) into :total from mylib;
+	quit;
+	%let avg = %eval(&total./&num_obs); /* Calculate the average */
+	%put The average value of &var across all datasets is &avg;
+%mend calc_average;
+
+/* Call the macro for each variable in the dataset */
+%calc_average(var1);
+%calc_average(var2);
+%calc_average(var3);
+%calc_average(var4);
+%calc_average(var5);

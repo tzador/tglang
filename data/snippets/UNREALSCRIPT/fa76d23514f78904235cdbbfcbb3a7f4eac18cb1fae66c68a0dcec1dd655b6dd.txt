@@ -1,0 +1,103 @@
+/**
+* @brief This is a complex class that represents a weapon object
+* and has functions to handle damage, reloading, and shooting.
+*/
+class Weapon extends Actor
+    placeable;
+
+/// The current amount of ammunition in the weapon
+var int AmmoCount;
+
+/// Whether the weapon is currently reloading or not
+var bool bReloading;
+
+/// The damage that this weapon deals
+var float Damage;
+
+/// The amount of time it takes to reload this weapon
+const float ReloadTime = 2.0;
+
+/// The maximum ammo capacity of this weapon
+const int MaxAmmo = 100;
+
+/// A delegate for when this weapon successfully shoots a projectile
+delegate OnWeaponFired();
+
+/// A function to fire a projectile from the weapon
+function FireWeapon() {
+    // Check if the weapon is currently reloading
+    if (bReloading) {
+        return;
+    }
+
+    // Check if there is enough ammo to fire
+    if (AmmoCount <= 0) {
+        // Start reloading if there is no ammo left
+        StartReload();
+        return;
+    }
+
+    // Create a projectile actor and fire it
+    local Projectile ProjectileActor;
+    ProjectileActor = Spawn(Projectile);
+    ProjectileActor.Fire(Damage);
+
+    // Decrease ammo count by 1
+    AmmoCount--;
+
+    // Trigger the OnWeaponFired delegate
+    if (OnWeaponFired != none) {
+        OnWeaponFired();
+    }
+}
+
+/// A function to start the reloading process of the weapon
+function StartReload() {
+    // Check if the weapon is already reloading
+    if (bReloading) {
+        return;
+    }
+
+    // Set reloading flag to true
+    bReloading = true;
+
+    // Wait for the reload time to complete
+    Wait(ReloadTime);
+
+    // Refill ammo count to maximum capacity
+    AmmoCount = MaxAmmo;
+
+    // Set reloading flag to false
+    bReloading = false;
+}
+
+/// A function to handle taking damage from an external source
+/// @param DamageAmount The amount of damage taken
+function TakeDamage(float DamageAmount) {
+    // Lower weapon's health by damage amount
+    Health -= DamageAmount;
+    // Check if weapon has been destroyed
+    if (Health <= 0) {
+        Destroy();
+    }
+}
+
+/**
+* @brief Handles rotation and firing of the weapon
+* @param DeltaTime The time difference between frames
+*/
+state WeaponState {
+    Tick(float DeltaTime) {
+        // Rotate the weapon towards the player's view
+        self.Rotation = RotationFromAxis(GameInfo.GRI.PlayerOwner.ViewRotation);
+
+        // Check if the player has pressed the fire button
+        if (GameInfo.GRI.PlayerOwner.PressedFire()) {
+            // Fire the weapon
+            FireWeapon();
+        }
+
+        // Wait for the next frame
+        Sleep(DeltaTime);
+    }
+}

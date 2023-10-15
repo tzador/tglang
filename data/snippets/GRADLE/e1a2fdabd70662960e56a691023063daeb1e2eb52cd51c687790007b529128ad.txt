@@ -1,0 +1,58 @@
+// This is a multi-project build file for Gradle
+// Here we create a task that will generate a report based on test results
+
+// Declaring a project with a unique name and version
+project('test-reporting') {
+    version '1.0'
+
+    // Defining dependencies for the project
+    dependencies {
+        // Adding a dependency for the Gradle Test Logger plugin
+        testCompile 'org.gradle.testkit:test-logger:1.3'
+        // Adding a dependency for the JUnit 5 platform launcher
+        compile 'org.junit.platform:junit-platform-launcher:1.3.2'
+    }
+
+    // Creating a task that will generate the test report
+    task generateTestReport() {
+        // Specifying the type of task
+        type JavaExec
+        // Setting the classpath for the task
+        classpath configurations.testRuntime
+        // Setting the main class for the task
+        main = 'org.gradle.testkit.gradlepluginexample.TestResultReporter'
+        // Setting the arguments for the task depending on test results
+        if (testResult.failureCount > 0) {
+            args '-f', testResults.reports.junitXml.destination
+        } else {
+            args '-s', testResults.reports.junitXml.destination
+        }
+    }
+}
+
+// Applying the 'java' plugin to the project
+apply plugin: 'java'
+// Applying the 'org.gradle.testlogger' plugin to the project
+apply plugin: 'org.gradle.testlogger'
+
+// Configuring the 'test' task to use the test logger plugin
+test {
+    // Setting the log level to 'info'
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        exceptionFormat 'full'
+        showExceptions true
+        showCauses true
+        showStackTraces true
+        showStandardStreams true
+        minGranularity WRITE_TEST_OUTPUT
+        maxParallelForks 1
+        stackTraceFilters = ['org.gradle.testing.*', 'org.gradle.util.*']
+        debug logsDir: file("$buildDir/test-results/debug")
+        info logsDir: file("$buildDir/test-results/info")
+        error logsDir: file("$buildDir/test-results/error")
+    }
+}
+
+// Adding a custom task to generate the test report after the 'test' task is executed
+test.finalizedBy(generateTestReport)

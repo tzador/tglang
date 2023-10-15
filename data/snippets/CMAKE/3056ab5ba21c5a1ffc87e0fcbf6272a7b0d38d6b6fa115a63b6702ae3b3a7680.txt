@@ -1,0 +1,54 @@
+#First, we define a variable 'SOURCES' and add three source files to it
+set(SOURCES main.cpp utils.cpp helper.cpp)
+
+#Next, we create a target 'my_project' and specify its type as an executable
+add_executable(my_project ${SOURCES})
+
+#We also add a custom command to generate a header file using a script
+#The script is run before the target is built.
+add_custom_command(OUTPUT header.h
+  COMMAND python generate_header.py
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  DEPENDS generate_header.py
+)
+
+#We then create a target 'my_library' and specify its type as a library
+#We also define a name for the generated export file
+add_library(my_library SHARED ${SOURCES})
+
+#We set the target properties, including version and language
+set_target_properties(my_library PROPERTIES
+  VERSION 1.0.0
+  SOVERSION 1
+  LANGUAGE CXX
+)
+
+#We also link the library to other libraries
+target_link_libraries(my_library PUBLIC Boost::filesystem)
+
+#Next, we create a target 'my_test' and specify its type as a test
+add_test(NAME my_test COMMAND my_project)
+
+#Finally, we install the targets and export their configurations
+install(TARGETS my_project my_library
+  EXPORT my_projectTargets
+  RUNTIME DESTINATION bin
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+)
+
+#We also install the generated header file
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/header.h DESTINATION include)
+
+#And we export the targets for other projects to use
+install(EXPORT my_projectTargets
+  FILE my_projectTargets.cmake
+  NAMESPACE my_project::
+  DESTINATION lib/cmake/my_project
+)
+
+#We also include the dependencies and version information in the export file
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/my_projectConfig.cmake DESTINATION lib/cmake/my_project)
+
+#Finally, we include the install directory in the user's cmake search path
+list(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/lib/cmake/my_project")

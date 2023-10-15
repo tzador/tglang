@@ -1,0 +1,68 @@
+#!/bin/sh
+
+# This is a shell script that installs and sets up a LAMP stack on a Linux machine.
+
+# Update and upgrade the existing packages
+sudo apt-get update && sudo apt-get -y upgrade
+
+# Install Apache web server
+sudo apt-get -y install apache2
+
+# Allow Apache through the firewall
+sudo ufw allow in "Apache Full"
+
+# Start and enable Apache on system startup
+sudo systemctl start apache2
+sudo systemctl enable apache2
+
+# Install MySQL and secure it
+sudo apt-get -y install mysql-server
+sudo mysql_secure_installation
+
+# Install PHP and necessary modules
+sudo apt-get -y install php libapache2-mod-php php-mysql
+
+# Configure PHP settings for better security
+sudo sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/" /etc/php/7.4/apache2/php.ini
+
+# Restart Apache service to apply changes
+sudo systemctl restart apache2
+
+# Create a PHP info file to test PHP installation
+sudo echo "<?php phpinfo(); ?>" > /var/www/html/info.php
+
+# Install and configure phpMyAdmin
+sudo apt-get -y install phpmyadmin
+sudo phpenmod mbstring
+sudo systemctl restart apache2
+
+# Allow access to phpMyAdmin from the network
+echo "Allow from all" | sudo tee /etc/apache2/conf-available/phpmyadmin.conf
+sudo a2enconf phpmyadmin
+sudo systemctl reload apache2
+
+# Set up virtual hosts for local development
+sudo mkdir -p /var/www/example.com/public_html
+sudo touch /var/www/example.com/public_html/index.html
+echo "<html><head><title>Welcome to Example.com!</title></head><body><h1>Success!</h1></body></html>" | sudo tee /var/www/example.com/public_html/index.html
+sudo touch /etc/apache2/sites-available/example.com.conf
+echo "<VirtualHost *:80>
+    ServerName example.com
+    ServerAlias www.example.com
+    ServerAdmin webmaster@example.com
+    DocumentRoot /var/www/example.com/public_html
+    ErrorLog ${APACHE_LOG_DIR}/error.log
+    CustomLog ${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>" | sudo tee /etc/apache2/sites-available/example.com.conf
+sudo a2ensite example.com.conf
+sudo systemctl reload apache2
+
+# Restart Apache to apply virtual host changes
+sudo systemctl restart apache2
+
+# Set up SSL certificates using Let's Encrypt
+sudo apt-get -y install python3-certbot-apache
+sudo certbot --apache -d example.com -d www.example.com
+
+# Remove default Apache page
+sudo rm /var/www/html/index.html

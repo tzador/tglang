@@ -1,0 +1,93 @@
+defmodule Bank do
+  @moduledoc """
+  This module represents a simulated bank system.
+  It contains functions for creating accounts, depositing and withdrawing funds,
+  and checking balances.
+  """
+
+  @accounts [] # list of maps representing bank accounts
+  @totals %{cash: 0, assets: 0} # map representing total cash and assets in the bank
+
+  def create_account(name, initial_deposit \\ 0) do
+    %{
+      name: name,
+      balance: initial_deposit,
+      transactions: [{:deposit, initial_deposit, Date.utc_today()}]
+    }
+    |> update_totals()
+    |> add_account()
+  end
+
+  def deposit(account, amount) do
+      account = Map.update(account, :balance, &(&1 + amount))
+      |> create_transaction(:deposit, amount)
+      |> update_totals()
+      |> update_account()
+      |> add_transaction_to_history()
+  end
+
+  def withdraw(account, amount) do
+      account = Map.update(account, :balance, &(&1 - amount))
+      |> create_transaction(:withdraw, amount)
+      |> update_totals()
+      |> update_account()
+      |> add_transaction_to_history()
+  end
+
+  def check_balance(account) do
+    account.balance # returns current balance
+  end
+
+  defp update_totals(account) do
+    totals = case account.transactions do
+      nil -> %{cash: account.balance, assets: 0}
+      _ -> process_totals(account)
+    end
+    %{@totals | totals}
+  end
+
+  defp process_totals(account) do
+    transactions_sum = Enum.reduce(account.transactions, &sum_transactions/2)
+    previous_totals = @totals
+
+    cash = previous_totals.cash - transactions_sum
+    assets = previous_totals.assets + transactions_sum
+
+    %{cash: cash, assets: assets}
+  end
+
+  defp sum_transactions({:deposit, amount, _}, accumulator) do
+    accumulator + amount
+  end
+
+  defp sum_transactions({:withdraw, amount, _}, accumulator) do
+    accumulator - amount
+  end
+
+  defp create_transaction(account, type, amount) do
+    {:deposit, amount, Date.utc_today()}
+  end
+
+  defp update_account(account, updated_account) do
+    updated_accounts = Enum.map(@accounts, fn a ->
+      if a == account do
+        updated_account
+      else
+        a
+      end
+    end)
+    @accounts = updated_accounts
+    updated_account
+  end
+
+  defp add_account(account) do
+    @accounts = [@accounts|account]
+    account
+  end
+
+  defp add_transaction_to_history(account) do
+    transaction = Map.get(account.transactions, -1)
+    transaction |> IO.puts("Added transaction: #{inspect transaction}")
+    account
+  end
+end

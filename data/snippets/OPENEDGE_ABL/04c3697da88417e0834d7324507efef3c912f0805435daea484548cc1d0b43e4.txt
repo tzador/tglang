@@ -1,0 +1,48 @@
+/* Declare a dataset to store employee records */
+DEFINE DATASET dsEmployee FOR Employee.
+
+/* Create a temp-table to store employee data */
+CREATE TEMP-TABLE ttEmployee
+    FIELD empNum   AS CHAR
+    FIELD empName  AS CHAR
+    FIELD empDept  AS CHAR
+    FIELD empSalary AS DECIMAL
+    INDEX ind_empNum IS UNIQUE empNum.
+
+/* Open the dataset and populate the temp-table */
+DATASET dsEmployee:READ-LIST(ITERATE EACH Employee):
+    CREATE ttEmployee.
+      
+    /* Map the employee data to temp-table fields */
+    IF Employee.dept = "Sales" THEN 
+        ttEmployee.empNum   = Employee.empNum.
+        ttEmployee.empName  = Employee.empName.
+        ttEmployee.empDept  = Employee.empDept.
+        ttEmployee.empSalary = Employee.empSalary * 1.05.
+        
+    ELSE IF Employee.dept = "Marketing" THEN 
+        ttEmployee.empNum   = Employee.empNum.
+        ttEmployee.empName  = Employee.empName.
+        ttEmployee.empDept  = Employee.empDept.
+        ttEmployee.empSalary = Employee.empSalary * 1.08.
+
+    ELSE /* Other departments */
+        ttEmployee.empNum   = Employee.empNum.
+        ttEmployee.empName  = Employee.empName.
+        ttEmployee.empDept  = Employee.empDept.
+        ttEmployee.empSalary = Employee.empSalary * 1.02.
+    
+    /* Add the temp-table record */
+    ttEmployee:CREATE-Like 
+        (Employee.empNum,
+        Employee.empName,
+        Employee.empDept,
+        Employee.empSalary).
+    ttEmployee:FIND-UNIQUE(
+        INDEX ind_empNum 
+        WHERE ttEmployee.empNum EQ Employee.empNum
+        NO-ERROR).
+    IF AVAILABLE ttEmployee THEN
+        ttEmployee:BUFFER-CREATE ttEmployee.
+        
+END.

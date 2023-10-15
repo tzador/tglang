@@ -1,0 +1,42 @@
+pragma solidity ^0.8.0; //specifies the version of solidity used
+
+contract BookLibrary { //defines a new contract called BookLibrary
+    address payable owner; //declares a payable address variable called owner
+    mapping (address => uint) public bookIndexes; //creates a mapping that maps an address to a uint value
+    Book[] public books; //declares an array of type Book
+
+    struct Book { //defines a struct called Book
+        string title; //stores the book title
+        string author; //stores the author's name
+        uint price; //stores the price of the book
+        address owner; //stores the address of the book's owner
+    }
+
+    constructor() { //constructor function for BookLibrary contract
+        owner = payable(msg.sender); //assigns the owner variable to the creator of the contract
+    }
+
+    modifier onlyOwner() { //modifier function that restricts certain functions to only be called by the owner
+        require(msg.sender == owner, "Only the owner can call this function.");
+        _; //indicates that the code should be executed if the function is called by the owner
+    }
+
+    function addBook(string memory _title, string memory _author, uint _price) public onlyOwner { //function to add a new book to the library
+        books.push(Book(_title, _author, _price, msg.sender)); //creates a new Book struct and adds it to the books array
+        bookIndexes[msg.sender] = books.length - 1; //maps the sender's address to the index of their book in the array
+    }
+
+    function buyBook(address _owner) public payable { //function to buy a book from the library
+        require(msg.value >= books[bookIndexes[_owner]].price, "Insufficient funds.");
+        //checks that the value sent is greater than or equal to the price of the book
+        payable(_owner).transfer(msg.value); //transfers the value to the owner of the book
+        books[bookIndexes[_owner]].owner = msg.sender; //changes the owner of the book to the buyer
+        bookIndexes[msg.sender] = bookIndexes[_owner]; //updates the book index of the buyer to reflect the change in ownership
+        delete bookIndexes[_owner]; //removes the book index of the previous owner
+    }
+
+    function getBookInfo(address _owner) public view returns (string memory, string memory, uint, address) { //function to get information about a book
+        Book memory book = books[bookIndexes[_owner]]; //creates a temporary Book struct to store information
+        return (book.title, book.author, book.price, book.owner); //returns the information about the book
+    }
+}

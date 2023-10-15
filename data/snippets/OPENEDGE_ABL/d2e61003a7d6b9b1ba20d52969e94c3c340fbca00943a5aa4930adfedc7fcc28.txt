@@ -1,0 +1,44 @@
+/* This program will calculate the total sales for a given month. */
+
+DEFINE VARIABLE month AS INTEGER NO-UNDO.
+DEFINE VARIABLE year AS INTEGER NO-UNDO.
+
+/* Get the month and year from user input */
+PROMPT-FOR month WITH MESSAGE "Enter the month (1-12): ".
+PROMPT-FOR year WITH MESSAGE "Enter the year: ".
+
+/* Define the sales table */
+DEFINE TEMP-TABLE t-sales
+    FIELD sales-date AS DATE
+    FIELD sales-amount AS DECIMAL
+    INDEX idx-sales-date IS UNIQUE sales-date.
+
+/* Populate the sales table with data from the database */
+FOR EACH sales OF t-sales WHERE sales.sales-date = DATE(year, month, 1):
+
+    /* Create a temporary record to hold the sales total for each day */
+    DEFINE VARIABLE r-sales AS HANDLE NO-UNDO.
+    CREATE r-sales.
+    
+    /* Get the total sales for the current day */
+    AGGREGATE r-sales.sales-amount = SUM(sales.sales-amount) BY r-sales.sales-date.
+
+    /* Insert the record into the sales table */
+    CREATE t-sales.
+    ASSIGN
+        t-sales.sales-date = r-sales.sales-date
+        t-sales.sales-amount = r-sales.sales-amount.
+    
+    /* Clean up the temporary record */
+    DELETE OBJECT r-sales.
+    
+END.
+
+/* Calculate the total sales for the month */
+DEFINE VARIABLE sales-total AS DECIMAL NO-UNDO INITIAL 0.
+FOR EACH t-sales:
+    sales-total = sales-total + t-sales.sales-amount.
+END.
+
+/* Display the results to the user */
+MESSAGE "Total sales for" month "/" year "is" sales-total "dollars" VIEW-AS ALERT-INFO.

@@ -1,0 +1,61 @@
+# This configuration sets up NGINX as a reverse proxy server for a Node.js application
+
+# Global Configuration
+user www-data; #Defines the user that NGINX will run as
+worker_processes auto; #Defines the number of worker processes to use
+
+# Events Configuration
+events {
+  worker_connections 1024; #Defines the maximum number of connections per worker process
+}
+
+# HTTP Configuration
+http {
+  # Basic Settings
+  sendfile on; #Enables the sendfile system call for faster file transmission
+  tcp_nopush on; #Enables a TCP socket option for improved performance
+  tcp_nodelay on; #Disables the Nagle algorithm for improved performance
+
+  # Server Names
+  include /etc/nginx/mime.types; #Defines the types of files that NGINX will serve
+  server_names_hash_bucket_size 64; #Sets the maximum size for the server name hash bucket
+
+  # Logging
+  access_log /var/log/nginx/access.log; #Defines the file where access logs will be written
+  error_log /var/log/nginx/error.log; #Defines the file where error logs will be written
+
+  # Gzip Compression
+  gzip on; #Enables gzip compression for faster data transmission
+  gzip_disable "msie6"; #Disables gzip compression for old versions of Internet Explorer
+  gzip_comp_level 6; #Sets the level of gzip compression
+  gzip_min_length 1000; #Sets the minimum length of a response that will be compressed
+  gzip_types text/plain text/css application/json application/javascript text/xml; #Defines which types of responses will be compressed
+
+  # Proxy Configuration
+  proxy_cache_path /data/nginx/cache levels=1:2 keys_zone=cache:10m inactive=60m; #Defines caching settings for proxy responses
+  proxy_temp_path /data/nginx/tmp; #Defines the temporary file storage location for proxy responses
+
+  # Reverse Proxy
+  server {
+      listen 80;
+      server_name example.com; #Defines the domain name of the Node.js application
+
+      location / {
+        proxy_pass http://127.0.0.1:3000; #Defines the IP address and port of the Node.js application
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # Enable Caching
+        proxy_cache cache;
+        proxy_cache_valid 200 60m;
+        proxy_cache_valid 404 1m;
+      }
+
+      # Static Files
+      location ~* \.(jpg|jpeg|gif|png|svg|css|js|ico|html)$ {
+        expires max; #Caches static files for the specified amount of time
+        log_not_found off; #Disables logging for static files that are not found
+      }
+  }
+}

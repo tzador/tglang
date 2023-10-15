@@ -1,0 +1,90 @@
+%token NUMBER             // Declares a token named NUMBER for representing numeric values
+%token STRING             // Declares a token named STRING for representing string values
+%token IDENTIFIER         // Declares a token named IDENTIFIER for representing identifiers
+
+%{
+#include <stdio.h>         // Includes the standard input/output library
+#define MAX_SIZE 100       // Defines the maximum size of our input
+int stack[MAX_SIZE];       // Declares a stack to store variables
+int top = -1;              // Initializes the top of the stack to -1 (empty)
+%}
+
+%%                        // Beginning of rules section
+program: statement_list   // Rule for a program, consisting of a list of statements
+    | /* empty */         // Can also be empty
+    ;
+statement_list: statement // Rule for a list of statements, can contain one or more statements
+    | statement_list statement // Recursive rule to allow for multiple statements
+    ;
+statement: assignment     // Rule for an assignment statement
+    | declaration         // Rule for a declaration statement
+    | print               // Rule for a print statement
+    ;
+assignment: IDENTIFIER '=' expression ';' // Rule for assigning a value to an identifier
+    ;
+declaration: 'var' IDENTIFIER ';'        // Rule for declaring a variable
+    ;
+print: 'print' '(' expression ')' ';'    // Rule for printing a value
+    ;
+expression: NUMBER         // Rule for a numeric expression
+    | STRING               // Rule for a string expression
+    | expression '+' expression    // Rule for addition
+    | expression '-' expression    // Rule for subtraction
+    | expression '*' expression    // Rule for multiplication
+    | expression '/' expression    // Rule for division
+    | '(' expression ')'           // Rule for parentheses
+    | IDENTIFIER                   // Rule for referencing a variable
+    ;
+    
+%%                   // End of rules section
+
+int main() {
+    yyparse();       // Calls the parser
+    return 0;
+}
+
+int yyerror(char *msg) {
+    printf("Syntax Error: %s\n", msg); // Prints any syntax error messages
+}
+
+int yylex() {
+    int c = getchar();                // Reads a character from stdin
+    if (isdigit(c)) {                 // If the character is a digit (numeric value)
+        ungetc(c, stdin);             // Puts the character back into the input stream
+        scanf("%d", &yylval.num);     // Scans the integer value and stores it in yylval.num
+        return NUMBER;                // Returns the token for a number
+    
+    } else if (isalpha(c)) {          // If the character is a letter (starts with an identifier)
+        ungetc(c, stdin);             // Puts the character back into the input stream
+        scanf("%s", yylval.str);      // Scans the string and stores it in yylval.str
+        return IDENTIFIER;            // Returns the token for an identifier
+    
+    } else if (c == '\"') {           // If the character is a double quote (starts with a string)
+        int i = 0;                    // Initializes a counter
+        while ((c = getchar()) != '\"') { // Loops until it reaches the closing double quote
+            yylval.str[i] = c;        // Stores each character into the string value in yylval
+            i++;                      // Increments the counter
+        }
+        yylval.str[i] = '\0';         // Adds a null terminator to the end of the string
+        return STRING;                // Returns the token for a string
+
+    } else {
+        return c;                     // Returns any other character as it is
+    }
+}
+
+void push(int val) {
+    if (top >= MAX_SIZE) {       // If the stack is full
+        printf("Stack Overflow\n");
+        return;
+    }
+    stack[++top] = val;          // Adds the value to the top of the stack and increments the top
+}
+
+int pop() {
+    if (top < 0) {               // If the stack is empty
+        printf("Stack Underflow\n");
+        return -1;
+    }
+    return stack[top--];         // Returns the top element and decrements the top
+}

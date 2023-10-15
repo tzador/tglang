@@ -1,0 +1,68 @@
+pragma solidity ^0.8.0;
+
+import "./Ownable.sol";
+import "./IERC20.sol";
+
+contract TokenSales is Ownable {
+
+    address payable public wallet;
+    IERC20 public token;
+
+    uint256 public rate;
+    uint256 public weiRaised;
+
+    event TokensPurchased(address indexed purchaser, address indexed beneficiary, uint256 value, uint256 amount);
+
+    constructor(address payable _wallet, address _token, uint256 _rate) {
+        require(_wallet != address(0), "TokenSales: Invalid Wallet Address");
+        require(_token != address(0), "TokenSales: Invalid Token Address");
+        require(_rate > 0, "TokenSales: Invalid Rate");
+
+        wallet = _wallet;
+        token = IERC20(_token);
+        rate = _rate;
+    }
+
+    receive() external payable {
+        buyTokens(msg.sender);
+    }
+
+    function buyTokens(address beneficiary) public payable {
+        require(beneficiary != address(0), "TokenSales: Invalid Beneficiary Address");
+
+        uint256 weiAmount = msg.value;
+        uint256 tokens = _getTokenAmount(weiAmount);
+
+        _preValidatePurchase(beneficiary, weiAmount, tokens);
+
+        weiRaised += weiAmount;
+
+        _processPurchase(beneficiary, tokens);
+
+        emit TokensPurchased(msg.sender, beneficiary, weiAmount, tokens);
+
+        _forwardFunds();
+    }
+
+    function _preValidatePurchase(address beneficiary, uint256 weiAmount, uint256 tokens) internal view {
+        require(beneficiary != address(0), "TokenSales: Invalid Beneficiary Address");
+        require(weiAmount != 0, "TokenSales: Invalid Wei Amount");
+        require(tokens != 0, "TokenSales: Invalid Token Amount");
+    }
+
+    function _getTokenAmount(uint256 weiAmount) internal view returns (uint256) {
+        return weiAmount * rate;
+    }
+
+    function _deliverTokens(address beneficiary, uint256 tokenAmount) internal {
+        token.transferFrom(owner(), beneficiary, tokenAmount);
+    }
+
+    function _processPurchase(address beneficiary, uint256 tokenAmount) internal {
+        _deliverTokens(beneficiary, tokenAmount);
+    }
+
+    function _forwardFunds() internal {
+        wallet.transfer(msg.value);
+    }
+}

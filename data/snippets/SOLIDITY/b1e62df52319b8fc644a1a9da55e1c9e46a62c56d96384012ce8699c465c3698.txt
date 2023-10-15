@@ -1,0 +1,68 @@
+// This contract is an example of the OpenZeppelin ERC721 Token Standard
+// It implements a non-fungible token with pre-defined functions and modifiers for minting and transferring tokens
+
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
+
+contract MyNFT is ERC721, Ownable {
+    using Counters for Counters.Counter;
+
+    // Instance variables
+    Counters.Counter private _tokenIdCounter; // Used to generate unique token IDs
+    uint256 private _maxSupply; // Maximum supply of tokens
+    string private _baseURI; // Base URI for token metadata
+    mapping(uint256 => address) private _tokenCreators; // Maps token ID to creator address
+
+    // Events
+    event TokenMinted(address indexed owner, uint256 indexed tokenId, string tokenUri);
+
+    // Constructor
+    constructor(string memory name, string memory symbol, uint256 initialSupply) ERC721(name, symbol) {
+        _maxSupply = initialSupply;
+    }
+
+    // Customizable functions
+    function setBaseURI(string memory baseURI) public onlyOwner {
+        _baseURI = baseURI;
+    }
+
+    function mintToken(address to, string memory uri) public onlyOwner {
+        require(_tokenIdCounter.current() < _maxSupply, "Maximum supply reached");
+        _tokenIdCounter.increment();
+        uint256 tokenId = _tokenIdCounter.current();
+        _safeMint(to, tokenId);
+        _setTokenURI(tokenId, uri);
+        _tokenCreators[tokenId] = msg.sender;
+        emit TokenMinted(to, tokenId, uri);
+    }
+
+    // Override functions
+    function _baseURI() internal view virtual override returns (string memory) {
+        return _baseURI;
+    }
+
+    // Standard OpenZeppelin ERC721 functions
+    function safeTransferFrom(address from, address to, uint256 tokenId) public override {
+        require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721: transfer caller is not owner nor approved");
+        _safeTransfer(from, to, tokenId, "");
+    }
+
+    function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal virtual override {
+        super._beforeTokenTransfer(from, to, tokenId);
+
+        // Only allow transfers to occur if the token is owned by the owner or approved by the owner
+        if (from == address(0)) {
+            require(msg.sender == owner(), "ERC721: transfer caller is not owner nor approved");
+        }
+        else {
+            require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721: transfer caller is not owner nor approved");
+        }
+    }
+
+    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721Enumerable, ERC721) returns (bool) {
+        return super.supportsInterface(interfaceId);
+    }
+}

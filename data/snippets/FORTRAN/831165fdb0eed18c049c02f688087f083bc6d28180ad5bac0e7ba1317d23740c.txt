@@ -1,0 +1,66 @@
+program turbulent_flow
+
+  ! Declaring necessary variables
+  implicit none
+  real (kind=8) pressure(100), velocity(100), density(100)
+  real (kind=8) mu, nu, dt, dx, dy, dz, xmin, xmax, ymin, ymax, zmin, zmax
+  real (kind=8) resx, resy, resz, time
+  integer :: i, j, k
+  
+  ! Setting initial values
+  xmin = 0.0
+  xmax = 1.0
+  ymin = 0.0
+  ymax = 1.0
+  zmin = 0.0
+  zmax = 1.0
+  dx = 0.01
+  dy = 0.01
+  dz = 0.01
+  resx = 1.0
+  resy = 1.0
+  resz = 1.0
+  time = 0.0
+  mu = 0.001
+  nu = mu / density(1)
+  dt = dx * dy * dz / (2.0 * nu * (1 + (dx/dy)**2 + (dx/dz)**2))
+  
+  ! Main loop
+  do k = 1, 100
+    do j = 1, 100
+      do i = 1, 100
+        
+        ! Updating velocity using Forward-Euler method
+        velocity(i) = velocity(i) + dt * (
+          (pressure(i+1) - pressure(i)) / dx
+          - (mu / dx) * ((velocity(i+1) - velocity(i)) / dx)
+          + resx * (velocity(i+1) - 2 * velocity(i) + velocity(i-1)) / dx**2
+          + resy * (velocity(i+1) - 2 * velocity(i) + velocity(i-1)) / dy**2
+          + resz * (velocity(i+1) - 2 * velocity(i) + velocity(i-1)) / dz**2
+          )
+
+        ! Updating pressure using Backward-Euler method
+        pressure(i) = pressure(i) - dt * (
+          (velocity(i+1) - velocity(i)) / dx
+          + (mu / dx) * ((pressure(i+1) - pressure(i)) / dx)
+          + (velocity(i+1) - 2 * velocity(i) + velocity(i-1)) / dx**2
+          + (velocity(i+1) - 2 * velocity(i) + velocity(i-1)) / dy**2
+          + (velocity(i+1) - 2 * velocity(i) + velocity(i-1)) / dz**2
+          )
+      
+        ! Adding small noise to prevent numerical instability
+        velocity(i) = velocity(i) + resx * (random_number() - 0.5)
+        pressure(i) = pressure(i) + resy * (random_number() - 0.5)
+      
+      end do
+    end do
+  end do
+  
+  ! Writing results to file
+  open(unit=10, file="results.out")
+  do i = 1, 100
+    write(10, *) velocity(i), pressure(i)
+  end do
+  close(10)
+  
+  end program turbulent_flow

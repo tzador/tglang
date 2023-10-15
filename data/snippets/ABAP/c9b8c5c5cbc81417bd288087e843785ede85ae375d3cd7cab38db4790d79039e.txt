@@ -1,0 +1,36 @@
+DATA: ls_person TYPE ty_person,
+      lt_carriers TYPE STANDARD TABLE OF ty_carrier,
+      lt_orders TYPE STANDARD TABLE OF ty_order.
+
+SELECT * FROM person INTO CORRESPONDING FIELDS OF ls_person.
+APPEND ls_person TO lt_carriers.
+
+SELECT * FROM orders INTO TABLE lt_orders
+  FOR ALL ENTRIES IN lt_carriers
+  WHERE carrier_id = lt_carriers-carrier_id
+  AND delv_date = @sy-datum
+  ORDER BY order_id ASCENDING.
+
+LOOP AT lt_orders INTO ls_orders.
+
+  IF ls_orders-status = 'OPEN'.
+    CHECK sy-subrc = 0.
+    IF ls_orders-amount > ls_person-credit.
+      RAISE amount_too_high.
+    ENDIF.
+
+    MODIFY person FROM ls_person.
+
+    CLEAR: lt_carriers.
+    ls_carrier-carrier_id = ls_person-carrier_id.
+    APPEND ls_carrier TO lt_carriers.
+
+    LOOP AT lt_carriers INTO ls_carrier.
+      WRITE: ls_carrier-carrier_name COLOR 2.
+    ENDLOOP.
+
+  ELSE.
+    CONTINUE.
+  ENDIF.
+
+ENDLOOP.

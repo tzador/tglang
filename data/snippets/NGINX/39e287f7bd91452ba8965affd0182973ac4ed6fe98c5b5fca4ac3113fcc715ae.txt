@@ -1,0 +1,61 @@
+server {
+    listen 80; #listens on port 80 for incoming requests
+    server_name www.example.com; #specifies the server name
+
+    location / { #defines a location for a specific URL
+        root /var/www/example; #specifies the root directory to serve files from
+        index index.html index.htm; #defines the default files to serve if no file is specified in the URL
+    }
+
+    location /api { #defines a location for a specific URL path
+        proxy_pass http://localhost:3000; #proxies requests to a backend server at port 3000
+    }
+
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ { #defines a location based on regex pattern matching
+        expires 7d; #sets the caching duration for these file types
+        access_log off; #disables logging for these file types
+    }
+
+    location /admin { #defines a location for a specific URL path
+        auth_basic "Restricted Access"; #enables basic authentication for this location
+        auth_basic_user_file /etc/nginx/.htpasswd; #specifies the location of the file containing username and password for authentication
+        try_files $uri $uri/ /admin/index.php?$args; #attempts to serve the requested file, directory, or passes the request to the index.php file with query string parameters
+    }
+
+    location ~* \.php$ { #defines a location based on regex pattern matching
+        try_files $uri =404; #attempts to serve the requested PHP file or returns a 404 error if not found
+        fastcgi_split_path_info ^(.+\.php)(.*)$; #splits the URI into a file path and query string parameters for fastCGI processing
+        fastcgi_pass unix:/run/php/php7.4-fpm.sock; #specifies the file socket for communication with the PHP-FPM process
+        fastcgi_index index.php; #specifies the default file to be served if no file is specified in the URL
+        include fastcgi_params; #includes the FastCGI configuration parameters
+    }
+
+    location /static { #defines a location for a specific URL path
+        alias /var/www/static/; #specifies the location of the static files
+        autoindex on; #enables directory listing
+        auth_basic "Restricted Access to Static Files"; #enables basic authentication for this location
+        auth_basic_user_file /etc/nginx/.htpasswd; #specifies the location of the file containing username and password for authentication
+    }
+
+    error_page 404 /404.html; #specifies the file to be served for 404 errors
+    location = /404.html { #defines a location for a specific URL path
+        internal; #serves the 404.html file only to clients inside the server block
+    }
+
+    listen 443 ssl; #listens on port 443 for incoming requests using SSL
+    server_name www.example.com; #specifies the server name
+
+    ssl_certificate /etc/ssl/certs/example.crt; #specifies the location of the SSL certificate file
+    ssl_certificate_key /etc/ssl/private/example.key; #specifies the location of the SSL private key file
+
+    location /secure { #defines a location for a specific URL path
+        ssl_verify_client on; #enables client certificate authentication
+        ssl_client_certificate /etc/nginx/.crt; #specifies the location of the client certificate file
+        proxy_pass http://localhost:3000; #proxies requests to a backend server at port 3000
+    }
+
+    error_page 500 502 503 504 /50x.html; #specifies the file to be served for 500, 502, 503, and 504 errors
+    location = /50x.html { #defines a location for a specific URL path
+        root /var/www/error-pages/; #specifies the root directory for the error pages
+    }
+}

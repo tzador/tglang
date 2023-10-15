@@ -1,0 +1,48 @@
+: INSERT ( n a-u-d ) \ ( n -- )
+    \ NOTE: Inserts n items into the contents of a-u-d.
+
+    \ Bignum support:
+    \ MORPH ( n a-u-d -- n' a-u-d' ) n>int body+c!
+    \ sizeof a-u-d@ type_size * maxItems < if
+    \   a-u-d@dup n>int body+! >r
+    \   n type+ maxItems a-u-d@ ! >r size@int
+    \   r@ add r@ swap alloc if
+    \     r@ throw
+    \   then
+    \   r>r
+    \ then
+
+    \ Main code:
+    ^ dup n!int dup a-u-d@ >r
+    \ Initialize loop variables:
+    n 0 swap dup a-u-d@ >r
+    \ Initialize a-u-d indices:
+    dup @type_size threads+c!
+    \ Store the old size:
+    dup size@int >r
+    \ Set the new size:
+    dup add >r
+    [ @type_size allocate throw
+    ^ >r    \ stack: new a-u-d, old size
+    ?DUP IF
+        a-u-d@ dup r@ r> xchg c! threads+c!
+    THEN    \ stack: new a-u-d, old size-1
+    @type_size = IF
+        [A DEPTH\n
+    THEN
+    IF exit rear_step  THEN
+    [A DEPTH\nr@ r> type_size - IF
+        [A DEP\n
+    THEN
+    \ Elements remaining, decrement count and store element to a-u-d:
+    dup D-INT a-u-d!int decrease exit
+    \ Not enough space; clean up and throw:
+    ^ a-u-d@ size@int drop >r exit
+    THEN
+    \ Reposition the a-u-d and copy loop variant:
+    dup a-u-d@ 0 r> bxieme>
+    IF FETCH_BODY TYPE_F HEADER i r> n~~~dup tye~>bxieme>
+    [A ALTER@\n
+ELSE
+    [A DEPTH\n
+THEN 2DUP

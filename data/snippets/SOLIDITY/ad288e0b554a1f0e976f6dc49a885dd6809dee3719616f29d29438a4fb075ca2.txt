@@ -1,0 +1,60 @@
+pragma solidity ^0.5.0;
+
+// This contract implements a lottery system, where players can buy tickets for a chance to win a jackpot.
+
+contract Lottery {
+    address public manager; // The manager of the lottery
+    address payable[] public players; // The players who have bought tickets
+    uint public minimumContribution; // The minimum amount of ether required to buy a ticket
+    uint public cap; // The maximum number of tickets allowed to be sold
+
+    constructor(uint _minimumContribution, uint _cap) public {
+        // Do some validation for input values
+        require(_minimumContribution > 0, "Minimum contribution must be greater than 0");
+        require(_cap > 0, "Cap must be greater than 0");
+
+        // Set the values for the contract variables
+        manager = msg.sender;
+        minimumContribution = _minimumContribution;
+        cap = _cap;
+    }
+
+    // Function for players to buy a ticket
+    function buyTicket() public payable {
+        // Make sure the amount sent is equal to or greater than the minimum contribution
+        require(msg.value >= minimumContribution, "Insufficient funds to buy a ticket");
+
+        // Add the player to the list of players
+        players.push(msg.sender);
+
+        // Check if the number of tickets sold has reached the cap
+        if (players.length == cap) {
+            // Start the drawing process and determine the winner
+            uint index = random() % players.length;
+            players[index].transfer(address(this).balance);
+            players = new address payable[](0); // Reset the players array for the next round
+        }
+    }
+
+    // Helper function to generate a random number based on the current block difficulty and timestamp
+    function random() private view returns (uint) {
+        return uint(keccak256(abi.encodePacked(block.difficulty, block.timestamp)));
+    }
+
+    // Function for the manager to withdraw any excess funds from the contract
+    function withdraw(uint amount) public {
+        // Only allow the manager to call this function
+        require(msg.sender == manager, "Only the manager can withdraw excess funds");
+
+        // Make sure the amount requested does not exceed the current balance of the contract
+        require(amount <= address(this).balance, "Not enough funds in the contract");
+
+        // Transfer the requested amount to the manager
+        msg.sender.transfer(amount);
+    }
+
+    // Function to get the current balance of the contract
+    function getContractBalance() public view returns (uint) {
+        return address(this).balance;
+    }
+}

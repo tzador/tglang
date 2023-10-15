@@ -1,0 +1,93 @@
+// Define the contract
+contract Vote {
+    // Declaring variables
+    address public owner; // Owner of the contract
+    uint public totalVotes; // Total votes casted
+    string public winningOption; // Option with the most votes
+
+    // Mapping to store options and their vote counts
+    mapping(string => uint) public options;
+    
+    // Events to emit when a vote is casted and when the contract is destroyed
+    event VoteCasted(address voter, string option);
+    event ContractDestroyed();
+
+    // Constructor function to set owner of the contract
+    constructor() public {
+        owner = msg.sender;
+    }
+
+    // Modifier to restrict functions only to the owner
+    modifier onlyOwner {
+        require(msg.sender == owner, "Only owner can call this function.");
+        _;
+    }
+
+    // Function to add options and their initial vote count
+    function addOption(string memory _option, uint _voteCount) public onlyOwner {
+        require(options[_option] == 0, "Option already exists.");
+        options[_option] = _voteCount;
+    }
+
+    // Function to cast a vote for an option
+    function vote(string memory _option) public {
+        require(options[_option] != 0, "Option does not exist.");
+        // Increment the vote count of the option
+        options[_option]++;
+        // Increment the total number of votes casted
+        totalVotes++;
+        // Emit event
+        emit VoteCasted(msg.sender, _option);
+    }
+
+    // Function to get the current vote count of an option
+    function getVoteCount(string memory _option) public view returns (uint) {
+        return options[_option];
+    }
+
+    // Function to get the winning option with the most votes
+    function getWinningOption() public view returns (string memory) {
+        // Set the winning option and its vote count to be the first option in the mapping
+        string memory _winningOption = getKeyFromIndex(0);
+        uint _winningVoteCount = options[_winningOption];
+
+        // Loop through all the options in the mapping to find the option with the most votes
+        for (uint i = 1; i < options.length; i++) {
+            string memory _currentOption = getKeyFromIndex(i);
+            uint _currentVoteCount = options[_currentOption];
+
+            if (_currentVoteCount > _winningVoteCount) {
+                // If the current option has more votes, set it as the winning option
+                _winningOption = _currentOption;
+                _winningVoteCount = _currentVoteCount;
+            } else if (_currentVoteCount == _winningVoteCount) {
+                // If two or more options have the same vote count, keccak256 hash the options and select the one with the lowest hash
+                if (keccak256(abi.encode(_currentOption)) < keccak256(abi.encode(_winningOption))) {
+                    _winningOption = _currentOption;
+                    _winningVoteCount = _currentVoteCount;
+                }
+            }
+        }
+        
+        return _winningOption;
+    }
+
+    // Function to get the key at a specific index in the mapping
+    function getKeyFromIndex(uint index) internal view returns (string memory) {
+        // Loop through and get the key at the specified index
+        for (uint i = 0; i < options.length; i++) {
+            if (i == index) {
+                return options.key;
+            }
+        }
+        return "";
+    }
+
+    // Function to destroy the contract and transfer all remaining funds to the owner
+    function destroy() public onlyOwner {
+        selfdestruct(msg.sender);
+
+        // Emit event
+        emit ContractDestroyed();
+    }
+}

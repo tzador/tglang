@@ -1,0 +1,440 @@
+pragma solidity ^0.8.0;
+
+/**
+ * @title SafeMath
+ * @dev Unsigned math operations with safety checks that revert on error
+ */
+library SafeMath {
+    /**
+     * @dev Multiplies two unsigned integers, reverts on overflow.
+     */
+    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+        // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
+        // benefit is lost if 'b' is also tested.
+        // See: https://github.com/OpenZeppelin/openzeppelin-solidity/pull/522
+        if (a == 0) {
+            return 0;
+        }
+
+        uint256 c = a * b;
+        require(c / a == b, "multiplication overflow");
+
+        return c;
+    }
+
+    /**
+     * @dev Integer division of two unsigned integers truncating the quotient, reverts on division by zero.
+     */
+    function div(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b > 0, "division by zero");
+        uint256 c = a / b;
+        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
+
+        return c;
+    }
+
+    /**
+     * @dev Subtracts two unsigned integers, reverts on overflow (i.e. if subtrahend is greater than minuend).
+     */
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b <= a, "subtraction underflow");
+        uint256 c = a - b;
+
+        return c;
+    }
+
+    /**
+     * @dev Adds two unsigned integers, reverts on overflow.
+     */
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        uint256 c = a + b;
+        require(c >= a, "addition overflow");
+
+        return c;
+    }
+
+    /**
+     * @dev Divides two unsigned integers and returns the remainder (unsigned integer modulo),
+     * reverts when dividing by zero.
+     */
+    function mod(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b != 0, "modulo by zero");
+        return a % b;
+    }
+}
+
+/**
+ * @title ERC20
+ * @dev Interface for the basic functions of an ERC20 Token.
+ */
+interface ERC20 {
+    function totalSupply() external view returns (uint256);
+
+    function balanceOf(address who) external view returns (uint256);
+
+    function allowance(address owner, address spender) external view returns (uint256);
+
+    function transfer(address to, uint256 value) external returns (bool);
+
+    function approve(address spender, uint256 value) external returns (bool);
+
+    function transferFrom(
+        address from,
+        address to,
+        uint256 value
+    ) external returns (bool);
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+}
+
+/**
+ * @title ERC20Detailed
+ * @dev Interface for the optional metadata functions from the ERC20 standard.
+ */
+interface ERC20Detailed {
+    /**
+     * @return The name of the token.
+     */
+    function name() external view returns (string memory);
+
+    /**
+     * @return The symbol of the token.
+     */
+    function symbol() external view returns (string memory);
+
+    /**
+     * @return The number of decimals of the token.
+     */
+    function decimals() external view returns (uint8);
+}
+
+/**
+ * @title Ownable
+ * @dev The Ownable contract has an owner address, and provides basic authorization control
+ * functions, this simplifies the implementation of "user permissions".
+ */
+contract Ownable {
+    address private _owner;
+
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    /**
+     * @dev The Ownable constructor sets the original owner of the contract to the sender
+     * account.
+     */
+    constructor() public {
+        _owner = msg.sender;
+        emit OwnershipTransferred(address(0), _owner);
+    }
+
+    /**
+     * @return The address of the owner.
+     */
+    function owner() public view returns (address) {
+        return _owner;
+    }
+
+    /**
+     * @dev Throws if called by any account other than the owner.
+     */
+    modifier onlyOwner() {
+        require(isOwner(), "caller is not the owner");
+        _;
+    }
+
+    /**
+     * @return true if `msg.sender` is the owner of the contract.
+     */
+    function isOwner() public view returns (bool) {
+        return msg.sender == _owner;
+    }
+
+    /**
+     * @dev Allows the current owner to relinquish control of the contract.
+     * @notice renouncing ownership will leave the contract without an owner
+     * It will not be possible to call the functions with the `onlyOwner`
+     * modifier anymore.
+     */
+    function renounceOwnership() public onlyOwner {
+        emit OwnershipTransferred(_owner, address(0));
+        _owner = address(0);
+    }
+
+    /**
+     * @dev Allows the current owner to transfer control of the contract to a newOwner.
+     * @param newOwner The address to transfer ownership to.
+     */
+    function transferOwnership(address newOwner) public onlyOwner {
+        _transferOwnership(newOwner);
+    }
+
+    /**
+     * @dev Transfers control of the contract to a newOwner.
+     * @param newOwner The address to transfer ownership to.
+     */
+    function _transferOwnership(address newOwner) internal {
+        require(newOwner != address(0), "new owner can not be zero address");
+        emit OwnershipTransferred(_owner, newOwner);
+        _owner = newOwner;
+    }
+}
+
+/**
+ * @title Whitelist
+ * @dev The Whitelist contract has a whitelist of addresses, and provides basic authorization control
+ * functions, this simplifies the implementation of "user permissions".
+ */
+contract Whitelist is Ownable {
+    mapping(address => bool) private _whitelisted;
+
+    event WhitelistedAddressAdded(address addr);
+    event WhitelistedAddressRemoved(address addr);
+
+    /**
+     * @dev Throws if called by any account that's not whitelisted.
+     */
+    modifier onlyWhitelisted() {
+        require(isWhitelisted(msg.sender), "account is not whitelisted");
+        _;
+    }
+
+    /**
+     * @return true if the `addr` is whitelisted, false otherwise.
+     */
+    function isWhitelisted(address addr) public view returns (bool) {
+        return _whitelisted[addr];
+    }
+
+    /**
+     * @dev add an address to the whitelist.
+     * @param addr address
+     * @return true if the address was added to the whitelist, false if the address was already in the whitelist.
+     */
+    function addAddressToWhitelist(address addr) public onlyOwner {
+        require(addr != address(0), "addr can not be zero address");
+        if (_whitelisted[addr]) {
+            return false;
+        } else {
+            _whitelisted[addr] = true;
+            emit WhitelistedAddressAdded(addr);
+            return true;
+        }
+    }
+
+    /**
+     * @dev add addresses to the whitelist.
+     * @param addrs addresses
+     */
+    function addAddressesToWhitelist(address[] memory addrs) public onlyOwner {
+        for (uint256 i = 0; i < addrs.length; i++) {
+            addAddressToWhitelist(addrs[i]);
+        }
+    }
+
+    /**
+     * @dev remove an address from the whitelist, return false if the address was not in the whitelist.
+     * @param addr address
+     * @return true if the address was removed from the whitelist,
+     * false if the address wasn't in the whitelist in the first place.
+     */
+    function removeAddressFromWhitelist(address addr) public onlyOwner {
+        require(addr != address(0), "addr can not be zero address");
+        if (_whitelisted[addr]) {
+            _whitelisted[addr] = false;
+            emit WhitelistedAddressRemoved(addr);
+        }
+    }
+
+    /**
+     * @dev remove addresses from the whitelist.
+     * @param addrs addresses
+     */
+    function removeAddressesFromWhitelist(address[] memory addrs) public onlyOwner {
+        for (uint256 i = 0; i < addrs.length; i++) {
+            removeAddressFromWhitelist(addrs[i]);
+        }
+    }
+}
+
+/**
+ * @title Bounty
+ * @dev The Bounty contract is used for bounty distribution.
+ */
+contract Bounty is Ownable, Whitelist, ERC20, ERC20Detailed {
+    using SafeMath for uint256;
+
+    string private _name;
+    string private _symbol;
+    uint8 private _decimals;
+
+    uint256 private _totalSupply;
+    mapping(address => uint256) private _balances;
+    mapping(address => mapping(address => uint256)) private _allowances;
+
+    /**
+     * @dev Constructor
+     * @param name The name of the token
+     * @param symbol The symbol of the token
+     * @param decimals The number of decimals of the token
+     */
+    constructor(string memory name, string memory symbol, uint8 decimals) public {
+        _name = name;
+        _symbol = symbol;
+        _decimals = decimals;
+    }
+
+    /**
+     * @return The name of the token.
+     */
+    function name() external view returns (string memory) {
+        return _name;
+    }
+
+    /**
+     * @return The symbol of the token.
+     */
+    function symbol() external view returns (string memory) {
+        return _symbol;
+    }
+
+    /**
+     * @return The number of decimals of the token.
+     */
+    function decimals() external view returns (uint8) {
+        return _decimals;
+    }
+
+    /**
+     * @dev Total number of tokens in existence
+     */
+    function totalSupply() external view returns (uint256) {
+        return _totalSupply;
+    }
+
+    /**
+     * @dev See {ERC20-balanceOf}.
+     */
+    function balanceOf(address account) external view returns (uint256) {
+        return _balances[account];
+    }
+
+    /**
+     * @dev See {ERC20-decimals}.
+     *
+     * Requirements:
+     *
+     * - value must not be zero.
+     */
+    function transfer(address recipient, uint256 amount) external returns (bool) {
+        _transfer(msg.sender, recipient, amount);
+        return true;
+    }
+
+    /**
+     * @dev See {ERC20-allowance}.
+     */
+    function allowance(address owner, address spender) external view returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    /**
+     * @dev See {ERC20-approve}.
+     *
+     * Requirements:
+     *
+     * - spender cannot be the zero address.
+     */
+    function approve(address spender, uint256 amount) external returns (bool) {
+        _approve(msg.sender, spender, amount);
+        return true;
+    }
+
+    /**
+     * @dev See {ERC20-transferFrom}.
+     *
+     * Emits an {Approval} event indicating the updated allowance. This is not
+     * required by the EIP. See the note at the beginning of {ERC20}.
+     *
+     * Requirements:
+     *
+     * - spender cannot be the zero address.
+     * - value must not be zero.
+     */
+    function transferFrom(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) external returns (bool) {
+        _transfer(sender, recipient, amount);
+        _approve(sender, msg.sender, _allowances[sender][msg.sender].sub(amount, "ERC20: transfer amount exceeds allowance"));
+        return true;
+    }
+
+    /**
+     * @dev Atomically increases the allowance granted to `spender` by the sender.
+     *
+     * Requirements:
+     *
+     * - `spender` cannot be the zero address.
+     */
+    function increaseAllowance(address spender, uint256 addedValue) public returns (bool) {
+        _approve(msg.sender, spender, _allowances[msg.sender][spender].add(addedValue));
+        return true;
+    }
+
+    /**
+     * @dev Atomically decreases the allowance granted to `spender` by the sender.
+     *
+     * Requirements:
+     *
+     * - `spender` cannot be the zero address.
+     * - `spender` must have allowance for the caller of at least
+     * `subtractedValue`.
+     */
+    function decreaseAllowance(address spender, uint256 subtractedValue) public returns (bool) {
+        _approve(msg.sender, spender, _allowances[msg.sender][spender].sub(subtractedValue, "ERC20: decreased allowance below zero"));
+        return true;
+    }
+
+    /**
+     * @dev Creates `amount` tokens and assigns them to `account`, increasing
+     * the total supply.
+     *
+     * Emits a {Transfer} event with `from` set to the zero address.
+     *
+     * Requirements
+     *
+     * - `to` cannot be the zero address.
+     */
+    function issueToken(address account, uint256 amount) public onlyWhitelisted returns (bool) {
+        require(account != address(0), "ERC20: mint to the zero address");
+        _totalSupply = _totalSupply.add(amount);
+        _balances[account] = _balances[account].add(amount);
+        emit Transfer(address(0), account, amount);
+        return true;
+    }
+
+    /**
+     * @dev Destroys `amount` tokens from `account`, reducing the
+     * total supply.
+     *
+     * Emits a {Transfer} event with `to` set to the zero address.
+     *
+     * Requirements
+     *
+     * - `from` cannot be the zero address.
+     * - `from` must have at least `amount` tokens.
+     */
+    function burnToken(address account, uint256 amount) public onlyWhitelisted returns (bool) {
+        require(account != address(0), "ERC20: burn from the zero address");
+
+        _balances[account] = _balances[account].sub(amount, "ERC20: burn amount exceeds balance");
+        _totalSupply = _totalSupply.sub(amount);
+        emit Transfer(account, address(0), amount);
+        return true;
+    }
+
+    /**
+     * @

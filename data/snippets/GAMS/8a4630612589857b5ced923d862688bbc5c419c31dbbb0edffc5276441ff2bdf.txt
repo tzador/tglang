@@ -1,0 +1,44 @@
+* Example Model for Portfolio Optimization using GAMS
+
+* Sets
+  Set i 'Assets' /AAPL, GOOGL, BAC, NFLX, AMZN/
+  Set t 'Time Periods' /2010,2011,2012,2013,2014/
+
+* Parameters
+  Parameter exp_ret(i,t) 'Expected Returns'
+  Parameter var(i,t) 'Variance'
+  
+* Data for expected returns and variance
+  exp_ret(i,t) = 0.05, 0.08, 0.07, 0.09, 0.06
+  var(i,t) = 0.01, 0.02, 0.03, 0.04, 0.05
+  
+* Variables
+  Variables x(i,t) 'Portfolio weights'
+  Variable obj 'Objective Function'
+  
+* Constraints
+  x(i,t) =e= 0 'Portfolio weights cannot be negative'
+  sum(i, x(i,t)) =e= 1 'Weights must sum to 1 for each time period'
+  sum(i, x(i,t) * exp_ret(i,t)) =e= 0.075 'Expected return constraint'
+  sum(i, x(i,t) * var(i,t)) =e= 0.025 'Variance constraint'
+  
+* Objective Function
+  obj = 1 / (t - 1) * sum(t, sum(i, x(i,t) * (exp_ret(i,t) - 0.05 / (sqrt(var(i,t))) ) ) )
+
+* Model Definition
+  Model PortfolioOptimization /all/;
+  
+* Solve the Model
+  Solve PortfolioOptimization maximizing obj using nlp;
+  
+* Print the results
+  file results / 'portfolio_results.txt' /;
+  put results 'Portfolio Optimization Results' /;
+  loop(i,
+       loop(t,
+            put results / i.t:10, x.l(i,t) :10 );
+       );
+  put results / 'Objective Function:' obj.l /;
+  
+* Display the optimal portfolio weights
+  display x.l;

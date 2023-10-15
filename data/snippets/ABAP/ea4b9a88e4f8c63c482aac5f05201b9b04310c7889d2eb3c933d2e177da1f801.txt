@@ -1,0 +1,87 @@
+*&---------------------------------------------------------------------*
+*& Report Z_TEST_REPORT                                                  *
+*&---------------------------------------------------------------------*
+*& This program demonstrates a simple ABAP report with data selection     *
+*& and output using the ALV grid control.                                 *
+*&---------------------------------------------------------------------*
+REPORT Z_TEST_REPORT.
+
+* Tables and structures declaration
+TABLES: EKKO, EKPO.
+SELECT-OPTIONS: s_ebeln FOR EKKO-EBELN,
+                s_ekorg FOR EKKO-EKORG,
+                s_matnr FOR EKPO-MATNR,
+                s_menge FOR EKPO-MENGE.
+
+* Internal tables declaration
+DATA: it_ekko       TYPE STANDARD TABLE OF EKKO,
+      it_ekpo       TYPE STANDARD TABLE OF EKPO,
+      wa_ekko       TYPE EKKO,
+      wa_ekpo       TYPE EKPO.
+
+* Selection screen
+PARAMETERS: p_print TYPE c, "Print preview indicator
+            p_sel TYPE c, "Selection indicator
+            p_default TYPE c, "Default selection indicator
+            p_confirm TYPE c, "Confirmation indicator
+            p_range TYPE c. "Range display indicator
+
+AT SELECTION-SCREEN OUTPUT.
+  LOOP AT SCREEN.
+    IF SCREEN-GROUP1 = 'TEXT1' OR SCREEN-GROUP1 = 'TEXT2'.
+      SCREEN-INVISIBLE = 0.
+      MODIFY SCREEN.
+    ENDIF.
+  ENDLOOP.
+
+DATA: ok_code TYPE sy-ucomm.
+SELECTION-SCREEN: FUNCTION KEY 1,
+                  FUNCTION KEY 2,
+                  FUNCTION KEY 3,
+                  FUNCTION KEY 4,
+                  FUNCTION KEY 5.
+INITIALIZATION.
+  ok_code = 'F1'.
+
+AT SELECTION-SCREEN.
+  CASE ok_code.
+    WHEN 'F1'. "Display help
+      HTML_CONTROL_DISPLAY_HELP_BUTTON = 'X'.
+    WHEN 'F2'. "Default selection
+      HTML_CONTROL_DEFAULT_SELECTION_BUTTON = 'X'.
+    WHEN 'F3'. "Print preview
+      HTML_CONTROL_PRINT_PREVIEW_BUTTON = 'X'.
+    WHEN 'F4'. "Confirmation
+      HTML_CONTROL_CONFIRM_BUTTON = 'X'.
+    WHEN 'F5'. "Range display
+      HTML_CONTROL_RANGE_DISPLAY_BUTTON = 'X'.
+    WHEN '##'.
+*     CALL SELECTION-SCREEN 'Z_TEST_REPORT'.
+  ENDCASE.
+
+* START-OF-SELECTION: Data retrieval
+IF p_sel = abap_true.
+  SELECT * INTO CORRESPONDING FIELDS OF TABLE it_ebko FROM EKKO
+    WHERE EBELN IN s_ebeln
+    AND   EKKO-EKORG IN s_ekorg.
+
+  SELECT * INTO CORRESPONDING FIELDS OF TABLE it_ekpo FROM EKPO
+    FOR ALL ENTRIES IN it_ekko
+    WHERE EBELN IN it_ekko-EBELN
+    AND   MATNR IN s_matnr
+    AND   EKPO-MENGE IN s_menge.
+ENDIF.
+
+* ALV grid output
+CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+  EXPORTING
+    i_callback_program = 'Z_TEST_REPORT'
+  TABLES
+    t_outtab           = it_ekpo
+  EXCEPTIONS
+    program_error      = 1
+    OTHERS             = 2.
+IF sy-subrc <> 0.
+  MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+  WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+ENDIF.

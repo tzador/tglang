@@ -1,0 +1,79 @@
+/* This code snippet generates a logistic regression model using stepwise selection */
+
+/* Importing necessary libraries */
+%include '/path/to/sasfile.sas'; /* importing a pre-written file to use custom macros */ 
+proc import datafile = "C:\Users\input_data.csv"  /* importing the input data file */
+    out = work.input_data_data /* saving the input data as a SAS dataset in the 'work' folder */
+    dbms = csv; /* specifying the file type */
+    delimiter = ','; /* specifying the delimiter used in the csv file */
+    getnames = yes; /* specifying if first row contains variable names */
+run;
+
+/* Performing data cleaning and manipulation */
+data clean_data; /* creating a new dataset for cleaned data */
+    set work.input_data_data; /* setting the input dataset */
+    /* data cleaning/manipulation steps could be added here */
+run;
+
+/* Generating the logistic regression model */
+%macro logistic; /* creating a macro for easy reuse of code */
+    %global model_name; /* declaring the macro variable where model name will be stored */
+    %let model_name = Logistic_Reg_Model; /* assigning the model name to the macro variable */
+    proc logistic data = clean_data outest = reg_coeff /* specifying the input data and output dataset for regression coefficients */
+        covout /* printing the covariance matrix */
+        plots(oddsratio(rodf=smooth(ref = (testdata)))); /* specifying the type of plots to be generated */
+    /* Stepwise selection is used for variable selection, other selection methods can be used here */
+    model response_variable = independent_var1-independent_var5 / selection = stepwise sle = 0.05 sls = 0.05 /* specifying the variables and significance levels for selection */
+        lrlower   lrupper ; /* specifying the confidence intervals for the parameter estimates */
+    score data = work.input_data_data out = model_score(type = probs) / 
+        showbins /* specifying the dataset for which scores will be generated and the type of scores */
+        descending; /* specifying if scores should be in descending order */
+run;
+%mend;
+
+/* Calling the macro to generate the model */
+%logistic;
+
+/* Outputting the model summary */
+ods output FitStatistics = model_fit_stats /* specifying the output dataset for model fit statistics */
+    ParameterEstimates = model_param_est; /* specifying the output dataset for parameter estimates */
+proc print data = model_fit_stats(obs = 1) noobs; /* printing only the first observation of the fit statistics dataset */
+    title 'Model Fit Statistics'; /* adding a title for the table */
+run;
+
+/* Outputting the parameter estimates */
+proc print data = model_param_est label noobs; /* printing the parameter estimates dataset with labels */
+    title 'Parameter Estimates'; /* adding a title for the table */
+run;
+
+/* Outputting the final model equation */
+data model_equation; /* creating a new dataset to store the final model equation */
+    set reg_coeff(keep = param intercept); /* setting the output dataset from proc logistic */
+    /* creating the final model equation using the parameter estimates and coefficients */
+    model_equation = catx(' + ', '1', catt('(', intercept, ')')) || catx(' + ', independent_var1, catt('(', param1, ')')) || catx(' + ', independent_var2, catt('(', param2, ')')) ||
+        catx(' + ', independent_var3, catt('(', param3, ')')) || catx(' + ', independent_var4, catt('(', param4, ')')) || catx(' + ', independent_var5, catt('(', param5, ')'));
+run;
+
+/* Printing the final model equation */
+proc print data = model_equation noobs; /* printing the final model equation dataset without observation numbers */
+    var model_equation; /* specifying the variable to be printed */
+    title 'Final Model Equation'; /* adding a title for the table */
+run;
+
+/* Generating predicted values for new data */
+data new_data; /* creating a new dataset for new data */
+    input independent_var1-independent_var5; /* specifying the variables for new data */
+datalines; /* adding the new data to the dataset */
+2 3 5 6 8
+4 2 1 3 4
+1 5 7 8 9
+run;
+
+/* Scoring the new data using the generated model */
+proc score data = new_data score = model_score out = scored_data; /* specifying the new data and the scores dataset name */
+run;
+
+/* Outputting the scored data with predicted probabilities */
+proc print data = scored_data noobs; /* printing the scored data without observation numbers */
+    title 'Scored Data'; /* adding a title for the table */
+run;

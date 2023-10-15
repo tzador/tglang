@@ -1,0 +1,45 @@
+Sets                             # defining sets
+  i   'clinker plants' /p1*p3/    # set of clinker plants
+  j   'cement plants'  /c1*c4/    # set of cement plants
+  k1  'production costs'
+    /pc1*c2/                      # set of production costs for clinker plants
+  k2  'shipment costs'
+    /sc1*c2/                      # set of shipment costs for cement plants
+  k3  'production limits'
+    /pl1*p3/                      # set of production limits for clinker plants
+  k4  'demand limits'
+    /dl1*c4/;                     # set of demand limits for cement plants
+
+Parameters                       # defining parameters
+  cap(i)            'production capacity of clinker plants'   /p1 50, p2 100, p3 70/ 
+  demand(j)         'demand of cement plants'                 /c1 80, c2 60, c3 90, c4 110/
+  fixcost(i)        'fixed production cost of clinker plants' /p1 5000, p2 6000, p3 4500/
+  varcost(k1,k2)    'variable costs for producing and shipping'
+                          /pc1.sc1 p1.c1 10,pc1.sc1 p1.c2 10, pc1.sc1 p2.c1 5, pc1.sc1 p2.c2 9,
+                           pc1.sc1 p3.c1 6, pc1.sc1 p3.c2 10, pc1.sc2 p1.c3 11, pc1. sc2 p1.c4 15,
+                           pc1.sc2 p2.c3 7, pc1. sc2 p2.c4 7, pc1. sc2 p3.c3 11, pc1. sc2 p3.c4 12 /;
+
+Positive Variables x(i)            'amount of clinker shipped from plant i'
+                   y(j)            'amount of cement supplied to plant j';
+
+Binary Variables z(i,j)            'decision variable to indicate if transport route exists';
+
+Variable v;
+
+Equations
+  costobj          'total production and shipment cost objective function'
+  supplybalance(j) 'cement availability constraint'
+  demandbalance(i) 'clinker demand constraint';
+
+costobj .. v =e= sum((i,j), fixcost(i)*z(i,j) + demand(j)*x(i)*y(j) + sum((k1,k2), varcost(k1,k2)*z(i,j)));
+
+supplybalance(j) .. sum(i, x(i)*z(i,j)) =e= demand(j);
+
+demandbalance(i) .. sum(j, y(j)*z(i,j)) =e= cap(i);
+
+Model transport /all/;
+solve transport using lp minimizing v;
+ 
+display x.l, y.l, z.l, v.l;
+
+***** Always display all variables for clarity*****

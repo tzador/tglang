@@ -1,0 +1,89 @@
+server {
+    listen 80;
+    server_name example.com;
+
+    # Redirect all requests to HTTPS
+    return 301 https://example.com$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name example.com;
+
+    # SSL configuration
+    ssl_certificate /path/to/certificate.crt;
+    ssl_certificate_key /path/to/private_key.key;
+    ssl_trusted_certificate /path/to/chain.crt;
+
+    # Enable session caching to improve performance
+    ssl_session_cache shared:SSL:50m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+
+    # Enable OCSP stapling for improved security
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    ssl_trusted_certificate /path/to/ocsp_certificate.crt;
+    resolver 8.8.8.8 8.8.4.4 valid=300s;
+    resolver_timeout 30s;
+
+    # Enable HTTP Strict Transport Security (HSTS) to force secure connections for a specific time period
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload";
+
+    # Configure cipher suites to restrict which protocols and ciphers are used for secure connections
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    # Enable HTTP/2 for improved performance
+    http2_max_concurrent_streams 100;
+    http2_recv_timeout 3s;
+
+    # Set server response headers
+    server_tokens off;
+    add_header X-Frame-Options SAMEORIGIN;
+    add_header X-Content-Type-Options nosniff;
+    add_header X-XSS-Protection "1; mode=block";
+    add_header Referrer-Policy "same-origin";
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:";
+    add_header Permissions-Policy "geolocation=(), sync-xhr=(), microphone=(), camera=(), fullscreen=(self), payment=()";
+    add_header Feature-Policy "geolocation 'self'; camera 'none'";
+
+    # Enable gzip compression to reduce file size for faster transmission
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    # Deny access to sensitive files and directories
+    location ~ /\. {
+        deny all;
+    }
+    location ~* ^/(wp-includes|wp-content/uploads) {
+        deny all;
+    }
+
+    # Serve static files directly without passing requests to the backend server
+    location ~* \.(jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|css|js)$ {
+        expires 30d;
+        add_header Pragma public;
+        add_header Cache-Control "public, must-revalidate, proxy-revalidate";
+        access_log off;
+        log_not_found off;
+        break;
+    }
+
+    # Forward requests to the backend server using proxy_pass
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    # Redirect www subdomain to non-www version of the site for SEO purposes
+    server {
+        listen 443 ssl http2;
+        server_name www.example.com;
+
+        return 301 https://example.com$request_uri;
+    }
+}

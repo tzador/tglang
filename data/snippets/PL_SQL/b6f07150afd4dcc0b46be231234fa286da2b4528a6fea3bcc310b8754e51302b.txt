@@ -1,0 +1,51 @@
+/* This code snippet is a PL/SQL block that creates a stored procedure named 'get_employee_info'.
+The procedure takes in an employee ID as input and returns their name and salary if found.
+The procedure first declares two variables to hold the employee's name and salary.
+If the employee ID is not found in the employees table, an error is thrown.
+The procedure then uses a cursor to select the employee's name and salary from the employees table.
+If the cursor does not return any rows, an error is thrown.
+Otherwise, the values are stored in the variables and returned in a formatted string.
+The procedure ends with an exception handler to catch any errors that may occur. 
+
+The input parameter for the procedure is named 'e_id' and is of type NUMBER.
+The output variables are named 'e_name' and 'e_salary' and are of type VARCHAR2 and NUMBER respectively.*/
+
+CREATE OR REPLACE PROCEDURE get_employee_info (e_id in NUMBER, e_name out VARCHAR2, e_salary out NUMBER) AS
+  emp_found NUMBER := 0; /* variable to track whether employee ID is found or not */
+  emp_cursor SYS_REFCURSOR; /* cursor to hold query results */
+BEGIN
+  -- initialize output variables
+  e_name := '';
+  e_salary := 0;
+
+  -- check if employee exists in employees table
+  SELECT COUNT(*) INTO emp_found
+  FROM employees
+  WHERE employee_id = e_id;
+
+  -- if employee ID is not found, throw an error
+  IF emp_found = 0 THEN
+    RAISE_APPLICATION_ERROR(-20001, 'Employee ID not found');
+  END IF;
+
+  -- open cursor to select employee's name and salary
+  OPEN emp_cursor FOR
+    SELECT employee_name, employee_salary
+    FROM employees
+    WHERE employee_id = e_id;
+
+  -- check if cursor returns any rows, if not, throw an error
+  FETCH emp_cursor INTO e_name, e_salary;
+  IF emp_cursor%NOTFOUND THEN
+    CLOSE emp_cursor; -- close cursor if no rows found
+    RAISE_APPLICATION_ERROR(-20002, 'No employee data found for employee ID');
+  END IF;
+
+  -- format and return employee info
+  DBMS_OUTPUT.PUT_LINE('Employee Name: ' || e_name || ', Employee Salary: ' || e_salary);
+
+  EXCEPTION
+    WHEN OTHERS THEN
+      DBMS_OUTPUT.PUT_LINE('Error: ' || SQLCODE || ' - ' || SQLERRM);
+END;
+/

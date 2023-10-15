@@ -1,0 +1,116 @@
+{-| A multimodule application with an API endpoint for retrieving user data
+
+@module Main exposing (main)
+
+import Html exposing (text)
+import Http exposing (send, Request, Response)
+import Json.Decode as Json
+import Json.Encode as Encode
+
+
+{-| The model for storing the retrieved user data -}
+type alias User =
+    { name : String
+    , age : Int
+    , email : String
+    }
+
+
+{-| The initial model for our application -}
+initialModel : User
+initialModel =
+    { name = "John Doe"
+    , age = 25
+    , email = "johndoe@example.com"
+    }
+
+
+{-| The message type for updating the model -}
+type Msg
+    = FetchUser
+    | ReceiveUser (Result String User)
+
+
+{-| The main function that sets up the application -}
+main : Program () User Msg
+main =
+    Html.beginnerProgram
+        { model = initialModel
+        , update = update
+        , view = view
+        }
+
+
+{-| The update function for processing messages and updating the model accordingly -}
+update : Msg -> User -> (User, Cmd Msg)
+update msg model =
+    case msg of
+        FetchUser ->
+            let
+                request : Request User
+                request =
+                    Http.request
+                        { method = "GET"
+                        , url = "https://exampleapi.com/user/123"
+                        , body = Http.emptyBody
+                        , headers = []
+                        , expect = Http.expectJson decodeUser ResponseError
+                        }
+            in
+            ({ model | name = "Loading..." }, Http.send ReceiveUser request)
+
+        ReceiveUser (Ok (User name age email)) ->
+            (User name age email, Cmd.none)
+
+        ReceiveUser (Err error) ->
+            ({ model | name = "Error: " ++ error }, Cmd.none)
+
+
+{-| The view function for displaying the user data -}
+view : User -> Html Msg
+view user =
+    Html.div []
+        [ Html.h1 [] [ Html.text user.name ]
+        , Html.p [] [ Html.text ("Age: " ++ (String.fromInt user.age)) ]
+        , Html.p [] [ Html.text ("Email: " ++ user.email) ]
+        ]
+
+
+{-| The JSON decoder for decoding the user data from the API response -}
+decodeUser : Json.Decoder User
+decodeUser =
+    Json.field "name" Json.string
+        |> Json.andThen
+            (\name ->
+                Json.field "age" Json.int
+                    |> Json.andThen
+                        (\age ->
+                            Json.field "email" Json.string
+                                |> Json.map
+                                    (\email ->
+                                        { name = name
+                                        , age = age
+                                        , email = email
+                                        }
+                                    )
+                        )
+            )
+
+
+{-| The custom type for representing any potential errors from the API response -}
+type ResponseError
+    = BadRequest
+    | ServerError
+    | OtherError String
+
+
+{-| The JSON decoder for decoding potential errors from the API response -}
+decodeResponseError : Json.Decoder ResponseError
+decodeResponseError =
+    Json.string |> Json.andThen
+        (\error ->
+            case error of
+                "Bad Request" -> Json.succeed BadRequest
+                "Server Error" -> Json.succeed ServerError
+                _ -> Json.succeed (OtherError error)
+        )

@@ -1,0 +1,74 @@
+# This is a complex Nginx configuration file.
+
+# This section sets the user and group which the Nginx worker processes will run as.
+user www-data; # <-- Replace with desired user or comment out to keep default.
+
+# The number of worker processes to handle incoming requests.
+worker_processes auto; # Use auto to automatically detect the number of CPU cores available.
+
+# The maximum number of open file descriptors per worker process.
+worker_rlimit_nofile 65535; # <-- Increase if needed.
+
+# This section sets up the events module, which handles connections and requests.
+events {
+    # The maximum number of connections that can be opened by a worker process.
+    worker_connections 8000; # <-- Increase if needed.
+}
+
+# This section defines the server configuration for the main http block.
+http {    
+    # The user and group that the main http block will run as.
+    user www-data; # <-- Replace with desired user or comment out to keep default.
+    
+    # The maximum body size for client requests.
+    client_max_body_size 100m; # <-- Increase if needed.
+
+    # The MIME types that are recognized and handled by Nginx.
+    types {
+        text/html html;
+        application/json json;
+        image/jpeg jpeg jpg;
+    }
+    
+    # The locations for which requests are handled.
+    server {
+        # The port on which Nginx will listen for requests.
+        listen 80 default_server;
+
+        # The server name or IP address.
+        server_name example.com; # <-- Replace with your server name or IP.
+        
+        # The root directory to serve files from.
+        root /var/www/html; # <-- Replace with your desired root directory.
+        
+        # Enable gzip compression.
+        gzip on;
+        gzip_comp_level 5; # <-- Increase for stronger compression.
+        gzip_types text/plain text/css application/json;
+
+        # The error log file and level.
+        error_log /var/log/nginx/error.log info; # <-- Change level as needed.
+
+        # The location for static content.
+        location /static/ {
+            # The root directory to serve static files from.
+            root /var/www/static; # <-- Replace with your desired root directory.
+            
+            # Enable caching for static files.
+            expires 1d; # <-- Change caching time as desired.
+        }
+
+        # The location for dynamic content.
+        location / {
+            # The host and port of the upstream server to handle requests.
+            proxy_pass http://localhost:8000;
+            
+             # The proxy server settings.
+             proxy_http_version 1.1;
+             proxy_set_header Host $host;
+             proxy_set_header X-Real-IP $remote_addr;
+             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+             proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+}

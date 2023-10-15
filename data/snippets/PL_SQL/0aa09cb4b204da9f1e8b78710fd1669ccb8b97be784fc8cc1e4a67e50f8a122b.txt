@@ -1,0 +1,54 @@
+CREATE TABLE employees (
+    employee_id NUMBER(10) PRIMARY KEY,
+    first_name VARCHAR2(50) NOT NULL,
+    last_name VARCHAR2(50) NOT NULL,
+    department_id NUMBER(10),
+    job_title VARCHAR2(50),
+    salary NUMBER(10,2),
+    hire_date DATE DEFAULT SYSDATE
+);
+
+CREATE TYPE employee_type AS OBJECT (
+    first_name VARCHAR2(50),
+    last_name VARCHAR2(50),
+    department VARCHAR2(50),
+    job_title VARCHAR2(50),
+    salary NUMBER(10,2),
+    hire_date DATE
+);
+
+CREATE TABLE employee_objects OF employee_type (
+    PRIMARY KEY (first_name, last_name)
+);
+
+CREATE OR REPLACE PROCEDURE add_employee (
+    emp_id IN NUMBER,
+    first_name IN VARCHAR2,
+    last_name IN VARCHAR2,
+    department_id IN NUMBER,
+    job_title IN VARCHAR2,
+    salary IN NUMBER,
+    hire_date IN DATE)
+AS
+    e employee_type := employee_type(first_name, last_name,
+        department_id, job_title, salary, hire_date);
+BEGIN
+    IF emp_id IS NULL THEN
+        INSERT INTO employees(first_name, last_name,
+            department_id, job_title, salary, hire_date)
+        VALUES(first_name, last_name, department_id,
+            job_title, salary, hire_date);
+    ELSE
+        employee_objects.EXTEND;
+        employee_objects(emp_id) := e;
+    END IF;
+END;
+
+CREATE OR REPLACE TRIGGER emp_salary_check
+BEFORE INSERT OR UPDATE OF salary ON employees
+FOR EACH ROW
+BEGIN
+    IF :NEW.salary < 50000 THEN
+        RAISE_APPLICATION_ERROR(-20000, 'Employee salary cannot be less than 50000');
+    END IF;
+END;

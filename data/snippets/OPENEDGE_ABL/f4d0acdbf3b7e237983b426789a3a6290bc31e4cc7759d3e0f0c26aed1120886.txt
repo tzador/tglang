@@ -1,0 +1,49 @@
+RUN storeProcedure.p(INPUT param1, OUTPUT param2). /* Calling a stored procedure in OPENEDGE_ABL */
+
+/* Declare input and output parameters */
+DEFINE INPUT PARAMETER param1 AS CHARACTER.
+DEFINE OUTPUT PARAMETER param2 AS DECIMAL.
+
+/* Assign values to input parameters */
+param1 = "String value".
+param2 = 100.
+
+/* Run the stored procedure and catch any errors */
+ON ERROR UNDO, THROW:
+RUN storeProcedure.p(INPUT param1, OUTPUT param2).
+ON END-ERROR UNDO, THROW:
+
+/* Display the result of the stored procedure */
+DISPLAY "Output parameter value: " param2.
+
+/* Here starts the definition of the stored procedure */
+PROCEDURE storeProcedure.p:
+    DEFINE INPUT PARAMETER param1 AS CHARACTER.
+    DEFINE OUTPUT PARAMETER param2 AS DECIMAL.
+
+    /* Create a temporary table to hold intermediate results */
+    CREATE TEMP-TABLE tt_results
+        FIELD field1 AS CHARACTER
+        FIELD field2 AS DECIMAL.
+
+    /* Loop through some data and perform operations */
+    FOR EACH table1 WHERE table1.field1 = param1:
+        CREATE tt_results.
+        ASSIGN
+            tt_results.field1 = table1.field1,
+            tt_results.field2 = tt_results.field1 * table1.field2 * param2.
+    END.
+
+    /* Retrieve and return the final result from the temporary table */
+    FIND FIRST tt_results NO-LOCK NO-ERROR.
+    IF AVAILABLE tt_results THEN DO:
+        param2 = tt_results.field2.
+    END.
+
+    /* Clean up the temporary table */
+    DELETE OBJECT tt_results.
+END PROCEDURE.
+
+/* Output:
+Output parameter value: 20000
+*/

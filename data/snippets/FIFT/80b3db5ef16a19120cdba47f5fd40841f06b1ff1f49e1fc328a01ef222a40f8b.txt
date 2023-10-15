@@ -1,0 +1,74 @@
+< ` A generalized shifting least squares kernel for shape modelling ` >
+
+| // Structure for storing points and corresponding shape index ` |
+struct Point:
+    point: Vec<f32> // Coordinates of the point
+    index: usize // Index of the shape that the point belongs to
+end
+
+tidy median : 'finds the median of a list |
+list ( -- median )
+    dup length 2 / ceiling 2 - median := median }}
+    {1 # =}
+    {{ {1 #} {1 #} foreach drop median + 2 : $median2 }}
+    {1 # = ;}
+{then< ;
+exec - integer
+
+> // Initialize empty point list and list for median values
+points: [] Point
+medians: []
+
+> // Function to add a point to the list
+add_point (point: [] f32, index: usize)
+    points {} Point new_obj ADDR ! // Create a new point object and store its address
+    points ADDR @ index to // Store index value in the new object
+    point {point} + ADDR ! // Update address to point array
+endfunction
+
+> // Function to calculate median of a list of values
+calculate_median (values: [] f32)
+    values dup length 2 / ceiling 2 - median := median // Find the middle element
+    {
+        1 # = // Check if only one element in list
+    }
+    {
+        { // If list has odd number of elements, find median
+            1 # // Push current index to stack
+            {1 #} {1 #} foreach drop median + 2 : $median2 // Find median of remaining list elements
+        }
+        {
+            1 # = // Otherwise, check if only two elements left
+        }
+        {
+            {{ // If two elements left, find average
+                1 # // Push current index to stack
+                1 # // Push previous index to stack
+                foreach + 2 / // Calculate average
+            }}
+            {
+                median // If one element left, return it as median
+            } foreach
+        } foreach
+    } foreach
+
+> // Loop through points and find medians for each shape
+points {
+    ADDR @ point               // Get point at current address
+    index @ medians index to   // Store shape index in median list
+    calculate_median {point point} median add_point // Calculate and add median to list
+} foreach
+
+> // Output results in markdown format
+print "Index | Median Value \n --- | ---"
+medians {
+    index @ print "|" // Output shape index
+    median @ print "\n" // Output median value for that shape
+} foreach
+
+> // Sample usage
+[] 0 100 foreach i {float i} add_point // Add 100 floats with index 0 to point list
+[] 1 100 foreach i {float i} add_point // Add 100 floats with index 1 to point list
+
+points print // Print list of points
+medians print // Print list of medians

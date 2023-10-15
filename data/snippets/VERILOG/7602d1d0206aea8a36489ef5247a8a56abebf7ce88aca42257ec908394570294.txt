@@ -1,0 +1,95 @@
+// Define module
+module keyboard_controller (input clock, input reset, input [7:0] keypress, output [7:0] led);
+
+// Declare internal signals
+reg [7:0] shift_reg [7:0];
+reg [2:0] state = 3'b000; // Initialize state to idle mode
+wire [7:0] shift_reg_out;
+wire [2:0] next_state;
+
+// Define states using parameterization
+parameter IDLE = 3'b000;
+parameter WAIT_FOR_PRESS = 3'b001;
+parameter WAIT_FOR_RELEASE = 3'b010;
+parameter DEBOUNCE = 3'b011;
+parameter TRANSMIT = 3'b100;
+parameter PRE_TRANS = 3'b101;
+parameter POST_TRANS = 3'b110;
+parameter DOWN_TRANS = 3'b111;
+
+// Define state transition logic
+always @(posedge clock) begin
+	if (reset) begin // Reset transition
+		state <= IDLE;
+	end else begin
+		case (state)
+			IDLE:
+				state <= WAIT_FOR_PRESS;
+			WAIT_FOR_PRESS:
+				if (keypress == 8'b00000001) begin
+					state <= WAIT_FOR_RELEASE;
+				end else begin
+					state <= IDLE;
+				end
+			WAIT_FOR_RELEASE:
+				if (keypress == 8'b00000000) begin
+					state <= DEBOUNCE;
+				end else begin
+					state <= WAIT_FOR_PRESS;
+				end
+			DEBOUNCE:
+				state <= TRANSMIT;
+			TRANSMIT:
+				state <= IDLE;
+		endcase
+	end
+end
+
+// Define input/output signals for each state
+always @(posedge clock) begin
+	case (state)
+		IDLE:
+			led <= 8'b00000000;
+		WAIT_FOR_PRESS:
+			led <= 8'b11110000;
+		WAIT_FOR_RELEASE:
+			led <= 8'b00001111;
+		DEBOUNCE:
+			led <= 8'b01010101;
+		TRANSMIT:
+			led <= shift_reg_out;
+	endcase
+end
+
+// Define shift register for storing keypress values
+always @(posedge clock) begin
+	if (state == PRE_TRANS) begin // Load shift reg with keypress value
+		shift_reg <= keypress;
+	end else if (state == POST_TRANS) begin // Shift keypress values
+		shift_reg <= {shift_reg, 1'b0};
+	end
+end
+
+// Define next state logic
+always @(state) begin
+	case (state)
+		IDLE: next_state = WAIT_FOR_PRESS;
+		WAIT_FOR_PRESS: next_state = WAIT_FOR_RELEASE;
+		WAIT_FOR_RELEASE: next_state = DEBOUNCE;
+		DEBOUNCE: next_state = TRANSMIT;
+		TRANSMIT:
+			if (shift_reg[7] == 1) begin
+				next_state = POST_TRANS;
+			end else begin
+				next_state = PRE_TRANS;
+			end
+		POST_TRANS: next_state = DOWN_TRANS;
+		DOWN_TRANS: next_state = IDLE;
+	endcase
+end
+
+// Instantiate and connect internal signals
+keyboard_controller controller(clock, reset, keypress, led);
+assign shift_reg_out = shift_reg[7];
+
+endmodule

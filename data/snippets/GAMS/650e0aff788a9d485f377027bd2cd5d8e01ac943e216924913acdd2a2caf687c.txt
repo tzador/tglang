@@ -1,0 +1,44 @@
+sets
+        i 'sales regions'
+        j 'product lines'  ;
+alias (i,ii), (j,jj) ;
+
+parameters
+        A(i)   'sales region capacities'
+        B(j)   'product line profits'  / j1 100, j2 150, j3 200  /
+        ASC(i) 'region cost savings'
+        M(j,i) 'transport cost matrix';
+
+A(i) = uniformInt(50,100); // set random capacities for each sales region
+ASC(i) = normal(5, 2, 1); // generate costs savings for each sales region with mean of 5 and standard deviation of 2
+
+table M(i,j) 'transport costs from sales region i to product line j'
+             j1        j2       j3
+i1          10        15       25
+i2          20        30       40
+i3          25        40       35;
+
+variables
+    X(i,j) 'units shipped from sales region i to product line j'
+    Z      'total profit';
+
+positive variable X ;
+binary variable Y(i,j) 'binary variable indicating whether to ship from sales region i to product line j' ;
+
+equations
+    obj   'profit maximization'
+    cap(i)  'capacity constraint'
+    cost(i) 'cost minimization'
+    trans(j) 'transport constraint'
+    bal(j)   'balance constraint';
+
+obj ..  Z  =e=  sum((i,j), B(j)*X(i,j)) ; // objective function to maximize profit
+cost(i) ..  sum((i,j), X(i,j)*M(i,j)) + ASC(i)  =l= sum((i,j), B(j)*X(i,j)); // minimize cost of shipping from sales region i to product line j while considering cost savings
+cap(i) ..  sum(j, X(i,j)) =l= A(i); // ensure that total units shipped from sales region i does not exceed its capacity
+trans(j).. sum(i, X(i,j)) =e= sum(i, B(j)*Y(i,j)); // ensure that units shipped from product line j matches actual demand for that product line
+bal(j) .. Y(i,j) + Y(ii,j) =g= 1; // ensure that each product line receives units from at least two sales regions
+
+model transport /all/;
+option optcr=0.01;
+solve transport maximizing Z using LP ;
+display X.l; // display the optimal solution for units shipped

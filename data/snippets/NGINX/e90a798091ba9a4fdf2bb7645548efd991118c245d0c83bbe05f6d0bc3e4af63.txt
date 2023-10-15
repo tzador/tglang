@@ -1,0 +1,74 @@
+#Set the worker processes to equal the number of CPU cores
+worker_processes auto;
+
+#Increase the maximum number of file descriptors 
+#(this should equal the maximum number of connections)
+worker_rlimit_nofile 100000;
+
+#Set the maximum number of connections
+events {
+    worker_connections 200000;
+}
+
+#Configure the HTTP server
+http {
+    
+    #Set the server's name
+    server_name example.com;
+    
+    #Set the default access log file
+    access_log /var/log/nginx/access.log;
+    
+    #Disable server tokens (for security purposes)
+    server_tokens off;
+    
+    #Set the default file for index.html
+    index index.html;
+    
+    #Define the default cache path and size
+    fastcgi_cache_path /var/cache/nginx levels=1:2 
+    keys_zone=STATIC:10m inactive=24h;
+    
+    #Create a custom log format
+    log_format my_custom_format '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"';
+        
+    #Set the location of the root directory
+    root /var/www/html;
+    
+    #Configure the server to listen on port 80
+    listen 80;
+    
+    #Define locations for specific files and their configurations
+    location / {
+        
+        #Enable caching of static assets
+        fastcgi_cache STATIC;
+        
+        #Set the cache expiration time to 1 day
+        #and ignore cache for status codes 200, 301, or 302
+        fastcgi_ignore_headers Cache-Control Expires;
+        fastcgi_cache_valid 200 301 302 24h;
+        
+        #Serve the file if found
+        try_files $uri $uri/ =404;
+        
+        #Enable gzip compression
+        gzip on;
+        
+        #Set the minimum file size for gzip compression
+        gzip_min_length 1000;
+        
+        #Set the desired compression level
+        gzip_comp_level 6;
+        
+        #Set the types of files to be compressed
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+        
+        #Enable HTTP/2 protocol
+        http2_push_preload on;
+    }
+    
+    #Configure error pages
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /500.html;
+}

@@ -1,0 +1,101 @@
+server {
+
+  # Sets the server's listening port
+  listen 80;
+
+  # Sets the server's name
+  server_name example.com;
+
+  # Location block for handling requests to the root URL
+  location / {
+    # Sets the location's root directory
+    root /var/www/example.com;
+
+    # Enables server-side caching for this location block
+    # Only valid for certain responses (e.g. 200, 301, 302)
+    proxy_cache_valid 200 1m;
+
+    # Enables compression for certain response types
+    # to improve load times
+    gzip_proxied any;
+    
+    # Specifies which file extensions to compress
+    gzip_types text/plain text/html text/css application/json;
+
+    # Defines the location block's access permissions
+    # Can be set to "all", "none", or "host_only"
+    proxy_set_header Host $host; 
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+    # Enables logging for this location block
+    access_log /var/log/nginx/example.com-access.log;
+    error_log /var/log/nginx/example.com-error.log;
+
+    # Handles error responses with the specified HTML page
+    error_page 404 /404.html;
+
+    # Enables caching of files based on their modification time
+    open_file_cache max=1000 inactive=20s;
+    open_file_cache_valid 30s;
+    open_file_cache_min_uses 2;
+    open_file_cache_errors off;
+
+    # Sets the maximum allowed size for client request bodies
+    client_max_body_size 10M;
+
+    # Enables HTTP/2 for this location
+    http2_push_preload on;
+
+    # Defines the location block's rate limiting settings
+    limit_req zone=one burst=3 nodelay;
+
+    # Handles requests with "index.html" as the specified index
+    index index.html;
+
+    # Specifies the file to be returned if the client does not accept the
+    # response's content encoding (e.g. gzip)
+    gzip_vary on;
+    gzip_disable "msie6";
+
+    # Enables serving of HTML files with the specified extensions
+    location ~ \.html$ {
+      # Sets the permission level required for executing scripts
+      # Can be "none", "execute", or "all"
+      fastcgi_param  SCRIPT_FILENAME    /path/to/html/$fastcgi_script_name;
+
+      # Enables execution of FastCGI scripts for this location
+      fastcgi_pass unix:/var/run/php-fpm.sock;
+
+      # Limits the maximum file size for request bodies to 1M
+      client_max_body_size 1M;
+    }
+    
+    # Defines a block of additional configuration options
+    # that will be inherited by any nested location blocks
+    location ^~ /images/ {
+      # Sets the permissions level for nested locations
+      # based on the "all" setting specified for this block
+      # Will be inherited by all nested locations within /images/
+      fastcgi_param access all;
+
+      # Limits the allowed HTTP methods for this location
+      # Only GET and POST are allowed
+      limit_except GET POST;
+      deny_all;
+
+      # Handles requests for specific file types within this location
+      location ~ \.(gif|jpg|png)$ {
+        # Sets the cache path for images in this location
+        proxy_cache_path /var/cache/nginx/images levels=1:2 keys_zone=images_cache:10m inactive=24h;
+      }
+    }
+  }
+}
+
+# Configures a timeout for client connections to this server
+keepalive_timeout 65;
+
+# Enables logging for this server block
+access_log /var/log/nginx/access.log;
+error_log /var/log/nginx/error.log;

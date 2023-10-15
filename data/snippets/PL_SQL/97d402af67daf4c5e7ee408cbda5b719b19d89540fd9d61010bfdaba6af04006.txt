@@ -1,0 +1,45 @@
+DECLARE
+    -- declare a cursor to retrieve data
+    CURSOR c_data IS
+        SELECT employee_id, first_name, last_name, department_id
+        FROM employees
+        ORDER BY department_id;
+    -- declare a record variable
+    TYPE t_data IS RECORD (
+        emp_id employees.employee_id%TYPE,
+        first_name employees.first_name%TYPE,
+        last_name employees.last_name%TYPE,
+        dept_id employees.department_id%TYPE
+    );
+    -- declare collection variable
+    TYPE t_data_collection IS TABLE OF t_data;
+    v_data t_data_collection;
+    -- declare variables to track department totals
+    v_dept_id employees.department_id%TYPE;
+    v_dept_total INTEGER := 0;
+    v_total_employees INTEGER := 0;
+BEGIN
+    OPEN c_data; -- open cursor
+    LOOP
+        FETCH c_data BULK COLLECT INTO v_data LIMIT 1000; -- fetch data into collection
+        EXIT WHEN v_data.COUNT = 0; -- exit loop when collection is empty
+        FOR i IN v_data.FIRST..v_data.LAST LOOP -- loop through data collection
+            IF v_dept_id IS NULL THEN
+                v_dept_id := v_data(i).dept_id; -- get department ID
+            END IF;
+            IF v_data(i).first_name IS NOT NULL THEN
+                v_total_employees := v_total_employees + 1; -- count number of employees with first name
+            END IF;
+            IF v_data(i).dept_id = v_dept_id THEN
+                v_dept_total := v_dept_total + 1; -- count number of employees in current department
+            ELSE
+                DBMS_OUTPUT.PUT_LINE('Department ' || v_dept_id || ' has ' || TO_CHAR(v_dept_total) || ' employees.'); -- print department total
+                v_dept_id := v_data(i).dept_id; -- get new department ID
+                v_dept_total := 1; -- reset department total to 1
+            END IF;
+        END LOOP;
+        v_data.DELETE; -- clear data collection
+    END LOOP;
+    CLOSE c_data; -- close cursor
+    DBMS_OUTPUT.PUT_LINE('Total number of employees with first name: ' || TO_CHAR(v_total_employees)); -- print overall total
+END;

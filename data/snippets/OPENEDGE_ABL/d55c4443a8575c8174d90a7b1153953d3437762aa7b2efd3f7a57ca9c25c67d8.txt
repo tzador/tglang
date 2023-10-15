@@ -1,0 +1,75 @@
+/* This code snippet uses a temp-table and a do-while loop
+to iterate through and process data from multiple tables. */
+DEFINE TEMP-TABLE tt-data
+    FIELD id AS INT
+    FIELD name AS CHAR.
+
+DO WHILE true: /* Loop until all records have been processed. */
+
+    FOR EACH customer,
+            EACH order,
+            EACH order-line
+        WHERE customer.cust-id = order.cust-id AND
+              order.order-num = order-line.order-num:
+        /* Join the three tables and retrieve matching records. */
+
+        FIND tt-data WHERE tt-data.id = customer.cust-id NO-LOCK EXCLUSIVE.
+        /* Check if the customer's id already exists in the temp-table, 
+        and lock it exclusively to prevent duplicates. */
+
+        IF NOT AVAILABLE tt-data:
+            CREATE tt-data.
+            /* If the record does not exist in the temp-table, create it. */
+
+        tt-data.name = customer.cust-name.
+        /* Add customer's name to the temp-table. */
+
+        FOR EACH product
+            WHERE product.prod-id = order-line.prod-id:
+            /* Retrieve product information for the order line. */
+
+            IF MATCHES(customer.cust-state, "California", "New York") THEN
+                tt-data.name = tt-data.name + ", " + product.prod-name.
+                /* If the customer is from California or New York, 
+                add the product name to the temp-table's name field 
+                (separated by a comma). */
+            END.
+
+        DELETE tt-data WHERE tt-data.name BEGINS customer.cust-name.
+        /* Remove records from temp-table where the customer's name 
+        begins with the same characters as the temp-table's name field. */
+
+        NEXT /* Proceed to the next record in the for-each loop. */
+    END.
+    
+    /* Process the data from the joined tables according to our logic. */
+
+    REPEAT:
+        MESSAGE "Processing data..." SKIP.
+    END.
+    
+    /* Repeat this process until all records have been processed. */
+
+END /* End of the do-while loop. */
+
+/* Final processing and any necessary cleanup steps. */ 
+FIND tt-data NO-LOCK EXCLUSIVE.
+FOR EACH tt-data:
+    UPDATE customer SET customer.cust-processed = yes
+        WHERE customer.cust-id = tt-data.id.
+    /* Update the customer's processed status in the customer table. */
+
+    /* Other processing steps as needed. */
+    
+    DISPLAY tt-data WITH WIDTH 60 LINESIZE 150 CENTERED.
+    /* Display the final temp-table data for review. */
+    
+    IF tt-data.name BEGINS "John" THEN
+        MESSAGE "Customer name begins with John.".
+        /* Optional message based on temp-table data. */
+    END.
+    
+    DELETE OBJECT tt-data.
+    /* Delete the temp-table and any related objects once processing is complete. */
+
+END. /* End of program. */

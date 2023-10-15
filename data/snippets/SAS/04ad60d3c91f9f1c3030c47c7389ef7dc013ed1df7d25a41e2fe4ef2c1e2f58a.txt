@@ -1,0 +1,52 @@
+/* This code snippet is used to clean and merge two datasets */
+
+/* Set the working directory */
+LIBNAME mylib 'C:\Users\Documents\mydata';
+
+/* Import first dataset */
+data dataset1;
+    infile "C:\Users\Documents\mydata\dataset1.csv" dlm = ',' firstobs = 2;
+    input var1 $ var2 $ var3 $ var4;
+run;
+
+/* Import second dataset */
+data dataset2;
+    infile "C:\Users\Documents\mydata\dataset2.csv" dlm = ',' firstobs = 2;
+    input var1 $ new_var1 $ new_var2 $ var5;
+run;
+
+/* Clean first dataset */
+data dataset1_clean;
+    set dataset1;
+    /* Remove any missing values */
+    if missing(var1) or missing(var2) or missing(var3) or missing(var4) then delete;
+    /* Convert variable types */
+    length new_var1 8;
+    new_var1 = input(var2, 8.);
+    drop var2;
+    /* Rename variables */
+    rename var1 = new_var3;
+run;
+
+/* Clean second dataset */
+data dataset2_clean;
+    set dataset2;
+    /* Remove any duplicates */
+    by var1;
+    if first.var1 then output;
+    /* Keep only necessary variables */
+    keep new_var1 new_var2;
+    /* Merge datasets */
+    data merged_data;
+    merge dataset1_clean dataset2_clean (in = x);
+    by new_var1;
+    /* Create new variable */
+    if x then new_var3 = add(new_var1, new_var2);
+run;
+
+/* Export merged dataset */
+proc export data = merged_data
+    outfile = "C:\Users\Documents\mydata\merged_data.csv"
+    dbms = csv replace;
+    putnames = yes;
+run;

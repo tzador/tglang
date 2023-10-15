@@ -1,0 +1,165 @@
+//This is a contract for creating a Crowdsale
+
+pragma solidity ^0.8.0;
+
+import "../../node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "../../node_modules/@openzeppelin/contracts/crowdsale/Crowdsale.sol";
+
+contract Crowdsale is Ownable {
+    using SafeMath for uint256;
+
+    //Token being sold
+    IERC20 private _token;
+
+    //Wallet address to receive funds
+    address payable private _wallet;
+
+    //Amount of wei raised
+    uint256 private _weiRaised;
+
+    //Hard cap for crowdsale
+    uint256 private _hardCap;
+
+    //Soft cap for crowdsale
+    uint256 private _softCap;
+
+    //Start and end timestamps
+    uint256 private _startTime;
+    uint256 private _endTime;
+
+    //Minimum and maximum purchase limits
+    uint256 private _minPurchase = 0.1 ether;
+    uint256 private _maxPurchase = 10 ether;
+
+    //Rates for token conversions
+    uint256 private _rate;
+    uint256 private _bonusRate;
+
+    //Whitelist of addresses allowed to participate
+    mapping(address => bool) private _whitelist;
+
+    //Individual and total token balances
+    mapping(address => uint256) private _balances;
+    uint256 private _totalBalances;
+
+    //Event for when funds are received
+    event FundsReceived(address indexed buyer, uint256 indexed amount);
+
+    constructor(
+        uint256 startTime,
+        uint256 endTime,
+        uint256 rate,
+        uint256 bonusRate,
+        uint256 hardCap,
+        uint256 softCap,
+        address payable wallet_,
+        IERC20 token_
+    ) {
+        _startTime = startTime;
+        _endTime = endTime;
+        _rate = rate;
+        _bonusRate = bonusRate;
+        _hardCap = hardCap;
+        _softCap = softCap;
+        _wallet = wallet_;
+        _token = token_;
+    }
+
+    //Function to calculate number of tokens to be purchased
+    function _getTokenAmount(uint256 weiAmount) internal view returns (uint256) {
+        return weiAmount.mul(_rate).div(1 ether);
+    }
+
+    //Function to calculate bonus tokens based on purchase amount
+    function _getBonusTokens(uint256 weiAmount) internal view returns (uint256) {
+        if (weiAmount > _maxPurchase) {
+            return _getTokenAmount(weiAmount).mul(_bonusRate);
+        } else {
+            return 0;
+        }
+    }
+
+    //Function to check if whitelisted
+    function _isWhitelisted(address account) internal view returns (bool) {
+        return _whitelist[account];
+    }
+
+    //Function to check if crowdsale has ended
+    function hasEnded() public view returns (bool) {
+        return block.timestamp > _endTime || _weiRaised >= _hardCap;
+    }
+
+    //Function to add an address to the whitelist
+    function addToWhitelist(address account) external onlyOwner {
+        require(!_isWhitelisted(account), "Address already whitelisted");
+        _whitelist[account] = true;
+    }
+
+    //Function to remove an address from the whitelist
+    function removeFromWhitelist(address account) external onlyOwner {
+        require(_isWhitelisted(account), "Address not whitelisted");
+        _whitelist[account] = false;
+    }
+
+    //Function to get total amount raised in wei
+    function weiRaised() public view returns (uint256) {
+        return _weiRaised;
+    }
+
+    //Function to get total number of tokens sold
+    function totalTokensSold() public view returns (uint256) {
+        return _totalBalances;
+    }
+
+    //Function to get individual token balance of address
+    function balanceOf(address account) public view returns (uint256) {
+        return _balances[account];
+    }
+
+    //Function to buy tokens when crowdsale is active
+    function buyTokens() public payable {
+        require(block.timestamp >= _startTime, "Crowdsale has not started");
+        require(block.timestamp <= _endTime, "Crowdsale has ended");
+        require(!_isWhitelisted(msg.sender), "Address not whitelisted");
+        require(msg.value >= _minPurchase, "Amount too small");
+        require(msg.value <= _maxPurchase, "Amount too large");
+
+        uint256 weiAmount = msg.value;
+        uint256 tokens = _getTokenAmount(weiAmount);
+        uint256 bonusTokens = _getBonusTokens(weiAmount);
+        uint256 totalTokens = tokens.add(bonusTokens);
+
+        _token.transferFrom(owner(), msg.sender, totalTokens);
+
+        _weiRaised = _weiRaised.add(weiAmount);
+        _totalBalances = _totalBalances.add(totalTokens);
+        _balances[msg.sender] = _balances[msg.sender].add(totalTokens);
+
+        emit FundsReceived(msg.sender, msg.value);
+    }
+
+    //Function to withdraw funds from crowdsale to wallet
+    function withdrawFunds() external onlyOwner {
+        require(hasEnded(), "Crowdsale is still active");
+        require(_weiRaised >= _softCap, "Soft cap not reached");
+
+        _wallet.transfer(address(this).balance);
+        _token.transferFrom(owner(), _wallet, _token.balanceOf(address(this)));
+    }
+
+    //Function to refund tokens if soft cap is not reached
+    function refundTokens() external {
+        require(hasEnded(), "Crowdsale is still active");
+        require(_weiRaised < _softCap, "Soft cap reached");
+
+        uint256 tokenAmount = _balances[msg.sender];
+        require(tokenAmount > 0, "No tokens to refund");
+
+        _balances[msg.sender] = 0;
+        _totalBalances = _totalBalances.sub(tokenAmount);
+        _weiRaised = _weiRaised.sub(tokenAmount.div(_rate).mul(1 ether));
+
+        _token.transferFrom(msg.sender, owner(), tokenAmount);
+        payable(msg.sender).transfer(tokenAmount.div(_rate));
+    }
+}

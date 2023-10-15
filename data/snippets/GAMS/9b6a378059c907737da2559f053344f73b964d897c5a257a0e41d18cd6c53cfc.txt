@@ -1,0 +1,66 @@
+* Set of customers and demand for each of them
+Set customers /customer1, customer2, customer3/;
+Parameter demand(customers)
+/ customer1 100
+  customer2 80 
+  customer3 120 /;
+
+* Set of locations and maximum capacity for each location
+Set locations /location1, location2, location3/;
+Parameter capacity(locations)
+/location1 200
+ location2 150
+ location3 250/;
+
+* Set of potential facility sites
+Set facilities /facility1, facility2, facility3/;
+
+* Distance matrix between customers and potential facility sites
+Table distance(customers, facilities)
+            facility1  facility2  facility3
+customer1       10         30         15
+customer2       25         20         5
+customer3       20         10         25;
+
+* Binary variable to indicate if a facility is selected at a specific site
+BinaryVariable select(facilities);
+
+* Decision variable for number of facilities to be opened at each site
+Variable numFacilities(facilities);
+
+* Decision variable for amount of demand to be served at each facility
+Variable served(customers, facilities);
+
+* Define objective function: minimize total cost of opening and serving at facilities
+Equation objFunction;
+objFunction.. sum(f in facilities, l in locations, c in customers)
+                distance(c,f) * select(f) + served(c,f) * distance(c,f) =E= 0;
+
+* Constraints:
+* 1. Capacity constraint: amount of demand served at each facility <= maximum capacity
+Equation capacityConstraint(l in locations);
+capacityConstraint(l).. sum(c in customers, f in facilities)$distance(c,f,l)
+                           served(c,f) =L= capacity(l);
+
+* 2. Demand constraint: amount of demand served at each customer = demand from customer
+Equation demandConstraint(c in customers);
+demandConstraint(c).. sum(f in facilities) served(c,f) =E= demand(c);
+
+* 3. Binary constraint: numFacilities and select must be consistent
+Equation binaryConstraint1(f in facilities);
+binaryConstraint1(f).. numFacilities(f) * distance(c,f) =G= 0;
+
+Equation binaryConstraint2(f in facilities);
+binaryConstraint2(f).. numFacilities(f) * distance(c,f) =L= numFacilities(f) - select(f);
+
+
+* Define model and solve it
+Model locationSelection /all/;
+
+Solve locationSelection using MINLP minimizing objFunction;
+
+* Print results
+Display "Optimal number of facilities to be opened at each location:";
+Display numFacilities.l;
+Display "Distance matrix for selected facilities:";
+Display distance.l;

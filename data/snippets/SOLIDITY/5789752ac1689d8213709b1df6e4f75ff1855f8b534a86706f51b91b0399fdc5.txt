@@ -1,0 +1,121 @@
+// Contract for creating and managing a decentralized marketplace
+
+// Import necessary libraries
+import "https://github.com/OpenZeppelin/openzeppelin-solidity/contracts/crowdsale/Crowdsale.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-solidity/contracts/token/ERC20/SafeERC20.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-solidity/contracts/utils/ReentrancyGuard.sol";
+
+// Create the marketplace contract
+contract Marketplace is Crowdsale, Ownable, ReentrancyGuard {
+    using SafeMath for uint256;
+    using SafeERC20 for ERC20;
+
+    // State variables
+    ERC20 private _token;                      // ERC20 token used for purchase
+    uint256 private _tokenPrice;               // Price of token in wei
+    uint256 private _tokenSupply;              // Total supply of tokens for sale
+    mapping(address => uint256) private _balances;     // Mapping of token balances for buyers
+    bool private _isOpen;                      // Flag to indicate if sale is open
+    uint256 private _minPurchase;              // Minimum purchase amount for buyers
+    uint256 private _maxPurchase;              // Maximum purchase amount for buyers
+
+    // Events
+    event TokenPurchase(address indexed buyer, uint256 amount, uint256 price);
+    event TokenWithdrawal(address indexed buyer, uint256 amount);
+
+    // Constructor for setting initial parameters
+    constructor(
+        ERC20 token,
+        uint256 tokenPrice,
+        uint256 tokenSupply,
+        uint256 minPurchase,
+        uint256 maxPurchase
+    )
+    public
+    Crowdsale(tokenPrice, msg.sender, token)
+    {
+        require(tokenSupply > 0, "Token supply must be greater than 0");
+        require(minPurchase > 0, "Minimum purchase amount must be greater than 0");
+        require(maxPurchase > 0 && maxPurchase > minPurchase, "Maximum purchase amount must be greater than min amount");
+       
+        _token = token;
+        _tokenPrice = tokenPrice;
+        _tokenSupply = tokenSupply;
+        _isOpen = true;
+        _minPurchase = minPurchase;
+        _maxPurchase = maxPurchase;
+    }
+
+    // Function to check if sale is open
+    function isOpen() public view returns (bool) {
+        return _isOpen;
+    }
+
+    // Function to check individual token balance
+    function balanceOf(address account) public view returns (uint256) {
+        return _balances[account];
+    }
+
+    // Function to buy tokens
+    function buyTokens(address account, uint256 amount) public payable nonReentrant {
+        require(amount > 0 && amount <= _maxPurchase, "Invalid purchase amount");
+        require(_isOpen, "Sale is not open");
+        require(msg.value == amount.mul(_tokenPrice), "Insufficient funds");
+        require(_tokenSupply >= amount, "Insufficient token supply");
+        
+        _balances[account] = _balances[account].add(amount);
+        _token.safeTransferFrom(owner(), account, amount);
+        _tokenSupply = _tokenSupply.sub(amount);
+        emit TokenPurchase(account, amount, _tokenPrice);
+    }
+
+    // Function for owner to withdraw remaining tokens after sale
+    function withdrawTokens() public onlyOwner {
+        require(!_isOpen, "Sale must be closed to withdraw tokens");
+        require(_tokenSupply > 0, "All tokens have been purchased");
+        _token.safeTransferFrom(owner(), address(this), _tokenSupply);
+        emit TokenWithdrawal(msg.sender, _tokenSupply);
+        _tokenSupply = 0;
+    }
+
+    // Function for owner to close the sale
+    function closeSale() public onlyOwner {
+        require(_isOpen, "Sale is already closed");
+        _isOpen = false;
+    }
+
+    // Function for owner to set new token price
+    function setTokenPrice(uint256 price) public onlyOwner {
+        require(price > 0, "Price must be greater than 0");
+        require(_isOpen, "Sale is closed");
+        _tokenPrice = price;
+    }
+
+    // Function for owner to set new maximum purchase amount
+    function setMaxPurchase(uint256 amount) public onlyOwner {
+        require(amount > 0 && amount > _minPurchase, "Amount must be greater than 0 and min amount");
+        require(_isOpen, "Sale is closed");
+        _maxPurchase = amount;
+    }
+
+    // Function for owner to set new minimum purchase amount
+    function setMinPurchase(uint256 amount) public onlyOwner {
+        require(amount > 0 && amount < _maxPurchase, "Amount must be greater than 0 and less than max amount");
+        require(_isOpen, "Sale is closed");
+        _minPurchase = amount;
+    }
+
+    // Function for owner to withdraw funds after sale
+    function withdrawFunds() public onlyOwner {
+        require(!_isOpen, "Sale must be closed to withdraw funds");
+        msg.sender.transfer(address(this).balance);
+    }
+
+    // Fallback function to buy tokens
+    function () external payable {
+        buyTokens(msg.sender, msg.value);
+    }
+}

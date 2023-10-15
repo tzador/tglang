@@ -1,0 +1,98 @@
+Function Get-Weather {
+
+<# 
+.SYNOPSIS
+    Retrieves and displays weather information using OpenWeatherMap API.
+.DESCRIPTION
+    This function uses the OpenWeatherMap API to retrieve and display current weather, 
+    as well as hourly and daily forecasts for a specified location. 
+.PARAMETER City
+    The name of the city for the location you would like to retrieve weather information for.
+.PARAMETER Country
+    The country code for the location you would like to retrieve weather information for.
+.EXAMPLE
+    Get-Weather -City "New York" -Country "US"
+#>
+
+[CmdletBinding()]
+Param (
+    [Parameter(Mandatory = $true)]
+    [string] $City,
+    [Parameter(Mandatory = $true)]
+    [string] $Country
+)
+
+Write-Warning "Retrieving weather information for $City, $Country..."
+
+# Endpoint for current weather data
+$baseURL = "https://api.openweathermap.org/data/2.5/weather?"
+
+# API key from OpenWeatherMap
+$APIkey = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# Construct the URL to retrieve current weather data for specified location
+$weatherURL = $baseURL + "q=$City,$Country&appid=$APIkey"
+
+# Make GET request and save response as JSON
+$weatherResponse = Invoke-RestMethod -Method Get -Uri $weatherURL
+
+# Display current weather information
+Write-Output "Current Weather for $City, $Country:`n"
+Write-Output "Weather: $($weatherResponse.weather[0].main)"
+Write-Output "Description: $($weatherResponse.weather[0].description)"
+Write-Output "Temperature: $([math]::Round($($weatherResponse.main.temp - 273.15),2)) C"
+Write-Output "Feels like: $([math]::Round($($weatherResponse.main.feels_like - 273.15),2)) C"
+Write-Output "Humidity: $($weatherResponse.main.humidity)%"
+Write-Output "Wind speed: $($weatherResponse.wind.speed) m/s"
+Write-Output "Wind direction: $($weatherResponse.wind.deg) degrees"
+Write-Output "Pressure: $($weatherResponse.main.pressure) hPa"
+Write-Output "Visibility: $(($weatherResponse.visibility)/1000) km"
+Write-Output "Cloud coverage: $($weatherResponse.clouds.all)%"
+Write-Output "Sunrise: $((([datetime]::FromFileTime($($weatherResponse.sys.sunrise))) - [datetime]'1/1/1970').ToString('h:mm tt'))"
+Write-Output "Sunset: $((([datetime]::FromFileTime($($weatherResponse.sys.sunset))) - [datetime]'1/1/1970').ToString('h:mm tt'))"
+Write-Output "---------------------------------------"
+
+# Endpoint for hourly and daily forecasts
+$forecastURL = "https://api.openweathermap.org/data/2.5/onecall?"
+
+# Construct the URL to retrieve hourly and daily forecasts for specified location
+$forecastURL += "lat=$($weatherResponse.coord.lat)&lon=$($weatherResponse.coord.lon)&exclude=minutely,current&units=metric&appid=$APIkey"
+
+# Make GET request and save response as JSON
+$forecastResponse = Invoke-RestMethod -Method Get -Uri $forecastURL
+
+# Display hourly forecast for next 12 hours
+Write-Output "12-Hour Forecast:`n"
+$forecastResponse.hourly[0..11] | ForEach-Object {
+Write-Output "DateTime: $(((Get-Date).AddSeconds($_.dt)).ToString('h:mm tt'))"
+Write-Output "Weather: $($_.weather[0].main)"
+Write-Output "Description: $($_.weather[0].description)"
+Write-Output "Temperature: $($_.temp)°C"
+Write-Output "Feels like: $($_.feels_like)°C"
+Write-Output "Humidity: $($_.humidity)%"
+Write-Output "Wind speed: $($_.wind_speed) m/s"
+Write-Output "Wind direction: $($_.wind_deg) degrees"
+Write-Output "Cloud coverage: $($_.clouds)%"
+Write-Output "---------------------------------------"
+}
+
+# Display daily forecast for next 7 days
+Write-Output "7-Day Forecast:`n"
+$forecastResponse.daily[0..6] | ForEach-Object {
+Write-Output "Date: $(((Get-Date).AddSeconds($_.dt)).ToString('dd/MM/yyyy'))"
+Write-Output "Weather: $($_.weather[0].main)"
+Write-Output "Description: $($_.weather[0].description)"
+Write-Output "Max temperature: $($_.temp.max)°C"
+Write-Output "Min temperature: $($_.temp.min)°C"
+Write-Output "Daytime feels like: $($_.feels_like.day)°C"
+Write-Output "Nighttime feels like: $($_.feels_like.night)°C"
+Write-Output "Humidity: $($_.humidity)%"
+Write-Output "Wind speed: $($_.wind_speed) m/s"
+Write-Output "Wind direction: $($_.wind_deg) degrees"
+Write-Output "Pressure: $($_.pressure) hPa"
+Write-Output "Cloud coverage: $($_.clouds)%"
+Write-Output "UV Index: $($_.uvi)"
+Write-Output "---------------------------------------"
+}
+
+}

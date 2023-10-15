@@ -1,0 +1,47 @@
+%% The following code creates a basic website in ERLANG
+
+-module(webserver).
+-export([start/0, handler/1, get_server/2, send_response/2]).
+
+%% Import necessary libraries
+-include_lib("mochiweb.hrl").
+
+%% Start the server on port 8080
+start() ->
+    {ok, _} = mochiweb_http:start([{port, 8080}], #{callback_module => webserver, callback_function => handler}),
+    io:format("Server started on port 8080~n").
+
+%% The handler function to handle HTTP requests
+handler(Req) ->
+    DocRoot = "path/to/website", % Set the root directory of the website
+    ReqPath = mochiweb_util:urldecode(mochiweb_util:path(Req)), % Get the path of the requested resource
+    % Check if the requested resource exists
+    case filelib:is_regular(filename:join([DocRoot, ReqPath])) of
+        true ->
+            % If the resource exists, send a 200 response with the resource as the body
+            {DocRoot, ReqPath};
+        false ->
+            % If the resource does not exist, send a 404 response
+            send_response(Req, "404 - Not Found")
+    end.
+
+%% Function to get the server object
+get_server() ->
+    mochiweb_http:get([{port, 8080}], #{
+        path => @path,
+        docroot => "static/",
+        loop => true,
+        handlers => [
+            % Handle POST requests to /submit
+            {"submit", webserver, handle_submit},
+            % Handle GET requests to /about
+            {"about", webserver, handle_about},
+            % Handle all other requests using the default handler
+            {".*", web_server, mochiweb_static,
+                [docroot => "path/to/website", list_dir => true]}
+        ]
+    }).
+
+%% Function to send a response with the specified status code and body
+send_response(Req, Body) ->
+    Req:respond({200, [{"Content-Type", "text/html"}], Body}).

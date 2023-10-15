@@ -1,0 +1,89 @@
+pragma solidity ^0.8.0; //specifies compiler version
+
+/**
+ * @title Marketplace
+ * @dev A decentralized marketplace for buying and selling goods
+ */
+ contract Marketplace {
+
+    // Variables
+    address public owner; //owner of the marketplace
+    uint public transactionFee; //transaction fee percentage
+
+    // Product data structure
+    struct Product {
+        string name; //name of the product
+        string description; //description of the product
+        uint price; //price of the product
+        address seller; //seller of the product
+        bool isListed; //flag to indicate if product is listed for sale
+    }
+
+    // Mapping to store products
+    mapping(uint => Product) public products;
+
+    // Constructor to set owner and transaction fee
+    constructor() {
+        owner = msg.sender; // set owner as the contract deployer
+        transactionFee = 2; // set transaction fee percentage to 2%
+    }
+
+    // Events
+    event ProductListed(uint id, string name, uint price); //emitted when a product is listed for sale
+    event ProductSold(uint id, string name, address buyer); //emitted when a product is sold
+
+    // Modifiers
+    modifier onlyOwner() {
+        require(msg.sender == owner,"Only owner can call this function");
+        _; //execute function logic after modifier check
+    }
+
+    // Functions
+
+    /**
+     * @dev Lists a new product for sale
+     * @param name Name of the product
+     * @param description Description of the product
+     * @param price Price of the product
+     */
+    function listProduct(string memory name, string memory description, uint price) public {
+        require(bytes(name).length > 0,"Product name cannot be empty"); //check if product name is empty
+        require(price > 0,"Price must be greater than 0"); //check if price is greater than 0
+        require(!products[products.length].isListed,"Product is already listed"); //check if product is not already listed
+
+        //store product data in mapping
+        Product memory newProduct = Product(name, description, price, msg.sender, true);
+        products[products.length] = newProduct;
+
+        //emit ProductListed event
+        emit ProductListed(products.length - 1, name, price);
+    }
+
+    /**
+     * @dev Buys a product from the marketplace
+     * @param id ID of the product to be bought
+     */
+    function buyProduct(uint id) public payable {
+        require(products[id].isListed,"Product is not listed for sale"); //check if product is listed for sale
+        require(msg.sender != products[id].seller,"Cannot buy your own product"); //check if buyer is not the seller
+        require(msg.value == products[id].price,"Amount sent must be equal to product price"); //check if correct amount was sent
+
+        //transfer product price to seller minus transaction fee
+        payable(products[id].seller).transfer(msg.value * (100 - transactionFee) / 100);
+
+        //set product as not listed
+        products[id].isListed = false;
+
+        //emit ProductSold event
+        emit ProductSold(id, products[id].name, msg.sender);
+    }
+
+    /**
+     * @dev Withdraw funds from the contract by the owner
+     */
+    function withdrawFunds() public onlyOwner {
+        //transfer all contract balance to the owner
+        payable(owner).transfer(address(this).balance);
+    }
+    
+}

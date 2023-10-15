@@ -1,0 +1,89 @@
+REPORT ZZ_TRANSFER_REPORT.
+
+CLASS lcl_report DEFINITION.
+  PUBLIC SECTION.
+    DATA: gv_max_amount TYPE i,
+          gv_amount TYPE i,
+          gv_count TYPE i,
+          gt_data TYPE STANDARD TABLE OF data,
+          gt_filtered_data TYPE STANDARD TABLE OF data.
+
+    METHODS:
+      constructor,
+      filter_data,
+      calculate_amount,
+      get_max_amount,
+      display_report.
+  PRIVATE SECTION.
+    METHODS:
+      sum_values IMPORTING iv_data TYPE i RETURNING VALUE(rv_sum) TYPE i.
+ENDCLASS.
+
+CLASS lcl_report IMPLEMENTATION.
+  METHOD constructor.
+    gv_max_amount = 100. "set max amount
+    gv_amount = 0. "initialize amount
+    gv_count = 0. "initialize count
+  ENDMETHOD.
+
+  METHOD filter_data.
+    "filter data from database and store in gt_data
+    SELECT *
+      FROM database
+      INTO CORRESPONDING FIELDS OF TABLE gt_data
+      WHERE filter_condition.
+  ENDMETHOD.
+
+  METHOD calculate_amount.
+    LOOP AT gt_data INTO DATA(gs_data).
+      "calculate amount and count
+      IF gs_data-amount > gv_max_amount.
+        gv_amount = gv_max_amount.
+        gv_count = gv_count + 1.
+      ELSE.
+        gv_amount = gv_amount + gs_data-amount.
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD get_max_amount.
+    "get maximum amount from gt_data
+    DATA(gv_max) = REDUCE i(
+      INIT max = gt_data[ 1 ]-amount
+      FOR data IN gt_data
+      NEXT max = MAX( max, data-amount )
+    ).
+
+    gv_max_amount = gv_max.
+  ENDMETHOD.
+
+  METHOD display_report.
+    "display report with calculated data
+    WRITE: 'Total amount:', gv_amount, 'Number of entries:', gv_count.
+  ENDMETHOD.
+
+  METHOD sum_values.
+    "sum values of two variables
+    rv_sum = iv_data + gv_amount.
+  ENDMETHOD.
+ENDCLASS.
+
+START-OF-SELECTION.
+  "create report object
+  DATA(lo_report) = NEW lcl_report( ).
+
+  "filter data
+  lo_report->filter_data( ).
+
+  "calculate amount
+  lo_report->calculate_amount( ).
+
+  "get max amount
+  lo_report->get_max_amount( ).
+
+  "display report
+  lo_report->display_report( ).
+
+  "sum values
+  DATA(lv_sum) = lo_report->sum_values( 50 ).
+  WRITE: 'Sum of 50 and calculated amount:', lv_sum.

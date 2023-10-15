@@ -1,0 +1,76 @@
+-module(dining_philosophers).
+
+-export([dine/0]).
+
+-record(philosopher, {
+    name = undefined :: atom(),
+    state = thinking :: state(),
+    forks = [] :: [{atom(), atom()}]
+}).
+
+-type state() :: thinking
+              | hungry
+              | dining.
+
+-type fork() :: atom().
+
+-type forks() :: [atom()].
+
+dine() ->
+    Names = [aristotle, plato, confucius, socrates, descartes],
+    Forks = create_forks(length(Names)),
+    Philosophers = spawn_philosophers(Names, Forks),
+    dine(Philosophers).
+
+create_forks(N) ->
+    ForkNames = lists:seq(1, N),
+    [make_fork(Fork) || Fork <- ForkNames].
+
+spawn_philosophers(Names, Forks) ->
+    [spawn(fun() -> think_and_dine(Name, Forks) end) || Name <- Names].
+
+think_and_dine(Name, Forks) ->
+    State = thinking,
+    Philosopher = #philosopher{name = Name, forks = Forks},
+    dine(State, Philosopher).
+
+dine(thinking, Philosopher = #philosopher{forks = Forks} = OriginalPhilosopher) ->
+    wait_for_forks(Forks),
+    NewPhilosopher = Philosopher#philosopher{state = hungry, forks = scavenge_forks(Forks)},
+    wait_for_forks(NewPhilosopher#philosopher.forks),
+    dine(hungry, NewPhilosopher, OriginalPhilosopher);
+dine(hungry, Philosopher, OriginalPhilosopher) ->
+    eat(),
+    dine(dining, OriginalPhilosopher#philosopher{state = thinking, forks = return_forks(Philosopher#philosopher.forks)});
+dine(dining, _Philosopher, OriginalPhilosopher) ->
+    return_forks(OriginalPhilosopher#philosopher.forks).
+
+wait_for_forks([]) ->
+    ok;
+wait_for_forks(Forks) ->
+    receive
+        {Fork, available} ->
+            wait_for_forks(lists:delete(Fork, Forks))
+    end,
+    wait_for_forks(Forks).
+
+scavenge_forks(Forks) ->
+    receive
+        {Fork, available} ->
+            lists:keydelete(Fork, 1, Forks)
+    end,
+    receive
+        {Fork, available} ->
+            lists:keydelete(Fork, 1, Forks)
+    end.
+
+return_forks(Forks) ->
+    receive
+        {Fork, returned} ->
+            lists:keyreplace(Fork, 1, Forks, {Fork, available})
+    end,
+    return_forks(Forks).
+
+eat() ->
+    io:format("~p is dining.~n", [self()]),
+    timer:sleep(100).

@@ -1,0 +1,41 @@
+/*
+This is a sample trigger that executes after insert
+and updates the Account object.
+*/
+
+trigger AccountUpdateTrigger on Account (after insert, after update) {
+
+    /* 
+    Create a set to store all the account IDs that were updated.
+    This will help us avoid duplicate processing of accounts.
+    */
+    Set<Id> updatedAccountIds = new Set<Id>();
+
+    /* 
+    Loop through the trigger context to get the updated accounts.
+    Add their IDs to the set created earlier.
+    */
+    for (Account updatedAccount : Trigger.new) {
+        updatedAccountIds.add(updatedAccount.Id);
+    }
+
+    /* 
+    Query all related Contacts for the updated Accounts.
+    We can access the account IDs using the set created earlier.
+    */
+    List<Contact> relatedContacts = [SELECT Id, FirstName, LastName, Email FROM Contact WHERE AccountId IN :updatedAccountIds];
+
+    /* 
+    Loop through the related contacts and update their email address.
+    */
+    for (Contact relatedContact : relatedContacts) {
+        relatedContact.Email = 'newemail@example.com';
+    }
+
+    /* 
+    Perform a bulk update on all the related contacts using DML.
+    This will update all the contacts in one go, reducing the number of DML statements.
+    */
+    update relatedContacts;
+
+}

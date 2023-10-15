@@ -1,0 +1,95 @@
+# This is a Ruby code snippet that implements a hash-based cache
+
+require 'digest'
+
+class Cache
+  attr_reader :cache, :size, :keys
+  attr_accessor :expiry
+
+  # Creates a new cache object with a specified size and expiry time
+  def initialize(size, expiry)
+    @cache = {}
+    @size = size
+    @expiry = expiry
+    @keys = []
+  end
+
+  # Adds a key-value pair to the cache, replacing the oldest entry if the cache is full
+  # If the key already exists, it will be moved to the front of the cache
+  def add(key, value)
+    if @cache[key].nil?
+      @keys.unshift(key)
+      @cache[key] = value
+      clean_cache
+    else
+      @keys.delete(key)
+      @keys.unshift(key)
+      @cache[key] = value
+    end
+  end
+
+  # Retrieves a value from the cache using the specified key
+  # If the key does not exist or is expired, returns nil
+  def get(key)
+    if @cache[key].nil? || expired?(key)
+      nil
+    else
+      @keys.delete(key)
+      @keys.unshift(key)
+      @cache[key]
+    end
+  end
+
+  # Deletes a key-value pair from the cache
+  def delete(key)
+    @cache.delete(key)
+    @keys.delete(key)
+  end
+
+  # Clears the cache completely
+  def clear
+    @cache.clear
+    @keys = []
+  end
+
+  private
+
+  # Checks if a key has expired based on the set expiry time
+  def expired?(key)
+    (Time.now - @cache[key][:time]) > @expiry
+  end
+
+  # Removes the oldest entry from the cache if it has reached its maximum size
+  def clean_cache
+    @cache.delete(@keys.pop) if @keys.length > @size
+  end
+end
+
+# Example Usage:
+
+# Create a cache with a size of 3 and expiry of 60 seconds
+cache = Cache.new(3, 60)
+
+# Add key-value pairs to the cache
+cache.add('A', 'Apple')
+cache.add('B', 'Banana')
+cache.add('C', 'Coconut')
+
+# Retrieve a value from the cache
+puts cache.get('B') # Output: Banana
+puts cache.get('D') # Output: nil (Key does not exist)
+
+# Wait for cache to expire
+sleep(61)
+
+# Retrieve expired value from the cache
+puts cache.get('A') # Output: nil (Key has expired)
+
+# Add a new key-value pair and replace the oldest entry
+cache.add('D', 'Durian')
+
+# Delete a key-value pair from the cache
+cache.delete('C')
+
+# Clear the cache completely
+cache.clear()

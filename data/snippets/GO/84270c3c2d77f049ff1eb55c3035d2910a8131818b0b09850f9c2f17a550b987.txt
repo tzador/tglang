@@ -1,0 +1,40 @@
+// This code snippet creates a struct for a user
+type User struct {
+    ID       int     // unique identifier for user
+    Username string  // chosen username for user
+    Password string  // hashed password for user
+    Email    string  // email address for user
+    Bio      string  // short bio for user profile
+    Posts    []Post  // slice of user's posts
+}
+
+// This function retrieves a specific user from the database based on their ID
+func GetUserByID(id int) (*User, error) {
+    var user User // create empty User struct to store retrieved user
+    err := db.QueryRow("SELECT * FROM users WHERE id=?", id).Scan(&user.ID, &user.Username, &user.Password, &user.Email, &user.Bio)
+    if err != nil {
+        return nil, err
+    }
+    // Retrieve user's posts and append to Posts slice in User struct
+    posts, err := GetPostsByUserID(id)
+    if err != nil {
+        return nil, err
+    }
+    user.Posts = posts
+    return &user, nil
+}
+
+// This function creates a new user in the database
+func CreateUser(username, password, email, bio string) error {
+    // Hash password using bcrypt package
+    hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+    if err != nil {
+        return err
+    }
+    // Execute SQL statement to insert new user into database
+    _, err = db.Exec("INSERT INTO users (username, password, email, bio) VALUES (?, ?, ?, ?)", username, hashedPassword, email, bio)
+    if err != nil {
+        return err
+    }
+    return nil
+}

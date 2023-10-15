@@ -1,0 +1,45 @@
+(* Set up initial conditions of simulation *)
+Init[x_, y_] := Module[{u, v, p},
+  u = Sin[x] + Cos[y];
+  v = Cos[x] - Sin[y];
+  p = Sin[x + y];
+  Return[{u, v, p}];
+]
+
+(* Define functions for calculating derivatives *)
+dx[_][t_, {u_, v_, p_}] := -D[p, x] + D[u, x, x] + D[v, x, y];
+dy[_][t_, {u_, v_, p_}] := -D[p, y] + D[u, y, x] + D[v, y, y];
+dt[_][t_, {u_, v_, p_}] := -v*D[p, x] + u*D[p, y] + D[u, x]*D[u, x] + D[u, y]*D[u, y] + D[u, x]*D[v, y] + D[u, y]*D[v, x] - D[p, x, x] - D[p, y, y];
+dp[_][t_, {u_, v_, p_}] := -(u*D[p, x] + v*D[p, y]) - D[u, x]*D[p, x] - D[u, y]*D[p, y];
+
+(* Initialize grid and time step *)
+xmin = -Pi; xmax = Pi; ymin = -Pi; ymax = Pi;
+dt = 0.01;
+dx = (xmax - xmin)/50;
+dy = (ymax - ymin)/50;
+
+(* Define list of grid points *)
+points = Table[{x, y}, {x, xmin, xmax, dx}, {y, ymin, ymax, dy}];
+
+(* Set initial conditions at t=0 *)
+initial = Init @@@ Flatten[points, 1];
+
+(* Perform simulation for specified timesteps *)
+solution = NDSolve[Table[{
+  u'[t] == dx[t][t, {u[t, x, y], v[t, x, y], p[t, x, y]}],
+  v'[t] == dy[t][t, {u[t, x, y], v[t, x, y], p[t, x, y]}],
+  p'[t] == dp[t][t, {u[t, x, y], v[t, x, y], p[t, x, y]}],
+  u[0, x, y] == initial[[i, 1]],
+  v[0, x, y] == initial[[i, 2]],
+  p[0, x, y] == initial[[i, 3]]
+  }, {i, Length[initial]}], {u, v, p}, {t, 0, 10*dt}][[1]];
+
+(* Plot solution at t=10*dt *)
+plot = ListVectorPlot[{solution[[1]], solution[[2]]}, 
+  DataRange -> {{xmin, xmax}, {ymin, ymax}}, 
+  VectorColorFunction -> "M10DefaultDensityGradient", 
+  ColorFunctionScaling -> False, VectorPoints -> All, 
+  VectorStyle -> Thin, StreamPoints -> Fine];
+
+(* Output plot *)
+Show[plot, PlotRange -> All]

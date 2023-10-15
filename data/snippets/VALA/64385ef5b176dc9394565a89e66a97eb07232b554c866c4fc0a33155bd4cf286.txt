@@ -1,0 +1,87 @@
+/*
+  This is a complex code snippet written in VALA programming language.
+  It is a custom widget that displays a progress bar with a label and a button.
+  The progress bar is updated in a separate thread while the label displays the progress percentage.
+  The button can be used to cancel the progress.
+*/
+
+using GLib;
+using Gtk;
+
+/* Custom widget with a progress bar, label and button */
+public class ProgressWidget : Bin {
+
+    private ProgressBar progress_bar;
+    private Label label;
+    private Button button;
+    private Thread progress_thread;
+    private int progress;
+    private bool running;
+
+    /* Constructor */
+    public ProgressWidget () {
+
+        /* Initialize the components */
+        this.progress_bar = new ProgressBar ();
+        this.label = new Label ("0%");
+        this.button = new Button.with_label ("Cancel");
+        this.progress_thread = null;
+        this.progress = 0;
+        this.running = false;
+
+        /* Set up event listeners */
+        this.button.clicked.connect (this.on_button_clicked);
+
+        /* Add the components to the widget */
+        this.add (this.progress_bar);
+        this.add (this.label);
+        this.add (this.button);
+
+        /* Set the spacing between components */
+        this.set_spacing (10);
+
+        /* Show all components */
+        this.show_all ();
+    }
+
+    /* Called when the button is clicked */
+    private void on_button_clicked () {
+        /* If the progress is running, cancel it */
+        if (this.running) {
+            this.progress_thread.quit ();
+            this.running = false;
+        }
+    }
+
+    /* Start the progress bar */
+    public void start_progress () {
+        /* Create a new thread for updating the progress */
+        this.progress_thread = new Thread (() => {
+
+            /* Set the progress to 0 */
+            this.progress = 0;
+            this.progress_bar.set_fraction (0);
+            this.label.set_text (this.progress + "%");
+
+            /* Start the loop that updates the progress */
+            this.running = true;
+            while (this.running) {
+                /* Increment the progress by 1 every second */
+                this.progress += 1;
+                this.progress_bar.set_fraction (this.progress / 100.0);
+                this.label.set_text (this.progress + "%");
+
+                /* Sleep for 1 second */
+                GLib.timeout_add_seconds (1, () => { return false; });
+            }
+
+            /* Once the progress is finished, reset the thread and progress */
+            this.progress_thread = null;
+            this.progress = 0;
+            this.running = false;
+        });
+
+        /* Start the thread */
+        this.progress_thread.start ();
+    }
+}

@@ -1,0 +1,95 @@
+%% This is a module that implements a binary tree data structure in ERLANG.
+
+-module(binary_tree).
+
+-export([create_binary_tree/1, insert_node/3, delete_node/2, search_node/2, preorder_traversal/1, inorder_traversal/1, postorder_traversal/1]).
+
+%% The binary tree data structure is defined using a record which contains two elements - a value and a list of children nodes.
+-record(binary_tree, {value, children=[]}).
+
+%% This function creates an empty binary tree.
+create_binary_tree() ->
+    #binary_tree{}.
+
+%% This function inserts a new node with the given `Value` into the binary tree `Tree` at the specified `Position.
+%% The position specifies which child list to insert the node into - `left` or `right`.
+insert_node(Value, Tree, Position) ->
+    #binary_tree{children=Children} = Tree,
+    case Position of
+        left ->
+            Tree#binary_tree{children=[insert_node(Children, 1, Value)]};
+        right ->
+            Tree#binary_tree{children=[insert_node(Children, 2, Value)]}
+    end.
+
+%% This function inserts a new node with the given `Value` into the binary tree's children list at the specified `Index`.
+insert_node(Children, Index, Value) ->
+    case length(Children) of
+        Index ->
+            Children ++ [{#binary_tree{value=Value, children=[]}}];
+        _ ->
+            [hd(Children) | insert_node(tl(Children), Index, Value)]
+    end.
+
+%% This function deletes a node with the given `Value` from the binary tree `Tree`.
+delete_node(Value, Tree) ->
+    Tree#binary_tree{children=delete_node(Value, Tree#binary_tree.children)}.
+
+%% This function deletes a node with the given `Value` from the binary tree's children list.
+delete_node(Value, Children) ->
+    case lists:member(Value, get_values_from_children(Children)) of
+        false ->
+            Children;
+        true ->
+            lists:delete({#binary_tree{value=Value, children=_}, _}, Children)
+    end.
+
+%% This function searches for a node with the given `Value` in the binary tree `Tree`.
+search_node(Value, Tree) ->
+    case Tree of
+        #binary_tree{value=Value, children=_} ->
+            true;
+        #binary_tree{children=Children} ->
+            lists:any(fun(T) -> search_node(Value, T) end, Children);
+        _ ->
+            false
+    end.
+
+%% This function performs a preorder traversal of the binary tree `Tree` and returns a list of values in the order they were traversed.
+preorder_traversal(Tree) ->
+    case Tree of
+        #binary_tree{value=Value, children=Children} ->
+            [Value | get_values_from_children(Children, [])];
+        _ ->
+            []
+    end.
+
+%% This function performs an inorder traversal of the binary tree `Tree` and returns a list of values in the order they were traversed.
+inorder_traversal(Tree) ->
+    case Tree of
+        #binary_tree{value=Value, children=[Left, Right]} ->
+            inorder_traversal(Left) ++ [Value] ++ inorder_traversal(Right);
+        #binary_tree{value=Value, children=[]} ->
+            [Value];
+        _ ->
+            []
+    end.
+
+%% This function performs a postorder traversal of the binary tree `Tree` and returns a list of values in the order they were traversed.
+postorder_traversal(Tree) ->
+    case Tree of
+        #binary_tree{value=Value, children=Children} ->
+            get_values_from_children(Children) ++ [Value];
+        _ ->
+            []
+    end.
+
+%% This function retrieves a list of values from the children nodes in the binary tree.
+get_values_from_children(Children) ->
+    get_values_from_children(Children, []).
+
+%% This function retrieves a list of values from the children nodes in the binary tree and appends them to the `Acc` list.
+get_values_from_children([#binary_tree{value=Value}|T], Acc) ->
+    get_values_from_children(T, Acc ++ [Value]);
+get_values_from_children([], Acc) ->
+    Acc.

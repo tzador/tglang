@@ -1,0 +1,42 @@
+# Create a docker network
+docker network create my_network
+
+# Start nginx container with custom network
+docker run -d --network=my_network --name=nginx_container nginx
+
+# Start node.js app container with custom network
+docker run -d --network=my_network --name=app_container node
+
+# Expose port 80 from nginx container
+docker run -d --network=my_network --name=nginx_container -p 80:80 nginx
+
+# Expose port 3000 from node.js app container
+docker run -d --network=my_network --name=app_container -p 3000:3000 node
+
+# Create nginx configuration file
+cat <<EOF > nginx.conf
+server {
+    listen 80;
+    server_name localhost;
+
+    location / {
+        proxy_pass http://app_container:3000;
+    }
+}
+EOF
+
+# Copy nginx configuration file to nginx container
+docker cp nginx.conf nginx_container:/etc/nginx/nginx.conf
+
+# Start nginx container with custom configuration file
+docker run -d --network=my_network --name=nginx_container -v `pwd`/nginx.conf:/etc/nginx/nginx.conf nginx
+
+# Inspect custom network
+docker network inspect my_network
+
+# Stop and remove containers
+docker stop nginx_container app_container
+docker rm nginx_container app_container
+
+# Remove custom network
+docker network rm my_network

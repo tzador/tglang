@@ -1,0 +1,41 @@
+/* This code snippet generates a report of all customers within a certain price range.
+The calculated fields show the total sales for each customer as well as their discount percentage.*/
+DEFINE TEMP-TABLE ttCustomer NO-UNDO
+    FIELD CustNum AS INT /* Customer number */
+    FIELD CustName AS CHARACTER /* Customer name */
+    FIELD TotalSales AS DECIMAL FORMAT "###,###,###,##0.00" /* Total sales of customer */
+    FIELD DiscountPct AS DECIMAL FORMAT "###,###,###,##0.00" /* Discount percentage for customer */
+
+DEFINE VARIABLE dMinPrice AS DECIMAL NO-UNDO. /* Minimum price for report */
+DEFINE VARIABLE dMaxPrice AS DECIMAL NO-UNDO. /* Maximum price for report */
+
+/* Input parameters for price range */
+ASSIGN
+    dMinPrice = 1000
+    dMaxPrice = 2000.
+
+/* Query to retrieve customers within price range and calculate total sales and discount percentage */
+FOR EACH Customer WHERE Customer.Price >= dMinPrice AND Customer.Price <= dMaxPrice:
+    DISPLAY Customer.CustNum Customer.Name Customer.Price.
+    ttCustomer.CustNum = Customer.CustNum.
+    ttCustomer.CustName = Customer.Name.
+    /* Calculation for total sales */
+    ttCustomer.TotalSales = ROUNDED(Customer.Price * Customer.Quantity, 2).
+    /* Calculation for discount percentage */
+    ttCustomer.DiscountPct = ROUNDED((Customer.Price - Customer.UnitPrice) / Customer.Price * 100, 2).
+    /* Assign temp-table to report definition */
+    CREATE ttCustomer.
+END.
+
+/* Report definition to display temp-table with calculated fields */
+DEFINE STREAM sReport.
+STREAM sReport:WIDTH = 80. /* Set the width of the report output */
+
+REPORT sReport
+    ttCustomer NO-LOCK
+    COLUMN ttCustomer.CustNum
+    COLUMN ttCustomer.CustName
+    COLUMN ttCustomer.TotalSales /* Display total sales with formatting */
+    COLUMN ttCustomer.DiscountPct /* Display discount percentage with formatting */
+    COLUMN ttCustomer.UnitPrice WITH NO-LABEL /* Exclude original unit price from report */
+    ON ROLLBACK UNDO, UNDO-PICK-RELEASE.

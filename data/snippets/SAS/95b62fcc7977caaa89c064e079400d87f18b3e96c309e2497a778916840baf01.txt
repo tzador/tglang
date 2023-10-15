@@ -1,0 +1,37 @@
+/* This is a SAS code snippet for data preprocessing */
+
+/* Creating a macro to import a CSV file */
+%macro import_csv(input, output);
+    data &output;
+        %let dlm=%str(,);
+        %let dsd=%str(01);
+        infile "&input" dlm=&dlm dsd=&dsd truncover firstobs=2;
+        input %include "_columns.txt";
+    run;
+%mend import_csv;
+
+/* Getting the list of column names from a separate file */
+%let columns = age height weight gender;
+
+/* Importing a CSV file and specifying the output dataset name */
+%import_csv("sample.csv", mydata);
+
+/* Creating a function to clean and transform the data */
+%macro clean_data(data);
+    data &data;
+        /* Removing rows with missing values */
+        %let missing_rows = %sysfunc(countc(&columns, %str(_)));
+        drop %eval(&missing_rows + 1) - &missing_rows;
+
+        /* Categorizing ages into different groups */
+        if age < 18 then age_group = "Child";
+        else if age >= 18 and age < 65 then age_group = "Adult";
+        else age_group = "Senior";
+
+        /* Creating a new variable for BMI */
+        bmi = (weight/(height*height)) * 703;
+    run;
+%mend clean_data;
+
+/* Calling the clean_data function on the imported dataset */
+%clean_data(mydata);

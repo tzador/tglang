@@ -1,0 +1,24 @@
+FROM ubuntu:20.04                                          #Sets the base image to be used
+
+#Install dependencies for Python and Django
+RUN apt-get update                                          #Updates package lists
+RUN apt-get install -y python3 python3-pip python3-dev      #Installs Python and its dependencies
+RUN pip3 install django                                     #Installs Django framework
+RUN apt-get install -y supervisor \
+                       nginx                                #Installs supervisor and nginx for process management and web server respectively
+
+COPY ./app /app                                             #Copies over application files to the container
+WORKDIR /app                                                #Sets working directory as the app directory
+
+RUN pip3 install -r requirements.txt                        #Installs project dependencies from requirements.txt
+RUN python3 manage.py collectstatic --noinput               #Collects static files for deployment
+
+COPY ./configs/supervisor/* /etc/supervisor/conf.d/         #Copies supervisor config files to the container
+COPY ./configs/nginx/* /etc/nginx/sites-available/          #Copies nginx config files to the container
+
+RUN ln -s /etc/nginx/sites-available/app.conf \
+           /etc/nginx/sites-enabled/                        #Creates a symbolic link for nginx config file
+
+CMD ["supervisord", "-n"]                                   #Specifies the command to run when the container starts
+                                                            #In this case, it is supervisord to start all processes
+EXPOSE 80                                                   #Exposes port 80 for web traffic

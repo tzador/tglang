@@ -1,0 +1,46 @@
+server {
+    listen 80;
+    server_name example.com;
+
+    location / {
+        root /var/www/html;
+        index index.html;
+    }
+
+    location /api {
+        proxy_pass http://localhost:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+    }
+
+    location /admin {
+        auth_basic "Restricted";
+        auth_basic_user_file /etc/nginx/.htpasswd;
+        try_files $uri $uri/ /index.html; #fallback to index.html if file not found
+    }
+
+    error_page 404 /404.html;
+    location = /404.html {
+        internal; #returns error page without redirecting
+    }
+
+    #gzip compression settings
+    gzip on;
+    gzip_types text/plain application/xml application/x-javascript;
+
+    #SSL certificate
+    listen 443 ssl;
+    ssl_certificate /etc/nginx/ssl/example.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/example.com.key;
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+
+    #rate limiting settings
+    limit_req zone=one burst=5 nodelay;
+
+    #redirect for www to non-www
+    server {
+        listen 80;
+        server_name www.example.com;
+        return 301 http://example.com$request_uri;
+    }
+}

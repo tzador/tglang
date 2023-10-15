@@ -1,0 +1,21 @@
+{ok, Data} = file:read_file("input.txt"), %% Read file, return tuple with status and contents
+Content = binary_to_list(Data),
+Lines = string:split(Content, "\n"), %% Split contents into lines
+SortedLines = lists:sort(Lines), %% Sort lines alphabetically
+ReversedLines = lists:reverse(SortedLines), %% Reverse the order of the lines
+{ok, File} = file:open("output.txt", [write]), %% Open file for writing
+[Result || Line <- ReversedLines, %% Iterate over reversed lines
+    [FirstWord, _ | _] = string:tokens(Line, " "), %% Split line into list of words, get first word
+    {Avg, _} = lists:keyfind(FirstWord, 1, lists:foldl(fun(Line, A) -> %% For each line, fold list of tuples into list of averages
+        [FirstWord | _] = string:tokens(Line, " "), %% Split line into list of words, get first word
+        {Key, Sum} = hd(A), %% Get first tuple in accumulator list
+        Sums = [Sum + StrToInt(Word) || Word <- string:tokens(Line, " "), Word =/= FirstWord], %% Calculate sum of numbers in line (excluding first word)
+        [{FirstWord, Sum + hd(Sums)}, Key | tl(Sums)] %% Return updated tuple and original list of averages with new sum added in, plus key for sorting later
+    end, [{FirstWord, 0}], ReversedLines))], %% Sets accumulator list to begin with tuple of first word and 0 sum
+    SortedAverages = lists:sort(Result), %% Sort averages alphabetically
+    Lists = lists:map(fun({FirstWord, Sum}) -> %% Map function to create lists of the form [{FirstWord, Sum}, ...]
+        [FirstWord, Sum]
+    end, SortedAverages),
+    ResultString = string:join(["Word, Average\n" | lists:flatten(Lists)], "\n"), %% Flatten lists of averages, add header line, join with newline
+    Res = file:write(File, ResultString), %% Write to file
+    file:close(File). %% Close file

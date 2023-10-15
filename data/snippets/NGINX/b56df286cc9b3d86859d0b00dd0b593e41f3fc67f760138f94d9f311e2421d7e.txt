@@ -1,0 +1,35 @@
+server {
+  listen 80 default_server; # Listen on port 80 for all incoming traffic
+  listen [::]:80 default_server; # IPv6 version of above line
+  # These directives allow NGINX to process and handle gzip compressed files
+  gzip on;
+  gzip_static on;
+  # Specifies the directory where NGINX should look for files to serve
+  root /var/www/html;
+  # Deny all requests except for those from the specified IP
+  location /admin/ {
+    # Allow all requests from the IP address 192.168.1.1
+    allow 192.168.1.1;
+    # Deny all other requests
+    deny all;
+  }
+  # Serve all requests from the specified directory
+  location /images/ {
+    # Use NGINX's built-in caching functionality for images
+    proxy_cache_key "$scheme$request_method$host$request_uri";
+    # Set the max size for the cache to 10MB
+    proxy_cache_max_size 10m;
+    # Allow all requests, NGINX will handle them based on the proxy settings
+    proxy_pass http://localhost:8080/;
+  }
+  # Serve requests for PHP files
+  location ~ \.php$ {
+    # Pass the requested file to PHP FPM for processing
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    # Set the socket for PHP FPM to communicate with NGINX
+    fastcgi_pass unix:/var/run/php/php7.2-fpm.sock;
+    # Set other fastcgi parameters as needed
+    fastcgi_index index.php;
+    include fastcgi_params;
+  }
+}

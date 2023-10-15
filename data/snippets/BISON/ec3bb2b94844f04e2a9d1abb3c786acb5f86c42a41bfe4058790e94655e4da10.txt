@@ -1,0 +1,108 @@
+%{
+    /* This code snippet demonstrates the use of BISON, a parser generator */
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <string.h>
+%}
+
+%union {
+    /* Declaring a union for storing different types of data */
+    int num;
+    char *str;
+}
+
+%token <str> NAME
+%token NUM
+%left '+' '-'
+%left '*' '/'
+
+%type <num> expr_range
+%type <str> name_range
+
+/* Defining the grammar rules */
+%%
+input: /* empty */
+    | input line
+    | input statement
+    | input lambda
+
+line: '\n'
+    | ';' '\n'
+
+statement: assign
+    | print
+    | func_def
+    | func_call
+
+lambda: '(' ')' '\n' '\n'
+    | '(' expr_range ')' '\n' '\n'
+
+assign: NAME '=' expr_range '\n' 
+    | NAME '=' func_call '\n'
+
+print: NAME '\n'
+    | '(' NAME ')' '\n'
+
+func_def: NAME '(' NAME ')' '\n' '\n'
+    | NAME '(' ')' '\n' '\n'
+
+func_call: NAME '(' expr_range ')'
+    | NAME '(' ')'
+
+expr_range: NAME '+' NAME
+    | expr_range '+' expr_range
+    | NAME '-' NAME
+    | expr_range '-' expr_range
+    | NAME '*' NAME
+    | expr_range '*' expr_range
+    | NAME '/' NAME
+    | expr_range '/' expr_range
+    ;
+
+name_range: NAME
+    | name_range NAME
+    ;
+
+%%
+/* Yacc requires a main function to parse input */
+int main(){
+    yyparse();
+}
+
+/* Defining a function to handle errors during parsing */
+void yyerror(char *s){
+    printf("Error: %s\n", s);
+}
+
+/* Defining functions for handling different types of inputs */
+int yywrap(){
+    return 1;
+}
+
+int yylex(){
+    char buf[1000];
+    scanf("%s", buf);
+
+    /* Checking if the input is an integer */
+    if (isNumeric(buf)){
+        yylval.num = atoi(buf);
+        return NUM;
+    }
+    else{
+        /* Allocating memory for the string and storing the input */
+        char *string = malloc(strlen(buf) + 1);
+        strcpy(string, buf);
+        yylval.str = string;
+        return NAME;
+    }
+}
+
+/* Defining a utility function to check if a given string is a number */
+int isNumeric(char *str){
+    while (*str){
+        if (!isdigit(*str))
+            return 0;
+        str++;
+    }
+    return 1;
+}

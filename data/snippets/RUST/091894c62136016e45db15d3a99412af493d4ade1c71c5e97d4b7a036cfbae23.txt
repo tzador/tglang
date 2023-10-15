@@ -1,0 +1,162 @@
+// Code implementing a doubly linked list in Rust
+
+// Define the structure of a node in the linked list
+struct Node<T> {
+    data: T,
+    prev: Option<*mut Node<T>>,
+    next: Option<*mut Node<T>>,
+}
+
+// Define getter and setter methods for the node
+impl<T> Node<T> {
+    fn set_prev(&mut self, prev: Option<*mut Node<T>>) {
+        self.prev = prev;
+    }
+
+    fn get_prev(&self) -> Option<*mut Node<T>> {
+        self.prev
+    }
+
+    fn set_next(&mut self, next: Option<*mut Node<T>>) {
+        self.next = next;
+    }
+
+    fn get_next(&self) -> Option<*mut Node<T>> {
+        self.next
+    }
+}
+
+// Define the linked list structure
+struct LinkedList<T> {
+    head: Option<*mut Node<T>>,
+    tail: Option<*mut Node<T>>,
+    length: usize,
+}
+
+// Define getter and setter methods for the linked list
+impl<T> LinkedList<T> {
+    fn set_head(&mut self, head: Option<*mut Node<T>>) {
+        self.head = head;
+    }
+
+    fn get_head(&self) -> Option<*mut Node<T>> {
+        self.head
+    }
+
+    fn set_tail(&mut self, tail: Option<*mut Node<T>>) {
+        self.tail = tail;
+    }
+
+    fn get_tail(&self) -> Option<*mut Node<T>> {
+        self.tail
+    }
+
+    fn get_length(&self) -> usize {
+        self.length
+    }
+
+    fn append(&mut self, data: T) {
+        // Create a new node with the given data
+        let new_node = Box::into_raw(Box::new(Node {
+            data: data,
+            prev: None,
+            next: None,
+        }));
+
+        // If the list is empty, set the new node as both head and tail
+        if self.length == 0 {
+            self.head = Some(new_node);
+            self.tail = Some(new_node);
+        } else {
+            // Update the next pointer of the current tail to point to the new node
+            let prev_node = self.tail.unwrap();
+            unsafe {
+                (*prev_node).set_next(Some(new_node));
+            }
+            // Update the previous pointer of the new node to point to the current tail
+            unsafe {
+                (*new_node).set_prev(Some(prev_node));
+            }
+            // Set the new node as the new tail
+            self.tail = Some(new_node);
+        }
+        // Increase the length of the list by 1
+        self.length += 1;
+    }
+
+    fn prepend(&mut self, data: T) {
+        // Create a new node with the given data
+        let new_node = Box::into_raw(Box::new(Node {
+            data: data,
+            prev: None,
+            next: None,
+        }));
+
+        // If the list is empty, set the new node as both head and tail
+        if self.length == 0 {
+            self.head = Some(new_node);
+            self.tail = Some(new_node);
+        } else {
+            // Update the next pointer of the new node to point to the current head
+            unsafe {
+                (*new_node).set_next(self.head);
+            }
+            // Update the previous pointer of the current head to point to the new node
+            let next_node = self.head.unwrap();
+            unsafe {
+                (*next_node).set_prev(Some(new_node));
+            }
+            // Set the new node as the new head
+            self.head = Some(new_node);
+        }
+        // Increase the length of the list by 1
+        self.length += 1;
+    }
+
+    fn remove(&mut self, index: usize) -> Option<T> {
+        // Check if the given index is within the range of the list
+        if index >= self.length {
+            panic!("Index out of bounds.");
+        }
+
+        // If the index is 0, remove the head node
+        if index == 0 {
+            let node_to_be_removed = self.head.unwrap();
+            unsafe {
+                // Update the next pointer of the head to point to the node next to the head
+                self.head = (*node_to_be_removed).get_next();
+                // If the head is the only node in the list, also set the tail to None
+                if self.head.is_none() {
+                    self.tail = None;
+                } else {
+                    // Update the previous pointer of the new head to be None
+                    (*self.head.unwrap()).set_prev(None);
+                }
+            }
+            // Decrease the length of the list by 1
+            self.length -= 1;
+            // Convert the removed node back to a Box and return its data
+            Some(unsafe { Box::from_raw(node_to_be_removed) }.data)
+        } else {
+            // If the index is not 0, traverse the list to find the node at the given index
+            let mut current_node = self.head.unwrap();
+            for i in 0..index {
+                // Update the current node to the next node in the list
+                current_node = unsafe { (*current_node).get_next().unwrap() };
+            }
+            unsafe {
+                // Get the previous and next node of the current node
+                let prev_node = (*current_node).get_prev().unwrap();
+                let next_node = (*current_node).get_next().unwrap();
+                // Update the next pointer of the previous node to point to the next node of the current node
+                (*prev_node).set_next(Some(next_node));
+                // Update the previous pointer of the next node to point to the previous node of the current node
+                (*next_node).set_prev(Some(prev_node));
+            }
+            // Decrease the length of the list by 1
+            self.length -= 1;
+            // Convert the removed node back to a Box and return its data
+            Some(unsafe { Box::from_raw(current_node) }.data)
+        }
+    }
+}

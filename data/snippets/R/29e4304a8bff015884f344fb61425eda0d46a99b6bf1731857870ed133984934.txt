@@ -1,0 +1,34 @@
+###### Data cleaning and manipulation in R ######
+# Load necessary libraries
+library(dplyr)
+library(tidyr)
+library(readr)
+
+# Load dataset
+data <- read_csv("data.csv", col_types = cols())
+# View first 10 rows of data
+head(data)
+
+# Impute missing values with mean
+data %>% 
+  mutate(across(where(is.numeric), ~ifelse(is.na(.), mean(., na.rm = TRUE), .))) -> imputed_data
+
+# Create new column with log-transformed values
+imputed_data %>% 
+  mutate(log_column = log(column)) -> transformed_data
+
+# Group data by a variable and calculate a new column with summary statistics
+transformed_data %>%
+  group_by(variable) %>%
+  summarise(mean_column = mean(column), median_column = median(column), max_column = max(column)) -> summary_data
+
+# Pivot data from long to wide format
+summary_data %>%
+  select(variable, mean_column, median_column) %>%
+  pivot_wider(names_from = variable, values_from = c(mean_column, median_column)) -> pivoted_data
+
+# Calculate z-scores for a specific column
+pivoted_data$z_score <- scale(pivoted_data$mean_column)
+
+# Plot a boxplot of the z-scores
+boxplot(pivoted_data$z_score, main = "Distribution of Z-scores", xlab = "Variable")

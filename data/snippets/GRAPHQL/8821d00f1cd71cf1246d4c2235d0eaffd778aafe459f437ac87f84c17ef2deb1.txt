@@ -1,0 +1,73 @@
+const express = require('express');
+const { graphqlHTTP } = require('express-graphql');
+const { buildSchema } = require('graphql');
+
+// Define a schema
+const schema = buildSchema(`
+  type Query {
+    hello: String,
+    rollDice(numDice: Int!, numSides: Int): [Int],
+    getPerson(id: Int!): Person,
+    searchMovie(title: String, year: Int): [Movie]
+  }
+  type Person {
+    id: Int,
+    name: String,
+    age: Int,
+    profession: String
+  }
+  type Movie {
+    title: String,
+    director: String,
+    releaseYear: Int
+  }
+`);
+
+// Define resolvers for each query
+const root = {
+  hello: () => 'Hello world!',
+  rollDice: ({ numDice, numSides }) => {
+    const output = [];
+    for (let i = 0; i < numDice; i++) {
+      output.push(1 + Math.floor(Math.random() * numSides));
+    }
+    return output;
+  },
+  getPerson: ({ id }) => ({
+    id,
+    name: 'John Doe',
+    age: 30,
+    profession: 'Engineer'
+  }),
+  searchMovie: ({ title, year }) => {
+    const movies = [
+      { title: 'Harry Potter and the Sorcerer\'s Stone', director: 'Chris Columbus', releaseYear: 2001 },
+      { title: 'The Lion King', director: 'Roger Allers', releaseYear: 1994 },
+      { title: 'The Dark Knight', director: 'Christopher Nolan', releaseYear: 2008 },
+      { title: 'Avatar', director: 'James Cameron', releaseYear: 2009 },
+      { title: 'Inception', director: 'Christopher Nolan', releaseYear: 2010 },
+      { title: 'Jurassic Park', director: 'Steven Spielberg', releaseYear: 1993 }
+    ];
+    return movies.filter(movie => {
+      if (title && year) {
+        return movie.title.toLowerCase().includes(title.toLowerCase()) && movie.releaseYear === year;
+      } else if (title) {
+        return movie.title.toLowerCase().includes(title.toLowerCase());
+      } else if (year) {
+        return movie.releaseYear === year;
+      }
+      return false;
+    });
+  }
+}
+
+// Create an express server and use GraphQL middleware
+const app = express();
+app.use('/graphql', graphqlHTTP({
+  schema, // shorthand syntax for schema: schema
+  rootValue: root,
+  graphiql: true
+}));
+
+// Start the server
+app.listen(4000, () => console.log('Express GraphQL server is running on port 4000'));

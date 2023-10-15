@@ -1,0 +1,92 @@
+// The following code snippet uses BISON to generate a parser for a simple mathematical expression grammar.
+// It supports addition, subtraction, multiplication, and division operations, as well as parentheses for grouping.
+// The output of this parser will be an abstract syntax tree (AST) that can be used for further processing or evaluation.
+%{
+/* Declarations and definitions to be used in the parser */
+#include <stdio.h>
+#include <stdlib.h>
+
+#define NUMBER 1
+#define OP_ADD 2
+#define OP_SUB 3
+#define OP_MUL 4
+#define OP_DIV 5
+#define LPAR 6
+#define RPAR 7
+
+struct ast_node {
+  int type; // number or operator
+  int value; // value of number or operator
+  struct ast_node *left; // left child in AST
+  struct ast_node *right; // right child in AST
+};
+
+struct ast_node *create_node(int type, int value, struct ast_node *left, struct ast_node *right) {
+  /* Allocates memory for a new AST node and fills in its values */
+  struct ast_node *node = (struct ast_node*) malloc(sizeof(struct ast_node));
+  if (node == NULL) {
+    fprintf(stderr, "Error: memory allocation failed\n");
+    exit(1);
+  }
+  node->type = type;
+  node->value = value;
+  node->left = left;
+  node->right = right;
+  return node;
+}
+
+/* Grammar rules for mathematical expressions */
+%}
+%token NUMBER
+
+/* Non-terminal symbol: expr */
+%start expr
+
+/* Production rule for expr -> expr '+' expr */
+expr: expr '+' expr { $$ = create_node(OP_ADD, 0, $1, $3); }
+
+/* Production rule for expr -> expr '-' expr */
+| expr '-' expr { $$ = create_node(OP_SUB, 0, $1, $3); }
+
+/* Production rule for expr -> expr '*' expr */
+| expr '*' expr { $$ = create_node(OP_MUL, 0, $1, $3); }
+
+/* Production rule for expr -> expr '/' expr */
+| expr '/' expr { $$ = create_node(OP_DIV, 0, $1, $3); }
+
+/* Production rule for expr -> '(' expr ')' */
+| '(' expr ')' { $$ = create_node(LPAR, 0, $2, NULL); }
+
+/* Production rule for expr -> NUMBER */
+| NUMBER { $$ = create_node(NUMBER, $1, NULL, NULL); }
+
+%%
+
+/* Code to be executed before parsing starts */
+void yyerror(char *s) {
+  fprintf(stderr, "Error: %s\n", s);
+  exit(1);
+}
+
+/* Main function that calls the parser and prints the output AST */
+int main(void) {
+  #ifdef YYDEBUG
+  /* Enable debug messages */
+  if (isatty(fileno(stdin))) {
+    extern int yydebug;
+    yydebug = 1;
+  }
+  #endif
+  
+  /* Call the parser with the input from stdin */
+  yyparse();
+  
+  /* Retrieve the root node of the AST */
+  struct ast_node *root = (struct ast_node*) YYFINAL;
+  
+  /* Print the AST in prefix notation */
+  printf("Prefix notation AST:\n");
+  print_prefix(root);
+  
+  return 0;
+}

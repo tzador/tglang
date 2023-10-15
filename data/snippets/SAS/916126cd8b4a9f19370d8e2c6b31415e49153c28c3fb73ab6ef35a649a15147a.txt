@@ -1,0 +1,68 @@
+/* This is a SAS code snippet that generates a custom report of sales data */
+
+/* Assign a libname for the input data set */
+libname SalesData '/path/to/salesdata';
+
+/* Create a data set to store the aggregated sales data */
+data SalesReport;
+    /* Set the attributes for the output data set */
+    length product $20. /* character variable with length of 20 */
+    keep product region quarter total_sales; /* only keep these variables in output data set */
+
+    /* Merge the sales data with a data set containing product information */
+    merge SalesData.sales SalesData.products;
+    by product_id; /* merge by common variable product_id */
+
+    /* Create new variable to calculate total sales by multiplying quantity sold with unit price */
+    total_sales = quantity_sold * unit_price;
+
+    /* Select only data from specific region and quarter */
+    where region = 'North America' and quarter = 'Q3';
+
+    /* Order the data by product name */
+    retain product; /* retain product name to use in BY statement for ordering */
+    by product;
+
+    /* Format the total sales amount in US currency format */
+    format total_sales dollar10.2; /* format as US currency with 2 decimal places */
+
+    /* Output the final data set with custom labels for variables */
+    label product = 'Product Name' region = 'Region Sold' quarter = 'Sales Quarter' total_sales = 'Total Sales';
+
+    /* Print the data set with a descriptive title */
+    title 'Custom Sales Report for Q3 in North America';
+    title2 'Generated on ' today(); /* print date the report was generated */
+run;
+
+/* Create a custom report using the data set generated */
+ods html file = 'custom_sales_report_Q3.html' /* specify output file for HTML format */
+    style = custom; /* use a custom style for the report */
+
+/* Set custom labels for columns and specify desired formatting for each variable */
+proc print data = SalesReport (label='Custom Sales Report') noobs /* specify no observation numbers */;
+    label product = 'Name'
+        region = 'Region Sold'
+        quarter = 'Sales Quarter'
+        total_sales = 'Total Sales ($)';
+
+    format total_sales comma12.2; /* use commas for thousands separator and 2 decimal places */
+
+    /* Specify the order of columns to be displayed in the report */
+    var product region quarter total_sales;
+
+    /* Add a table of contents to the report */
+    options toc=(title='Table of Contents' contents='Product Sales' levels=2);
+
+    /* Add a summary at the end of the report with total sales for each region */
+    summary 'Total Sales for Each Region'
+        region / style=[bordertop=1 borderbottom=1]; /* add a border for each region */
+
+run;
+
+/* Close the ODS output */
+ods html close;
+
+/* Delete the temporary data set used for the report */
+proc datasets library=work nolist nodetails;
+    delete SalesReport; /* specify the data set to be deleted in the WORK library */
+quit;

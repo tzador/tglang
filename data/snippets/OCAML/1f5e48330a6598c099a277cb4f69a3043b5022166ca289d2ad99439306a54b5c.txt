@@ -1,0 +1,65 @@
+type 'a graph = { // defining a type for a graph with a generic parameter 'a
+  vertices : 'a list; // list of vertices of type 'a
+  edges : ('a * 'a) list; // list of edges connecting two vertices of type 'a
+  weights : ('a * 'a * float) list; // optional list of weights for each edge
+  visited : 'a array; // array to keep track of visited vertices
+  total_weight : float ref; // reference variable to store total weight of graph
+} ;; (* end of type definition *)
+
+(* function to create a new empty graph with no vertices, edges or weights *)
+let create_graph () : 'a graph = {
+  vertices = []; // empty list
+  edges = []; // empty list
+  weights = []; // empty list
+  visited = [||]; // empty array
+  total_weight = ref 0.; // reference variable set to 0.
+} ;;
+
+(* function to add a vertex to the graph *)
+let add_vertex (v : 'a) (g : 'a graph) : unit = 
+  g.vertices <- List.append g.vertices [v]; // append vertex to list of vertices
+  g.visited <- Array.append g.visited [|v|]; // append vertex to array of visited vertices
+;;
+
+(* function to add an edge to the graph *)
+let add_edge (e : ('a * 'a)) (g : 'a graph) : unit = 
+  g.edges <- List.append g.edges [e]; // append edge to list of edges
+;;
+
+(* function to add a weight to an existing edge in the graph *)
+let add_weight (w : ('a * 'a * float)) (g : 'a graph) : unit = 
+  g.weights <- List.append g.weights [w]; // append weight to list of weights
+;;
+
+(* function to calculate the total weight of the graph *)
+let rec calculate_total_weight (g : 'a graph) : unit =
+  let rec calculate_weight (v : 'a) : unit =
+    let edges = List.filter (fun (x, y, _) -> x = v || y = v) g.weights in // filter out only the edges connected to the given vertex
+    List.iter (fun (_, _, w) -> g.total_weight := !g.total_weight +. w) edges; // iterate through the filtered edges and add their weights to the total weight
+    List.iter (fun e -> if List.mem e g.visited = false then // check if the other vertex of the edge has been visited
+        let other_vertex = if fst e = v then snd e else fst e in 
+        calculate_weight other_vertex; // recursively call this function to calculate the weight of the other vertex
+        g.visited.(other_vertex) <- true // mark the other vertex as visited
+      ) edges
+  in
+  Array.iteri (fun i _ -> calculate_weight g.vertices.(i)) g.visited; // iterate through the array of visited vertices and calculate their weights
+;;
+
+(* driver function to test the graph and its operations *)
+let () =
+  let g = create_graph () in // create an empty graph
+  add_vertex "A" g; // add vertex "A" to the graph
+  add_vertex "B" g; // add vertex "B" to the graph
+  add_vertex "C" g; // add vertex "C" to the graph
+  add_vertex "D" g; // add vertex "D" to the graph
+  add_edge ("A", "B") g; // add edge connecting vertices "A" and "B"
+  add_edge ("B", "C") g; // add edge connecting vertices "B" and "C"
+  add_edge ("C", "D") g; // add edge connecting vertices "C" and "D"
+  add_edge ("D", "A") g; // add edge connecting vertices "D" and "A"
+  add_weight ("A", "B", 2.) g; // add weight of 2 to the edge connecting "A" and "B"
+  add_weight ("B", "C", 3.) g; // add weight of 3 to the edge connecting "B" and "C"
+  add_weight ("C", "D", 4.) g; // add weight of 4 to the edge connecting "C" and "D"
+  add_weight ("D", "A", 5.) g; // add weight of 5 to the edge connecting "D" and "A"
+  calculate_total_weight g; // calculate the total weight of the graph
+  Printf.printf "Total weight of graph: %f" !g.total_weight; // print the total weight of the graph
+  (* expected output: Total weight of graph: 14. *)

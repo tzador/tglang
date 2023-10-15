@@ -1,0 +1,120 @@
+--- This function calculates the optimal path for a given set of locations
+--- using the A* search algorithm
+--- @param locations table containing all the locations to be visited
+--- @param start the starting location
+--- @param goal the goal location
+--- @param heuristic function for calculating the heuristic cost of a location
+function findPath(locations, start, goal, heuristic)
+    --- list that contains the nodes yet to be explored
+    local openList = {}
+    --- list that contains the nodes that have already been explored
+    local closedList = {}
+
+    --- create a node for the starting location with a parent of null
+    local startNode = {parent = nil, location = start, g = 0, h = 0, f = 0}
+    --- add the starting node to the open list
+    table.insert(openList, startNode)
+
+    --- loop until the open list is empty
+    while #openList > 0 do
+        --- get the node with the lowest f cost from the open list
+        local current = openList[1]
+        for i = 2, #openList do
+            if openList[i].f < current.f then
+                current = openList[i]
+            end
+        end
+
+        --- remove the current node from the open list and add it to the closed list
+        table.remove(openList, getArrayIndex(openList, current))
+        table.insert(closedList, current)
+
+        --- if the current node is the goal, then return the path
+        if current.location == goal then
+            return getPath(current)
+        end
+
+        --- loop through all the adjacent nodes of the current node
+        for _, adjacentNode in ipairs(getAdjacentNodes(current.location)) do
+            --- check if the node has already been explored
+            if not listContains(closedList, adjacentNode) then
+                --- calculate the g cost of the adjacent node
+                local tempG = current.g + getDistance(current.location, adjacentNode)
+                --- check if the node is not in the open list
+                if not listContains(openList, adjacentNode) then
+                    --- create a node for the adjacent node with current as parent
+                    local newNode = {parent = current, location = adjacentNode, g = tempG, h = heuristic(adjacentNode), f = tempG + heuristic(adjacentNode)}
+                    --- add the node to the open list
+                    table.insert(openList, newNode)
+                else
+                    --- if the node is already in the open list, check if the new path is better
+                    --- replace the node's parent and g cost if the new path is better
+                    for i = 1, #openList do
+                        if openList[i].location == adjacentNode and tempG < openList[i].g then
+                            openList[i].parent = current
+                            openList[i].g = tempG
+                            openList[i].f = tempG + openList[i].h
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    --- if no path is found, return null
+    return null
+end
+
+--- This function calculates the euclidean distance between two locations
+--- @param loc1 the first location
+--- @param loc2 the second location
+function getDistance(loc1, loc2)
+    local distance = math.sqrt((loc1.x - loc2.x)^2 + (loc1.y - loc2.y)^2)
+    return distance
+end
+
+--- This function finds the index of a node in a list given its location
+--- @param list the list to be searched
+--- @param node the node whose index is to be found
+function getArrayIndex(list, node)
+    for i = 1, #list do
+        if list[i].location == node.location then
+            return i
+        end
+    end
+    return null
+end
+
+--- This function checks if a list contains a particular node
+--- @param list the list to be searched
+--- @param node the node to be checked for
+function listContains(list, node)
+    for i = 1, #list do
+        if list[i].location == node then
+            return true
+        end
+    end
+    return false
+end
+
+--- This function returns the path from the starting location to the goal
+--- by tracing back through the parents of the nodes
+--- @param node the goal node
+function getPath(node)
+    --- create a list to store the path
+    local path = {}
+
+    --- loop until the current node has no parent (reached the starting node)
+    while node.parent ~= null do
+        --- add the current node to the beginning of the path list
+        table.insert(path, 1, node.location)
+        --- set the current node to its parent
+        node = node.parent
+    end
+
+    --- add the starting node to the beginning of the path list
+    table.insert(path, 1, node.location)
+
+    --- return the path
+    return path
+end

@@ -1,0 +1,52 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+}
+
+group 'com.example'
+version '1.0-SNAPSHOT'
+
+// Define the repositories to be used by the build
+repositories {
+    mavenCentral()
+}
+
+// Define a custom task for generating license report using a Third-party plugin
+task generateLicensesReport(type: com.vanniktech.license.report.LicenseReportTask) {
+    // Customize the license report output file
+    outputFile = file("${buildDir}/reports/license/licenses.html")
+}
+
+// Define another custom task for generating Javadoc using built-in plugin
+task generateJavadoc(type: Javadoc, dependsOn: classes) {
+    // Set the source code directory to generate Javadoc for
+    source = sourceSets.main.allJava
+    // Customize the output directory for generated Javadoc
+    destinationDir = file("${buildDir}/docs/javadoc")
+}
+
+// Set the Javadoc task to run after the generateLicensesReport task
+generateLicensesReport.finalizedBy generateJavadoc
+
+// Define a custom task for publishing the library to Maven Central
+task publishToMavenCentral(type: PublishToMavenRepository) {
+    repositories {
+        // Define the Maven Central repository to publish to
+        maven {
+            url "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+            authentication {
+                // Define the authentication credentials for the repository
+                username = project.findProperty("mavenCentralUsername") ?: System.getenv('mavenCentralUsername')
+                password = project.findProperty("mavenCentralPassword") ?: System.getenv('mavenCentralPassword')
+            }
+        }
+    }
+    // Configure the generated jar and Javadoc files to be published
+    publications("java") {
+        from components.java
+        artifact(generateJavadoc)
+    }
+}
+
+// Set the publishToMavenCentral task to run after the generateJavadoc task
+generateJavadoc.finalizedBy publishToMavenCentral

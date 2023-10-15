@@ -1,0 +1,101 @@
+// Example BISON code for parsing a simple arithmetic expression
+%token <num> NUMBER    // Define the token for numbers
+%right '+' '-'        // Define right-associative operators
+%left '*' '/'         // Define left-associative operators
+
+%%
+/* Start of grammar rules */
+
+expr:
+    '(' expr ')'                  // Expression can be surrounded by parentheses
+    | expr '+' expr               // Addition operator
+    | expr '-' expr               // Subtraction operator
+    | expr '*' expr               // Multiplication operator
+    | expr '/' expr               // Division operator
+    | '-' expr %prec UNARY_MINUS  // Unary minus operator
+    | NUMBER                      // Terminal token for numbers
+    ;
+
+%%  /* End of grammar rules */
+
+/* Code to handle tokens */
+
+#include <stdio.h>                 // Standard library for input/output functions
+#include <stdlib.h>                // Standard library for memory allocation functions
+#include <ctype.h>                // Standard library for character handling functions
+
+int yylex(void);                 // Function to get the next token from input
+int yyerror(char *s);            // Function to handle syntax errors
+
+int total = 0;                  // Global variable to store the result of the arithmetic expression
+
+int main()
+{
+    yyparse();                 // Call the parser to start parsing the input
+
+    // Print the result of the expression
+    printf("Result: %d\n", total);
+
+    return 0;
+}
+
+int yyparse()
+{
+    // Parse the input until there are no more tokens
+    while (int token = yylex() != 0)
+    {
+        // Based on the token, perform the appropriate action
+        switch(token)
+        {
+            case '+':
+                total += yyval.num;           // Add the next number to the total
+                break;
+            case '-':
+                total -= yyval.num;           // Subtract the next number from the total
+                break;
+            case '*':
+                total *= yyval.num;           // Multiply the total by the next number
+                break;
+            case '/':
+                total /= yyval.num;           // Divide the total by the next number
+                break;
+            case NUMBER:
+                total = yyval.num;            // Store the number as the new total
+                break;
+        }
+    }
+    return 0;
+}
+
+/* Function to handle syntax errors, returns 0 to ignore the error and continue parsing */
+int yyerror(char *s)
+{
+    return 0;
+}
+
+/* Function to get the next token from input, returns 0 when there are no more tokens */
+int yylex(void)
+{
+    // Read the input one character at a time
+    int c = getchar();
+
+    // If the character is a digit, read the rest of the number and convert it to an int
+    if (isdigit(c)) {
+        int num = c - '0';
+        while(isdigit(c = getchar()))
+            num = num * 10 + (c - '0');
+        yyval.num = num;        // Store the number in the yyval union
+        return NUMBER;          // Return the token type for numbers
+    }
+
+    // If the character is an operator, return the character as the token type
+    if (c == '+' || c == '-' || c == '*' || c == '/')
+        return c;
+
+    // If the character is a parenthesis, return it as the token type
+    if (c == '(' || c == ')')
+        return c;
+
+    // Ignore all other characters and return 0 to indicate end of input
+    return 0;
+}

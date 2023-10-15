@@ -1,0 +1,69 @@
+import Text.Parsec
+import Data.Map
+
+type Parser a = Parsec String () a
+
+-- A custom data type for an expression that can have
+-- either a value or an operand, represented by a `Maybe` type
+data Expr = NumExpr Double | OpExpr Char (Maybe Expr) (Maybe Expr)
+
+-- A function to parse a number from an input string
+number :: Parser Expr
+number = do
+  num <- many1 digit
+  let numVal = read num
+  return $ NumExpr numVal
+
+-- A function to parse an expression surrounded by parentheses
+parens :: Parser Expr -> Parser Expr
+parens expr = do
+  char '(' >> spaces
+  e <- expr
+  spaces >> char ')' >> spaces
+  return e
+
+-- A function to parse an expression with a given operator and precedence
+opExpr :: Char -> Int -> Parser Expr
+opExpr op prec = do
+  left <- factor
+  spaces
+  rest left
+  where
+    rest :: Expr -> Parser Expr
+    rest left = (do
+      char op >> spaces
+      right <- factor
+      let opExpr = OpExpr op (Just left) (Just right)
+      rest opExpr
+      ) <|> return left
+
+-- A function to parse an expression term
+term :: Parser Expr
+term = parens expr <|> number
+
+-- A function to parse an expression factor
+factor :: Parser Expr
+factor = term `chainl1` (spaces >> (mult <|> div)) where 
+  mult    = opExpr '*' 6
+  div     = opExpr '/' 6
+
+-- A function to parse an expression term and factor
+expr :: Parser Expr
+expr = factor `chainl1` (spaces >> (plus <|> minus)) where 
+  plus    = opExpr '+' 4
+  minus   = opExpr '-' 4
+
+-- A function to evaluate an expression and return the result
+eval :: Expr -> Double
+eval (NumExpr n) = n
+eval (OpExpr op (Just left) (Just right)) = case op of
+  '+' -> eval left + eval right
+  '-' -> eval left - eval right
+  '*' -> eval left * eval right
+  '/' -> eval left / eval right
+
+-- A function to evaluate a string expression
+evalParse :: String -> Maybe Double
+evalParse str = case (parse expr "" str) of
+  Left _ -> Nothing
+  Right expression -> Just $ eval expression

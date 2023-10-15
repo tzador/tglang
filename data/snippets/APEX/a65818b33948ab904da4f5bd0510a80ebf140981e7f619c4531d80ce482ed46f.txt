@@ -1,0 +1,32 @@
+public class OrderProcessingController {
+  // This is a controller for processing orders in a e-commerce platform
+  global with sharing class OrderProcessingController {
+    // This class allows for sharing of data with other classes and is accessible globally
+    @AuraEnabled // annotation for making this method available for the Aura framework
+    public static void processOrders (List<Order> orders) {
+      // This method takes in a list of orders to be processed
+      List<Order> updatedOrders = new List<Order>(); // list for storing updated orders
+      List<Id> orderIds = new List<Id>(); // list for storing order ids
+      for (Order order : orders) {
+        if (order.Status == 'Pending') {
+          // check if order status is pending
+          order.Status = 'Processed'; // update order status to processed
+          updatedOrders.add(order); // add updated order to list
+          orderIds.add(order.Id); // add order id to list
+        }
+      }
+      // update orders in database
+      try {
+        update updatedOrders;
+      } catch (DmlException e) {
+        System.debug(e); // log exception in debug logs
+      }
+      // send email to customer with updated order status
+      Messaging.SingleEmailMessage email = new Messaging.SingleEmailMessage();
+      email.setToAddresses(new List<String>{'customer@email.com'});
+      email.setSubject('Order Status Update');
+      email.setPlainTextBody('Your order with the id ' + orderIds[0] + ' has been processed.');
+      List<Messaging.SendEmailResult> results = Messaging.sendEmail(new List<Messaging.SingleEmailMessage>{email});
+    }
+  }
+}

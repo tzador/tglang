@@ -1,0 +1,42 @@
+# This code creates a decision tree model using the rpart package and evaluates its performance using cross validation
+
+# Load the rpart package
+library(rpart)
+
+# Load the iris dataset
+data(iris)
+
+# Split the data into training and testing sets
+set.seed(123)
+train_idx <- sample(nrow(iris), round(0.7 * nrow(iris)))
+train_data <- iris[train_idx, ]
+test_data <- iris[-train_idx, ]
+
+# Extract the independent variables (features) and the dependent variable (target)
+features <- names(iris)[-5]
+target <- "Species"
+
+# Build the decision tree model using the training data
+decision_tree <- rpart(formula = Species ~ ., data = train_data, control = rpart.control(cp = 0.001, minbucket = 10, maxdepth = 5))
+
+# Plot the decision tree
+plot(decision_tree, uniform = TRUE, main = "Decision Tree", sub = paste("Complexity:", decision_tree$cptable[which.min(decision_tree$cptable[,"xerror"]),"CP"]))
+
+# Make predictions on the testing data
+predictions <- predict(decision_tree, newdata = test_data, type = "class")
+
+# Calculate the accuracy of the model using confusion matrix
+conf_matrix <- table(predictions, test_data[, target])
+accuracy <- sum(diag(conf_matrix)) / sum(conf_matrix)
+
+# Print the accuracy of the model
+cat("Accuracy:", round(accuracy * 100, 2), "%")
+
+# Perform cross validation to evaluate the performance of the model
+cv <- rpart.cv(formula = Species ~ ., data = train_data, cp = 0.001, minbucket = 10, maxdepth = 5)
+
+# Plot the cross validation results
+plotcv(cv)
+
+# Print the optimal complexity parameter
+cat("Optimal complexity parameter:", round(cv$'cp'[which.min(cv$'xerror']), 6))

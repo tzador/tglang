@@ -1,0 +1,52 @@
+METHOD PUBLIC VOID importData(INPUT sourceFile AS CHARACTER, INPUT delimiter AS CHARACTER, INPUT-OUTPUT data AS HANDLE):
+        
+    DEFINE VARIABLE hFile AS HANDLE NO-UNDO.
+    DEFINE VARIABLE hWriter AS HANDLE NO-UNDO.
+    DEFINE VARIABLE hReader AS HANDLE NO-UNDO.
+    DEFINE VARIABLE tempArray AS CHARACTER NO-UNDO.
+    
+    /*Open file for reading*/
+    CREATE FILE hFile.
+    hFile:NAME = sourceFile.
+    hReader = hFile:CREATE-PREPROCESSOR().
+    
+    /*Loop through each line in file*/
+    REPEAT:
+        /*Read line from file*/
+        hReader:SET(2, "", 1).
+        
+        /*Check for end of file*/
+        IF hReader:NUM-ELEMS = 0 THEN
+            LEAVE.
+        
+        /*Convert line to temp array using delimiter*/
+        hReader:GET(tempArray, 1).
+        IMPORT UNFORMATTED tempArray.
+        
+        /*Create query based on temp array*/
+        CREATE QUERY hQuery.
+        hQuery:QUERY-PREPARE(QUERY,
+        " FOR EACH Table WHERE Table.field1 = " + QUOTER(tempArray[1]) + ", 
+        " and Table.field2 = " + QUOTER(tempArray[2]) + ", 
+        " and Table.field3 = " + QUOTER(tempArray[3])).
+        
+        /*Open update cursor*/
+        hQuery:QUERY-OPEN().
+        hQuery:GET-FIRST().
+        UPDATE Table SET
+        Table.field4 = tempArray[4] + " " + tempArray[5]"
+        WHERE Table.field1 = tempArray[1]
+        and Table.field2 = tempArray[2]
+        and Table.field3 = tempArray[3].
+        
+        /*Close cursor and delete query*/
+        hQuery:QUERY-CLOSE().
+        DELETE OBJECT hQuery.
+        
+    END.
+    
+    /*Close file*/
+    hReader:DESTROY().
+    FILE-DELETE(sourceFile).
+
+END METHOD.

@@ -1,0 +1,28 @@
+-- Example of a simple monad transformer
+
+module Main where
+
+import Control.Monad.Trans.State
+import Data.Char (toUpper)
+
+-- A state monad function that capitalizes a given string
+capitalize :: State String String
+capitalize = state $ \s -> (map toUpper s, s)
+
+-- A state monad transformer function that recursively applies 'capitalize'
+-- to a given string for a specified number of times
+capitalizeNTimes :: Int -> StateT String [] String
+capitalizeNTimes n
+  | n <= 0 = StateT $ pure . pure
+  | otherwise = StateT $ \s -> do
+      (s', _) <- capitalize `runStateT` s
+      (tail, _) <- capitalizeNTimes (n - 1) `runStateT` s'
+      pure $ capitalize `execStateT` tail
+
+main :: IO ()
+main = do
+  -- Apply the state monad transformer function 'capitalizeNTimes'
+  -- to the string "hello" for 3 times
+  let results = evalStateT (capitalizeNTimes 3) "hello"
+  -- Print out the results
+  print results

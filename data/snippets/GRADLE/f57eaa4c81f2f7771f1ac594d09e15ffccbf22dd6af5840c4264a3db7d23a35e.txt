@@ -1,0 +1,67 @@
+apply plugin: 'java'
+apply plugin: 'application'
+
+mainClassName = 'com.example.Main'
+
+// Define repositories
+repositories {
+    mavenCentral()
+}
+
+// Define dependencies
+dependencies {
+    compile 'commons-io:commons-io:2.6'
+    compile group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+}
+
+// Define tasks
+task copyDependencies(type: Copy) {
+    from configurations.compile
+    into "$buildDir/dependencies/"
+}
+
+task run(dependsOn: compileJava, type: JavaExec) {
+    group 'run'
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'com.example.Main'
+}
+
+task javadoc(type: Javadoc) {
+    group 'docs'
+    source = sourceSets.main.allJava
+    failOnError false
+}
+
+task createJar(dependsOn: 'build', type: Jar) {
+    from fileTree(dir: 'src/main/resources')
+    archiveFileName = 'my-project.jar'
+    destinationDirectory = file("$buildDir/libs")
+}
+
+task zipJar(dependsOn: createJar, type: Zip) {
+    archiveFileName = 'my-project.zip'
+    destinationDirectory = file("$buildDir/outputs")
+    destinationFileMode = '755'
+    from file("$buildDir/libs/my-project.jar")
+}
+
+task printInfo {
+    doLast {
+        println 'Running info task...'
+        println "Destination dir: '$buildDir'"
+        println "Main class: '$mainClassName'"
+        println "Dependencies: '$configurations.compile.collect { it.name }'"
+    }
+}
+
+// Define project properties
+def propertiesFile = file('src/main/resources/application.properties')
+if(propertiesFile.exists()) {
+    def properties = new Properties()
+    properties.load(new FileInputStream(propertiesFile))
+
+    for(Map.Entry property : properties) {
+        project[property.key] = property.value
+    }
+}

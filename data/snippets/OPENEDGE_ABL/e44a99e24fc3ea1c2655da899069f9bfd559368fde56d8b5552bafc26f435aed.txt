@@ -1,0 +1,84 @@
+/*
+  This program takes in a list of sales orders and creates a new invoice for each of them.
+  It also updates the status of the sales orders to indicate that they have been invoiced.
+  This program utilizes multiple functions to achieve its goal.
+*/
+
+DEFINE VARIABLE v_totalInvoice AS DECIMAL INITIAL 0.
+
+/* 
+  Function to calculate the total amount of an invoice based on the items sold and their prices.
+  Parameters:
+    - i_soNumber: The sales order number
+    - i_itemList: A comma-separated list of items sold in the order
+    - i_priceList: A comma-separated list of prices for each item in the order
+  Returns:
+    - The total amount of the invoice as a decimal value
+*/
+FUNCTION calculateInvoiceTotal RETURNS DECIMAL (
+  INPUT i_soNumber AS INTEGER,
+  INPUT i_itemList AS CHARACTER,
+  INPUT i_priceList AS CHARACTER
+):
+  
+  DEFINE VARIABLE v_totalAmount AS DECIMAL INITIAL 0.
+  DEFINE VARIABLE v_index AS INTEGER NO-UNDO.
+  
+  /* 
+    Splitting the item list string into an array using the comma as a delimiter.
+    Same for the price list.
+  */
+  DEFINE VARIABLE v_items AS CHAR LIKE i_itemList FORMAT "x(10)".
+  DEFINE VARIABLE v_prices AS DECIMAL LIKE i_priceList FORMAT "9.99".
+  
+  DO v_index = 1 TO NUM-ENTRIES(v_items):
+    /* 
+      Using the INDEX function to find the corresponding price for each item.
+      We need to subtract 1 from the index since it is 1-based and we want to use it with the arrays.
+    */
+    v_totalAmount = v_totalAmount + v_prices[INDEX(v_items[v_index], i_itemList) - 1].
+  END. 
+  
+  RETURN v_totalAmount.
+END FUNCTION.
+
+/* Main program starts here */
+
+DEFINE VARIABLE v_invoiceNumber AS CHARACTER.
+DEFINE VARIABLE v_salesOrderNumber AS CHARACTER.
+DEFINE VARIABLE v_itemsSold AS CHARACTER.
+DEFINE VARIABLE v_prices AS CHARACTER.
+
+/* Get input from the user for the sales order number, items sold, and corresponding prices */
+MESSAGE "Enter the sales order number: " WITH FRAME instructions WINDOW-LONG.
+UPDATE v_salesOrderNumber VIEW-AS FILL-IN SIZE 40.
+WAIT-FOR WINDOW-CLOSE OF CURRENT-WINDOW.
+MESSAGE "Enter the items sold (separated by commas): " WITH FRAME instructions WINDOW-LONG.
+UPDATE v_itemsSold VIEW-AS FILL-IN SIZE 40.
+WAIT-FOR WINDOW-CLOSE OF CURRENT-WINDOW.
+MESSAGE "Enter the prices for each item (separated by commas): " WITH FRAME instructions WINDOW-LONG.
+UPDATE v_prices VIEW-AS FILL-IN SIZE 40.
+WAIT-FOR WINDOW-CLOSE OF CURRENT-WINDOW.
+
+/* Generate the invoice number using the sales order number and today's date */
+v_invoiceNumber = "INV" + v_salesOrderNumber  + STRING(TODAY, "9999-99-99").
+
+/* Calculate the total amount for the invoice using the function we defined earlier */
+v_totalInvoice = calculateInvoiceTotal(v_salesOrderNumber, v_itemsSold, v_prices).
+
+/* Create a new invoice record in the database */
+CREATE INVOICE.
+ASSIGN
+  INVOICE.InvoiceNumber = v_invoiceNumber
+  INVOICE.SalesOrderNumber = v_salesOrderNumber
+  INVOICE.ItemsSold = v_itemsSold
+  INVOICE.InvoiceTotal = v_totalInvoice.
+  
+/* Update the status of the sales order to indicate it has been invoiced */
+UPDATE
+  SALES-ORDERS
+  SET SALES-ORDERS.Status = "Invoiced"
+  WHERE SALES-ORDERS.SalesOrderNumber = v_salesOrderNumber.
+  
+/* Display the invoice number and total amount to the user */
+DISPLAY v_invoiceNumber + " has been created with a total amount of " + STRING(v_totalInvoice, "99.99").

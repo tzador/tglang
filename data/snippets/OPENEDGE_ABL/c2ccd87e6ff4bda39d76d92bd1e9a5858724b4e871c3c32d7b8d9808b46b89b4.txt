@@ -1,0 +1,44 @@
+/* This code snippet is for adding a new record to a database table */
+
+/* Define variables */
+DEFINE VARIABLE i AS INTEGER NO-UNDO.
+DEFINE VARIABLE cName AS CHARACTER NO-UNDO.
+DEFINE VARIABLE cAddress AS CHARACTER NO-UNDO.
+
+/* Prompt user for input */
+PROMPT-FOR cName WITH DISPLAY "Enter name: "
+PROMPT-FOR cAddress WITH DISPLAY "Enter address: "
+
+/* Validate input */
+IF cName = "" THEN DO:
+    ERROR "Name cannot be empty".
+    MESSAGE "Please enter a valid name" VIEW-AS ALERT-BOX ERROR BUTTONS OK.
+END.
+
+/* Create a new record */
+CREATE ttCustomers.
+ASSIGN ttCustomers.custName = cName.
+ASSIGN ttCustomers.custAddress = cAddress.
+
+/* Open table for appending */
+DO i = 1 TO (NUM-DBS(1)):
+    IF "C:\mydatabase.dat" = ENTRY(i, 1, ":") THEN DO:
+        OPEN DATABASE "C:\mydatabase.dat".
+        BREAK. /* Break out of loop once database is found */
+    END.
+END.
+
+FOR EACH ttCustomers:
+    FIND LAST ttCustomers NO-LOCK NO-ERROR.
+END.
+
+/* Save the new record */
+BUFFER-COPY ttCustomers TO DATABASE ttCustomers.
+
+/* Check for error */
+IF ERROR-STATUS:ERROR THEN DO:
+    /* Rollback changes and display error message */
+    DELETE ttCustomers.
+    MESSAGE "Error in saving record:" SKIP
+        ERROR-STATUS:MESSAGE VIEW-AS ALERT-BOX ERROR BUTTONS OK.
+END.

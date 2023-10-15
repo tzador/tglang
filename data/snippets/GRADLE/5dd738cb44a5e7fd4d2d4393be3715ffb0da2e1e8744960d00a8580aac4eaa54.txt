@@ -1,0 +1,100 @@
+plugins {
+    id 'java'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.apache.commons:commons-lang3:3.12.0'
+    testImplementation 'junit:junit:4.13.2'
+    compile 'commons-io:commons-io:2.10.0'
+
+    // conditional dependencies
+    implementation (project(':other-project')) {
+        // any additional logic or configuration
+    }
+
+    // exclude transitive dependency
+    compile ('org.springframework:spring-core:5.3.10') {
+        exclude group: 'org.apache.logging.log4j'
+    }
+
+    // dynamic version with a variable
+    compile group: 'org.apache.logging.log4j', name: 'log4j-core', version: log4jVersion
+}
+
+// custom task with dependencies
+task customTask(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'com.example.MainClass'
+
+    // specify inputs and outputs for incremental build
+    inputs.dir 'src/main/input-dir'
+    outputs.dir 'build/custom-task-output'
+
+    // configure JVM arguments
+    jvmArgs '-Xms512m', '-Xmx2g', '-Dsome.property=true'
+
+    // add system properties
+    systemProperty 'key', 'value'
+
+    // add environment variables
+    environment 'ENV_KEY', 'env_value'
+
+    // configure options for executable
+    executable = 'java'
+    args '-classpath', 'lib/*'
+}
+
+// multi-project build with shared version
+subprojects {
+    // set shared properties
+    group = 'com.example'
+    version = '1.0'
+
+    // add and configure plugins for all subprojects
+    apply plugin: 'java'
+    apply plugin: 'maven-publish'
+}
+
+// task for publishing artifacts to Maven repository
+task publishToMaven(type: PublishToMaven) {
+    // define repository URL and credentials
+    sourceUrl = "https://maven.example.com"
+    username = 'username'
+    password = 'password'
+
+    // specify publication to be published
+    publications = ["mavenJava"]
+
+    // configure publication
+    publications {
+        mavenJava(MavenPublication) {
+            // provide details about the published artifact
+            groupId project.group
+            artifactId project.name
+            version project.version
+            from components.java
+        }
+    }
+}
+
+// use custom configuration for specific tasks
+task generateDocs(type: Javadoc) {
+    // use custom configuration for javadoc task
+    source = sourceSets.main.allJava
+    classpath = sourceSets.main.compileClasspath
+    destinationDir = file("$buildDir/docs")
+
+    // specify custom options for javadoc
+    options.addStringOption("doclet", "custom.doclet.Class")
+    options.addStringOption("docletpath", configurations.customDoclet.files.asType(List))
+    options.addStringOption("customOption", "value")
+
+    // specify source for additional files to be included in docs
+    source sourceSets.main.resources {
+        include 'README.md'
+    }
+}

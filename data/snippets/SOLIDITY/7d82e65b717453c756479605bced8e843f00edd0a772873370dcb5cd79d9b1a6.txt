@@ -1,0 +1,176 @@
+//Example of implementing a smart contract with inheritance
+//Interface for erc20 token
+contract IERC20 {
+    function totalSupply() public view returns (uint256);
+    function balanceOf(address account) public view returns (uint256);
+    function allowance(address owner, address spender) public view returns (uint256);
+    function transfer(address recipient, uint256 amount) public returns (bool);
+    function approve(address spender, uint256 amount) public returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) public returns (bool);
+
+    //Events
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+}
+
+//Base contract implementing the IERC20 interface
+contract BaseERC20 is IERC20 {
+    using SafeMath for uint256;
+
+    //mapping of addresses to ERC20 token balances
+    mapping (address => uint256) private _balances;
+
+    //mapping of allowances
+    mapping (address => mapping (address => uint256)) private _allowances;
+
+    //total supply of ERC20 token
+    uint256 private _totalSupply;
+
+    //Optional name and symbol for the token
+    string private _name;
+    string private _symbol;
+
+    //Constructor that sets name and symbol
+    constructor (string memory name, string memory symbol) public {
+        _name = name;
+        _symbol = symbol;
+    }
+
+    //Functions for IERC20 interface
+    function totalSupply() public view returns (uint256) {
+        return _totalSupply;
+    }
+
+    function balanceOf(address account) public view returns (uint256) {
+        return _balances[account];
+    }
+
+    function allowance(address owner, address spender) public view returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    function transfer(address recipient, uint256 amount) public returns (bool) {
+        _transfer(msg.sender, recipient, amount);
+        return true;
+    }
+
+    function approve(address spender, uint256 amount) public returns (bool) {
+        _approve(msg.sender, spender, amount);
+        return true;
+    }
+
+    function transferFrom(address sender, address recipient, uint256 amount) public returns (bool) {
+        _transfer(sender, recipient, amount);
+        _approve(sender, msg.sender, _allowances[sender][msg.sender].sub(amount));
+        return true;
+    }
+
+    //Internal transfer function
+    function _transfer(address sender, address recipient, uint256 amount) internal {
+        require(sender != address(0), "ERC20: transfer from the zero address");
+        require(recipient != address(0), "ERC20: transfer to the zero address");
+
+        _balances[sender] = _balances[sender].sub(amount);
+        _balances[recipient] = _balances[recipient].add(amount);
+        emit Transfer(sender, recipient, amount);
+    }
+
+    //Internal approval function
+    function _approve(address owner, address spender, uint256 amount) internal {
+        require(owner != address(0), "ERC20: approve from the zero address");
+        require(spender != address(0), "ERC20: approve to the zero address");
+
+        _allowances[owner][spender] = amount;
+        emit Approval(owner, spender, amount);
+    }
+
+    //Optional functions to set name and symbol for the token
+    function name() public view returns (string memory) {
+        return _name;
+    }
+
+    function symbol() public view returns (string memory) {
+        return _symbol;
+    }
+
+    //Function to mint new tokens
+    function mint(address account, uint256 amount) public {
+        require(account != address(0), "ERC20: mint to the zero address");
+        _totalSupply = _totalSupply.add(amount);
+        _balances[account] = _balances[account].add(amount);
+        emit Transfer(address(0), account, amount);
+    }
+
+    //Function to burn tokens
+    function burn(address account, uint256 amount) public {
+        require(account != address(0), "ERC20: burn from the zero address");
+        _balances[account] = _balances[account].sub(amount);
+        _totalSupply = _totalSupply.sub(amount);
+        emit Transfer(account, address(0), amount);
+    }
+}
+
+//Contract implementing the BaseERC20 contract and adding additional functionality
+contract MyERC20 is BaseERC20 {
+    using SafeMath for uint256;
+
+    //Optional cap for the total supply of the token
+    uint256 private _cap;
+
+    //Constructor that sets name, symbol, and cap
+    constructor (string memory name, string memory symbol, uint256 cap) public BaseERC20(name, symbol) {
+        require(cap > 0, "ERC20: cap must be greater than 0");
+        _cap = cap;
+    }
+
+    //Function to transfer tokens with a fee
+    function transferWithFee(address recipient, uint256 amount, uint256 fee) public returns (bool) {
+        _transfer(msg.sender, recipient, amount);
+        _transfer(msg.sender, address(this), fee);
+        return true;
+    }
+
+    //Function to mint new tokens, capped by set cap
+    function mint(address account, uint256 amount) public {
+        super.mint(account, amount);
+        require(totalSupply() <= _cap, "ERC20: cap exceeded");
+    }
+}
+
+//Library for safe math operations
+library SafeMath {
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        uint256 c = a + b;
+        require(c >= a, "SafeMath: addition overflow");
+
+        return c;
+    }
+
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b <= a, "SafeMath: subtraction underflow");
+        uint256 c = a - b;
+
+        return c;
+    }
+
+    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+        // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
+        // benefit is lost if 'b' is also tested.
+        // See: https://github.com/OpenZeppelin/openzeppelin-solidity/pull/522
+        if (a == 0) {
+            return 0;
+        }
+
+        uint256 c = a * b;
+        require(c / a == b, "SafeMath: multiplication overflow");
+
+        return c;
+    }
+
+    function div(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b > 0, "SafeMath: division by zero");
+        uint256 c = a / b;
+
+        return c;
+    }
+}

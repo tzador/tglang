@@ -1,0 +1,29 @@
+; This code calculates the spherical harmonic for a given longitude (theta) and colatitude (phi)
+function sph_harm, theta, phi, max_degree
+; The inputs are the longitude (theta) and colatitude (phi) in radians and the maximum degree of the harmonic in integer
+; The output is the complex spherical harmonic
+
+rad_theta = theta * !pi / 180.0 ; Convert to radians
+rad_phi = phi * !pi / 180.0
+
+m = indgen(2*max_degree+1) - max_degree ; Create array with degrees -max_degree to max_degree
+p = legendre(max_degree, cos(rad_phi)) ; Calculate associated Legendre polynomial
+sph_h = fltarr(max_degree+1, 2*max_degree+1) ; Initialize spherical harmonic array
+
+; Loop over degrees and associated Legendre polynomials
+for k = 0, max_degree do begin
+	for l = 0, k do begin
+		N = ((-1)^l * sqrt((2*k+1)/(4*!pi*(k-l)!/(k+l)!))) * p(l+1, abs(m(k+max_degree+1))) ; Calculate normalization factor
+		sph_h(k+1, k+m(k+max_degree+1)) = N * cos(m(k+max_degree+1) * rad_theta) ; Real component
+		sph_h(k+1, k+m(k+max_degree+1)+1) = N * sin(m(k+max_degree+1) * rad_theta) ; Imaginary component
+	endfor
+endfor
+
+; Calculate complex spherical harmonic using the multiple addition formula
+sum = sph_h(0, 0) ; Initialize sum with the first term
+for k = 1, max_degree do begin
+	sum = sum + (sph_h(k, :)*dindgen(2*k+1, 2) + shift(sph_h(k, :), -1, dimen=1)*dindgen(2*k+1, 2)) * sin(k*rad_phi) ; Multiply by sin(phi) and add to sum
+endfor
+
+return, sum
+end

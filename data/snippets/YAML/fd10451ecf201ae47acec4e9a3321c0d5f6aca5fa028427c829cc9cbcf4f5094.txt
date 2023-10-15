@@ -1,0 +1,67 @@
+# This is a YAML code snippet that creates a Kubernetes deployment
+# This deployment runs a container with an image from our private registry
+# It also defines resource limits and requests for the container
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-deployment
+  labels:
+    app: my-app
+spec:
+  replicas: 3 # Number of replica pods to create
+  selector:
+    matchLabels: # Labels to match with the pod template
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+        - name: my-container # Name of the container within the pod
+          image: my-registry.com/my-app-image:v1 # Image from private registry
+          resources:
+            limits:
+              cpu: "1" # CPU limit in millicores
+              memory: "512Mi" # Memory limit in megabytes
+            requests:
+              cpu: "500m" # CPU request in millicores
+              memory: "256Mi" # Memory request in megabytes
+          ports:
+            - containerPort: 8080 # Port exposed by the container
+              protocol: TCP # Protocol used for the port (TCP/UDP)
+          livenessProbe: # Health check for container within the pod
+            httpGet:
+              path: /health # Endpoint to check the container's health
+              port: 8080 # Port to send the health check request to
+              scheme: HTTP # Protocol scheme used for the health check
+            initialDelaySeconds: 30 # Number of seconds to wait before running the first check
+            periodSeconds: 15 # Number of seconds between each health check
+            timeoutSeconds: 5 # Number of seconds before marking the check as failed
+            successThreshold: 1 # Number of consecutive successful checks before marking the container as healthy
+            failureThreshold: 3 # Number of consecutive failed checks before marking the container as unhealthy
+          readinessProbe: # Readiness check for container within the pod
+            httpGet:
+              path: /ready # Endpoint to check the container's readiness
+              port: 8080 # Port to send the readiness check request to
+              scheme: HTTP # Protocol scheme used for the readiness check
+            initialDelaySeconds: 10 # Number of seconds to wait before running the first check
+            periodSeconds: 5 # Number of seconds between each readiness check
+            timeoutSeconds: 3 # Number of seconds before marking the check as failed
+            successThreshold: 1 # Number of consecutive successful checks before marking the container as ready
+            failureThreshold: 2 # Number of consecutive failed checks before marking the container as not ready
+          env: # Environment variables to be set in the container
+            - name: DB_HOST # Name of the environment variable
+              value: my-database.com # Value to set for the variable
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef: # Retrieve the value from a ConfigMap
+                  name: my-config # Name of the ConfigMap
+                  key: db_user # Key for the specific value in the ConfigMap
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef: # Retrieve the value from a Secret
+                  name: my-secrets # Name of the Secret
+                  key: db_pass # Key for the specific value in the Secret
+      restartPolicy: Always # Policy for restarting the pod in case of failure

@@ -1,0 +1,66 @@
+type token = 
+  | INT of int 
+  | FLOAT of float 
+  | IDENTIFIER of string
+  | KEYWORD of string
+  | OPERATOR of string
+
+exception ParseError of string
+
+let parser expr = 
+  | [< 'INT i >] -> INT i
+  | [< 'FLOAT f >] -> FLOAT f
+  | [< 'IDENTIFIER s >] -> IDENTIFIER s
+  | [< 'KEYWORD "if"; e1 = expr; 'KEYWORD "then"; e2 = expr; 'KEYWORD "else"; e3 = expr >] -> IF (e1, e2, e3)
+  | [< 'KEYWORD "let"; 'IDENTIFIER var; '='; e1 = expr; 'KEYWORD "in"; e2 = expr >] -> LET (var, e1, e2)
+  | [< 'KEYWORD "fun"; 'IDENTIFIER arg; 'OPERATOR "->"; body = expr >] -> FUN (arg, body)
+  | [< 'OPERATOR "+"; e1 = expr; e2 = expr >] -> Add (e1, e2)
+  | [< 'OPERATOR "-"; e1 = expr; e2 = expr >] -> Sub (e1, e2)
+  | [< 'OPERATOR "*"; e1 = expr; e2 = expr >] -> Mult (e1, e2)
+  | [< 'OPERATOR "/"; e1 = expr; e2 = expr >] -> Div (e1, e2)
+  | [< 'OPERATOR ">"; e1 = expr; e2 = expr >] -> GreaterThan (e1, e2)
+  | [< 'OPERATOR "<"; e1 = expr; e2 = expr >] -> LessThan (e1, e2)
+  | [< 'OPERATOR "=="; e1 = expr; e2 = expr >] -> Equals (e1, e2)
+  | [< 'OPERATOR "!"; e = expr >] -> Not e
+  | [< 'OPERATOR "&&"; e1 = expr; e2 = expr >] -> And (e1, e2)
+  | [< 'OPERATOR "||"; e1 = expr; e2 = expr >] -> Or (e1, e2)
+  | [< _ >] -> raise (ParseError "Unexpected token")
+
+let rec parse tokens = 
+  match tokens with 
+  | [] -> raise (ParseError "Unexpected end of input")
+  | x::xs -> 
+    match x with 
+    | INT i -> i
+    | FLOAT f -> f
+    | IDENTIFIER s -> s
+    | KEYWORD "if" -> parse_if xs
+    | KEYWORD "let" -> parse_let xs
+    | KEYWORD "fun" -> parse_fun xs
+    | OPERATOR op -> raise (ParseError "Unexpected operator")
+    | _ -> raise (ParseError "Unexpected token")
+
+and parse_if tokens = 
+  let cond = parse tokens in 
+  let then_expr = parse tokens in 
+  let else_expr = parse tokens in 
+  IF (cond, then_expr, else_expr)
+
+and parse_let tokens = 
+  let var = 
+    match tokens with 
+    | IDENTIFIER s :: xs -> s
+    | _ -> raise (ParseError "Expected identifier after 'let'")
+  in 
+  let expr = parse xs in
+  let in_expr = parse xs in 
+  LET (var, expr, in_expr)
+
+and parse_fun tokens = 
+  let arg = 
+    match tokens with 
+    | IDENTIFIER s :: xs -> s
+    | _ -> raise (ParseError "Expected identifier after 'fun'")
+  in 
+  let body = parse xs in 
+  FUN (arg, body)

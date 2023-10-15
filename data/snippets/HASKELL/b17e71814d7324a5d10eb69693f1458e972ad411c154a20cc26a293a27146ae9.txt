@@ -1,0 +1,46 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+import Control.Monad.Writer.Lazy
+import Data.Monoid
+
+data Tree a = Empty | Node a (Tree a) (Tree a)
+
+instance Monoid (Tree a) where
+    mempty = Empty
+    mappend Empty t = t
+    mappend t Empty = t
+    mappend (Node v l1 r1) (Node _ l2 r2) = Node v (mappend l1 l2) (mappend r1 r2)
+
+instance Functor Tree where
+    fmap _ Empty = Empty
+    fmap f (Node v l r) = Node (f v) (fmap f l) (fmap f r)
+
+instance Applicative Tree where
+    pure x = Node x Empty Empty
+    Empty <*> _ = Empty
+    _ <*> Empty = Empty
+    Node f fl fr <*> Node v l r = Node (f v) (fl <*> l) (fr <*> r)
+
+instance Monad Tree where
+    return = pure
+    Empty >>= _ = Empty
+    Node v l r >>= f = f v `mappend` (l >>= f) `mappend` (r >>= f)
+
+inOrder :: Tree a -> Writer [a] ()
+inOrder Empty = return ()
+inOrder (Node v l r) = do
+    tell [v]
+    inOrder l
+    inOrder r
+
+main :: IO ()
+main = do
+    let t1 = Node 5 (Node 3 (Node 1 Empty Empty) (Node 4 Empty Empty)) (Node 8 (Node 6 Empty Empty) (Node 10 Empty Empty))
+    let t2 = Node 9 (Node 2 Empty Empty) (Node 7 Empty Empty)
+    let combined = t1 <> t2 -- using mappend defined in Monoid instance
+    let final = combined >>= (\x -> return (x * 2)) -- using >>= defined in Monad instance
+    let (tree, output) = runWriter final -- extracting value and output from Writer monad
+    putStr "Final Tree: "
+    print tree
+    putStr "Traversal Order: "
+    print output

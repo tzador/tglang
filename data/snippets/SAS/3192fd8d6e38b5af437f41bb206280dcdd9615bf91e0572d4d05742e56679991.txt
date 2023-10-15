@@ -1,0 +1,56 @@
+/* This is a complex code snippet written in SAS */
+
+/* Create a new library called 'mylib' and assign it to the variable 'libname' */  
+libname mylib "C:\users\myusername\mydata" ;
+
+/* Set the SAS working directory to 'mylib' */  
+options noerrorabend;  
+options cmplib=mylib;  
+
+/* Define input data sets */  
+data mylib.sales(input) mylib.products(input);  
+
+/* Merge the input data sets into a new data set called 'combined_data' */  
+merge mylib.sales mylib.products;  
+by product_id;  
+
+/* Format the 'quantity' and 'price' variables to have a dollar sign and comma separators */  
+format quantity price dollar12.;  
+
+/* Keep only specific variables from the input data sets */  
+keep product_id quantity price;
+
+/* Sort the resulting data set in ascending order based on product_id */  
+proc sort data=mylib.combined_data;
+by product_id;
+run;
+
+/* Create a new variable called 'revenue' by multiplying quantity and price */  
+data mylib.combined_data;
+set mylib.combined_data;
+revenue = quantity * price;
+run;
+
+/* Calculate the total revenue for each product using PROC SQL */
+proc sql;
+create table mylib.revenue_summary as
+select product_id, sum(revenue) as total_revenue
+from mylib.combined_data
+group by product_id;
+quit;
+
+/* Print the resulting data set */
+proc print data=mylib.revenue_summary;
+run;
+
+/* Rename the 'total_revenue' variable to 'total_sales' */  
+data mylib.revenue_summary;
+set mylib.revenue_summary(rename=(total_revenue = total_sales));
+run;
+
+/* Export the final data set to a CSV file with the variable names as column headers */  
+proc export data=mylib.revenue_summary
+outfile="C:\users\myusername\mydata\revenue_summary.csv"
+dbms=csv replace;
+putnames=yes;
+run;

@@ -1,0 +1,72 @@
+%% Import Data using Import Tool
+% This section imports the data from a CSV file and stores it in a table.
+
+% Specify file path and name
+filename = 'data.csv';
+
+% Use Import Tool to import data into a table
+dataTable = readtable(filename);
+
+% Display first 10 rows of data
+dataTable(1:10,:)
+
+%% Pre-processing Data
+% This section handles missing data and formats data into appropriate types.
+
+% Replace missing values with NaN
+missing_values = {'NA','none',' ',''};
+dataTable = standardizeMissing(dataTable,missing_values);
+
+% Convert numerical columns to double
+cols_to_convert = {'salary','age','years_of_experience'};
+for i = 1:length(cols_to_convert)
+    dataTable.(cols_to_convert{i}) = str2double(dataTable.(cols_to_convert{i}));
+end
+
+%% Data Visualization
+% This section creates visualizations of the data to gain insights.
+
+% Plot salary distribution
+figure
+histogram(dataTable.salary, 'FaceColor', '#0072BD')
+xlabel('Salary')
+ylabel('Count')
+title('Salary Distribution')
+
+% Create scatter plot of age vs. years of experience
+figure
+scatter(dataTable.age, dataTable.years_of_experience, 'filled', 'MarkerFaceColor', '#D95319')
+xlabel('Age')
+ylabel('Years of Experience')
+title('Age vs. Years of Experience Scatter Plot')
+
+%% Statistical Analysis
+% This section performs statistical analysis on the data.
+
+% Calculate correlation coefficient
+corr_coeff = corrcoef(dataTable.age, dataTable.salary);
+fprintf('Correlation between age and salary: %0.3f\n', corr_coeff(1,2))
+
+% Perform t-test for difference in salary based on gender
+[~,p,~,stats] = ttest2(dataTable.salary(dataTable.gender == 'male'), dataTable.salary(dataTable.gender == 'female'));
+fprintf('t-test p-value: %0.3f\n', p)
+fprintf('Difference in salary between genders: %0.2f\n', stats.diff)
+
+%% Machine Learning
+% This section uses machine learning techniques to predict salary based on given features.
+
+% Split data into training and test sets
+rng(42) % set random seed for reproducibility
+cv = cvpartition(size(dataTable,1),'HoldOut',0.2); % 80-20 split
+data_train = dataTable(training(cv),:);
+data_test = dataTable(test(cv),:);
+
+% Train linear regression model
+mdl = fitlm(data_train, 'salary ~ age + years_of_experience');
+
+% Predict salaries for test set
+y_hat = predict(mdl, data_test);
+
+% Calculate RMSE
+rmse = sqrt(mean((data_test.salary - y_hat).^2));
+fprintf('Root Mean Squared Error: %0.2f\n', rmse)

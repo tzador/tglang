@@ -1,0 +1,88 @@
+//Defining a GraphQL Schema
+type User {
+  id: ID!
+  username: String!
+  friends: [User!]!
+  posts: [Post!]!
+}
+
+type Post {
+  id: ID!
+  title: String!
+  body: String!
+  author: User!
+}
+
+//Creating Queries
+type Query {
+  getUser(id: ID!): User
+  getPost(id: ID!): Post
+}
+
+//Creating Mutations
+type Mutation {
+  addUser(username: String!): User!
+  addPost(title: String!, body: String!, authorId: ID!): Post!
+}
+
+//Resolvers
+const resolvers = {
+  Query: {
+    getUser: (parent, args, context, info) => {
+      return users.find((user) => user.id === args.id);
+    },
+    getPost: (parent, args, context, info) => {
+      return posts.find((post) => post.id === args.id);
+    },
+  },
+  Mutation: {
+    addUser: (parent, args, context, info) => {
+      const newUser = {
+        id: users.length + 1,
+        username: args.username,
+        friends: [],
+        posts: [],
+      };
+      users.push(newUser);
+      return newUser;
+    },
+    addPost: (parent, args, context, info) => {
+      const newPost = {
+        id: posts.length + 1,
+        title: args.title,
+        body: args.body,
+        author: users.find((user) => user.id === args.authorId),
+      };
+      posts.push(newPost);
+      return newPost;
+    },
+  },
+  User: {
+    friends: (parent, args, context, info) => {
+      return parent.friends.map((friendId) =>
+        users.find((user) => user.id === friendId)
+      );
+    },
+    posts: (parent, args, context, info) => {
+      return parent.posts.map((postId) =>
+        posts.find((post) => post.id === postId)
+      );
+    },
+  },
+  Post: {
+    author: (parent, args, context, info) => {
+      return users.find((user) => user.id === parent.authorId);
+    },
+  },
+};
+
+//Initializing Apollo Server
+const server = new ApolloServer({
+  typeDefs: [fs.readFileSync(__dirname + "/schema.graphql", "utf-8")],
+  resolvers,
+});
+
+//Start the server
+server.listen().then(({ url }) => {
+  console.log(`Server running on ${url}`);
+});

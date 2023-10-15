@@ -1,0 +1,66 @@
+server {
+  listen 80;
+  server_name example.com;
+
+  # Set number of worker processes based on CPU cores
+  worker_processes auto;
+
+  # Enable gzip compression
+  gzip on;
+  gzip_types text/plain text/css application/json;
+  gzip_min_length 1000;
+
+  # Define access and error log paths
+  access_log /var/log/nginx/example.com.access.log;
+  error_log /var/log/nginx/example.com.error.log;
+
+  # Enable caching for static files
+  location ~* \.(jpg|jpeg|gif|png|css|js|ico|woff|woff2)$ {
+    expires 7d;
+    add_header Cache-Control "public, no-transform";
+  }
+
+  # Set up reverse proxy for backend server on port 3000
+  location /api {
+    proxy_pass http://127.0.0.1:3000;
+  }
+
+  # Redirect all HTTP traffic to HTTPS
+  location / {
+    return 301 https://$host$request_uri;
+  }
+
+  # Configure SSL with Let's Encrypt certificate
+  listen 443 ssl;
+  ssl_certificate /etc/letsencrypt/live/example.com/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+
+  # Enable strict transport security and OCSP stapling
+  add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload;"
+  ssl_stapling on;
+  ssl_stapling_verify on;
+
+  # Enable TLSv1.2 and TLSv1.3
+  ssl_protocols TLSv1.2 TLSv1.3;
+
+  # Set up DH parameters
+  ssl_dhparam /etc/nginx/dhparam.pem;
+
+  # Enable OCSP stapling
+  ssl_trusted_certificate /etc/letsencrypt/live/example.com/chain.pem;
+  resolver 8.8.8.8 valid=300s;
+  resolver_timeout 10s;
+
+  # Enable server side encryption (SSE)
+  proxy_set_header X-Forwarded-Proto https;
+  proxy_set_header X-Forwarded-Host $host;
+  proxy_set_header X-Forwarded-For $remote_addr;
+
+  # Enable server side rate limiting
+  limit_req zone=zone1 burst=10;
+  limit_req_status 429;
+
+  # Set custom error pages
+  error_page 404 /error_pages/404.html;
+  error_page 500 502 503 504 /error_pages/50x.html;
+}

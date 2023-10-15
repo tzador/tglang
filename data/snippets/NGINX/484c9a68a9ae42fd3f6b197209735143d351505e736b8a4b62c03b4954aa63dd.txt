@@ -1,0 +1,136 @@
+server {
+  listen 80;
+  listen [::]:80;
+  
+  server_name www.example.com;
+  # Sets the domain for this server block
+  
+  root /var/www/example.com;
+  # Sets the root directory for this server block
+  
+  index index.html index.htm;
+  # Sets the index files for this server block
+  
+  location / {
+    try_files $uri $uri/ /index.html;
+    # Tries to find a matching file and serves it, otherwise returns 404
+    
+    proxy_pass http://127.0.0.1:8000;
+    # Passes the request to a specified backend server
+    
+    proxy_set_header Host $host;
+    # Sets the Host header for the backend server
+    
+    proxy_set_header X-Real-IP $remote_addr;
+    # Sets the client's IP address as the X-Real-IP header for the backend server
+    
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    # Sets the proxy server's IP address as the X-Forwarded-For header for the backend server
+    
+    proxy_set_header X-Forwarded-Proto $scheme;
+    # Sets the protocol used by the proxy server as the X-Forwarded-Proto header for the backend server
+    
+    proxy_redirect off;
+    # Disables automatic redirecting of proxy requests
+    
+    proxy_connect_timeout 90;
+    # Sets the timeout for establishing connections with the backend server
+    
+    proxy_send_timeout 90;
+    # Sets the timeout for sending requests to the backend server
+    
+    proxy_read_timeout 90;
+    # Sets the timeout for reading responses from the backend server
+    
+    proxy_buffers 32 4k;
+    # Sets the number and size of buffers used for storing the response from the backend server
+    
+    proxy_buffer_size 4k;
+    # Sets the size of each buffer used for storing the response from the backend server
+    
+    proxy_busy_buffers_size 64k;
+    # Sets the maximum size of the buffer used for storing the response from the backend server
+    
+    proxy_temp_file_write_size 64k;
+    # Sets the size of temporary files used for storing the response from the backend server
+    
+    proxy_temp_path /var/nginx/proxy_temp;
+    # Sets the location for storing temporary files from the backend server
+  }
+  
+  location ~* \.(gif|jpg|jpeg|png|ico|svg)$ {
+    expires 30d;
+    # Sets the amount of time that the browser should cache these types of files
+    
+    access_log off;
+    # Disables logging for this location
+    
+    root /var/www/example.com/assets;
+    # Sets the root directory for serving assets
+  }
+  
+  location ^~ /admin/ {
+    auth_basic "Restricted Content";
+    # Enables basic HTTP authentication for this location
+    
+    auth_basic_user_file /etc/nginx/.htpasswd;
+    # Sets the location of the password file for authentication
+    
+    try_files $uri $uri/ /index.php?$uri&$args;
+    # Tries to find a matching file first and if not found, passes the request to index.php with the arguments
+    
+    index index.php;
+    # Sets index.php as the default index file for this location
+    
+    try_files $uri $uri/ =404;
+    # If no index.php is found, returns a 404 error
+    
+    proxy_intercept_errors on;
+    # Enables intercepting of errors from proxied servers
+    
+    error_page 404 = /error/404.html;
+    # Sets a custom error page for 404 errors
+  }
+  
+  location ~ \.php$ {
+    include fastcgi_params;
+    # Includes the fastcgi_params configuration file
+    
+    fastcgi_pass unix:/var/run/php/php7.4-fpm.sock;
+    # Passes requests to the specified unix socket
+    
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    # Sets the path to the requested PHP script as the SCRIPT_FILENAME parameter.
+    # This is required for PHP scripts to be executed by FastCGI
+    
+    fastcgi_param SCRIPT_NAME $fastcgi_script_name;
+    # Sets the original requested PHP script name as the SCRIPT_NAME parameter
+    
+    fastcgi_intercept_errors on;
+    # Enables intercepting of errors from FastCGI servers
+    
+    fastcgi_read_timeout 300;
+    # Sets the timeout for reading responses from FastCGI servers
+    
+    fastcgi_buffers 16 16k;
+    # Sets the number and size of buffers used for storing the response from the FastCGI server
+    
+    fastcgi_buffer_size 16k;
+    # Sets the size of each buffer used for storing the response from the FastCGI server
+    
+    fastcgi_busy_buffers_size 64k;
+    # Sets the maximum size of the buffer used for storing the response from the FastCGI server
+    
+    fastcgi_temp_file_write_size 64k;
+    # Sets the size of temporary files used for storing the response from the FastCGI server
+    
+    client_max_body_size 10M;
+    # Sets the maximum size of the request body that a client can send
+    
+    client_body_buffer_size 128k;
+    # Sets the buffer size for storing the request body
+    
+    proxy_set_header X-Forwarded-Proto https;
+    # Sets the protocol used to access the server as the X-Forwarded-Proto header
+  }
+}

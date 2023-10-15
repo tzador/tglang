@@ -1,0 +1,120 @@
+"*****************************
+" Class definition
+CLASS lcl_sales_order DEFINITION
+  PUBLIC
+  CREATE PRIVATE
+  FINAL
+  INHERITING FROM cl_base.
+
+  " Class attributes
+  PRIVATE SECTION.
+    DATA:
+      lv_sales_order TYPE vbak-vbeln, " Sales order number
+      lv_customer TYPE vbak-kunnr, " Customer number
+      lv_total_amount TYPE vbak-netwr, " Total sales amount
+      lt_items TYPE TABLE OF vbap, " Table type for sales order items
+      ls_item LIKE LINE OF lt_items. " Structure to hold item data
+
+  " Class methods
+  PUBLIC SECTION.
+    METHODS:
+      constructor IMPORTING iv_sales_order TYPE vbak-vbeln, " Constructor method
+      get_sales_order_number RETURNING VALUE(rv_sales_order) TYPE vbak-vbeln, " Getter method
+      get_customer_number RETURNING VALUE(rv_customer) TYPE vbak-kunnr, " Getter method
+      get_total_amount RETURNING VALUE(rv_total_amount) TYPE vbak-netwr, " Getter method
+      add_item IMPORTING iv_item_data TYPE vbap, " Add item method
+      get_items RETURNING VALUE(rt_items) TYPE TABLE OF vbap. " Getter method for items
+
+  " Class implementation
+  PROTECTED SECTION.
+    METHODS:
+      _calculate_total_amount. " Method to calculate total sales amount
+ENDCLASS.
+
+
+"*****************************
+" Class implementation
+CLASS lcl_sales_order IMPLEMENTATION.
+  METHOD constructor.
+    " Set sales order number
+    lv_sales_order = iv_sales_order.
+
+    " Call private method to calculate total amount
+    CALL METHOD _calculate_total_amount.
+
+    " Initialize items table
+    CREATE DATA lt_items TYPE TABLE OF vbap.
+
+    " Set customer number
+    lv_customer = '1001'.
+  ENDMETHOD.
+
+  METHOD get_sales_order_number.
+    " Return sales order number
+    rv_sales_order = lv_sales_order.
+  ENDMETHOD.
+
+  METHOD get_customer_number.
+    " Return customer number
+    rv_customer = lv_customer.
+  ENDMETHOD.
+
+  METHOD get_total_amount.
+    " Return total sales amount
+    rv_total_amount = lv_total_amount.
+  ENDMETHOD.
+
+  METHOD add_item.
+    " Add item to items table
+    ls_item = iv_item_data.
+    APPEND ls_item TO lt_items.
+  ENDMETHOD.
+
+  METHOD get_items.
+    " Return items table
+    rt_items = lt_items.
+  ENDMETHOD.
+
+  METHOD _calculate_total_amount.
+    " Loop through items table and calculate total amount
+    DATA(lv_total) = 0.
+
+    LOOP AT lt_items INTO ls_item.
+      lv_total = lv_total + ls_item-netwr.
+    ENDLOOP.
+
+    " Set total amount attribute
+    lv_total_amount = lv_total.
+  ENDMETHOD.
+ENDCLASS.
+
+
+"*****************************
+" Main program
+START-OF-SELECTION.
+  " Create instance of sales order class
+  DATA(lo_sales_order) = NEW lcl_sales_order( iv_sales_order = '100001' ).
+
+  " Add items to sales order
+  lo_sales_order->add_item( iv_item_data = VALUE #( matnr = 'M001' netwr = 100 ) ).
+  lo_sales_order->add_item( iv_item_data = VALUE #( matnr = 'M002' netwr = 200 ) ).
+  lo_sales_order->add_item( iv_item_data = VALUE #( matnr = 'M003' netwr = 300 ) ).
+
+  " Get sales order number
+  DATA(lv_sales_order) = lo_sales_order->get_sales_order_number( ).
+  WRITE: / 'Sales Order Number:'(10), lv_sales_order.
+
+  " Get customer number
+  DATA(lv_customer) = lo_sales_order->get_customer_number( ).
+  WRITE: / 'Customer Number:'(10), lv_customer.
+
+  " Get total amount
+  DATA(lv_total_amount) = lo_sales_order->get_total_amount( ).
+  WRITE: / 'Total Amount:'(10), lv_total_amount.
+
+  " Get sales order items
+  DATA(lt_items) = lo_sales_order->get_items( ).
+  WRITE: / 'Sales Order Items:'.
+  LOOP AT lt_items INTO DATA(ls_item).
+    WRITE: / ls_item-matnr, ls_item-netwr.
+  ENDLOOP.

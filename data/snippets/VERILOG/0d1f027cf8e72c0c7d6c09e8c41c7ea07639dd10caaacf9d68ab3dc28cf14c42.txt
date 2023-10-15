@@ -1,0 +1,113 @@
+// This code snippet shows how to use a state machine in Verilog to implement a temperature control system
+
+// Declare the Moore state machine with 4 states: Idle, Heating, Cooling, and Error
+module temperature_control(
+input clk,       // Clock input
+input rst,       // Active-high reset input
+input current_temp,    // Current temperature input
+output reg heater,     // Output to turn heater on/off
+output reg cooler,     // Output to turn cooler on/off
+output reg error       // Output to indicate error state
+);
+
+reg [1:0] current_state;    // Register to hold the current state
+
+parameter IDLE = 2'b00;     // Parameter to represent Idle state
+parameter HEATING = 2'b01;  // Parameter to represent Heating state
+parameter COOLING = 2'b10;  // Parameter to represent Cooling state
+parameter ERROR = 2'b11;    // Parameter to represent Error state
+
+always @(posedge clk or posedge rst) begin
+
+    // Reset the state to Idle on the positive edge of the reset signal
+    if (rst) begin
+        current_state <= IDLE;
+    end
+
+    // Implement the state transitions using a case statement
+    else begin
+        case (current_state)
+            IDLE: begin
+                // Check if the current temperature is below the desired temperature
+                if (current_temp < 70) begin
+                    current_state <= HEATING;    // Transition to Heating state
+                end
+                // Check if the current temperature is above the desired temperature
+                else if (current_temp > 80) begin
+                    current_state <= COOLING;    // Transition to Cooling state
+                end
+                // If the temperature is within the desired range, stay in Idle state
+                else begin
+                    current_state <= IDLE;
+                end
+            end
+
+            HEATING: begin
+                // Check if the current temperature has reached the desired temperature
+                if (current_temp >= 70) begin
+                    current_state <= IDLE;       // Transition to Idle state
+                end
+                // If the temperature is still below the desired temperature, stay in Heating state
+                else begin
+                    current_state <= HEATING;
+                end
+            end
+
+            COOLING: begin
+                // Check if the current temperature has reached the desired temperature
+                if (current_temp <= 80) begin
+                    current_state <= IDLE;       // Transition to Idle state
+                end
+                // If the temperature is still above the desired temperature, stay in Cooling state
+                else begin
+                    current_state <= COOLING;
+                end
+            end
+
+            ERROR: begin
+                // The system is in error state, turn off the heater and cooler
+                heater <= 0;
+                cooler <= 0;
+                // Check if the reset signal has been activated to return to Idle state
+                if (rst) begin
+                    current_state <= IDLE;
+                end
+                // If not, stay in Error state
+                else begin
+                    current_state <= ERROR;
+                end
+            end
+        endcase
+    end
+end
+
+// Implement the output logic based on the current state
+always @(current_state) begin
+    case (current_state)
+        IDLE: begin
+            heater <= 0;    // Turn off heater
+            cooler <= 0;    // Turn off cooler
+            error <= 0;     // No error
+        end
+
+        HEATING: begin
+            heater <= 1;    // Turn on heater
+            cooler <= 0;    // Turn off cooler
+            error <= 0;     // No error
+        end
+
+        COOLING: begin
+            heater <= 0;    // Turn off heater
+            cooler <= 1;    // Turn on cooler
+            error <= 0;     // No error
+        end
+
+        ERROR: begin
+            heater <= 0;    // Turn off heater
+            cooler <= 0;    // Turn off cooler
+            error <= 1;     // Error state
+        end
+    endcase
+end
+
+endmodule

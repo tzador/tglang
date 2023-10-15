@@ -1,0 +1,52 @@
+; This program calculates the value of a polynomial for a given input
+; Input: x in R
+; Output: value of polynomial evaluated at x
+
+section .data
+coeffs dw 4, 0, 8, 0, 3   ; coefficients of polynomial, in order of increasing x-powers
+n_equ dw 4                ; number of coefficients
+input dw 2.5              ; input value of x
+
+section .text
+global _start
+
+_start:
+; initialize variables and registers
+mov cx, [n_equ]           ; loop counter
+mov bx, 0                 ; index for accessing coefficients
+fldz                      ; load 0 onto coprocessor stack
+fild  word [input]        ; load input value onto coprocessor stack
+
+; loop through coefficients
+loop_coeffs:
+mov ax, [coeffs + bx * 2] ; move coefficient to ax register
+fild  word [ax]           ; move coefficient to coprocessor stack
+loop_mul:
+fmul st(0), st(1)         ; multiply top two values on coprocessor stack
+dec cx                    ; decrement loop counter
+jnz loop_mul              ; jump if not zero
+
+loop_add:
+fadd st(0), st(1)         ; add top two values on coprocessor stack
+add bx, 2                 ; increment coefficient index
+dec cx                    ; decrement loop counter
+jnz loop_add              ; jump if not zero
+
+fstp qword [output]       ; store final output value onto stack
+call _print_output        ; call function to print output
+
+_exit:
+mov eax, 1                ; system call number for exit
+xor ebx, ebx              ; error code
+int 0x80                  ; call kernel
+
+; function to print output using write system call
+_print_output:
+push eax                  ; push current register state onto stack
+mov eax, 4                ; system call number for write
+mov ebx, 1                ; file descriptor for standard output
+mov ecx, output           ; pointer to output value
+mov edx, 8                ; length of output
+int 0x80                  ; call kernel
+pop eax                   ; restore previous register state
+ret                       ; return to _start

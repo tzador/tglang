@@ -1,0 +1,68 @@
+%{
+/* This is a BISON program that generates an abstract syntax tree
+ * for a simple arithmetic expression. */
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+ 
+/* Define tokens for the different types of expressions */
+%}
+%token <num> INT    /* Integer constant */
+%token <op> OP      /* Operator */
+%token <blank> EPS  /* Blank (no-op) */
+%token LPAREN RPAREN
+%start prog
+ 
+%%
+/* The definitions below specify the grammar rules for arithmetic
+ * expressions, which include addition, subtraction, multiplication,
+ * division, and parentheses. */
+
+prog: expr { printf("Result: %d\n", $1); }
+    | prog NEWLINE prog
+    | prog EPS prog
+ 
+expr: INT
+    | expr OP expr
+    | LPAREN expr RPAREN { $$ = $2; }
+    | expr POW expr { $$ = pow($1, $3); }
+
+OP: '+' | '-' | '*' | '/' ;
+
+NEWLINE: '\n' | '\r' ;
+ 
+%%
+ 
+/* This function gets called to get the next token from the input stream. */
+int yylex()
+{
+    int c = getchar();
+    if (c >= '0' && c <= '9') {
+        yylval.num = c - '0';
+        while ((c = getchar()) >= '0' && c <= '9') {
+            yylval.num = yylval.num * 10 + c - '0';
+        }
+        ungetc(c, stdin);
+        return INT;
+    }
+    switch (c) {
+        case ' ': case '\t': case '\n': case '\r': return EPS;
+        case '+': case '-': case '*': case '/': return OP;
+        case '(': return LPAREN;
+        case ')': return RPAREN;
+        default: printf("Invalid character '%c'\n", c); exit(1);
+    }
+}
+
+/* Optional function that handles syntax errors. */
+void yyerror(char *s)
+{
+  printf("Error: %s\n", s);
+}
+
+/* Main function that starts the parsing process. */
+int main(void)
+{
+    yyparse();
+    return 0;
+}

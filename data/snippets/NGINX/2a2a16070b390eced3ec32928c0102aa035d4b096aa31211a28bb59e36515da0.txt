@@ -1,0 +1,41 @@
+# Caching for static files
+http {
+    # Default settings
+    proxy_cache_path /data/nginx/cache levels=1:2 keys_zone=static:10m inactive=60m;
+    proxy_cache_key "$scheme$request_method$host$request_uri";
+
+    server {
+        server_name www.example.com;
+        location /static/ {
+            # Enable caching
+            proxy_cache static;
+            proxy_cache_valid 200 60m;
+            proxy_pass http://static-server;
+            
+            # Set cache control headers
+            add_header Cache-Control "public, max-age=31536000, immutable";
+
+            # Ignore cookies in cache
+            proxy_ignore_headers Set-Cookie;
+            proxy_hide_header Set-Cookie;
+        }
+    }
+
+    # Caching for dynamic files
+    server {
+        server_name api.example.com;
+        location /api/ {
+            # Enable caching
+            proxy_cache dynamic;
+            proxy_cache_bypass $http_pragma;
+            proxy_cache_revalidate on;
+            
+            # Set cache control headers
+            add_header Cache-Control "no-store";
+
+            # Ignore cookies in cache
+            proxy_ignore_headers Set-Cookie;
+            proxy_hide_header Set-Cookie;
+        }
+    }
+}

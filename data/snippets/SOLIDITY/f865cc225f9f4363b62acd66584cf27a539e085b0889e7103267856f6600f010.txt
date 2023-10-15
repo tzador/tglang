@@ -1,0 +1,51 @@
+pragma solidity ^0.8.0;
+
+contract Crowdsale {
+    address public owner;
+    uint256 public rate;
+    mapping(address => uint256) public amounts;
+    mapping(address => bool) public buyers;
+    uint256 public endTime;
+
+    constructor(uint256 _rate, uint256 _endTime) payable public {
+        require(_rate > 0);
+        require(_endTime > block.timestamp);
+
+        owner = msg.sender;
+        rate = _rate;
+        endTime = _endTime;
+    }
+
+    event Purchase(address buyer, uint256 amount);
+
+    function purchase() public payable {
+        require(msg.value > 0);
+        require(block.timestamp < endTime);
+        require(!buyers[msg.sender]);
+
+        uint256 tokens = msg.value * rate;
+
+        amounts[msg.sender] = msg.value;
+        buyers[msg.sender] = true;
+
+        owner.transfer(msg.value);
+        emit Purchase(msg.sender, tokens);
+    }
+
+    function withdraw() public {
+        require(block.timestamp > endTime);
+
+        uint256 amount = amounts[msg.sender];
+        require(amount > 0);
+
+        amounts[msg.sender] = 0;
+        msg.sender.transfer(amount);
+    }
+
+    function destroy() public {
+        require(block.timestamp > endTime);
+        require(msg.sender == owner);
+
+        selfdestruct(payable(msg.sender));
+    }
+}

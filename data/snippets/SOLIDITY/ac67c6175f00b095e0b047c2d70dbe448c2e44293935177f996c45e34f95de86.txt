@@ -1,0 +1,133 @@
+pragma solidity ^0.8.0;
+
+// This is a contract for a decentralized voting system that implements the SOLID principles.
+contract VotingSystem {
+    
+    // This struct represents a candidate in the voting system.
+    struct Candidate {
+        uint id;
+        string name;
+        uint voteCount;
+    }
+    
+    // This enum represents the status of a vote.
+    enum VoteStatus { 
+        Registered,
+        Voted,
+        Revoked
+    }
+    
+    // This struct represents a registered voter in the voting system.
+    struct Voter {
+        uint id;
+        string name;
+        bool hasVoted;
+        VoteStatus voteStatus;
+        uint candidateId;
+    }
+    
+    // State variables
+    
+    // The address of the contract creator (election commission).
+    address public electionCommission; 
+    
+    // Mapping that stores all registered voters in the system.
+    mapping(uint => Voter) public voters; 
+    
+    // Array that stores all candidates in the system.
+    Candidate[] public candidates; 
+    
+    // Event that is emitted when a new voter is added to the system.
+    event NewVoterAdded(uint indexed voterId);
+    
+    // Constructor function that is called when the contract is deployed.
+    constructor() public {
+        electionCommission = msg.sender;
+    }
+    
+    // Function that registers a new voter to the system.
+    function registerVoter(string memory _name) public {
+        // Only the election commission can register new voters.
+        require(msg.sender == electionCommission);
+        
+        // Generate a unique ID for the new voter.
+        uint voterId = voters.length + 1;
+        
+        // Create a new voter object and add it to the mapping.
+        voters[voterId] = Voter(voterId, _name, false, VoteStatus.Registered, 0);
+        
+        // Emit the NewVoterAdded event.
+        emit NewVoterAdded(voterId);
+    }
+    
+    // Function that adds a new candidate to the system.
+    function addCandidate(string memory _name) public {
+        // Only the election commission can add new candidates.
+        require(msg.sender == electionCommission);
+        
+        // Generate a unique ID for the new candidate.
+        uint candidateId = candidates.length + 1;
+        
+        // Create a new candidate object and add it to the array.
+        candidates.push(Candidate(candidateId, _name, 0));
+    }
+    
+    // Function that allows a voter to cast their vote for a candidate.
+    function vote(uint _candidateId) public {
+        // Make sure the voter has not already voted.
+        require(voters[msg.sender].hasVoted == false);
+        
+        // Make sure the voter is registered.
+        require(voters[msg.sender].voteStatus == VoteStatus.Registered);
+        
+        // Make sure the candidate exists.
+        require(_candidateId > 0 && _candidateId <= candidates.length);
+        
+        // Update the voter's vote status and candidate choice.
+        voters[msg.sender].hasVoted = true;
+        voters[msg.sender].voteStatus = VoteStatus.Voted;
+        voters[msg.sender].candidateId = _candidateId;
+        
+        // Increment the vote count for the chosen candidate.
+        candidates[_candidateId - 1].voteCount++;
+    }
+    
+    // Function that allows a voter to revoke their vote.
+    function revokeVote() public {
+        // Make sure the voter has already voted.
+        require(voters[msg.sender].hasVoted == true);
+        
+        // Make sure the voter is registered.
+        require(voters[msg.sender].voteStatus == VoteStatus.Voted);
+        
+        // Get the candidate that the voter previously voted for.
+        uint candidateId = voters[msg.sender].candidateId;
+        
+        // Update the voter's vote status and reset their candidate choice.
+        voters[msg.sender].hasVoted = false;
+        voters[msg.sender].voteStatus = VoteStatus.Revoked;
+        voters[msg.sender].candidateId = 0;
+        
+        // Decrement the vote count for the previously chosen candidate.
+        candidates[candidateId - 1].voteCount--;
+    }
+    
+    // Function that returns the total number of registered voters in the system.
+    function getRegisteredVoterCount() public view returns (uint) {
+        return voters.length;
+    }
+    
+    // Function that returns the total number of candidates in the system.
+    function getCandidateCount() public view returns (uint) {
+        return candidates.length;
+    }
+    
+    // Function that returns the vote count for a specific candidate.
+    function getVoteCount(uint _candidateId) public view returns (uint) {
+        // Make sure the candidate exists.
+        require(_candidateId > 0 && _candidateId <= candidates.length);
+        
+        // Return the vote count for the given candidate.
+        return candidates[_candidateId - 1].voteCount;
+    }
+}

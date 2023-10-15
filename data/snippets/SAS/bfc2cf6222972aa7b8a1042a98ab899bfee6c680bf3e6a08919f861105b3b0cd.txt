@@ -1,0 +1,42 @@
+/* This code calculates the average sales of a product by month */
+
+/* Define a macro to sort the dataset by month */
+%macro sort_month(dataset);
+	proc sort data = &dataset out = sorted_data;
+		by month;
+	run;
+%mend;
+
+/* Define a macro to calculate the average sales by month */
+%macro avg_sales();
+	/* Create a temporary dataset to store the monthly sales totals */
+	data avg_sales_temp;
+		set sorted_data;
+		/* Create a new variable to hold the sales total */
+		avg_sales = sum(sales);
+		/* Calculate the average sales and add it as a new variable */
+		avg_sales = avg_sales / count;
+		drop sales;
+		rename avg_sales = sales;
+	run;
+	/* Merge the temporary dataset with the original dataset */
+	data final_data;
+		merge sorted_data avg_sales_temp;
+		by month;
+	run;
+	/* Drop the temporary dataset and rename the final dataset */
+	proc datasets library = work nolist;
+		delete avg_sales_temp;
+		change final_data = avg_sales_final;
+	run;
+%mend;
+
+/* Call the sort macro on the initial dataset */
+%sort_month(initial_data);
+
+/* Call the average sales macro on the sorted dataset */
+%avg_sales();
+
+/* View the final dataset with the average sales by month */
+proc print data = avg_sales_final;
+run;

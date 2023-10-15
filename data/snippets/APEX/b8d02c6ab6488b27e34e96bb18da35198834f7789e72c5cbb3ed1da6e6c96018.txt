@@ -1,0 +1,69 @@
+// This code snippet creates a custom object called "Contact Services" with a lookup field to the standard Contact object.
+// It also creates a trigger that will update certain fields on the Contact object when a record is created or updated in the "Contact Services" object.
+
+// Create custom object
+Schema.SObjectType contactServicesObject = Schema.getGlobalDescribe().get('Contact_Services__c');
+if(contactServicesObject == null){
+    // Create the new custom object
+    Schema.SObjectType customObject = Schema.getGlobalDescribe().get('CustomObject');
+    Schema.SObjectField lookupField = customObject.getDescribe().fields.getMap().get('LookupField__c');
+
+    Schema.SObjectType contactServicesObject = new Schema.SObjectType('Contact_Services__c');
+    contactServicesObject.setLabel('Contact Services');
+    contactServicesObject.addFields(new Schema.SObjectField[]{
+        lookupField
+    });
+    contactServicesObject.addRecordType(new Schema.RecordTypeInfo('Default', 'Default Record Type', false));
+
+    // Create the custom object
+    Database.SaveResult res = Database.createSObjects(new List<SObject>{
+        contactServicesObject
+    });
+
+    // Check for errors
+    if(!res.isSuccess()){
+        for(Database.Error err : res.getErrors()){
+            System.debug('Error creating custom object: ' + err.getStatusCode() + ' - ' + err.getMessage());
+        }
+    }
+}
+
+// Create trigger for Contact Services object
+if(enableTriggerCreation){
+    String triggerName = 'Contact_Services__c_BI';
+    String objectName = 'Contact_Services__c';
+    String body = ''
+    +'trigger '+triggerName+' on '+objectName+' (before insert, before update) {'
+    +'    for(Contact_Services__c cs : Trigger.New){'
+    +'        // Get related Contact'
+    +'        Contact c = new Contact();'
+    +'        c.Id = cs.Contact__c;'
+    +'        c.Title = cs.Title__c;'
+    +'        c.Department = cs.Department__c;'
+    +'        c.Description = cs.Description__c;'
+    +'        // Update Contact'
+    +'        Database.SaveResult res = Database.update(new List<Contact>{c}, false);'
+    +'        // Check for errors'
+    +'        if(!res.isSuccess()){'
+    +'            for(Database.Error err : res.getErrors()){'
+    +'                System.debug(\'Error updating Contact: \' + err.getStatusCode() + \' - \' + err.getMessage());'
+    +'            }'
+    +'        }'
+    +'    }'
+    +'}';
+
+    // Create trigger
+    Schema.TriggerContext TC = new Schema.TriggerContext();
+    TC.addTrigger('Contact_Services__c', 'before insert, before update');
+
+    ApexTrigger trg = new ApexTrigger();
+    trg.Name = triggerName;
+    trg.Body = body;
+    trg.TableEnumOrId = TC.TableId;
+    trg.Active = true;
+    trg.Status = DetailStatusEnum.Completed.getCode();
+    trg.TableName = objectName;
+
+    // Save trigger
+    insert new List<ApexTrigger>{trg};
+}

@@ -1,0 +1,106 @@
+# This configuration file specifies the behavior of a single server
+
+# Sets the number of worker processes, usually matched to the number of CPU cores
+# In this example, 4 worker processes are used
+worker_processes 4; 
+
+# Sets a unique name for the server
+server {
+    # Listens to incoming requests on port 80
+    listen 80;
+    
+    # Sets the server name
+    server_name www.example.com;
+    
+    # Sets the root directory of the server
+    root /var/www/html;
+    
+    # Specifies the file to be served if a requested file is not found
+    index index.html;
+    
+    # Specifies the location of error logs
+    error_log /var/log/nginx/error.log;
+    
+    # Specifies the location of access logs
+    access_log /var/log/nginx/access.log;
+    
+    # Enables gzip compression for responses
+    gzip on;
+    
+    # Specifies the minimum file size for gzip compression in bytes
+    gzip_min_length 1000;
+    
+    # Specifies the types of files to be compressed
+    gzip_types text/plain text/html text/css application/json;
+    
+    # Enables caching for static files, such as images and CSS files
+    # Caches files with the specified extensions for 1 hour
+    location ~* \.(jpg|png|css)$ {
+        expires 1h;
+        add_header Cache-Control "public";
+    }
+    
+    # Redirects all requests to the HTTPS version of the site
+    server {
+        listen 80;
+        server_name www.example.com;
+        return 301 https://www.example.com$request_uri;
+    }
+    
+    # Listens to incoming requests on port 443 (HTTPS)
+    # Uses a self-signed SSL certificate for secure connections
+    listen 443 ssl;
+    ssl_certificate /etc/nginx/ssl/example.crt;
+    ssl_certificate_key /etc/nginx/ssl/example.key;
+    
+    # Specifies the ciphers to be used for secure connections
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    
+    # Enables HTTP/2 for better performance
+    http2_push_preload on;
+    
+    # Specifies the location of the server's SSL trusted certificates
+    ssl_trusted_certificate /etc/nginx/ssl/trusted.crt;
+    
+    # Sets the maximum buffer size for responses
+    client_max_body_size 50M;
+    
+    # Specifies the behavior for proxy requests
+    location /proxy/ {
+        proxy_pass http://example.com/;
+        proxy_set_header Host $host;
+        # Enables caching for proxy responses for 1 day
+        proxy_cache_valid 200 301 302 1d;
+        # Blocks requests with specified User-Agent to prevent DDoS attacks
+        if ($http_user_agent ~* (Ahmia|AhrefsBot|BlackWidow|BlexBot|CazoodleBot|EasouSpider|Ezooms|FyberSpider|MJ12bot|MegaIndex|PercolateBot)) {
+            return 444;
+        }
+    }
+    
+    # Specifies the behavior for handling errors
+    error_page 400 401 403 404 /errors/404.html;
+    location /errors/ {
+        internal;
+        root /usr/share/nginx/html;
+    }
+    
+    # Restricts access to specific IP addresses
+    # Only allows connections from 192.168.1.1 and 192.168.1.2
+    allow 192.168.1.1;
+    allow 192.168.1.2;
+    deny all;
+    
+    # Specifies the behavior for handling requests for static files
+    # Adds the X-Frame-Options HTTP header to prevent clickjacking attacks
+    location ~* \.(gif|jpg|jpeg|png|svg|svgz|mp3|ogg|mp4|webm|zip|pdf|txt|md)$ {
+        add_header X-Frame-Options "SAMEORIGIN";
+        expires 1y;
+        access_log off;
+    }
+    
+    # Specifies rules for handling requests to specific directories
+    # Prohibits access to directories starting with "secret"
+    location ~* /secret/ {
+        return 404;
+    }
+}

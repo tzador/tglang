@@ -1,0 +1,115 @@
+// SPDX-License-Identifier: GPL-3.0
+
+pragma solidity ^0.8.0;
+
+/**
+ * @title Owned
+ * @dev The Owned contract has an owner address, and provides basic authorization control
+ * functions, this simplifies the implementation of "user permissions".
+ */
+
+contract Owned {
+    address public owner;
+
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+   /**
+   * @dev The Owned constructor sets the original `owner` of the contract to the sender
+   * account.
+   */
+    constructor() {
+        owner = msg.sender;
+    }
+
+   /**
+   * @dev Throws if called by any account other than the owner.
+   */
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not the owner");
+        _;
+    }
+
+   /**
+   * @dev Allows the current owner to transfer control of the contract to a newOwner.
+   * @param newOwner The address to transfer ownership to.
+   */
+    function transferOwnership(address newOwner) public onlyOwner {
+        require(newOwner != address(0), "Owner cannot be empty");
+        emit OwnershipTransferred(owner, newOwner);
+        owner = newOwner;
+    }
+}
+
+/**
+ * @title SupplyChain
+ * @dev Implements a supply chain with basic functionality such as adding items, purchasing items,
+ * and tracking items.
+ */
+
+contract SupplyChain is Owned {
+    enum State {
+        Created,
+        Received,
+        Shipped,
+        Delivered
+    }
+
+    struct Item {
+        uint id;
+        string name;
+        uint price;
+        State state;
+    }
+
+    mapping (uint => Item) public items;
+    uint public itemCount;
+
+    event ItemAdded(uint id);
+    event ItemPurchased(uint id);
+    event ItemShipped(uint id);
+    event ItemDelivered(uint id);
+
+   /**
+   * @dev Adds an item to the supply chain.
+   * @param _name The name of the item.
+   * @param _price The price of the item.
+   */
+    function addItem(string memory _name, uint _price) public onlyOwner {
+        require(bytes(_name).length > 0, "Name cannot be empty");
+        require(_price > 0, "Price cannot be zero");
+        items[itemCount] = Item(itemCount, _name, _price, State.Created);
+        itemCount++;
+        emit ItemAdded(itemCount - 1);
+    }
+
+   /**
+   * @dev Purchases an item from the supply chain.
+   * @param _id The id of the item being purchased.
+   */
+    function purchaseItem(uint _id) public payable {
+        require(items[_id].state == State.Created, "Item not available");
+        require(msg.value >= items[_id].price, "Insufficient funds");
+        items[_id].state = State.Received;
+        emit ItemPurchased(_id);
+    }
+
+   /**
+   * @dev Ships an item to the purchaser.
+   * @param _id The id of the item being shipped.
+   */
+    function shipItem(uint _id) public onlyOwner {
+        require(items[_id].state == State.Received, "Item not purchased");
+        items[_id].state = State.Shipped;
+        emit ItemShipped(_id);
+    }
+
+   /**
+   * @dev Marks an item as delivered.
+   * @param _id The id of the item being delivered.
+   */
+    function deliverItem(uint _id) public onlyOwner {
+        require(items[_id].state == State.Shipped, "Item not shipped");
+        items[_id].state = State.Delivered;
+        emit ItemDelivered(_id);
+    }
+}

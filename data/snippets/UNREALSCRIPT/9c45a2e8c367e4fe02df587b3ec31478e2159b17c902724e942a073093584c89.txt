@@ -1,0 +1,71 @@
+class AIController extends Controller
+  // This class represents an AI (artificial intelligence) controller that can control AI characters in the game.
+  
+  // Variables
+  var float DetectionRadius; // Distance within which the AI controller can detect the player or other characters.
+  var Controller PlayerController; // Reference to the player controller.
+  var bool bCanSeePlayer; // Flag to indicate if the AI can see the player.
+  var bool bIsInRange; // Flag to indicate if the player is within detection range.
+  var bool bIsSighted; // Flag to indicate if the player is in sight.
+
+  // Functions
+  /**
+   * This function is used to initialize the AI controller.
+   * It sets the detection radius, acquires a player controller reference, and initializes the flags.
+   */
+  function Init()
+  {
+    Super.Init();
+    DetectionRadius = 500.0;
+    PlayerController = Controller(AIUtility.GetPrimaryPlayerPawn(), class'Controller');
+    bCanSeePlayer = false;
+    bIsInRange = false;
+    bIsSighted = false;
+  }
+
+  /**
+   * This function is called every frame to update the AI controller's behavior.
+   * It checks if the player is within detection range, and if so, checks if the player is in sight.
+   * If the player is in sight, the AI will start following the player.
+   */
+  function Tick(float DeltaTime)
+  {
+    Super.Tick(DeltaTime);
+    if (Controller(PlayerController) != None && VSize(PlayerController.Location - Location) <= DetectionRadius)
+    {
+      bIsInRange = true;
+      // Perform a line trace to check if the player is in sight.
+      bIsSighted = AIUtility.TraceLine(PlayerController.Location, Location + 45.0 * Rotation, false, false, -1).HitActor == PlayerController;
+      if (bIsSighted)
+      {
+        bCanSeePlayer = true;
+      }
+    }
+
+    if (bCanSeePlayer)
+    {
+      // Make the AI follow the player.
+      AIUtility.MoveTo(PlayerController.Location, 200.0, false, true, false, true);
+    }
+    else if (bIsInRange)
+    {
+      // Perform a simple wander behavior if the player is not in sight but within detection range.
+      AIUtility.MoveTo(Location - 100.0 * Rotation, 200.0, false, true, false, true);
+    }
+  }
+
+  /**
+   * This function is called when the AI sees the player.
+   * It will alert all other AI characters in the game to the player's location.
+   */
+  event SeePlayer(Controller SeePlayerController)
+  {
+    Super.SeePlayer(SeePlayerController);
+    // Loop through all AI characters in the game and inform them of the player's location.
+    foreach WorldInfo.Pawns(Class'AICharacter', AICharacterPawn, true)
+    {
+      AIController(AIDirector.AIControllers[iOtherController]).PlayerController = SeePlayerController;
+      AIController(AIDirector.AIControllers[iOtherController]).bCanSeePlayer = true;
+    }
+  }
+endscript

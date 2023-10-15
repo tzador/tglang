@@ -1,0 +1,30 @@
+function Get-DriveCapacity {
+    [cmdletbinding()]
+param (
+    [parameter(Mandatory=$True)]
+    [ValidateNotNullOrEmpty()]
+    [Alias('Path','Drive')]
+    [string]$DriveLetter,
+    [switch]$AsInteger
+)
+
+begin {
+    $drive = Get-WmiObject Win32_Volume -Filter "DriveLetter = '$DriveLetter'"
+    
+    if (-not $drive) {
+        Write-Error "Unable to locate volume for drive letter '$DriveLetter'"
+        return
+    }
+}
+process {
+    [PSCustomObject]@{
+        DriveLetter  = $drive.DriveLetter
+        Size         = if ($AsInteger) { [int64]$drive.Capacity } else { [decimal]$drive.Capacity }
+        FreeSpace    = if ($AsInteger) { [int64]$drive.FreeSpace } else { [decimal]$drive.FreeSpace }
+        PercentFree  = if ($drive.Capacity -gt 0) { [$drive.FreeSpace / $drive.Capacity * 100] } else { 0 }
+    }
+}
+end {
+    Write-Verbose "Finished processing drive '$DriveLetter'"
+}
+}

@@ -1,0 +1,133 @@
+// Defines default properties for the HUD class
+class MyHUD extends HUD
+        placeable;
+
+// Declares variables
+var int PlayerHealth;
+// This variable stores the player's current health
+
+
+var float PlayerSpeed;
+// This variable stores the player's movement speed
+
+
+var object PlayerWeapon;
+// This variable stores the player's current weapon
+
+var int MaxHealth;
+// This variable stores the maximum health the player can have
+
+var int MaxAmmo;
+// This variable stores the maximum ammo the player can carry
+
+var float DamageMultiplier;
+// This variable stores the damage multiplier for the player's weapon
+
+var float ReloadTime;
+// This variable stores the reload time for the player's weapon
+
+// Event called when the HUD is being redrawn
+function DrawHUD()
+{
+        local PlayerController PC;
+        // Gets the player controller
+        PC = WorldInfo.GetALocalPlayerController();
+
+        if (PC != None)
+        {
+                // Draws the player's health bar
+                DrawHealthBar(PC, 10, 10, PlayerHealth / MaxHealth);
+
+                // Draws the player's speedometer
+                DrawSpeedometer(PC, 10, 30, PlayerSpeed);
+
+                // Draws the player's current weapon
+                DrawWeapon(PC, 10, 50, PlayerWeapon);
+
+                // Checks if the player has low health and changes the color of the health bar
+                if (PlayerHealth < 20)
+                {
+                        DrawHealthBar(PC, 10, 10, PlayerHealth / MaxHealth, Color_Red);
+                }
+
+                // Checks if the player has low ammo and alerts them with a message
+                if (PlayerWeapon.CurrentAmmo < 5)
+                {
+                        PC.ClientMessage("Low on ammo!");
+                }
+        }
+}
+
+// Function to update the player's health
+function UpdateHealth(int NewHealth)
+{
+        if (NewHealth > MaxHealth)
+        {
+                PlayerHealth = MaxHealth;
+        }
+        else
+        {
+                PlayerHealth = NewHealth;
+        }
+
+        if (PlayerHealth <= 0)
+        {
+                // Call the player's death function
+                PlayerDeath();
+        }
+}
+
+// Function to update the player's ammo
+function UpdateAmmo(int NewAmmo)
+{
+        if (NewAmmo > MaxAmmo)
+        {
+                PlayerWeapon.CurrentAmmo = MaxAmmo;
+        }
+        else
+        {
+                PlayerWeapon.CurrentAmmo = NewAmmo;
+        }
+}
+
+// Function to calculate damage to the player
+function CalculateDamage(float AttackDamage)
+{
+        // Multiply the attack damage by the damage multiplier
+        local float Damage = AttackDamage * DamageMultiplier;
+
+        // Subtract the damage from the player's current health
+        PlayerHealth -= Damage;
+
+        // Check if the player has low health and change the color of the health bar
+        if (PlayerHealth < 20)
+        {
+                DrawHealthBar(WorldInfo.GetALocalPlayerController(), 10, 10, PlayerHealth / MaxHealth, Color_Red);
+        }
+
+        // Check if the player has died
+        if (PlayerHealth <= 0)
+        {
+                // Call the player's death function
+                PlayerDeath();
+        }
+}
+
+// Function to handle player's death
+function PlayerDeath()
+{
+        // Reset the player's health and ammo
+        UpdateHealth(MaxHealth);
+        UpdateAmmo(MaxAmmo);
+
+        // Reset the player's position
+        local PlayerPawn Player = FindStandalonePlayerPawn();
+
+        if (Player != None)
+        {
+                Player.SetPos(MapCenter);
+        }
+
+        // Notify all players in the game of the player's death
+        foreach WorldInfo.AllControllers(class 'PlayerController') PlayerController(PC) PC.ClientMessage("You died!");
+}

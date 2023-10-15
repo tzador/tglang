@@ -1,0 +1,84 @@
+// This code snippet creates a custom weapon class for a game in UnrealScript
+class CustomWeapon extends UDKWeapon;
+
+var() bool bUsesSecondaryFire;
+
+// Set default weapon information
+defaultproperties
+{
+    ItemName="CustomWeapon"
+    Description="A powerful weapon with customizable secondary fire."
+    Damage=50
+    AmmoType=Ammo_Custom
+    MaxAmmoCount=100
+}
+
+// Used to initialize the weapon's variables
+simulated function InitializeWeapon()
+{
+    Super.InitializeWeapon();
+
+    if (bUsesSecondaryFire)
+    {
+        // Set secondary fire mode properties
+        SecondaryFireMode.FireInterval=0.5
+        SecondaryFireMode.AmmoCost=1
+        SecondaryFireMode.bUsesCustomAmmo=true
+    }
+}
+
+// Called when the weapon is equipped
+event Equip(class<UDKWeapon> NewWeapon)
+{
+    Super.Equip(NewWeapon);
+
+    // Play equip animation
+    PlayWeaponAnimation(AnimPrefix'EQUIP');
+}
+
+// Called when the weapon is unequipped
+event UnEquip()
+{
+    Super.UnEquip();
+
+    // Play unequip animation
+    PlayWeaponAnimation(AnimPrefix'UNEQUIP');
+}
+
+// Override the weapon's fire function to handle secondary fire
+simulated function FireWeapon(Vector StartTrace, Vector EndTrace, int Flags, optional Actor SpecialTraceActor)
+{
+    if (GetWeaponState() != "Up")
+    {
+        return;
+    }
+
+    // Handle primary fire
+    Super.FireWeapon(StartTrace, EndTrace, Flags, SpecialTraceActor);
+
+    // Handle secondary fire if the weapon has it
+    if (bUsesSecondaryFire)
+    {
+        // Check if there is enough ammo for secondary fire mode
+        if (CurrentAmmoInClip >= SecondaryFireMode.AmmoCost)
+        {
+            // Consume ammo
+            CurrentAmmoInClip -= SecondaryFireMode.AmmoCost;
+            
+            // Get a random endpoint for the secondary fire spread
+            local vector Spread = WeaponASM.RandomSecondarySpread(UTBot(Game.PlayerPawn).MyMarker.TargetInfo.Location, UTBot(Game.PlayerPawn).PawnAlertness);
+            
+            // Fire projectile from end of muzzle
+            SpawnProjectile(StartTrace + Spread, ProjectileRotation);
+            
+            // Play secondary fire animation
+            PlayWeaponAnimation(AnimPrefix'SECONDARYFIRE');
+        }
+        else
+        {
+            // Handle out of ammo for secondary fire
+            PlaySound(FireFailSound);
+            weaponPlayAnimation(AnimPrefix'FIREFAIL');
+        }
+    }
+}

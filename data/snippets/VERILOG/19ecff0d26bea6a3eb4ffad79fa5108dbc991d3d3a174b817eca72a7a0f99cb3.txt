@@ -1,0 +1,116 @@
+/// This module performs an advanced multiplication operation
+/// based on the Booth's algorithm with a signed shifting method
+
+module booth_multiplier(
+  input signed [15:0] multiplicand,
+  input signed [15:0] multiplier,
+  output reg signed [31:0] product
+);
+
+  /// Register used for calculation and shifting
+  reg signed [31:0] register;
+  
+  /// Register used for storing the result
+  reg signed [31:0] result;
+  
+  /// Position counter to track the shifting movement
+  integer pos = 0;
+  
+  /// Counter for the number of multiplication operations needed
+  integer mul_count = 16;
+  
+  /// Check if the multiplier is negative
+  if (multiplier < 0) begin
+  
+    /// First operation - add the multiplicand to the register
+    register = multiplicand;
+    
+    /// Loop for the remaining 15 multiplication operations
+    while (mul_count > 0) begin
+    
+      /// Shift the register to the right by 1 bit
+      register = register >> 1;
+      
+      /// If the shifted register is equal to the previous value, no need for addition/subtraction
+      if (register == result) begin
+        continue;
+      end
+      
+      /// If the multiplier is positive, add the multiplicand to the register
+      else if (multiplier > 0) begin
+        register = register + multiplicand;
+      end
+      
+      /// If the multiplier is negative, subtract the multiplicand from the register
+      else if (multiplier < 0) begin
+        register = register - multiplicand;
+      end
+      
+      /// Subtract 1 from the multiplication counter
+      mul_count = mul_count - 1;
+      
+      /// Increase the position counter
+      pos = pos + 1;
+      
+      /// If the last operation, shift the register to the left by the number of positions
+      if (mul_count == 0) begin
+        register = register << pos;
+      end
+    end
+    
+    /// Store the final result in the result register
+    result = register;
+    
+  /// If the multiplier is positive, perform normal Booth's algorithm
+  end else begin
+    /// Setting up the first q bit
+    reg [1:0] q = {multiplier[15], 1'b0};
+    /// Setting up the first s bit
+    reg [1:0] s = {multiplicand[15], 1'b0};
+    
+    /// Loop for the remaining 15 multiplication operations
+    while (mul_count > 0) begin
+      /// Shift q and s to the right by 1 bit
+      q = q >> 1;
+      s = s >> 1;
+      
+      /// Check the last 2 bits of q
+      case(q[1:0])
+        2'b00: begin
+          /// If the last 2 bits of q are 00, no operation needed
+          continue;
+        end
+        2'b01: begin
+          /// If the last 2 bits of q are 01, add the multiplicand to the register
+          register = register + multiplicand;
+        end
+        2'b10: begin
+          /// If the last 2 bits of q are 10, subtract the multiplicand from the register
+          register = register - multiplicand;
+        end
+        2'b11: begin
+          /// If the last 2 bits of q are 11, no operation needed
+          continue;
+        end
+      endcase
+      
+      /// Subtract 1 from the multiplication counter
+      mul_count = mul_count - 1;
+      
+      /// Increase the position counter
+      pos = pos + 1;
+      
+      /// If the last operation, shift the register to the left by the number of positions
+      if (mul_count == 0) begin
+        register = register << pos;
+      end
+    end
+    
+    /// Store the final result in the result register
+    result = register;
+  end
+  
+  /// Output the result
+  assign product = result;
+  
+endmodule

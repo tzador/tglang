@@ -1,0 +1,39 @@
+# This script retrieves information from a remote computer
+# and outputs it to a CSV file
+# Author: John Smith
+# Date: 10/10/2021
+
+# Import necessary modules
+Import-Module -Name ActiveDirectory, Microsoft.PowerShell.Management
+
+# Specify the remote computer name
+$computerName = "Server1"
+
+# Set the output location and filename
+$outputFile = "C:\Reports\server_info.csv"
+
+# Create a new session with the specified computer
+$session = New-PSSession -ComputerName $computerName
+
+# Use Invoke-Command to run commands in the remote session
+Invoke-Command -Session $session -Scriptblock {
+
+    # Retrieve basic server information and store in a variable
+    $serverInfo = Get-WmiObject -Class Win32_ComputerSystem
+
+    # Retrieve last reboot time and add to server information variable
+    $serverInfo | Add-Member -MemberType NoteProperty -Name LastRebootTime -Value (Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime
+
+    # Retrieve list of local administrators and add to server information variable
+    $serverInfo | Add-Member -MemberType NoteProperty -Name LocalAdmins -Value ($(Get-LocalGroupMember -Group "Administrators").Name -join ", ")
+
+    # Retrieve list of network cards and add to server information variable
+    $networkCards = Get-NetAdapter | Select-Object -Property Name, LinkSpeed
+    $serverInfo | Add-Member -MemberType NoteProperty -Name NetworkCards -Value $networkCards
+
+    # Output the server information to a CSV file
+    $serverInfo | Select-Object -Property Name, LastRebootTime, LocalAdmins, NetworkCards | Export-Csv -Path $using:outputFile -NoTypeInformation
+}
+
+# Close the remote session
+Remove-PSSession $session

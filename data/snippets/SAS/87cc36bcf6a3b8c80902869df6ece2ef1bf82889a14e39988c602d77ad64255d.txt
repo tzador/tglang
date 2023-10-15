@@ -1,0 +1,46 @@
+/*This is a SAS code snippet for data cleaning and analysis*/
+/*Create a new library for the SAS dataset*/
+libname mylib "C:\Users\username\SAS\data";
+
+/*Import the raw data file*/
+data mylib.raw_data;
+    %let filepath = "C:\Users\username\raw_data.csv"; /*set the file path as a macro variable*/
+    infile &filepath dlm=","; /*specify the file path and delimiter*/
+    input var1 var2 var3; /*input variables*/
+    format var1 $10. var2 8.2 var3 mmddyy10.; /*define formats for variables*/
+run;
+
+/*Rename and recode variables*/
+data mylib.cleaned_data;
+    set mylib.raw_data;
+    rename var1 = "Name" var2 = "Age" var3 = "Date of Birth"; /*rename variables for better understanding*/
+    if Age < 0 then Age = .; /*recodes negative age values to missing*/
+    if DateOfBirth < intnx("year", today(), -100) then delete; /*deletes data for individuals over 100 years old*/
+run;
+
+/*Merge with external dataset*/
+proc sort data=mylib.cleaned_data; /*sort cleaned dataset by name*/
+    by Name;
+run;
+data mylib.ext_data;
+    set "C:\Users\username\SAS\external_data.xlsx" (keep=Name Gender); /*import only Name and Gender variables from external dataset*/
+run;
+data mylib.merged_data;
+    merge mylib.cleaned_data(in=mydata) mylib.ext_data(in=myextdata); /*merge cleaned data with external data*/
+    by Name;
+    if mydata and myextdata; /*keep only records present in both datasets*/
+run;
+
+/*Calculate new variables*/
+data mylib.final_data;
+    set mylib.merged_data;
+    if Gender = "M" then Male = 1; /*create new variable for males*/
+    else Male = 0;
+    if DateOfBirth ne . then Age = intck("year", DateOfBirth, today()); /*calculate age from date of birth*/
+run;
+
+/*Export final dataset*/
+proc export data=mylib.final_data
+    outfile="C:\Users\username\final_data.csv" /*specify output file path*/
+    dbms=csv replace; /*choose CSV file type and replace if file already exists*/
+run;

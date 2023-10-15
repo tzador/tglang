@@ -1,0 +1,56 @@
+/*Creating a macro variable to store current date*/
+%LET today=%SYSFUNC(TODAY(),DATE9.);
+/*Creating a dataset with two variables*/
+DATA employee_info;
+INPUT employee_id $ salary;
+DATALINES;
+E001 50000
+E002 65000
+E003 72000
+E004 45000
+;
+/*Removing missing values from the dataset*/
+DATA employee_info_nomiss;
+SET employee_info;
+IF missing(employee_id) OR missing(salary) THEN delete;
+RUN;
+/*Creating a new dataset with average salary for each employee position*/
+PROC MEANS DATA=employee_info;
+CLASS employee_id;
+VAR salary;
+OUTPUT OUT=avg_salary (DROP=_TYPE_ _FREQ_));
+RUN;
+/*Creating a macro to add a header to each output file*/
+%macro add_header (inp_file, out_file, header);
+DATA &out_file;
+file &out_file noprint;
+if _n_= 1 then put "&header";
+SET &inp_file;
+RUN;
+%mend add_header;
+/*Creating a macro variable to store today's date in a specific format*/
+%LET today2 = %SYSFUNC(PUTN(&today, WEEKDATE.));
+/*Creating a macro to create a new folder with today's date as the name*/
+%macro create_folder (folder_name);
+FILENAME file_out "C:\Output\Folders\&folder_name\";
+DATA _NULL_;
+FOLDER = "file_out";
+CALL SYSCALL('CREATE', FOLDER, 1024);
+RUN;
+%mend create_folder;
+/*Call the macro to create a folder named with today's date*/
+%create_folder(&today2.);
+/*Combining the two datasets into one with a one-to-one merge*/
+DATA final_employee_info;
+MERGE employee_info_nomiss avg_salary;
+BY employee_id;
+RUN;
+/*Exporting the final dataset to a csv file in the newly created folder*/
+LIBNAME export_file "C:\Output\Folders\&today2.";
+PROC EXPORT DATA=final_employee_info
+DBMS=CSV
+OUTTABLE="output"
+REPLACE;
+RUN;
+/*Printing a message to the log to indicate successful completion*/
+%PUT The process is complete and the final dataset has been exported to &today.;

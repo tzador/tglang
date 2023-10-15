@@ -1,0 +1,47 @@
+" Define a structure
+TYPES: BEGIN OF st_materials,
+           matnr TYPE matnr,
+           mtart TYPE matart,
+           maktx TYPE maktx,
+           vtweg TYPE vtweg,
+           designated_warehouse TYPE lager,
+       END OF st_materials.
+
+" Define a table type using the newly defined structure
+TYPES: tt_materials TYPE TABLE OF st_materials.
+
+" Declare a table variable of the new type
+DATA(lt_materials) = VALUE tt_materials( ).
+
+" Create an internal table with a unique key and a non-unique secondary key
+DATA(lt_materials_with_keys) = VALUE tt_materials(
+                                   ( matnr = 'M100' mtart = 'FG'
+                                     maktx = 'Product A' vtweg = '10'
+                                     designated_warehouse = '1001' )
+                                   ( matnr = 'M200' mtart = 'FG'
+                                     maktx = 'Product B' vtweg = '10'
+                                     designated_warehouse = '1002' )
+                                   ( matnr = 'M300' mtart = 'RM'
+                                     maktx = 'Raw Material A' vtweg = '20'
+                                     designated_warehouse = '2001' ) ).
+
+" Create an instance of class CL_ABAP_STRUCTDESCR to access the structure's fields
+DATA(lo_materials_structure) = cl_abap_typedescr=>describe_by_name( 'st_materials' ).
+
+" Loop through the internal table with keys and add each line to the table variable
+LOOP AT lt_materials_with_keys INTO DATA(ls_material).
+  INSERT INITIAL LINE INTO TABLE lt_materials ASSIGNING FIELD-SYMBOL(<ls_material>).
+  ASSIGN COMPONENT 'MATNR' OF STRUCTURE <ls_material> TO FIELD-SYMBOL(<lv_matnr>) TYPE matnr.
+  ASSIGN COMPONENT 'DESIGNATED_WAREHOUSE' OF STRUCTURE <ls_material> TO FIELD-SYMBOL(<lv_lager>) TYPE lager.
+  <lv_matnr> = ls_material-matnr.
+  <lv_lager> = ls_material-designated_warehouse.
+ENDLOOP.
+
+" Sort the table by secondary key designated_warehouse
+SORT lt_materials BY designated_warehouse.
+
+" Print the resulting table
+WRITE: / 'MATERIAL', 10 'WAREHOUSE'.
+LOOP AT lt_materials INTO DATA(ls_material).
+  WRITE: / ls_material-matnr, 10 ls_material-designated_warehouse.
+ENDLOOP.

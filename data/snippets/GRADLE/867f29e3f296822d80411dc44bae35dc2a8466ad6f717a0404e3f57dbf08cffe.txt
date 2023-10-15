@@ -1,0 +1,79 @@
+// Define a task to build application
+task buildApp(type: Exec) {
+    // Set the command to run the build
+    commandLine 'gradle', 'build'
+
+    // Set the working directory for the command
+    workingDir '..'
+
+    // Set the standard output and error output to null
+    standardOutput = null
+    errorOutput = null
+
+    // Add a system property to the command
+    systemProperty 'build.directory', project.buildDir.absolutePath
+
+    // Add an environment variable for the command
+    environment 'JAVA_HOME', System.getenv('JAVA_HOME')
+
+    // Add task dependencies
+    dependsOn getAllProjects()
+    dependsOn(getAssemble())
+}
+
+// Define a task to run the application
+task runApp(type: Exec) {
+    // Set the command to run the application
+    commandLine 'java', '-jar', "${project.buildDir}/app.jar"
+
+    // Set the working directory for the command
+    workingDir '.'
+    
+    // Set the standard output to a specific file
+    standardOutput = file("$project.buildDir/logs/output.log")
+
+    // Add a system property to the command
+    systemProperty 'app.environment', 'production'
+
+    // Add an environment variable for the command
+    environment 'DB_USERNAME', 'admin'
+    environment 'DB_PASSWORD', 'password'
+
+    // Add task dependencies
+    dependsOn buildApp
+}
+
+// Define a task to clean the project
+task cleanProj(type: Delete) {
+    // Set the directories to be deleted
+    delete fileTree(project.buildDir)
+    delete file("$project.projectDir}/docs")
+}
+
+// Define a task to deploy the application
+task deployApp(dependsOn: [buildApp, cleanProj, runApp]) {
+    // Set the deployment server and credentials
+    def deployServer = '192.168.1.1'
+    def deployUser = 'deployer'
+    def deployPassword = 'deploy123'
+
+    // Set up an SSH connection to the deployment server
+    sshSession = sshSession {
+        session(sshConnection(deployServer, deployUser, deployPassword)) {
+            channel {
+                // Execute a command on the server to stop the application
+                execute 'sudo systemctl stop app'
+
+                // Copy the application files to the server
+                sftpChannel { sftp ->
+                    sftp.put("${project.buildDir}/app.jar", "/var/www/app")
+                    sftp.put("${project.buildDir}/config.properties", "/var/www/config")
+                }
+
+                // Execute a command on the server to start the application
+                execute 'sudo systemctl start app'
+                execute 'sudo systemctl status app'
+            }
+        }
+    }
+}

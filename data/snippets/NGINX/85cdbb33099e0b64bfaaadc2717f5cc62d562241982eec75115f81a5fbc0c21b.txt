@@ -1,0 +1,98 @@
+# This is a sample NGINX configuration file
+ 
+# Set worker processes to auto-detect the number of available CPU cores
+worker_processes auto;
+ 
+# Set the HTTP keepalive timeout to 65 seconds
+keepalive_timeout 65;
+ 
+# Define the user and group that will run NGINX
+user www-data www-data;
+ 
+# Set the log format and path for the access logs
+access_log /var/log/nginx/access.log combined;
+ 
+# Set the log format and path for the error logs
+error_log /var/log/nginx/error.log;
+ 
+# Specify the path for the PID file
+pid /var/run/nginx.pid;
+ 
+# Load the dynamic modules
+load_module /usr/lib/nginx/modules/ngx_http_geoip_module.so;
+load_module /usr/lib/nginx/modules/ngx_http_image_filter_module.so;
+ 
+# Define the HTTP block
+http {
+    # Set the server names
+    server_name example.com www.example.com;
+ 
+    # Enable the gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+    gzip_comp_level 5;
+ 
+    # Set the cache expiration time for static files to 1 year
+    expires 365d;
+ 
+    # Define the default server block
+    server {
+        # Listen on port 80
+        listen 80 default_server;
+ 
+        # Define the root directory for the server
+        root /var/www/html;
+ 
+        # Enable file indexing and autoindex
+        autoindex on;
+        autoindex_exact_size off;
+ 
+        # Handle 404 errors by redirecting to the homepage
+        error_page 404 /index.html;
+ 
+        # Enable request and response limits
+        limit_req_status 429;
+        limit_req_zone $binary_remote_addr zone=req_limit_per_ip:10m rate=5r/s;
+        client_body_timeout 10s;
+ 
+        # Handle PHP files using fastCGI
+        location ~ \.php$ {
+            fastcgi_pass unix:/var/run/php/php7.4-fpm.sock;
+            fastcgi_index index.php;
+            include fastcgi_params;
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        }
+ 
+        # Serve static files
+        location ~* \.(jpg|jpeg|gif|png|ico|css|js|woff|ttf)$ {
+            expires 1y;
+            add_header Cache-Control "public, max-age=31536000, immutable";
+            access_log off;
+        }
+ 
+        # Block any requests containing .htaccess
+        location ~ /\.ht {
+            deny all;
+        }
+    }
+ 
+    # Define a server block for the example subdomain
+    server {
+        # Listen on port 80 for the example subdomain
+        listen 80;
+        server_name example.example.com;
+ 
+        # Redirect all requests to the homepage
+        return 301 http://example.com$request_uri;
+    }
+ 
+    # Secure server configurations
+    include /etc/nginx/ssl.conf;
+}
+ 
+# Define the events block
+events {
+    # Set the maximum number of connections per worker process 
+    worker_connections 1024;
+}

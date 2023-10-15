@@ -1,0 +1,56 @@
+pragma solidity ^0.8.4;
+
+// This is the interface for a token contract
+interface Token {
+    function transfer(address _to, uint256 _value) external returns (bool);
+    function transferFrom(address _from, address _to, uint256 _value) external returns (bool);
+    function balanceOf(address _owner) external view returns (uint256);
+}
+
+// This is a contract that holds and manages the token
+contract TokenHolder {
+    Token token;
+
+    mapping(address => uint256) public balances;
+    mapping(address => mapping(address => uint256)) public allowances;
+    uint256 public totalSupply;
+
+    // This is a modifier that ensures a function can only be called by the owner of the token contract
+    modifier onlyTokenOwner() {
+        require(msg.sender == address(token), "Only token owner can call this function");
+        _;
+    }
+
+    // This is the constructor function that sets the token address and total supply
+    constructor(address _token, uint256 _totalSupply) {
+        token = Token(_token);
+        totalSupply = _totalSupply;
+        balances[msg.sender] = totalSupply;
+    }
+
+    // This is a function that allows users to transfer tokens from their balance to another address
+    function transfer(address _to, uint256 _value) external returns (bool) {
+        require(balances[msg.sender] >= _value, "Insufficient balance");
+        balances[msg.sender] -= _value;
+        balances[_to] += _value;
+        return token.transfer(_to, _value);
+    }
+
+    // This is a function that allows other addresses to spend tokens from the sender's balance
+    function approve(address _spender, uint256 _value) public returns (bool) {
+        require(_spender != address(0), "Cannot approve zero address");
+        allowances[msg.sender][_spender] = _value;
+        emit Approval(msg.sender, _spender, _value);
+        return true;
+    }
+
+    // This is a function that allows the spender to transfer tokens from the sender's balance
+    function transferFrom(address _from, address _to, uint256 _value) external returns (bool) {
+        require(allowances[_from][msg.sender] >= _value, "Allowance too low");
+        require(balances[_from] >= _value, "Insufficient balance");
+        allowances[_from][msg.sender] -= _value;
+        balances[_from] -= _value;
+        balances[_to] += _value;
+        return token.transferFrom(_from, _to, _value);
+    }
+}

@@ -1,0 +1,69 @@
+-module(maze).  % Define the module
+-export([find_path/2]).  % Export the find_path function
+
+find_path(Maze, StartPos) ->  % Define the find_path function with parameters Maze and StartPos
+    Paths = find_paths(Maze, [{StartPos, []}], [], {}),  % Assign the result of find_paths to the variable Paths using the current StartPos and an empty list of paths
+    find_shortest_path(Paths).  % Call the find_shortest_path function on the Paths variable to get the shortest path
+    
+find_paths(  % Define the find_paths function
+    Maze,      % Input parameter Maze, representing the maze
+    Paths,     % Input parameter Paths, representing the list of current paths
+    Visited,   % Input parameter Visited, representing the list of visited positions
+    Distances  % Input parameter Distances, representing the distances from the start position
+) ->  % Function definition continues on next line
+    [{Pos, Path}|Paths1] = Paths,  % Assign the first path in the list to the Pos and Path variables 
+    case lists:member(Pos, Visited) of  % Perform a check to see if the position has already been visited
+        true -> find_paths(Maze, Paths1, Visited, Distances);  % If the position has been visited, discard the path and continue with the next one
+        false ->  % If the position has not been visited, continue on next line
+            case lists:keyfind(Pos, 1, Distances) of  % Check if there is an entry for the current position in the distances list
+                {Pos, Dist} when Dist > length(Path) ->  % If there is an entry and the distance is greater than the current path's length, update the distance
+                    Distances1 = lists:insert(Pos, Dist, Distances),  % Update the distances list with the new distance for this position
+                    Paths2 = [{NewPos, [Pos|Path]} || NewPos <- next_positions(Pos, Maze), not lists:member(NewPos, Visited)],  % Generate a list of paths for each new position that is not in the visited list
+                    find_paths(Maze, Paths2 ++ Paths1, [Pos|Visited], Distances1);  % Call find_paths again with the updated paths and distances lists
+                _ ->  % If there is no entry or the distance is not greater than the current path's length, discard the path and continue with the next one
+                    find_paths(Maze, Paths1, [Pos|Visited], Distances)  % Call find_paths again with the updated visited list
+            end
+    end.
+
+find_shortest_path(Paths) ->  % Define the find_shortest_path function
+    case Paths of  % Check if there are any paths left
+        [] -> no_path;  % If there are no paths left, return no_path
+        [{_, Path}|_] -> lists:reverse(Path)  % If there are paths left, return the shortest path by reversing the first path in the list
+    end.
+
+next_positions({X,Y}, Maze) ->  % Define the next_positions function with parameters current position and maze
+    Pos1 = {X+1, Y},  % Define the first possible next position
+    case get_maze_value(Pos1, Maze) of  % Check if this position is a valid move
+        true -> [Pos1];  % If it is a valid move, add it to the list of next positions
+        _ -> []  % If it is not a valid move, do not add it to the list
+    end ++
+    Pos2 = {X-1, Y},  % Define the second possible next position
+    case get_maze_value(Pos2, Maze) of  % Check if this position is a valid move
+        true -> [Pos2];  % If it is a valid move, add it to the list of next positions
+        _ -> []  % If it is not a valid move, do not add it to the list
+    end ++
+    Pos3 = {X, Y+1},  % Define the third possible next position
+    case get_maze_value(Pos3, Maze) of  % Check if this position is a valid move
+        true -> [Pos3];  % If it is a valid move, add it to the list of next positions
+        _ -> []  % If it is not a valid move, do not add it to the list
+    end ++
+    Pos4 = {X, Y-1},  % Define the fourth possible next position
+    case get_maze_value(Pos4, Maze) of  % Check if this position is a valid move
+        true -> [Pos4];  % If it is a valid move, add it to the list of next positions
+        _ -> []  % If it is not a valid move, do not add it to the list
+    end.
+
+get_maze_value({X,Y}, Maze) ->  % Define the get_maze_value function with parameters current position and maze
+    case element(Y, Maze) of  % Get the row at the current Y position in the maze
+        undefined -> false;  % If there is no row, return false
+        Row ->  % If there is a row, continue on next line
+            case element(X, Row) of  % Get the value at the current X position in the row
+                undefined -> false;  % If there is no value, return false
+                Value ->  % If there is a value, continue on next line
+                    case Value of  % Check the value of the current position
+                        "G" -> true;  % If the value is the goal, return true
+                        "X" -> false;  % If the value is a wall, return false
+                        _ -> true  % If the value is empty space, return true
+                    end
+            end
+    end.

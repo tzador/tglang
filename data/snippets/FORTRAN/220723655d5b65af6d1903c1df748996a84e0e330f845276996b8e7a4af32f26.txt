@@ -1,0 +1,99 @@
+! Generate a random number using the Mersenne Twister algorithm 
+
+  PROGRAM random_number_generator                              ! Define the program
+  
+      IMPLICIT NONE                                           ! Declare all variables to be explicitly defined
+  
+      INTEGER, PARAMETER :: N = 624                           ! Set the length of the state vector for Mersenne Twister
+      INTEGER, PARAMETER :: M = 397                           ! Number of bits to shift
+      INTEGER, PARAMETER :: A = 2567483615                    ! Constant multiplier for Mersenne Twister
+      INTEGER, PARAMETER :: B = 2636928640                    ! Constant multiplier for Mersenne Twister
+      INTEGER, PARAMETER :: C = 4022730759                    ! Constant multiplier for Mersenne Twister
+      INTEGER, PARAMETER :: F = 1812433253                    ! Constant multiplier for Mersenne Twister
+      INTEGER, PARAMETER :: U = 11                            ! Shift value for tempering step 1
+      INTEGER, PARAMETER :: S = 7                             ! Shift value for tempering step 2
+      INTEGER, PARAMETER :: T = 15                            ! Shift value for tempering step 3
+      INTEGER, PARAMETER :: L = 18                            ! Shift value for tempering step 4
+      
+      INTEGER :: i, j                                         ! Declare loop variables
+      INTEGER :: seed(4)                                      ! Declare array to store seed values
+      INTEGER :: mt(N)                                        ! Declare array to store state vector for Mersenne Twister
+      INTEGER :: mti                                           ! Declare variable to keep track of position in state vector
+
+      ! Set initial seed values
+      seed(1) = 5489
+      seed(2) = 1791
+      seed(3) = 3572
+      seed(4) = 2797
+      
+      ! Initialize state vector with seed values
+      mt(1) = seed(1)
+      DO i = 2, N
+          mt(i) = MOD(F * (mt(i-1) XOR (mt(i-1) / (2**30))), 2**32) + i
+      END DO
+      
+      mti = N + 1                                              ! Set initial position in state vector
+      
+      ! Generate a random number using Mersenne Twister algorithm
+      DO i = 0, N-1
+          j = i + 1                                             ! Calculate j value for current position in state vector
+          
+          ! Perform tempering operations
+          IF (mti > N) THEN                                     ! Check if mti has exceeded the length of state vector
+              IF (j > N) THEN
+                  mt(j - N) = mt(i) XOR (mt(mti - N) / 2)
+                  mt(j) = mt(j-N) XOR (mti - N)
+              ELSE
+                  mt(j) = mt(i) XOR (mt(mti - N)/2)
+              END IF
+          ELSE
+              IF (j > N) THEN
+                  mt(j - N) = mt(i) XOR (mt(mti) / 2)
+                  mt(j) = mt(j-N) XOR (mti)
+              ELSE
+                  mt(j) = mt(i) XOR (mt(mti)/2)
+              END IF
+          END IF
+      END DO
+      
+      mti = 0                                                   ! Reset position in state vector
+      
+      DO i = 0, N - 1                                           ! Loop to perform tempering and generate random number
+          IF (mti < N) THEN                                     ! Check if mti is smaller than the state vector length
+              j = mti                                           ! If yes, set j value to mti
+          ELSE
+              j = 0                                             ! If no, set j value to 0
+          END IF
+          
+          ! Perform tempering operations
+          IF (j = 0) THEN
+              mt(mti) = mt(N) XOR (mt(0) / 2)
+          ELSE
+              mt(mti) = mt(j - 1) XOR (mt(j) / 2)
+          END IF
+          
+          mti = mti + 1                                         ! Update position in state vector
+      END DO
+      
+      ! Apply final tempering operations
+      mt(0) = 0x80000000
+      mt(N) = mt(i) XOR mt(j)
+      IF ((mt(N) % 2) /= 0) THEN
+          mt(N) = mt(N) XOR A
+      END IF
+      mt(0) = mt(0) XOR (mt(N) / 2)
+      mt(N) = mt(N) XOR (mt(0) / 2)
+      mt(N) = mt(N) XOR (B * mt(0))
+      mt(0) = mt(0) XOR (C * mt(N))
+      mt(N) = mt(N) XOR (mt(0) / 2)
+      mt(0) = mt(0) XOR (mt(N) / 2)
+      
+      ! Use tempering to generate final random number
+      mt(N) = mt(i) XOR (mt(N) / (2**L))
+      mt(N) = mt(N) XOR (mt(j) / (2**T))
+      mt(N) = mt(i) XOR (mt(N) / (2**S))
+      mt(N) = mt(N) XOR (mt(j) / (2**U))
+      
+      PRINT *, mt(N)                                           ! Print final random number generated
+      
+  END PROGRAM random_number_generator                          ! End program

@@ -1,0 +1,50 @@
+// This code snippet is used to calculate the average salary of employees with various positions in a company
+
+#Если НЕ УстановленоЗначение(Справочники.Должности.Порядок()) Тогда // if the order of positions in the positions reference is not set, set it
+	Запрос = Новый Запрос;
+	Запрос.Текст = "ВЫБРАТЬ
+        |	Справочники.Должности.Ссылка КАК Должность,
+        |	Справочники.Должности.Порядок КАК Порядок
+        |ИЗ
+        |	Справочники.Должности КАК Справочник
+        |УПОРЯДОЧИТЬ ПО
+        |	Порядок";
+	ТаблицаПозиций = Запрос.Выполнить().Выгрузить(); // load the positions reference table into a table variable
+	Для Каждого Строка Из ТаблицаПозиций Цикл // loop through the table variable
+		Выборка = Справочники.Должности.Получить(Строка.Должность); // get the position reference based on the retrieved position ID
+		Выборка.Порядок = Строка.Порядок;
+		Выборка.Записать(); // save the position reference with the updated order value
+	КонецЦикла;
+КонецЕсли;
+
+Общий.ПроцедураПосчитатьСреднююЗарплатуПоДолжностям(Функция СреднеЗначение, ОтборДатаНач = ПустаяДата, ОтборДатаКон = ПустаяДата) Экспорт
+	Запрос = Новый Запрос; // create a new query
+	Запрос.Текст = "ВЫБРАТЬ
+		|	Средний(Зарплата) КАК СредняяЗарплата,
+		|	Должности.Наименование КАК Должность
+		|ИЗ
+		|	РегистрСведений.Зарплата КАК Зарплата
+		|		ЛЕВОЕ СОЕДИНЕНИЕ Справочники.Должности КАК Должности
+		|		ПО Зарплата.Должность = Должности.Ссылка
+		|ГДЕ
+		|	Зарплата.ДатаКон >= &ОтборДатаНач
+		|	И Зарплата.ДатаКон <= &ОтборДатаКон
+		|СГРУППИРОВАТЬ ПО
+		|	Должности.Наименование"; // select the average salary and position from the salary information register, with a filter on date range and grouped by position
+
+	Запрос.УстановитьПараметр("ОтборДатаНач", ОтборДатаНач); // set the filter parameters
+	Запрос.УстановитьПараметр("ОтборДатаКон", ОтборДатаКон);
+
+	Выборка = Запрос.Выполнить().Выбрать(); // execute the query and get the result set
+	ВыходныеДанные = Новый ТаблицаЗначений; // create a new table variable to store the output data
+
+	Пока Выборка.Следующий() Цикл
+		Строка = ВыходныеДанные.Добавить(); // add a new row to the table
+		Строка.СредняяЗарплата = Выборка.СредняяЗарплата; // populate the row with the data from the result set
+		Строка.Должность = Выборка.Должность;
+	КонецЦикла;
+
+	СреднеЗначение = ВыходныеДанные; // set the function output to the table variable with the data
+
+	Возврат; // return the output data
+КонецФункции

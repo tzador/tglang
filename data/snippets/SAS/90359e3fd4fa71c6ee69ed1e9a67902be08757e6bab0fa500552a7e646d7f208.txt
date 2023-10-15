@@ -1,0 +1,37 @@
+/* This code snippet generates a list of unique IDs for a dataset */
+
+/* Create a macro variable to store the dataset name */
+%let dataset = mydataset;
+/* Create a temporary dataset with the IDs and their corresponding observations in the original dataset */
+proc sql;
+	create table temp as
+		select distinct ID, count(*) as num_obs
+		from &dataset
+		group by ID;
+quit;
+
+/* Create a global macro variable to store the total number of observations in the original dataset */
+%let total_obs = %sysfunc(attrn(&dataset, NLOBS));
+
+/* Create a datastep to generate the unique IDs */
+data &dataset;
+	set temp;
+	/* Loop through every observation in the temporary dataset */
+	do i = 1 to num_obs;
+		/* Generate a unique ID by combining the original ID with a sequential number */
+		ID_gen = catx('_', ID, i);
+		/* Check if the new unique ID already exists in the dataset */
+		if _n_ > &total_obs and _n_ < &total_obs + num_obs then
+			/* If it does, increment the sequential number until a unique ID is generated */
+			do while (ID_gen in (ID):);
+				i + 1;
+				ID_gen = catx('_', ID, i);
+			end;
+		/* Add the new unique ID to the dataset */
+		output;
+		/* Increase the total number of observations in the dataset */
+		&total_obs + 1;
+	end;
+	/* Drop the temporary variables */
+	drop i num_obs;
+run;

@@ -1,0 +1,170 @@
+# Basic NGINX server configuration file
+
+# Set the user that will run NGINX
+user nginx;
+
+# Set the number of worker processes to run
+worker_processes auto;
+
+# Set the maximum number of connections per worker process
+# Note: This value depends on the amount of RAM available on the server
+worker_connections 1024;
+
+# Enable the NGINX status page
+# Note: This is useful for monitoring and debugging NGINX
+# To access the status page, go to http://<server_ip>/nginx_status
+# Note: Replace <server_ip> with the IP address of your server
+# Note: You can also restrict access to the status page by specifying a whitelist of IP addresses
+# For example: allow 127.0.0.1; allow 192.168.0.1/24;
+# For more information, read the NGINX documentation
+# https://nginx.org/en/docs/http/ngx_http_stub_status_module.html
+# https://nginx.org/en/docs/http/ngx_http_access_module.html
+location /nginx_status {
+    stub_status on;
+    access_log off;
+    allow all;
+}
+
+# Configure the path for the default NGINX error log
+# Note: You can also specify a different path for each server block
+# For example: error_log /var/log/nginx/error.log;
+# For more information, read the NGINX documentation
+# https://nginx.org/en/docs/ngx_core_module.html#error_log
+error_log /var/log/nginx/error.log warn;
+
+# Configure the path for the default NGINX access log
+# Note: You can also specify a different path for each server block
+# For example: access_log /var/log/nginx/access.log main;
+# For more information, read the NGINX documentation
+# https://nginx.org/en/docs/http/ngx_http_log_module.html
+access_log /var/log/nginx/access.log combined;
+
+# Configure NGINX to serve static files
+# Note: Replace <path_to_files> with the absolute path to your static files directory
+# For example: /var/www/html;
+# Note: You can also have multiple 'root' directives to serve files from different locations
+# e.g. root /var/www/html; root /var/www/public;
+# For more information, read the NGINX documentation
+# https://nginx.org/en/docs/http/ngx_http_core_module.html#root
+root <path_to_files>;
+
+# Enable gzip compression for text-based resources
+# Note: This can greatly reduce the size of your files and improve website loading speed
+# For more information, read the NGINX documentation
+# https://nginx.org/en/docs/http/ngx_http_gzip_module.html
+gzip on;
+gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+# Enable NGINX caching
+# Note: Replace <path_to_cache> with the absolute path to your cache directory
+# For example: /var/cache/nginx;
+# Note: You can also specify a cache zone and a value for maximum size of the cache
+# For more information, read the NGINX documentation
+# https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_cache_path
+proxy_cache_path <path_to_cache> levels=1:2 keys_zone=cache:10m inactive=60m;
+proxy_cache_key "$scheme$request_method$host$request_uri";
+
+# Configure server block to listen for HTTP requests on port 80
+server {
+    listen 80;
+    server_name <server_domain_or_ip>;
+
+    # Configure root location to serve index.html file
+    # Note: Replace <path_to_index> with the absolute path to your index file
+    # For example: /var/www/html/index.html;
+    root <path_to_index>;
+
+    # Configure error pages
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+
+    # Configure default index file
+    index index.html;
+
+    # Configure caching for static resources
+    location ~* \.(js|css|png|jpg|jpeg|gif|svg)$ {
+        expires 7d;
+        add_header Cache-Control "public, max-age=604800, must-revalidate";
+    }
+
+    # Configure reverse proxy for backend server
+    location / {
+        # Replace <backend_server_domain_or_ip> and <backend_server_port> with your backend server details
+        # For example: proxy_pass http://127.0.0.1:8000; 
+        proxy_pass http://<backend_server_domain_or_ip>:<backend_server_port>;
+        proxy_redirect off;
+
+        # Configure request and response headers
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # Configure server timeout and maximum number of retries
+        proxy_connect_timeout 30s;
+        proxy_read_timeout 60s;
+        proxy_send_timeout 90s;
+        proxy_next_upstream error timeout http_500 http_502 http_503;
+        proxy_max_temp_file_size 0;
+
+        # Enable HTTP/2 protocol for proxy
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+
+# Configure server block to listen for HTTPS requests on port 443
+server {
+    listen 443 ssl;
+    server_name <server_domain_or_ip>;
+
+    # Configure SSL certificate and key
+    # Note: Replace <path_to_cert> and <path_to_key> with the absolute paths to your certificate and key files
+    # For more information on generating an SSL certificate and key, read the NGINX documentation
+    # https://nginx.org/en/docs/http/configuring_https_servers.html
+    ssl_certificate <path_to_cert>;
+    ssl_certificate_key <path_to_key>;
+
+    # Configure root location to serve index.html file
+    # Note: Replace <path_to_index> with the absolute path to your index file
+    # For example: /var/www/html/index.html;
+    root <path_to_index>;
+
+    # Configure error pages
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+
+    # Configure default index file
+    index index.html;
+
+    # Configure caching for static resources
+    location ~* \.(js|css|png|jpg|jpeg|gif|svg)$ {
+        expires 7d;
+        add_header Cache-Control "public, max-age=604800, must-revalidate";
+    }
+
+    # Configure reverse proxy for backend server
+    location / {
+        # Replace <backend_server_domain_or_ip> and <backend_server_port> with your backend server details
+        # For example: proxy_pass http://127.0.0.1:8000; 
+        proxy_pass http://<backend_server_domain_or_ip>:<backend_server_port>;
+        proxy_redirect off;
+
+        # Configure request and response headers
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # Configure server timeout and maximum number of retries
+        proxy_connect_timeout 30s;
+        proxy_read_timeout 60s;
+        proxy_send_timeout 90s;
+        proxy_next_upstream error timeout http_500 http_502 http_503;
+        proxy_max_temp_file_size 0;
+
+        # Enable HTTP/2 protocol for proxy
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}

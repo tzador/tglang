@@ -1,0 +1,36 @@
+REPORT Z_SAP_CONVERSION.
+* This program is used to convert currency using exchange rates provided by SAP.
+* The input currency is converted to the target currency based on the current exchange rate from SAP.
+DATA: lv_curr TYPE curren, "Input currency code
+      lv_amt TYPE p DECIMALS 2, "Input amount
+      lv_target TYPE curren, "Target currency code
+      lv_rate TYPE exchng, "Exchange rate
+      lv_result TYPE p DECIMALS 2, "Converted amount
+      ls_rate TYPE bapiexchrt, "Exchange rate structure
+      lwa_msg TYPE bapireturn. "Return message structure
+
+* Get current exchange rate for the input currency to the target currency from SAP
+CALL FUNCTION 'BAPI_EXCHANGERATE_GETDETAIL'
+  EXPORTING
+    date            = sy-datum "Use current date for conversion
+    exch_rate_type  = 'M',
+    sourcecurrency  = lv_curr,
+    targetcurrency  = lv_target
+  IMPORTING
+    exch_rate       = lv_rate "Exchange rate
+  TABLES
+    exch_rate_bapis = ls_rate  "Exchange rate structure
+    return          = lwa_msg. "Return message
+
+* Check if there are any errors in the return message
+IF lwa_msg-type EQ 'E'.
+  MESSAGE s000(z_abap) WITH 'Error in retrieving exchange rate from SAP'.
+  EXIT.
+ENDIF.
+
+* Perform the currency conversion using the retrieved exchange rate
+COMPUTE lv_result = lv_amt * lv_rate.
+
+* Display the conversion result
+WRITE: 'Input amount', lv_amt, 'in', lv_curr, 'converted to', lv_target,
+      'using exchange rate', lv_rate, 'is', lv_result.

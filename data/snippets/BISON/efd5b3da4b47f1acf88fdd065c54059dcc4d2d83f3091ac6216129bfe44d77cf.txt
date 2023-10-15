@@ -1,0 +1,135 @@
+%token <value> NUMBER /* A numbered token for storing integer values */
+%token <identifier> ID /* An identifier token for storing variable names */
+%start expression /* Specifies the starting rule for the BISON parser */
+
+%% /* The grammar rules for the BISON parser */
+expression: /* Rule for parsing mathematical expressions */ 
+    expression '+' expression { /* When two expressions are added */ 
+        $$ = $1 + $3; /* Assigns the result of the addition to the variable $$. */ 
+    } 
+    | expression '-' expression { /* When two expressions are subtracted */ 
+        $$ = $1 - $3; /* Assigns the result of the subtraction to the variable $$. */ 
+    } 
+    | expression '*' expression { /* When two expressions are multiplied */ 
+        $$ = $1 * $3; /* Assigns the result of the multiplication to the variable $$. */ 
+    } 
+    | expression '/' expression { /* When two expressions are divided */ 
+        $$ = $1 / $3; /* Assigns the result of the division to the variable $$. */ 
+    } 
+    | '(' expression ')' { /* When an expression is surrounded by parentheses */ 
+        $$ = $2; /* Assigns the value inside the parentheses to the variable $$. */ 
+    } 
+    | ID { /* When an identifier token is encountered */ 
+        $$ = $1; /* Assigns the value of the identifier to the variable $$. */ 
+    } 
+    | NUMBER { /* When a number token is encountered */ 
+        $$ = $1; /* Assigns the value of the number to the variable $$. */ 
+    } 
+    ; /* End of rule for parsing mathematical expressions */
+
+%% /* The code for the main function */
+int main() { 
+    yylex(); /* Calls the scanner function to get the next token */ 
+    yyparse(); /* Calls the parser function to parse the tokens */ 
+    return 0; 
+} 
+
+/* The code for the scanner function */
+int yylex() {
+    char c; /* Variable for storing current character */ 
+    yylval.value = 0; /* Initializes the value to 0 */ 
+
+    /* Skips any whitespace characters */ 
+    while ((c = getchar()) == ' ' || c == '\t' || c == '\n') { 
+        continue; 
+    } 
+
+    /* Checks for any valid operators and returns appropriate token */ 
+    if (c == '+') { /* Addition operator */ 
+        return ADD; 
+    } else if (c == '-') { /* Subtraction operator */ 
+        return SUB; 
+    } else if (c == '*') { /* Multiplication operator */ 
+        return MULT; 
+    } else if (c == '/') { /* Division operator */ 
+        return DIV; 
+    } else if (c == '(') { /* Left parenthesis */ 
+        return LPAREN; 
+    } else if (c == ')') { /* Right parenthesis */ 
+        return RPAREN; 
+    } else if (isalpha(c)) { /* Checks if current character is a letter */ 
+        /* Reads all characters until the end of identifier is reached */ 
+        while (isalnum((c = getchar()))) { 
+            yytext[yyleng++] = c; 
+        } 
+        /* Adds a null termination character at the end of identifier */ 
+        yytext[yyleng] = '\0'; 
+        return ID; /* Returns identifier token */ 
+    } else if (isdigit(c)) { /* Checks if current character is a digit */ 
+        /* Reads all characters until the end of number is reached */ 
+        while (isdigit((c = getchar()))) { 
+            yytext[yyleng++] = c; 
+        } 
+        /* Adds a null termination character at the end of number */ 
+        yytext[yyleng] = '\0'; 
+        /* Converts the string of digits to an integer value */ 
+        yylval.value = atoi(yytext); 
+        return NUMBER; /* Returns number token */ 
+    } 
+
+    /* If none of the above cases match, returns an error token */ 
+    return ERROR; 
+} 
+
+/* The code for the parser function */
+void yyparse() { 
+    printf("%d\n",expression()); /* Calls the expression rule and prints the result */ 
+} 
+
+/* The code for the expression rule */
+int expression() { 
+    int result; /* Variable for storing the result of the expression */ 
+    switch (yylex()) { 
+        case ADD: /* Addition case */ 
+            result = expression() + expression(); /* Recursively evaluates the two expressions and adds them */ 
+            break; 
+        case SUB: /* Subtraction case */ 
+            result = expression() - expression(); /* Recursively evaluates the two expressions and subtracts them */ 
+            break; 
+        case MULT: /* Multiplication case */ 
+            result = expression() * expression(); /* Recursively evaluates the two expressions and multiplies them */ 
+            break; 
+        case DIV: /* Division case */ 
+            result = expression() / expression(); /* Recursively evaluates the two expressions and divides them */ 
+            break; 
+        case LPAREN: /* Left parenthesis case */ 
+            result = expression(); /* Evaluates the inner expression */ 
+            match(RPAREN); /* Checks for a matching right parenthesis */ 
+            break; 
+        case ID: /* Identifier case */ 
+            result = yylval.value; /* Gets the value of the identifier */ 
+            break; 
+        case NUMBER: /* Number case */ 
+            result = yylval.value; /* Gets the value of the number */ 
+            break; 
+        default: /* Error case */ 
+            yyerror("Invalid expression!"); /* Prints an error message */ 
+            break; 
+    } 
+    return result; /* Returns the final result of the expression */ 
+} 
+
+/* The code for the match function, used for error checking */
+void match(int token) { 
+    if (yylex() == token) { /* Checks if the current token matches the expected token */ 
+        return; /* If so, returns */ 
+    } else { 
+        yyerror("Syntax error!"); /* Otherwise, prints an error message */ 
+    } 
+} 
+
+/* The code for the error handling function */
+void yyerror(char *message) { 
+    printf("%s\n", message); /* Prints the error message to the console */ 
+    exit(1); /* Exits the program with an error code */ 
+}

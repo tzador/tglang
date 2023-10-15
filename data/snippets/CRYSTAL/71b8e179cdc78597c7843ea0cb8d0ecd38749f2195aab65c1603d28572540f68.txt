@@ -1,0 +1,31 @@
+# Unique constraint for models
+macro unique_constraint(field)
+  sql = "UNIQUE KEY (#{field})"
+  model_name = self.to_s.downcase
+  property = self.property(field)
+
+  # Add a compile-time check that field exists on model
+  {% if property %}
+    model_fields = {{ model_name }}.fields
+
+    # Create a compile-time error if field is not marked as unique
+    unless model_fields[property].unique?
+      raise "Field '#{field}' in model '#{model_name}' must be marked as unique"
+    {% else %}
+      # If field does not exist, raise a compile-time error
+      raise "Field '#{field}' does not exist on model '#{model_name}'"
+    {% endif %}
+
+    # Create compile-time context to access model fields
+    env = {% for field in model_fields %}
+            {% if field == property %}
+              compile_constraint(times_to_s(field.name), property, property.type, property.options)
+            {% endif %}
+          {% endfor %}
+  {% endif %}
+
+  {% if env %}
+    # Bind constraint creation to compile-time environment
+    {% env print(sql) %}
+  {% endif %}
+end

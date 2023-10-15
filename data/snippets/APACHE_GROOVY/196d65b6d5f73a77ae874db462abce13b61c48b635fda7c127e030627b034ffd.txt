@@ -1,0 +1,33 @@
+@GrabResolver(name='spark-packages', root='https://dl.bintray.com/spark-packages/maven/')
+@Grab(group='org.apache.spark', module='spark-core_2.11', version='2.4.5')
+import org.apache.spark.SparkConf
+import org.apache.spark.api.java.JavaSparkContext
+
+// Creates a Spark configuration with custom settings
+SparkConf conf = new SparkConf()
+conf.setAppName("WordCount")
+conf.setMaster("local[*]") // Run Spark locally with as many worker threads as logical cores in local machine
+
+// Creates a Spark context (the main entry point for Spark functionality) with the configuration
+JavaSparkContext sc = new JavaSparkContext(conf)
+
+// Reads the input file and creates an RDD (Resilient Distributed Dataset) of lines
+def textFile = sc.textFile("input.txt")
+
+// Splits each line into words and creates a new RDD of words (using flatMap)
+def wordsRDD = textFile.flatMap { line -> line.split(" ") }
+
+// Maps each word to a tuple of (word, 1) and then reduces by key (word) to count the number of occurrences
+def wordCounts = wordsRDD.map { word -> (word, 1) }.reduceByKey { a, b -> a + b }
+
+// Collects the results and sorts them in descending order by the count value
+def sortedWordCounts = wordCounts.collect().sort { it[1] }.reverse()
+
+// Prints the top 10 most frequent words
+println("Top 10 most frequent words:")
+sortedWordCounts.take(10).each { wordCount ->
+    println("${wordCount[0]} - ${wordCount[1]} occurrences")
+}
+
+// Stops the Spark context
+sc.stop()

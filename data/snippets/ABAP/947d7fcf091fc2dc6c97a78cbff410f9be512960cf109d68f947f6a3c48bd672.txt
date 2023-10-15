@@ -1,0 +1,83 @@
+*&---------------------------------------------------------------------*
+*& Report  ZTEST_REPORT
+*&---------------------------------------------------------------------*
+*& Author: John Smith
+*& Date: 14/08/2021
+*& Description: This ABAP report generates a sales report with various filters
+*&---------------------------------------------------------------------*
+
+REPORT ZTEST_REPORT.
+
+*Tables Declaration*
+TABLES: SPFLI, SFLIGHT, SBOOK, SCARR.
+
+*Selection-Screen Definition*
+SELECTION-SCREEN BEGIN OF BLOCK filters WITH FRAME TITLE text-001.
+ PARAMETERS:
+ 	p_carrier TYPE SPFLI-CARRID,
+ 	p_start_loc TYPE SPFLI-CONNID,
+ 	p_end_loc TYPE SPFLI-CONNID,
+ 	p_currency TYPE SPFLI-CURRCODE DEFAULT 'USD',
+ 	p_date TYPE SY-DATUM DEFAULT SY-DATUM.
+SELECT-OPTIONS: s_dep_date FOR SFLIGHT-FLDATE. 
+*Currency dropdown list*
+SELECT-OPTIONS: s_currency FROM MARA WHERE MATKL = 'CURRENCY'.
+SELECTION-SCREEN END OF BLOCK filters.
+
+*Inline Declaration*
+DATA:
+   ld_total TYPE p DECIMALS 2,
+   ld_total_converted TYPE p DECIMALS 2.
+
+*Internal Table Declarations*
+DATA: lt_sbook TYPE TABLE OF SBOOK,
+	  lt_scar TYPE TABLE OF SCARR.
+
+*Fetch required data*
+START-OF-SELECTION.
+
+SELECT * FROM SPFLI
+WHERE CARRID = p_carrier
+AND AIRPFROM = p_start_loc
+AND AIRPTO = p_end_loc
+INTO CORRESPONDING FIELDS OF TABLE lt_sflights.
+
+*Check if any data was found*
+IF lt_sflights IS INITIAL.
+	MESSAGE e001(ZTEST_REPORT) WITH 'No Data Found'.
+ENDIF.
+
+LOOP AT lt_sflights ASSIGNING FIELD-SYMBOL(<fs_flight>).
+
+	SELECT SINGLE * FROM SCARR INTO CORRESPONDING FIELDS OF TABLE lt_scar 
+	WHERE CARRID = <fs_flight>-CARRID.
+
+	SELECT SINGLE NETWR INTO <fs_flight>-PRICE FROM SBOOK WHERE CARRID = <fs_flight>-CARRID.
+
+	*Calculate total sales in USD* 
+	ld_total = <fs_flight>-PRICE * <fs_flight>-SEATSMAX.
+
+	*Convert to selected currency*
+	CALL FUNCTION 'CONVERT_TO_FOREIGN_CURRENCY'
+	EXPORTING
+		amount = ld_total
+		currfactor = s_currency
+	IMPORTING
+	   foreign_amount = ld_total_converted.
+
+	<fs_flight>-PRICE = ld_total_converted.
+	
+ENDLOOP.
+
+*Output*
+WRITE: 'Sales Report for Carriers', p_carrier.
+WRITE: 'From', p_start_loc, 'To', p_end_loc, 'As of', p_date.
+WRITE: 'Currency Selected:', p_currency.
+
+LOOP AT lt_sflights ASSIGNING FIELD-SYMBOL(<fs_flight>).
+WRITE: / <fs_flight>-CARRID, <fs_flight>-CITYFROM, <fs_flight>-CITYTO,
+<fs_flight>-FLDATE, <fs_flight>-PRICE, <fs_flight>-CURRENCY.
+ENDLOOP.
+
+*End of Report*
+END-OF-SELECTION.

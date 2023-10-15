@@ -1,0 +1,162 @@
+/*
+This is a complex code snippet that implements a 
+perlin noise algorithm to generate procedural terrain.
+*/
+
+class TerrainGenerator extends Object
+    placeable;
+
+/*
+Defines the size and scale of the terrain to be generated
+*/
+var const int MAP_SIZE = 128; //size of the terrain
+var const int SCALE = 4; //scale of the terrain
+
+/*
+Array to store the height values of each point in the terrain
+*/
+var array<float> heightMap;
+
+/*
+Function to generate the heightmap using perlin noise
+@param xCoord - x-coordinate of the current point
+@param yCoord - y-coordinate of the current point
+@return - height value for the current point
+*/
+function float perlinNoise(float xCoord, float yCoord)
+{
+    local float height = 0.0; //initialize height to 0
+    
+    //loop through a number of octaves to get a smoother result
+    for (local int octave = 1; octave <= 4; octave++)
+    {
+        //calculate frequency and amplitude for each octave
+        local float freq = pow(2, octave);
+        local float amp = pow(0.5, octave);
+        
+        //calculate the noise value using the current octave values
+        local float noiseValue = amp * (PerlinNoise1D(freq * xCoord) + PerlinNoise1D(freq * yCoord));
+        
+        //add the noise value to the current height
+        height += noiseValue;
+    }
+    return height;
+}
+
+/*
+Function to generate the terrain using the heightmap
+*/
+function GenerateTerrain()
+{
+    //loop through each point in the terrain
+    for (local int x = 0; x < MAP_SIZE; x++)
+    {
+        for (local int y = 0; y < MAP_SIZE; y++)
+        {
+            //calculate the height value for the current point using perlin noise
+            local float height = perlinNoise(x/SCALE, y/SCALE);
+            
+            //store the height value in the height map array
+            heightMap[x + y * MAP_SIZE] = height;
+        }
+    }
+}
+
+/*
+Function to flatten the terrain above a certain threshold
+@param threshold - the threshold above which the terrain will be flattened
+*/
+function FlattenTerrain(float threshold)
+{
+    //loop through each point in the terrain
+    for (local int x = 0; x < MAP_SIZE; x++)
+    {
+        for (local int y = 0; y < MAP_SIZE; y++)
+        {
+            //check if the height value for the current point is above the threshold
+            if (heightMap[x + y * MAP_SIZE] > threshold)
+            {
+                //set the height value to the threshold
+                heightMap[x + y * MAP_SIZE] = threshold;
+            }
+        }
+    }
+}
+
+/*
+Function to add noise to the terrain within a certain range
+@param minValue - the minimum value of the noise range
+@param maxValue - the maximum value of the noise range
+*/
+function AddNoiseToTerrain(float minValue, float maxValue)
+{
+    //loop through each point in the terrain
+    for (local int x = 0; x < MAP_SIZE; x++)
+    {
+        for (local int y = 0; y < MAP_SIZE; y++)
+        {
+            //calculate a random noise value within the specified range
+            local float noise = FMath.RandRange(minValue, maxValue);
+            
+            //add the noise value to the current height value
+            heightMap[x + y * MAP_SIZE] += noise;
+        }
+    }
+}
+
+/*
+Function to smooth the terrain using a simple averaging method
+@param iterations - the number of smoothing iterations to perform
+*/
+function SmoothTerrain(int iterations)
+{
+    //loop through the specified number of iterations
+    for (local int i = 0; i < iterations; i++)
+    {
+        //loop through each point in the terrain
+        for (local int x = 1; x < MAP_SIZE - 1; x++)
+        {
+            for (local int y = 1; y < MAP_SIZE - 1; y++)
+            {
+                //calculate the average of the eight neighboring height values
+                local float average = (heightMap[x-1 + (y-1)*MAP_SIZE] + heightMap[x + (y-1)*MAP_SIZE] + 
+                                       heightMap[x+1 + (y-1)*MAP_SIZE] + heightMap[x-1 + y*MAP_SIZE] + 
+                                       heightMap[x + y*MAP_SIZE] + heightMap[x+1 + y*MAP_SIZE] + 
+                                       heightMap[x-1 + (y+1)*MAP_SIZE] + heightMap[x + (y+1)*MAP_SIZE] + 
+                                       heightMap[x+1 + (y+1)*MAP_SIZE]) / 9.0;
+                
+                //set the current height value to the average
+                heightMap[x + y * MAP_SIZE] = average;
+            }
+        }
+    }
+}
+
+/*
+Example usage of the terrain generator
+*/
+simulated function BeginPlay()
+{
+    Super.BeginPlay();
+    
+    //generate the terrain
+    GenerateTerrain();
+    
+    //flatten the terrain above a certain threshold
+    FlattenTerrain(20.0);
+    
+    //add noise to the terrain
+    AddNoiseToTerrain(-5.0, 5.0);
+    
+    //smooth the terrain
+    SmoothTerrain(5);
+    
+    //print out the heightmap to the log for debugging
+    for (local int x = 0; x < MAP_SIZE; x++)
+    {
+        for (local int y = 0; y < MAP_SIZE; y++)
+        {
+            `Log("Height at (${x}, ${y}) is ${heightMap[x + y * MAP_SIZE]}");
+        }
+    }
+}

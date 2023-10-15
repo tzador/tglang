@@ -1,0 +1,51 @@
+/*
+This code snippet merges two datasets, orders and customers, based on the common customer ID.
+First, the datasets are merged using a join statement and then sorted by customer ID.
+The resulting dataset is then passed through a macro which calculates the total amount spent by each customer.
+*/
+
+/* Set up macro variables for input dataset names and output dataset name */
+%let orders = orders;
+%let customers = customers;
+%let output = merged_data;
+
+/* Merge orders and customers using a left join and create the output dataset */
+data &output;
+    merge &orders (in=a)
+          &customers (in=b);
+    by customer_id;
+    if a;
+run;
+
+/* Sort the output dataset by customer ID */
+proc sort data=&output;
+    by customer_id;
+run;
+
+/* Create a macro to calculate the total amount spent by each customer */
+%macro total_amount(dataset);
+    
+    /* Calculate the sum of all orders by customer using the SUM function */
+    proc sql;
+        create table &dataset._sum as
+        select customer_id, sum(order_amount) as total_amount
+        from &dataset
+        group by 1;
+    
+    /* Merge the total amount with the original dataset using a left join */
+    data &dataset;
+        merge &dataset (in=a)
+              &dataset._sum (in=b);
+        by customer_id;
+        if a;
+    run;
+    
+    /* Drop the redundant total_amount column */
+    proc datasets lib=work nodetails nolist;
+        modify &dataset;
+        drop total_amount;
+    quit;
+    %mend;
+    
+/* Call the macro on the merged dataset */
+%total_amount(&output);

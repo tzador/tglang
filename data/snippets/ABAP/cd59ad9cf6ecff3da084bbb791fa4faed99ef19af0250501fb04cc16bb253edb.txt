@@ -1,0 +1,79 @@
+*&---------------------------------------------------------------------*
+*& Report YEXAMPLE_REPORT
+*&---------------------------------------------------------------------*
+REPORT yexample_report.
+
+* Define additional fields for display in the ALV grid
+DATA: lt_fields TYPE slis_t_fieldcat_alv,
+      ls_field  TYPE slis_fieldcat_alv.
+
+* Define structure for the output table
+DATA: BEGIN OF ls_output,
+        matnr TYPE mara-matnr,
+        maktx TYPE makt-maktx,
+        bukrs TYPE bkpf-bukrs,
+        belnr TYPE bkpf-belnr,
+        gjahr TYPE bkpf-gjahr,
+      END OF ls_output.
+
+* Define table for output
+DATA: lt_output TYPE TABLE OF ls_output.
+
+* Define selection screen parameters
+PARAMETERS: p_matnr TYPE mara-matnr OBLIGATORY,
+            p_bukrs TYPE bkpf-bukrs OBLIGATORY.
+
+* Fetch data from MARA and MBEW
+SELECT matnr maktx
+  FROM mara
+  INTO TABLE @DATA(lt_mara)
+  WHERE matnr = @p_matnr.
+
+SELECT bukrs belnr gjahr
+  FROM bkpf
+  INTO TABLE @DATA(lt_bkpf)
+  WHERE bukrs = @p_bukrs.
+
+* Join the data from MARA and MBEW into the output table
+LOOP AT lt_mara INTO DATA(ls_mara).
+  LOOP AT lt_bkpf INTO DATA(ls_bkpf).
+    ls_output = VALUE #( matnr = ls_mara-matnr
+                         maktx = ls_mara-maktx
+                         bukrs = ls_bkpf-bukrs
+                         belnr = ls_bkpf-belnr
+                         gjahr = ls_bkpf-gjahr ).
+    APPEND ls_output TO lt_output.
+  ENDLOOP.
+ENDLOOP.
+
+* Configure field catalog for ALV grid
+ls_field-fieldname = 'MATNR'.
+ls_field-ref_tabname = 'MARA'.
+ls_field-ref_fieldname = 'MATNR'.
+APPEND ls_field TO lt_fields.
+
+ls_field-fieldname = 'MAKTX'.
+ls_field-ref_tabname = 'MAKT'.
+ls_field-ref_fieldname = 'MAKTX'.
+APPEND ls_field TO lt_fields.
+
+ls_field-fieldname = 'BUKRS'.
+ls_field-ref_tabname = 'BKPF'.
+ls_field-ref_fieldname = 'BUKRS'.
+APPEND ls_field TO lt_fields.
+
+ls_field-fieldname = 'BELNR'.
+ls_field-ref_tabname = 'BKPF'.
+ls_field-ref_fieldname = 'BELNR'.
+APPEND ls_field TO lt_fields.
+
+ls_field-fieldname = 'GJAHR'.
+ls_field-ref_tabname = 'BKPF'.
+ls_field-ref_fieldname = 'GJAHR'.
+APPEND ls_field TO lt_fields.
+
+* Display data in ALV grid
+CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+  EXPORTING
+    it_fieldcat = lt_fields
+    is_layout   = VALUE #( selmode = 'A' ).

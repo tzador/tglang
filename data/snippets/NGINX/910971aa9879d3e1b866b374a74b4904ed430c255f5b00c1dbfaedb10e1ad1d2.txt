@@ -1,0 +1,57 @@
+server {
+    # listen on port 80
+    listen 80;
+    
+    # server_name is set to example.com
+    server_name example.com;
+    
+    # root directory for serving files
+    root /var/www/html;
+    
+    # enable gzip compression
+    gzip on;
+    gzip_types text/plain text/css;
+    
+    location / {
+        # proxy all requests to port 3000
+        proxy_pass http://localhost:3000;
+        
+        # add headers to request
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Host $host;
+        
+        # enable caching
+        proxy_cache_bypass $http_pragma;
+        proxy_cache_valid 200 15m;
+    }
+    
+    location /api/ {
+        # proxy requests to a cluster of servers
+        proxy_pass http://api_cluster;
+        
+        # limit connections to 50
+        limit_conn conn_limit 50;
+        
+        # set timeout to 10 seconds
+        proxy_read_timeout 10s;
+        
+        # enable load balancing
+        proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+        
+        # add custom header to request
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+    
+    location /static/ {
+        # serve static files from another directory
+        root /var/www/static;
+        
+        # set max file size to 1GB
+        client_max_body_size 1G;
+        
+        # allow only GET requests
+        if ($request_method != GET){
+            return 405;
+        }
+    }
+}

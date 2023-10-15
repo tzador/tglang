@@ -1,0 +1,47 @@
+* Report to retrieve sales data based on date range
+REPORT sales_report.
+
+* Variables for date range inputs
+DATA: date_from TYPE d,
+      date_to TYPE d.
+
+* Prompt user for date range
+SELECTION-SCREEN: BEGIN OF BLOCK date_selection.
+PARAMETERS: p_date_from TYPE d,
+            p_date_to TYPE d.
+SELECTION-SCREEN: END OF BLOCK date_selection.
+
+* Check if date inputs are filled
+AT SELECTION-SCREEN OUTPUT.
+IF p_date_from IS INITIAL OR p_date_to IS INITIAL.
+  MESSAGE 'Please enter a date range.' TYPE 'E'.
+ENDIF.
+
+* Check if date inputs are valid
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_date_to.
+IF p_date_from > p_date_to.
+  MESSAGE 'Date From cannot be after Date To.' TYPE 'E'.
+ENDIF.
+
+* Retrieve sales data from database
+START-OF-SELECTION.
+
+  SELECT * FROM sales_table
+    INTO TABLE @DATA(lt_sales)
+    WHERE date BETWEEN @p_date_from AND @p_date_to.
+
+* Calculate total sales amount
+  DATA(total_amount) = 0.
+
+  LOOP AT lt_sales INTO DATA(ls_sale).
+    total_amount = total_amount + ls_sale-sales_amount.
+  ENDLOOP.
+
+* Output sales report
+  WRITE: / 'Sales Report from', p_date_from, 'to', p_date_to.
+  WRITE: / 'Total Sales Amount:', total_amount.
+
+* If no sales data found, output a message
+  IF lt_sales IS INITIAL.
+    WRITE: / 'No sales data found for specified date range.'.
+  ENDIF.

@@ -1,0 +1,70 @@
+# Required modules for NGINX configuration
+load_module modules/ngx_http_module.so;
+load_module modules/ngx_http_headers_module.so;
+load_module modules/ngx_http_fastcgi_module.so;
+
+# Set worker processes and connections
+worker_processes 2;
+worker_connections 1024;
+
+# Maintain open file handles
+open_file_cache max=1000 inactive=20s;
+open_file_cache_valid 30s;
+open_file_cache_min_uses 2;
+open_file_cache_errors on;
+
+# Main NGINX configuration
+http {
+    # Set log format
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" "$http_user_agent"';
+
+    # Set connection timeouts
+    keepalive_timeout 65;
+
+    # Enable gzip compression
+    gzip on;
+    gzip_types text/plain application/xml;
+
+    # Set default server
+    server {
+        listen 80;
+        server_name example.com;
+
+        # Set root directory
+        root /var/www/html;
+
+        # Route requests to index.html if no specific file is requested
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+
+        # Configure error pages
+        error_page 404 /404.html;
+        error_page 500 502 503 504 /50x.html;
+        location = /50x.html {
+          root /var/www/errors;
+        }
+    }
+    
+    # Add additional servers for different domains
+    server {
+        listen 80;
+        server_name subdomain.example.com;
+
+        # Set root directory for this server block
+        root /var/www/subdomain;
+
+        # Route requests to index.html if no specific file is requested
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+
+        # Configure error pages
+        error_page 404 /404.html;
+        error_page 500 502 503 504 /50x.html;
+        location = /50x.html {
+          root /var/www/errors;
+        }
+    }
+}

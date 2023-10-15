@@ -1,0 +1,105 @@
+// SPDX-License-Identifier: MIT
+
+pragma solidity ^0.8.0;
+
+//Importing SafeMath library for safe mathematical operations
+import "./SafeMath.sol";
+
+// Main contract to handle token transfer 
+contract MyToken {
+    using SafeMath for uint256;
+    
+    // Token's name
+    string public name;
+    // Token's symbol
+    string public symbol;
+    // Token's decimal value
+    uint8 public decimals;
+    // Fixed total supply of tokens 
+    uint256 private _totalSupply;
+    
+    // Mapping to track balance of each address
+    mapping (address => uint256) private _balances;
+    // Mapping to track allowance given by token owner for a specific spender
+    mapping (address => mapping(address => uint256)) private _allowances;
+    
+    // Events for transfer, approval and minting of tokens
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    event Mint(address indexed owner, uint256 amount);
+    
+    // Constructor that sets token's name, symbol, decimal value and total supply 
+    constructor(string memory _name, string memory _symbol, uint8 _decimals, uint256 _initialSupply) {
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+        _totalSupply = _initialSupply;
+        
+        // Mint full supply to contract creator
+        _balances[msg.sender] = _totalSupply;
+        emit Mint(msg.sender, _totalSupply);
+    }
+    
+    // Getter function for total supply 
+    function totalSupply() external view returns (uint256) {
+        return _totalSupply;
+    }
+    
+    // Getter function to check balance of an address 
+    function balanceOf(address _address) external view returns (uint256) {
+        return _balances[_address];
+    }
+    
+    // Getter function to check allowance given by token owner for a specific spender 
+    function allowance(address _owner, address _spender) external view returns (uint256) {
+        return _allowances[_owner][_spender];
+    }
+    
+    // Function to transfer tokens from the sender's address to a specific address
+    function transfer(address _to, uint256 _value) external returns (bool) {
+        require(_balances[msg.sender] >= _value, "Insufficient balance");
+        
+        // Subtract tokens from sender's balance 
+        _balances[msg.sender] = _balances[msg.sender].sub(_value);
+        // Add tokens to recipient's balance 
+        _balances[_to] = _balances[_to].add(_value);
+        emit Transfer(msg.sender, _to, _value);
+        
+        return true;
+    }
+    
+    // Function to approve a specific address to spend tokens on behalf of the token owner 
+    function approve(address _spender, uint256 _value) external returns (bool) {
+        _allowances[msg.sender][_spender] = _value;
+        emit Approval(msg.sender, _spender, _value);
+        
+        return true;
+    }
+    
+    // Function to transfer tokens from a specific address to another address if there is an allowance given by the token owner 
+    function transferFrom(address _from, address _to, uint256 _value) external returns (bool) {
+        require(_balances[_from] >= _value, "Insufficient balance");
+        require(_allowances[_from][msg.sender] >= _value, "Not enough allowance");
+        
+        // Subtract tokens from sender's balance 
+        _balances[_from] = _balances[_from].sub(_value);
+        // Add tokens to recipient's balance 
+        _balances[_to] = _balances[_to].add(_value);
+        // Update allowance 
+        _allowances[_from][msg.sender] = _allowances[_from][msg.sender].sub(_value);
+        emit Transfer(_from, _to, _value);
+        
+        return true;
+    }
+    
+    // Function to mint new tokens by the contract creator 
+    function mint(uint256 _amount) external {
+        // Only contract creator can call this function 
+        require(msg.sender == address(0), "Not allowed to mint");
+        
+        // Mint new tokens 
+        _totalSupply = _totalSupply.add(_amount);
+        _balances[msg.sender] = _balances[msg.sender].add(_amount);
+        emit Mint(msg.sender, _amount);
+    }
+}

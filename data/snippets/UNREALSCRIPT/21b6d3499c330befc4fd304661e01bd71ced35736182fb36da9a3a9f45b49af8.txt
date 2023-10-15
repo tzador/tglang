@@ -1,0 +1,164 @@
+/*
+ * This is a complex code snippet in UNREALSCRIPT.
+ * It shows how to create a custom character class with various properties and methods.
+ * Author: John Doe
+*/
+
+class CustomCharacter extends Actor
+    placeable; // This allows the character to be placed in the level.
+
+var int Health; // This determines the character's health.
+var bool IsAlive; // This tells if the character is alive or not.
+
+// The following variables are used for movement.
+var float Speed;
+var vector Direction;
+var bool bIsMoving;
+
+// The following variables are used for attacking.
+var int Damage;
+var float AttackRange;
+
+// Initialization function.
+function Init()
+{
+    Super.Init();
+
+    Health = 100;
+    IsAlive = true;
+    Speed = 300.0;
+    Direction = vect(1, 0, 0);
+    bIsMoving = false;
+    Damage = 50;
+    AttackRange = 100.0;
+}
+
+// Function to handle movement input.
+function Move(float DeltaTime)
+{
+    if (bIsMoving)
+    {
+        Vector NewLocation = Location + Direction * Speed * DeltaTime;
+        SetLocation(NewLocation);
+
+        // Simulate walking animation.
+        PlayAnim('Walk', 1.0, 0.2, 0.1, true);
+
+        // Check for collision with other actors.
+        foreach (TouchingActors(class 'Actor', OtherICP))
+        {
+            if (OtherICP.bBlockActors)
+            {
+                Stop();
+            }
+        }
+    }
+    else
+    {
+        Stop();
+    }
+}
+
+// Function to handle attacking input.
+function Attack()
+{
+    // Play attack animation.
+    PlayAnim('Attack', 1.0, 0.2, 0.1, false);
+
+    // Check for collision with other actors within attack range.
+    foreach (TouchingActors(class 'CustomCharacter', OtherChar))
+    {
+        // Deal damage to other character.
+        OtherChar.TakeDamage(Damage);
+    }
+}
+
+// Function to handle taking damage.
+function TakeDamage(int DamageAmount)
+{
+    Health -= DamageAmount;
+
+    // Check if character is still alive.
+    if (Health <= 0)
+    {
+        IsAlive = false;
+
+        // Play death animation and remove from level.
+        PlayAnim('Death', 1.0, 0.2, 0.1, false);
+        Destroy();
+    }
+}
+
+// Function to handle death.
+function Destroy()
+{
+    Super.Destroy();
+
+    // Remove from level and spawn a ragdoll instead.
+    if (IsAlive)
+    {
+        RemoveFromInventory();
+        Spawn(class 'Ragdoll', Location, Rotation);
+    }
+}
+
+// Function to handle AI behavior.
+function AIController()
+{
+    // Get reference to player character.
+    local CustomCharacter PlayerCharacter;
+    PlayerCharacter = GetPlayerPawn(Level);
+
+    // Calculate distance to player.
+    local float DistanceToPlayer;
+    DistanceToPlayer = VSize(PlayerCharacter.Location - Location);
+
+    // If within attack range, attack player.
+    if (DistanceToPlayer <= AttackRange)
+    {
+        Attack();
+    }
+    else
+    {
+        // Move towards player.
+        Direction = Normal(PlayerCharacter.Location - Location);
+        bIsMoving = true;
+    }
+}
+
+defaultproperties
+{
+    Begin Object Class=StaticMeshComponent Name=Mesh
+        StaticMesh=StaticMesh'EngineMeshes.Cube'
+        BlockNonZeroExtent=true
+        BlockZeroExtent=true
+    End Object
+    Begin Object Name=CollisionCylinder
+        CollisionRadius=34.0
+        CollisionHeight=87.0
+    End Object
+    Begin Object Name=Sprite
+        Sprite=Texture2D'EditorResources.S_Actor'
+        Name="DefaultSpriteDrawing"
+        Hint="This is a custom character."
+    End Object
+    bFixedRotationDir=true
+    bMovable=true
+    bAttachToOwner=false
+    bCollideActors=true
+    CollisionComponent=CollisionCylinder
+    bCollideWorld=true
+    bCollideWhenPlacing=false
+    SpriteComponent=Sprite
+    Components=Sprite
+    Components.Add(Mesh)
+    Begin Object Name=CylProp0
+        PropertyFlags=(Caption="Mesh")
+    End Object
+    Begin Object Name=CylProp1
+        PropertyFlags=(Caption="Collision", Category="Collision")
+    End Object
+    Begin Object Name=CylProp2
+        PropertyFlags=(Caption="Sprite", Category="Config")
+    End Object
+}

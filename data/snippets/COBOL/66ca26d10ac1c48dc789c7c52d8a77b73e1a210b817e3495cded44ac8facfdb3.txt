@@ -1,0 +1,99 @@
+IDENTIFICATION DIVISION.                              
+       PROGRAM-ID. COMPLEX-CODE.                              
+
+       ENVIRONMENT DIVISION.                                
+       INPUT-OUTPUT SECTION.                                
+       FILE-CONTROL.                                        
+                                                              
+       SELECT INFILE ASSIGN TO 'complex_input_file.txt'.      
+       SELECT OUTFILE ASSIGN TO 'complex_output_file.txt'.    
+                                                              
+       DATA DIVISION.                                        
+       FILE SECTION.                                         
+       FD INFILE.                                            
+       01 INFILE-RECORD.                                     
+          05 INFILE-NAME       PIC X(20).                     
+          05 INFILE-AGE        PIC 99.                        
+          05 INFILE-GENDER     PIC X.                         
+       FD OUTFILE.                                           
+       01 OUTFILE-RECORD  PIC X(40).                          
+                                                              
+       WORKING-STORAGE SECTION.                              
+       01 NUM-YEARS           PIC 99.                         
+       01 NUM-MALES           PIC 99.                         
+       01 NUM-FEMALES         PIC 99.                         
+       01 TOTAL-YEARS         PIC 99.                         
+       01 PERCENT-MALES       PIC 9V9.                        
+       01 PERCENT-FEMALES     PIC 9V9.                        
+       01 TOTAL-COUNT         PIC 99.                         
+       01 PERCENT-TOTAL       PIC 9V9.                        
+       01 AGE-TABLE           PIC 99 OCCURS 100.              
+          05            PIC 99 VALUE 0                       
+       01 GENDER-TABLE        PIC 999 OCCURS 2.               
+          05            PIC 99 VALUE 0                       
+          05            PIC 999 VALUE 0                      
+       01 OUTPUT-STRING       PIC X(40).                      
+      
+       PROCEDURE DIVISION.                                    
+       OPEN INPUT INFILE.                                     
+       OPEN OUTPUT OUTFILE.                                   
+                                                              
+       PERFORM 10-TIMES                                        
+       READ INFILE                                             
+           AT END MOVE 'END-OF-FILE' TO OUTFILE-RECORD           
+           PERFORM END-OF-FILE-ROUTINE                         
+           GO TO EXIT                                          
+       END-READ                                                
+       PERFORM ADD-TO-AGE-TABLE                                
+       PERFORM ADD-TO-GENDER-TABLE                             
+       END-PERFORM.                                            
+                                                              
+       10-TIMES.                                               
+           READ INFILE NULL                                    
+               AT END MOVE 'END-OF-FILE' TO OUTFILE-RECORD      
+               PERFORM END-OF-FILE-ROUTINE                      
+               GO TO EXIT                                      
+               NOT AT END                                        
+                   IF INFILE-GENDER = 'M'                       
+                       ADD 1 TO NUM-MALES                       
+                   ELSE                                          
+                       ADD 1 TO NUM-FEMALES                   
+                   END-IF                                        
+               MOVE INFILE-AGE TO AGE-TABLE(INFILE-AGE)        
+           END-READ.                                          
+                                                              
+       ADD-TO-AGE-TABLE.                                      
+           DIVIDE INFILE-AGE BY 5                                
+               GIVING NUM-YEARS                                 
+               REMAINDER 0                                     
+           IF NUM-YEARS = 0                                     
+               ADD 1 TO AGE-TABLE(INFILE-AGE)                  
+           END-IF.                                             
+           ADD 1 TO TOTAL-YEARS.                                
+                                                              
+       ADD-TO-GENDER-TABLE.                                 
+           MOVE 'M' TO GENDER-TABLE(INFILE-AGE, 1).             
+           ADD 1 TO TOTAL-COUNT.                                
+                                                              
+       END-OF-FILE-ROUTINE.                                 
+           DIVIDE NUM-YEARS BY TOTAL-YEARS                       
+               GIVING PERCENT-TOTAL                             
+               MULTIPLY 100 BY PERCENT-TOTAL.                   
+           DIVIDE NUM-MALES BY TOTAL-COUNT                       
+               GIVING PERCENT-MALES                             
+               MULTIPLY 100 BY PERCENT-MALES.                   
+           DIVIDE NUM-FEMALES BY TOTAL-COUNT                     
+               GIVING PERCENT-FEMALES                           
+               MULTIPLY 100 BY PERCENT-FEMALES.                 
+           STRING AGE-TABLE(1:100) DELIMITED BY ';'             
+               DELIMITER SIZE ZERO                             
+               ' ' PERCENT-TOTAL                                 
+               ';' PERCENT-MALES                                 
+               ';' PERCENT-FEMALES                              
+               INTO OUTPUT-STRING.                             
+           WRITE OUTFILE-RECORD FROM OUTPUT-STRING.             
+                                                              
+       EXIT.                                                  
+       CLOSE INFILE.                                          
+       CLOSE OUTFILE.                                         
+       STOP RUN.

@@ -1,0 +1,138 @@
+class VoiceManager extends Object;
+
+var() config RemoteSpeaker IP;
+
+var() config RemoteSpeaker VoicePort;
+
+var private tribool bIsConnected;
+var float VoicePermissionDelay;
+var Object ConnectedSpeaker;
+
+// This method checks for a valid connection to the remote speaker.
+function bool IsConnected()
+{
+    return bIsConnected;
+}
+
+// This method sets up the connection to the remote speaker.
+function bool SetConnection(Object Speaker)
+{
+    // Connect to the remote speaker using its IP address and voice port.
+    ConnectedSpeaker = Connect(Speaker.IP, Speaker.VoicePort);
+
+    // If the connection is successful, set bIsConnected to true.
+    if (ConnectedSpeaker != None)
+    {
+        bIsConnected = true;
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+// This method sends voice data to the remote speaker.
+function bool SendVoiceData(byte[] VoiceData)
+{
+    // Check if there is a valid connection.
+    if (IsConnected())
+    {
+        // Send the voice data through the connected speaker.
+        ConnectedSpeaker.SendVoiceData(VoiceData);
+        return true;
+    }
+    else
+    {
+        // If there is no valid connection, try to set up a new one.
+        Object Speaker = new Class'Speaker';
+        if (SetConnection(Speaker))
+        {
+            // Once the new connection is set up, send the voice data through it.
+            ConnectedSpeaker.SendVoiceData(VoiceData);
+            return true;
+        }
+        else
+        {
+            // If even the new connection fails, return false.
+            return false;
+        }
+    }
+}
+
+// This method handles voice data received from the remote speaker.
+function HandleVoiceData(byte[] VoiceData)
+{
+    // Decode the received voice data.
+    DecodedVoiceData = DecodeVoiceData(VoiceData);
+
+    // Play the received voice data through the game's audio system.
+    PlayAudio(DecodedVoiceData);
+
+    // Acknowledge that the data has been received.
+    ConnectedSpeaker.ReceiveAcknowledgement();
+}
+
+// This method handles voice permission requests from the remote speaker.
+function HandleVoicePermissionRequest()
+{
+    // Check if the remote speaker has been granted permission before.
+    if (VoicePermissionDelay == 0.0)
+    {
+        // Set a delay before granting permission again.
+        VoicePermissionDelay = 5.0;
+
+        // Send a request for permission to the remote speaker.
+        ConnectedSpeaker.RequestVoicePermission();
+    }
+}
+
+// This method is called every frame and handles permission delays.
+function VoiceManagerTick(float DeltaTime)
+{
+    // If there is a permission delay, decrease it every frame.
+    if (VoicePermissionDelay != 0.0)
+    {
+        VoicePermissionDelay -= DeltaTime;
+    }
+    else
+    {
+        // Once the delay reaches 0, set it back to 0 to avoid negative values.
+        VoicePermissionDelay = 0.0;
+    }
+}
+
+// This method handles disconnect requests from the remote speaker.
+function HandleDisconnect()
+{
+    // Disconnect from the remote speaker.
+    Disconnect(ConnectedSpeaker.IP, ConnectedSpeaker.VoicePort);
+    
+    // Set bIsConnected to false.
+    bIsConnected = false;
+}
+
+// This method shuts down the VoiceManager and its connection.
+function ShutDown()
+{
+    // If there is a valid connection, disconnect from it.
+    if (IsConnected())
+    {
+        Disconnect(ConnectedSpeaker.IP, ConnectedSpeaker.VoicePort);
+    }
+    
+    // Reset all variables and shut down the VoiceManager.
+    bIsConnected = false;
+    VoicePermissionDelay = 0.0;
+    ConnectedSpeaker = None;
+}
+
+defaultproperties
+{
+    // Set default values for RemoteSpeaker IP and VoicePort.
+    RemoteSpeaker.IP = "192.168.0.1";
+    RemoteSpeaker.VoicePort = 7777;
+    
+    // Set default value for VoicePermissionDelay.
+    VoicePermissionDelay = 0.0;
+}

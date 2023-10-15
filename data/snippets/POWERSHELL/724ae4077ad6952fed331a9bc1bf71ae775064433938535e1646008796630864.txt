@@ -1,0 +1,79 @@
+# Function to check if current user is an admin
+function Test-Admin {
+    $user = $env:username
+    $group = "Administrators"
+    $checkAdmin = (net localgroup $group | select-string -pattern $user)
+    if($checkAdmin) {
+        return $true    # User is an admin
+    } else {
+        return $false   # User is not an admin
+    }
+}
+
+# Retrieve current user's SID
+$userSID = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+
+# Function to retrieve all local users
+function Get-LocalUsers {
+    $localUsers = net user | select-string -pattern "^(\w|-)+$"
+    $localUsers = $localUsers | foreach { $_ -replace ".*" } | Where-Object { $_ -ne "" }
+
+    return $localUsers
+}
+
+# Retrieve list of all users in local administrators group
+function Get-AdminUsers {
+    $group = "Administrators"
+    $localAdmins = net localgroup $group | select-string -pattern "^(\w|-)+$"
+    $localAdmins = $localAdmins | foreach { $_ -replace ".*" } | Where-Object { $_ -ne "" }
+
+    return $localAdmins
+}
+
+# Function to add user to local administrators group
+function Add-UserToAdmins {
+    Param (
+        [Parameter(Mandatory=$true)]
+        [string]$user
+    )
+
+    $group = "Administrators"
+    $query = "select * from win32_groupuser where groupcomponent=""Win32_Group.Domain='$env:ComputerName',Name='$group'"" and partcomponent=""Win32_UserAccount.Domain='$env:ComputerName',Name='$user'"""
+    $userExists = Get-CIMInstance -query $query
+    if(!$userExists) {
+        $addUser = "net localgroup $group $user /add"
+        Invoke-Expression $addUser
+    }
+}
+
+# Function to remove user from local administrators group
+function Remove-UserFromAdmins {
+    Param (
+        [Parameter(Mandatory=$true)]
+        [string]$user
+    )
+
+    $group = "Administrators"
+    $query = "select * from win32_groupuser where groupcomponent=""Win32_Group.Domain='$env:ComputerName',Name='$group'"" and partcomponent=""Win32_UserAccount.Domain='$env:ComputerName',Name='$user'"""
+    $userExists = Get-CIMInstance -query $query
+    if($userExists) {
+        $removeUser = "net localgroup $group $user /delete"
+        Invoke-Expression $removeUser
+    }
+}
+
+# Main code
+$user = "testUser"            # Replace variable with desired user
+$isAdmin = Test-Admin        # Check if current user is an admin
+$localUsers = Get-LocalUsers # Retrieve list of all local users
+$adminUsers = Get-AdminUsers # Retrieve list of all users in local administrators group
+
+if(!$isAdmin) {
+    # If current user is not an admin, add them to local administrators group and restart computer
+    Add-UserToAdmins($user)
+    Restart-Computer
+} else {
+    # If current user is an admin, remove them from local administrators group and restart computer
+    Remove-UserFromAdmins($user)
+    Restart-Computer
+}

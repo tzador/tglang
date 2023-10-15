@@ -1,0 +1,23 @@
+METHOD call_remote_service.
+    DATA(result_type) = VALUE string( ).
+    DATA(http_client) = cl_http_client=>create_by_url( 'http://example.com/service' ).
+
+    DATA(request) = ir_http_client=>create_request( ).
+    request->set_header_field( name = 'Content-Type' value = 'application/json' ).
+
+    DATA(request_body) = NEW cl_http_message_bodystring( )->set_string( '{"name": "John Doe", "age": 30}' ).
+    request->set_cdata( request_body ).
+
+    TRY.
+        http_client->send( request ).
+        DATA(response) = http_client->receive( ).
+        DATA(response_status) = response->get_status( ).
+        IF response_status = 200.
+            DATA(response_body) = CAST cl_http_message_bodystring( response->get_cdata( ) )->get_string( ).
+            DATA(response_json) = /ui2/cl_json=>deserialize( data = response_body ).
+            result_type = response_json->get_string( 'result_type' ).
+        ENDIF.
+    CATCH cx_http_client INTO DATA(http_error).
+        " Handle error
+    ENDTRY.
+ENDMETHOD.

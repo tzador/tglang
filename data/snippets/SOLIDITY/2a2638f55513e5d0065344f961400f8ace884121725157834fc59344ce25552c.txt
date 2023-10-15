@@ -1,0 +1,68 @@
+pragma solidity >=0.4.22 <0.8.0;
+
+// This contract implements a basic bank account
+contract BankAccount {
+
+    // Declare state variables
+    address public owner; // Address of the account owner
+    uint256 public balance; // Current balance in the account
+    mapping(address => uint256) public deposits; // Mapping of deposit amounts by address
+    mapping(address => uint256) public withdrawals; // Mapping of withdrawal amounts by address
+
+    // Define events
+    event Deposit(address indexed depositor, uint256 amount); // Event for when a deposit is made
+    event Withdrawal(address indexed withdrawer, uint256 amount); // Event for when a withdrawal is made
+    event Transfer(address indexed from, address indexed to, uint256 amount); // Event for when a transfer is made
+
+    // Constructor function, sets the account owner to the deployer
+    constructor() public {
+        owner = msg.sender;
+    }
+    
+    // Function to deposit funds into the account
+    function deposit() public payable {
+        deposits[msg.sender] += msg.value; // Add the deposit amount to the sender's balance
+        balance += msg.value; // Increase the total account balance
+        emit Deposit(msg.sender, msg.value); // Trigger the Deposit event
+    }
+    
+    // Function to withdraw funds from the account
+    function withdraw(uint256 amount) public {
+        require(amount > 0, "Amount must be greater than 0"); // Check that the amount is valid
+        require(amount <= balance, "Insufficient balance"); // Check that the account has enough funds
+        withdrawals[msg.sender] += amount; // Add the withdrawal amount to the sender's balance
+        balance -= amount; // Decrease the total account balance
+        msg.sender.transfer(amount); // Send the amount to the sender's address
+        emit Withdrawal(msg.sender, amount); // Trigger the Withdrawal event
+    }
+    
+    // Function to transfer funds from the account to another address
+    function transfer(address to, uint256 amount) public {
+        require(amount > 0, "Amount must be greater than 0"); // Check that the amount is valid
+        require(amount <= balance, "Insufficient balance"); // Check that the account has enough funds
+        balance -= amount; // Decrease the total account balance
+        deposits[to] += amount; // Add the transfer amount to the receiver's balance
+        emit Transfer(msg.sender, to, amount); // Trigger the Transfer event
+    }
+    
+    // Function to get the account balance
+    function getBalance() public view returns(uint256) {
+        return balance; // Return the account balance
+    }
+
+    // Function to get the total deposits made by a particular address
+    function getDeposits(address depositor) public view returns(uint256) {
+        return deposits[depositor]; // Return the total deposits made by the given address
+    }
+
+    // Function to get the total withdrawals made by a particular address
+    function getWithdrawals(address withdrawer) public view returns(uint256) {
+        return withdrawals[withdrawer]; // Return the total withdrawals made by the given address
+    }
+    
+    // Function to destroy the contract and send any remaining balance to the owner
+    function kill() public {
+        require(msg.sender == owner, "Only owner can destroy the contract"); // Check that the caller is the owner
+        selfdestruct(msg.sender); // Destroy the contract and send funds to the owner
+    }
+}

@@ -1,0 +1,51 @@
+{-# OPTIONS_GHC -Wall -fno-warn-unused-imports #-}  --ghc warning flags
+{-# LANGUAGE DeriveFunctor #-} --language extension
+module Main (main) where --module declaration
+
+import Control.Applicative (liftA2, (<|>)) --importing modules
+import Data.List (nub) --importing modules
+import Text.Parsec (Parsec, ParseError, char, many1, eof, parse) --importing modules
+
+-- Implementation of the Continuation Monad
+data Cont a = Cont { runCont :: (a -> r) -> r }
+
+instance Functor Cont where
+    fmap f cont = Cont $ \cb -> runCont cont $ \a -> cb (f a)
+
+instance Applicative Cont where
+    pure x = Cont $ \cb -> cb x
+    contf <*> contx = Cont $ \cb -> runCont contf $ \f -> runCont contx $ \x -> cb (f x)
+
+instance Monad Cont where
+    return x = Cont $ \cb -> cb x
+    contx >>= f = Cont $ \cb -> runCont contx $ \x -> runCont (f x) cb
+
+choiceC :: Cont a -> Cont a -> Cont a
+choiceC contx conty = Cont $ \cb -> runCont contx cb <|> runCont conty cb
+
+numCont :: Integral a => a -> Cont Bool
+numCont x = if x `mod` 2 == 0 then return True else return False
+
+numLength :: Integral a => a -> Cont Int
+numLength x = return $ length $ show x
+
+-- Parsing an integer using the Continuation Monad
+parseCont :: Parsec String () Int -> String -> Cont (Either ParseError Int)
+parseCont parser input = Cont $ \cb -> cb (parse parser "" input)
+
+main :: IO ()
+main = do
+    putStrLn "Enter an integer: "
+    x <- readLn :: IO Int
+    let contInt = numCont x
+        contLen = numLength x
+        contChoice = choiceC contInt contLen
+    putStrLn "Enter a string: "
+    str <- getLine
+    let parser = many1 (char 'a') *> eof *> return x
+    let contParser = parseCont parser str
+    if runCont contChoice (||) then putStrLn "The integer is even!"
+                              else putStrLn "The integer is odd!"
+    case runCont contParser (||) of
+        Left err -> putStrLn $ "Parsing error: " ++ show err
+        Right val -> print val

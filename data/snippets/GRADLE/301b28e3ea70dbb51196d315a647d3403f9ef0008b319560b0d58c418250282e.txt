@@ -1,0 +1,73 @@
+apply plugin: 'java'
+
+// This is a multi-project build script
+// It defines three projects: main, utils, and test
+
+// 'main' project configuration
+project(':main') {
+    dependencies {
+        // Add a dependency on the 'utils' project
+        implementation project(':utils')
+        // Add a dependency on Log4j library
+        implementation 'org.apache.logging.log4j:log4j-core:2.14.1'
+    }
+}
+
+// 'utils' project configuration
+project(':utils') {
+    // Set the source and target compatibility for Java 11
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+// 'test' project configuration
+project(':test') {
+    dependencies {
+        // Add a dependency on the 'utils' project
+        testImplementation project(':utils')
+        // Add a dependency on JUnit library
+        testImplementation 'junit:junit:4.13.2'
+    }
+    
+    // Include the 'main' project as a dependency for running tests
+    dependsOn(':main')
+}
+
+// Default tasks to be executed when running 'gradle' command without any arguments
+// This will compile the source code, run unit tests, and generate a JAR file
+defaultTasks 'build'
+
+// Custom task to generate a JAR file for the 'main' project
+task generateJar(type: Jar) {
+    // Define the destination file for the JAR file
+    destinationDir(project.file('build/jars'))
+    // Include the compiled classes and resources from the 'main' project
+    from project(':main').sourceSets.main.output
+    // Set the name of the JAR file
+    archiveFileName = project(':main').name + '.jar'
+}
+
+// Configuration to enable code coverage report for 'test' project using Jacoco plugin
+project(':test') {
+    apply plugin: 'jacoco'
+    
+    // Define the source and test directories for code coverage
+    jacoco {
+        toolVersion = "0.8.7"
+        reportsDir = file("$buildDir/reports/jacoco")
+        applyTo test
+        classDumpPath = file("$buildDir/jacoco/classpathdumps")
+        applyTo sourceSets.test.output + sourceSets.main.output
+    }
+}
+
+// Custom task to generate a HTML report for code coverage using Jacoco plugin
+task jacocoReport(type: JacocoReport) {
+    // Define the source and execution data for code coverage
+    sourceDirectories = files(sourceSets.main.allJava.srcDirs)
+    executionData = files(project(':test').file("$buildDir/jacoco/test.exec"))
+    // Set the destination directory for the HTML report
+    reports {
+        html.destination = file("$buildDir/reports/jacoco")
+    }
+}

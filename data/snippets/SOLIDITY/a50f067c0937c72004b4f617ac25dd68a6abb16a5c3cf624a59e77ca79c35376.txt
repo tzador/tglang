@@ -1,0 +1,97 @@
+// Contract representing a hotel reservation system
+
+ // Contract owner
+address owner;
+
+// Hotel contract
+contract Hotel {
+
+	// State variables
+	string public hotelName;
+	uint public numRooms;
+	uint public roomPrice;
+	address[] public guests;
+
+	// Events
+	event Deposit(address guest, uint amount);
+
+	// Constructor
+	constructor(string memory _hotelName, uint _numRooms, uint _roomPrice){
+		hotelName = _hotelName;
+		numRooms = _numRooms;
+		roomPrice = _roomPrice;
+		owner = msg.sender;
+	}
+
+	// Function for reserving a room
+	function reserveRoom() public payable {
+		// Check if there are available rooms
+		require(numRooms > guests.length);
+
+		// Check if user has sent enough Ether
+		require(msg.value == roomPrice);
+
+		// Add user to the guests list
+		guests.push(msg.sender);
+
+		// Emit deposit event
+		emit Deposit(msg.sender, msg.value);
+	}
+
+	// Function for cancelling a reservation
+	function cancelReservation() public {
+		// Check if user has a reservation
+		require(guests[msg.sender]);
+
+		// Refund user their Ether
+		msg.sender.transfer(roomPrice);
+
+		// Remove user from guests list
+		delete guests[msg.sender];
+	}
+
+	// Function for checking the availability of rooms
+	function checkAvailability() public view returns (uint) {
+		return numRooms - guests.length;
+	}
+}
+
+// Contract representing a booking management system
+contract BookingManager {
+
+	// State variables
+	address public hotelAddress;
+	uint public bookingFee = 2 ether;
+
+	// Constructor
+	constructor(address _hotelAddress){
+		hotelAddress = _hotelAddress;
+	}
+
+	// Function for reserving a room in the hotel
+	function reserveRoom() public payable {
+		// Create instance of hotel contract
+		Hotel hotel = Hotel(hotelAddress);
+
+		// Reserve room in hotel
+		hotel.reserveRoom.value(bookingFee)();
+	}
+
+	// Function for cancelling a reservation
+	function cancelReservation() public {
+		// Create instance of hotel contract
+		Hotel hotel = Hotel(hotelAddress);
+
+		// Cancel reservation in hotel
+		hotel.cancelReservation();
+	}
+
+	// Function for checking the availability of rooms in the hotel
+	function checkAvailability() public view returns (uint) {
+		// Create instance of hotel contract
+		Hotel hotel = Hotel(hotelAddress);
+
+		// Check availability in hotel
+		return hotel.checkAvailability();
+	}
+}

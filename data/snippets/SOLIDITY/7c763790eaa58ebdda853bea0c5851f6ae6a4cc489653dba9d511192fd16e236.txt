@@ -1,0 +1,60 @@
+pragma solidity ^0.8.4; //specify the version of Solidity to be used
+
+contract Bank { //create a contract named 'Bank'
+    address public owner; //declare a publicly accessible variable 'owner' of type address
+    
+    struct Account { //create a struct named 'Account'
+        address accountHolder; //declare a variable 'accountHolder' of type address
+        uint256 balance; //declare a variable 'balance' of type uint256
+        bool isActive; //declare a variable 'isActive' of type bool
+    }
+    
+    mapping(uint256 => Account) public accounts; //create a mapping named 'accounts' that links account numbers to Account struct
+    
+    event Deposit(address accountHolder, uint256 amount); //create an event 'Deposit'
+    event Withdraw(address accountHolder, uint256 amount); //create an event 'Withdraw'
+    event Transfer(address from, address to, uint256 amount); //create an event 'Transfer'
+    
+    modifier onlyOwner { //create a modifier 'onlyOwner' to restrict access to certain functions
+        require(msg.sender == owner, "Only owner can call this function."); //check if the function caller is the owner
+        _; //continue execution of function
+    }
+    
+    constructor() { //constructor function to set the owner of the contract
+        owner = msg.sender; //set owner to be the address that deployed the contract
+    }
+    
+    function createAccount(uint256 accountNumber, address accountHolder) public onlyOwner { //function to create an account
+        require(accounts[accountNumber].accountHolder == address(0), "Account already exists."); //check if account already exists
+        accounts[accountNumber] = Account(accountHolder, 0, true); //create new Account struct with given information and add it to mapping
+    }
+    
+    function deposit(uint256 accountNumber) public payable { //function to deposit funds
+        require(accounts[accountNumber].isActive, "Account is not active."); //check if account is active
+        require(msg.value > 0, "Deposit amount must be greater than 0."); //check if deposit amount is greater than 0
+        accounts[accountNumber].balance += msg.value; //add deposited amount to account balance
+        emit Deposit(accounts[accountNumber].accountHolder, msg.value); //emit Deposit event
+    }
+    
+    function withdraw(uint256 accountNumber, uint256 amount) public { //function to withdraw funds
+        require(accounts[accountNumber].isActive, "Account is not active."); //check if account is active
+        require(accounts[accountNumber].balance >= amount, "Insufficient balance."); //check if account has enough balance
+        accounts[accountNumber].balance -= amount; //subtract withdrawal amount from account balance
+        payable(accounts[accountNumber].accountHolder).transfer(amount); //transfer funds to account holder
+        emit Withdraw(accounts[accountNumber].accountHolder, amount); //emit Withdraw event
+    }
+    
+    function transfer(uint256 fromAccountNumber, uint256 toAccountNumber, uint256 amount) public { //function to transfer funds between accounts
+        require(accounts[fromAccountNumber].isActive, "From account is not active."); //check if 'from' account is active
+        require(accounts[toAccountNumber].isActive, "To account is not active."); //check if 'to' account is active
+        require(accounts[fromAccountNumber].balance >= amount, "Insufficient balance."); //check if 'from' account has enough balance
+        accounts[fromAccountNumber].balance -= amount; //subtract transferred amount from 'from' account balance
+        accounts[toAccountNumber].balance += amount; //add transferred amount to 'to' account balance
+        emit Transfer(accounts[fromAccountNumber].accountHolder, accounts[toAccountNumber].accountHolder, amount); //emit Transfer event
+    }
+    
+    function closeAccount(uint256 accountNumber) public onlyOwner { //function to close an account
+        require(accounts[accountNumber].accountHolder != address(0), "Account does not exist."); //check if account exists
+        accounts[accountNumber].isActive = false; //set account to be inactive
+    }
+}

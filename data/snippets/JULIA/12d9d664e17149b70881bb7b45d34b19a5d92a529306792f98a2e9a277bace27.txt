@@ -1,0 +1,79 @@
+#This code snippet performs the Nelder-Mead method for unconstrained optimization in Julia
+#Defining initial points
+x1 = [1.0, 1.0]
+x2 = [1.5, 2.0]
+x3 = [0.5, 2.0]
+
+#Defining parameters
+alpha = 1.0
+beta = 0.5
+gamma = 2.0
+
+#Defining function to be optimized
+f(x) = (x[1] - 2)^2 + (x[2] - 3)^2
+
+#Defining simplex
+simplex = [x1, x2, x3]
+
+#Defining reflection function
+function reflect(x, centroid, alpha)
+    return centroid + alpha * (centroid - x)
+end
+
+#Defining expansion function
+function expand(x, centroid, gamma)
+    return centroid + gamma * (x - centroid)
+end
+
+#Defining contraction function
+function contract(x, centroid, beta)
+    return centroid + beta * (x - centroid)
+end
+
+#Defining shrink function
+function shrink(simplex, x1)
+    new_simplex = [simplex[1]]
+    for i in 2:length(simplex)
+        push!(new_simplex, contract(simplex[i], x1, beta))
+    end
+    return new_simplex
+end
+
+#Defining main Nelder-Mead function
+function nelder_mead(simplex, f, alpha, beta, gamma)
+    for i in 1:100
+        #Sorting simplex based on function values
+        sort!(simplex, by = x -> f(x))
+        
+        #Calculating centroid
+        centroid = sum(simplex[1:end-1]) / (length(simplex)-1)
+        
+        #Reflecting worst point
+        x_r = reflect(simplex[end], centroid, alpha)
+        if f(x_r) < f(simplex[1])
+            x_e = expand(simplex[end], centroid, gamma)
+            if f(x_e) < f(x_r)
+                simplex[end] = x_e
+            else
+                simplex[end] = x_r
+            end
+        else
+            #Contracting worst point
+            x_c = contract(simplex[end], centroid, beta)
+            if f(x_c) < f(simplex[end])
+                simplex[end] = x_c
+            else
+                #Shrinking simplex
+                simplex = shrink(simplex, simplex[1])
+            end
+        end
+    end
+    return simplex
+end
+
+#Running Nelder-Mead method
+result = nelder_mead(simplex, f, alpha, beta, gamma)
+
+#Printing final result
+println("Minimum point found: ", result[1])
+println("Minimum value found: ", f(result[1]))

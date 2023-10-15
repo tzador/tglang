@@ -1,0 +1,50 @@
+server {
+    # General server settings
+    listen 80;
+    server_name example.com;
+    root /var/www/example.com;
+
+    # SSL configuration
+    listen 443 ssl;
+    ssl_certificate /etc/nginx/ssl/example.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/example.com.key;
+
+    # NGINX caching and compression settings
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+    # Enable caching for 10 minutes
+    # Browser caching configuration
+    expires 10m;
+    add_header Cache-Control "public";
+    # Proxy cache settings
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=example-cache:60m inactive=1d;
+    proxy_cache_key "$scheme$request_method$host$request_uri";
+    # Cache bypass for only GET requests
+    proxy_cache_bypass $http_pragma;
+
+    # NGINX load balancing
+    upstream backend {
+            server 127.0.0.1:8080;
+            server 127.0.0.1:8081;
+        }
+    proxy_buffering off;
+    server {
+        location / {
+            proxy_pass http://backend;
+        }
+    }
+
+    # NGINX security settings
+    # Block access to .htaccess files
+    location ~ /\.ht {
+        deny all;
+    }
+    # Block access to hidden files
+    location ~ /\. {
+        deny all;
+    }
+    # Block access to PHP files in uploads directory
+    location ~* /(?:uploads|files)/.*\.php$ {
+        deny all;
+    }
+}

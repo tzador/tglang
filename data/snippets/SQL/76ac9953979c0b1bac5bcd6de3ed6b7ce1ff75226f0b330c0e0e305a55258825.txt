@@ -1,0 +1,36 @@
+/*
+This is a complex SQL query that combines data from two tables and uses several subqueries and joins.
+It selects the top 100 highest value orders for each customer, along with the customer's full name and company.
+*/
+
+SELECT
+    customer_info.full_name,
+    customer_info.company,
+    customer_orders.order_id,
+    customer_orders.order_total
+FROM
+    (
+        -- Subquery to get the top 100 highest value orders for each customer
+        SELECT
+            ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY order_total DESC) AS row_num,
+            order_id,
+            order_total,
+            customer_id
+        FROM
+            orders
+    ) AS customer_orders
+INNER JOIN
+    (
+        -- Subquery to get the customer's full name and company
+        SELECT
+            customer_id,
+            CONCAT(first_name, ' ', last_name) AS full_name,
+            company
+        FROM
+            customers
+    ) AS customer_info ON customer_info.customer_id = customer_orders.customer_id
+WHERE
+    -- Only select orders with a row number between 1 and 100 (top 100 highest value orders)
+    customer_orders.row_num BETWEEN 1 AND 100
+ORDER BY
+    customer_info.full_name ASC, customer_orders.order_total DESC

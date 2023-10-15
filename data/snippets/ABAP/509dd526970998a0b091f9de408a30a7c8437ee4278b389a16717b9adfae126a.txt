@@ -1,0 +1,45 @@
+**"This is a complex ABAP code snippet**
+
+*"Define a structure*
+
+TYPES:
+  BEGIN OF p_mat_struct,
+  MATNR TYPE MARA-MATNR,
+  PLANT TYPE MARC-WERKS,
+  END OF p_mat_struct.
+
+*"Define a table type using the structure*
+TYPES:
+  BEGIN OF t_mat_type,
+  MAT TYPE p_mat_struct,
+  END OF t_mat_type.
+
+*"Create a table with the defined table type*
+DATA(lt_materials) TYPE STANDARD TABLE OF t_mat_type.
+
+*"Select data from MARA and MARC tables into the table*
+SELECT matnr werks FROM mara INNER JOIN marc ON mara~matnr = marc~matnr INTO CORRESPONDING FIELDS OF TABLE lt_materials.
+
+*"Create a work area for the table type*
+DATA(ls_material) LIKE LINE OF lt_materials.
+
+*"Loop through the table and perform calculations on the data*
+LOOP AT lt_materials INTO ls_material.
+  *" Convert plant code to description using a function module*
+  ls_material-mat-plant_name = ZF_GET_PLANT_DESC( ls_material-mat-plant ).
+  *"Calculate the total material cost by multiplying the quantity by the unit price*
+  ls_material-mat-total_cost = ls_material-mat-quantity * ls_material-mat-unit_price.
+  *"Add material to another table if the total cost is greater than a certain amount*
+  IF ls_material-mat-total_cost > 10000.
+    INSERT ls_material INTO TABLE lt_high_cost_materials.
+  ENDIF.
+ENDLOOP.
+
+*"Update the material table in the database*
+UPDATE mara FROM TABLE lt_materials.
+
+*"Display the data from the table in a report*
+WRITE: / 'Material' , 'Plant' , 'Total Cost'.
+LOOP AT lt_materials INTO ls_material.
+  WRITE: / ls_material-mat-matnr, ls_material-mat-plant, ls_material-mat-total_cost.
+ENDLOOP.

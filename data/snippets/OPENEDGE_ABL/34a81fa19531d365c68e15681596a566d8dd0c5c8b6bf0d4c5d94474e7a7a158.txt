@@ -1,0 +1,30 @@
+/* This block of code performs a complex calculation to determine the optimal sales targets for each salesperson.
+It takes into account sales data from the past year, as well as current market trends and team performance. */
+
+DEFINE VARIABLE salesTarget AS DECIMAL.
+DEFINE VARIABLE targetMultiplier AS DECIMAL.
+DEFINE VARIABLE targetVariance AS DECIMAL.
+DEFINE VARIABLE salesData AS HANDLE NO-UNDO.
+
+/* Open a database connection to retrieve sales data */
+CREATE "SalesDB" salesData.
+salesData:CONNECT("server=123.456.789.10;database=salesdata;usr=sa;pwd=password").
+
+/* Calculate the target multiplier based on team performance */
+IF salesData:findFirst() <> FALSE THEN DO:
+    DO WHILE salesData:available():
+        targetMultiplier = targetMultiplier + (salesData.sales_amount / salesData.target);
+        salesData:NEXT();
+    END.
+    targetMultiplier = targetMultiplier / salesData:NUM-RESULTS.
+END.
+
+/* Calculate the target variance based on market trends */
+targetVariance = (targetMultiplier * 0.3) + 0.5 * (salesData:NUM-RESULTS).
+
+/* Calculate the final sales target for each salesperson */
+DO TRANSACTION:
+    FOR EACH SalesPerson NO-LOCK:
+        salesTarget = (SalesPerson:prev_year_sales * targetMultiplier) + targetVariance.
+        UPDATE SalesPerson SET SalesPerson.target = salesTarget WHERE SalesPerson.ID = SalesPerson.ID.
+END TRANSACTION.

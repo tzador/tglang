@@ -1,0 +1,39 @@
+REPORT ZREPORT_NAME.
+* This is an ABAP report that will generate a list of customers with their orders and total order amount
+TYPES: BEGIN OF ty_order,
+         order_num TYPE CHAR10,
+         customer_num TYPE CHAR10,
+         order_amount TYPE I,
+       END OF ty_order.
+
+DATA: it_orders TYPE STANDARD TABLE OF ty_order.
+DATA: total_amount TYPE I.
+DATA: lv_customer TYPE CHAR10.
+
+SELECT * FROM orders INTO CORRESPONDING FIELDS OF TABLE it_orders.
+
+* Looping through the orders to calculate total order amount for each customer
+LOOP AT it_orders INTO DATA(ls_order).
+  CLEAR total_amount.
+  lv_customer = ls_order-customer_num.
+  SELECT * FROM orders WHERE customer_num = lv_customer INTO CORRESPONDING FIELDS OF TABLE @it_orders.
+
+  LOOP AT it_orders ASSIGING FIELD-SYMBOL(<lfs_order>).
+    total_amount = total_amount + <lfs_order>-order_amount.
+  ENDLOOP.
+
+* Displaying results in ALV grid
+  cl_salv_table=>factory(
+    IMPORTING
+      r_salv_table = DATA(salv_table)
+    CHANGING
+      t_table      = it_orders ).
+  FIELD-SYMBOLS <ls_table> TYPE LINE OF it_orders.
+  LOOP AT it_orders ASSIGNING <ls_table>.
+    IF <ls_table>-customer_num = lv_customer.
+      <ls_table>-total_amount = total_amount.
+    ENDIF.
+  ENDLOOP.
+
+  cl_salv_table=>factory(
+    CLA

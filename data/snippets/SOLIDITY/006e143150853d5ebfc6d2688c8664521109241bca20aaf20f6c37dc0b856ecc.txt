@@ -1,0 +1,89 @@
+pragma solidity ^0.8.0;
+
+// creating a contract for a decentralized marketplace
+contract Marketplace {
+    
+    // state variables
+    address public owner; // address of the marketplace owner
+    uint public fee; // fee percentage for the marketplace
+    uint public totalItems; // total number of items listed on the marketplace
+    
+    // events
+    event ItemAdded(address indexed seller, uint indexed itemId, string name);
+    event ItemSold(address indexed buyer, address indexed seller, uint indexed itemId, uint price);
+    
+    // structs
+    struct Item {
+        string name;
+        uint price;
+        bool sold;
+        address payable seller;
+        address payable buyer;
+    }
+    
+    // mapping for items
+    mapping (uint => Item) public items;
+    
+    // constructor function
+    constructor() {
+        // set the owner of the marketplace to the address that deployed the contract
+        owner = msg.sender;
+        // set the fee to 1% (use decimal)
+        fee = 0.01 ether;
+        // set the totalItems counter to 0
+        totalItems = 0;
+    }
+    
+    // function to add an item for sale on the marketplace
+    function addItem(string memory _name, uint _price) external payable {
+        // require that the item has a name
+        require(bytes(_name).length > 0, "Item must have a name");
+        // require that the price is greater than 0
+        require(_price > 0, "Price must be greater than 0");
+        // require that the amount sent is equal to the price plus fee
+        require(msg.value == _price + fee, "Incorrect amount sent");
+        
+        // increment totalItems counter
+        totalItems++;
+        // create a new Item struct and add it to the mapping
+        items[totalItems] = Item({
+            name: _name,
+            price: _price,
+            sold: false,
+            seller: payable(msg.sender),
+            buyer: payable(0)
+        });
+        
+        // emit ItemAdded event
+        emit ItemAdded(msg.sender, totalItems, _name);
+    }
+    
+    // function to buy an item from the marketplace
+    function buyItem(uint _itemId) external payable {
+        // require that the item is not sold yet
+        require(items[_itemId].sold == false, "Item not available");
+        // require that enough value is sent to cover the price and fee
+        require(msg.value == items[_itemId].price + fee, "Incorrect amount sent");
+        
+        // set the buyer of the item to the address of the sender
+        items[_itemId].buyer = payable(msg.sender);
+        // set the sold variable to true
+        items[_itemId].sold = true;
+        
+        // transfer the price of the item to the seller
+        items[_itemId].seller.transfer(items[_itemId].price);
+        // transfer the fee to the owner of the marketplace
+        owner.transfer(fee);
+        
+        // emit ItemSold event
+        emit ItemSold(msg.sender, items[_itemId].seller, _itemId, items[_itemId].price);
+    }
+    
+    // function to withdraw any remaining balance on the contract
+    function withdraw() external {
+        // require that the sender is the owner of the marketplace
+        require(msg.sender == owner, "You are not the owner of the marketplace");
+        // transfer the remaining balance to the owner
+        payable(msg.sender).transfer(address(this).balance);
+    }
+}

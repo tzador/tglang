@@ -1,0 +1,110 @@
+# This is a complex NGINX configuration snippet
+
+# Set the server's listening port to 80
+server {
+  listen 80;
+  
+  # Define the server name as 'example.com'
+  server_name example.com;
+  
+  # Configure the root directory for the server
+  root /usr/share/nginx/html;
+  
+  # Define the default error page for any server issues
+  error_page 500 502 503 504 /50x.html;
+  location = /50x.html {
+      root /usr/share/nginx/html;
+  }
+  
+  # Define specific locations for different file types
+  location ~ /\.ht {
+      deny all;
+  }
+  location ~ \.php$ {
+      include snippets/fastcgi-php.conf;
+      fastcgi_pass unix:/var/run/php7.4-fpm.sock;
+  }
+  
+  # Configure caching for specific file types
+  location ~* \.(js|css|png|jpg|jpeg|gif|ico)$ {
+      expires access plus 1y;
+  }
+  
+  # Enable GZIP compression for improved performance
+  gzip on;
+  gzip_disable "msie6";
+  gzip_proxied any;
+  gzip_comp_level 6;
+  gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+  
+  # Enable browser caching to reduce server load
+  location ~* \.(html|htm)$ {
+      expires 30d;
+  }
+  
+  # Configure redirects for specific URLs
+  location = /old-url {
+      return 301 https://example.com/new-url;
+  }
+  
+  # Redirect all traffic to HTTPS for improved security
+  server {
+      listen 80 default_server;
+      listen [::]:80 default_server;
+      server_name _;
+      return 301 https://$host$request_uri;
+  }
+  
+  # Enable HTTP/2 for faster page loading
+  listen 443 ssl http2;
+  ssl_certificate /etc/ssl/example.com.crt;
+  ssl_certificate_key /etc/ssl/example.com.key;
+  ssl_protocols TLSv1.2 TLSv1.3;
+  ssl_prefer_server_ciphers on;
+  ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-DSS-AES128-GCM-SHA256:kEDH+AESGCM:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-DSS-AES128-SHA256:DHE-RSA-AES256-SHA256:DHE-DSS-AES256-SHA:DHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:AES:CAMELLIA:DES-CBC3-SHA:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!ECDH-RSA-RC4-SHA:!ECDH-ECDSA-RC4-SHA:!ECDH-RSA-DES-CBC3-SHA:!ECDH-ECDSA-DES-CBC3-SHA:!AES128:!MD5:!RC4;
+  
+  # Specify SSL session cache
+  ssl_session_cache shared:SSL:20m;
+  ssl_session_timeout 180m;
+  
+  # Disable SSL for specific directories that do not require it
+  location /no-ssl {
+      ssl off;
+  }
+  
+  # Enable server-side caching to improve performance
+  proxy_cache_path /data/nginx/cache levels=1:2 keys_zone=static_cache:10m inactive=60m;
+  
+  # Configure gzip compression for proxied requests
+  proxy_set_header Accept-Encoding "";
+  gzip on;
+  
+  # Configure proxy caching for specific file types
+  location ~* \.(jpg|jpeg|gif|png|ico|css|js)$ {
+      proxy_cache static_cache;
+      proxy_cache_key "$scheme$request_method$host$request_uri";
+      proxy_cache_valid 200 60m;
+      expires 30d;
+      proxy_cache_revalidate on;
+      proxy_cache_min_uses 1;
+      proxy_cache_bypass $http_pragma;
+      proxy_cache_bypass $http_cache_control;
+      add_header X-Cache-Status $upstream_cache_status;
+      proxy_redirect off;
+      proxy_set_header Host $host;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  }
+  
+  # Add security headers for increased protection
+  add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+  add_header X-Content-Type-Options nosniff;
+  add_header X-XSS-Protection "1; mode=block";
+  add_header X-Frame-Options SAMEORIGIN;
+  add_header Referrer-Policy strict-origin-when-cross-origin;
+  
+  # Deny access to specific IPs for increased security
+  deny 192.168.1.100;
+  deny 11.22.33.44;
+}
+
+# End of complex NGINX configuration snippet

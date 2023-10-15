@@ -1,0 +1,78 @@
+/*This code snippet generates a report for sales data, including total sales for each country during a specific time period. It also calculates the average sales amount per country.*/
+
+/* Define variables and arrays */
+DEFINE VARIABLE v_date_from AS DATE NO-UNDO.
+DEFINE VARIABLE v_date_to AS DATE NO-UNDO.
+DEFINE VARIABLE v_country AS CHARACTER NO-UNDO.
+DEFINE VARIABLE v_sales_amt AS DECIMAL NO-UNDO.
+DEFINE VARIABLE v_total_sales AS DECIMAL NO-UNDO.
+DEFINE VARIABLE v_total_countries AS INTEGER NO-UNDO.
+DEFINE VARIABLE v_average_sales AS DECIMAL NO-UNDO.
+DEFINE VARIABLE v_country_index AS INTEGER NO-UNDO.
+DEFINE VARIABLE v_current_country AS CHARACTER NO-UNDO.
+
+DEFINE VARIABLE a_countries AS CHARACTER EXTENT 10 NO-UNDO.
+DEFINE VARIABLE a_sales_amt AS DECIMAL EXTENT 10 NO-UNDO.
+
+/* Get user input for date range */
+INPUT FROM KEYBOARD WITH PROMPT "Enter starting date (MM/DD/YYYY): ".
+v_date_from = INPUT.
+
+INPUT FROM KEYBOARD WITH PROMPT "Enter ending date (MM/DD/YYYY): ".
+v_date_to = INPUT.
+
+/* Query for sales data within date range */
+FOR EACH Sales WHERE Sales.Date >= v_date_from AND Sales.Date <= v_date_to:
+
+	/* Get country and sales amount for each sale */
+	v_country = Sales.Country.
+	v_sales_amt = Sales.Amount.
+
+	/* Check if country is already in array, if not, add it */
+	IF NOT FIND(v_country, a_countries, GLOBAL v_country_index) THEN
+	BEGIN:
+		a_countries[v_country_index] = v_country.
+	END.
+
+	/* Add sales amount to sales amount array corresponding to country index */
+	a_sales_amt[v_country_index] = a_sales_amt[v_country_index] + v_sales_amt.
+
+END.
+
+/* Calculate total sales and average sales */
+v_total_countries = 0.
+v_total_sales = 0.
+FOR v_country_index = 1 TO 10:
+	IF NOT a_countries[v_country_index] = "" THEN 
+	BEGIN:
+		v_total_countries = v_total_countries + 1.
+		v_total_sales = v_total_sales + a_sales_amt[v_country_index].
+	END.
+
+v_average_sales = v_total_sales / v_total_countries.
+
+/* Output report header */
+DISPLAY "SALES REPORT FOR", v_total_countries, "COUNTRIES FROM", STRING(v_date_from, '99/99/9999'), "TO", STRING(v_date_to, '99/99/9999').
+DISPLAY "------------------------------------------------------------".
+DISPLAY "COUNTRY     | TOTAL SALES    | AVERAGE SALES AMOUNT".
+DISPLAY "------------------------------------------------------------".
+
+/* Output data for each country */
+FOR EACH a_country:
+	v_current_country = a_countries[a_country].
+	IF NOT v_current_country = "" THEN
+	BEGIN:
+		/* Calculate average sales amount per country */
+		FOR v_country_index = 1 TO 10:
+			IF a_countries[v_country_index] = v_current_country THEN
+				v_average_sales = a_sales_amt[v_country_index] / v_total_countries.
+
+		/* Output country, total sales, and average sales */
+		DISPLAY v_current_country, "|", a_sales_amt[v_country_index], "|", v_average_sales.
+	END.
+END.
+
+/* Output total sales and average sales for all countries */
+DISPLAY "------------------------------------------------------------".
+DISPLAY "TOTAL SALES: ", v_total_sales.
+DISPLAY "AVERAGE SALES PER COUNTRY: ", v_average_sales.

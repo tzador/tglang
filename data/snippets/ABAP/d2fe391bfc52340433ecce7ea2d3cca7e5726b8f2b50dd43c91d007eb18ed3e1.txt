@@ -1,0 +1,70 @@
+*&---------------------------------------------------------------------*
+*& Report ZDEMO_REPORT
+*&
+*&---------------------------------------------------------------------*
+*& This report will demonstrate the use of ABAP Data Objects
+*&
+*&---------------------------------------------------------------------*
+REPORT ZDEMO_REPORT.
+
+* Define Data Objects
+DATA: gv_material TYPE MARA-MATNR,
+      gv_material_desc TYPE MARA-MATNR,
+      gv_plant TYPE PLANT,
+      gt_stock TYPE TABLE OF MARD,
+      gwa_stock TYPE MARD.
+
+* Selection-Screen
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE text-100.
+  SELECT-OPTIONS: s_matnr FOR gv_material,
+                  s_werks FOR gv_plant.
+SELECTION-SCREEN END OF BLOCK b1.
+
+* At Selection-Screen
+AT SELECTION-SCREEN.
+  * Check if user has entered a plant
+  IF s_werks IS INITIAL.
+    MESSAGE e015(sy) WITH 'Please enter a valid plant'.
+    EXIT.
+  ENDIF.
+
+  * Check if user has entered a material
+  IF s_matnr IS INITIAL.
+    MESSAGE e015(sy) WITH 'Please enter a valid material'.
+    EXIT.
+  ENDIF.
+
+* Start-of-Selection
+START-OF-SELECTION.
+  * Loop through selected materials
+  LOOP AT s_matnr INTO gv_material.
+    * Check if material exists in database
+    SELECT SINGLE * FROM mara WHERE matnr = gv_material.
+      IF sy-subrc NE 0.
+        MESSAGE e015(sy) WITH gv_material 'Material doesn't exist'.
+        CONTINUE.
+      ELSE.
+        gv_material_desc = mara-maktx.
+      ENDIF.
+
+    * Loop through selected plants
+    LOOP AT s_werks INTO gv_plant.
+      * Check if plant exists in database
+      SELECT SINGLE * FROM t001w WHERE werks = gv_plant.
+        IF sy-subrc NE 0.
+          MESSAGE e015(sy) WITH gv_plant 'Plant doesn't exist'.
+          CONTINUE.
+        ENDIF.
+
+      * Get stock data for material and plant
+      SELECT * FROM mard INTO TABLE gt_stock
+        WHERE matnr = gv_material
+        AND werks = gv_plant.
+
+      * Loop through stock data
+      LOOP AT gt_stock INTO gwa_stock.
+        WRITE: / gv_material, gv_material_desc, gv_plant, gwa_stock-lgort, gwa_stock-labst.
+      ENDLOOP. " End of stock loop
+    ENDLOOP. " End of plant loop
+  ENDLOOP. " End of material loop
+END-OF-SELECTION. " End of start-of-selection

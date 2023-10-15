@@ -1,0 +1,58 @@
+module complex_multiplier(input [15:0] A, B, input clk, input reset, output [31:0] result);
+    // Verilog code for a complex multiplier using booth algorithm
+
+    // Variable declarations
+
+    reg [3:0] state; // current state of the multiplier
+    reg [31:0] multiplicand; // holds the A input in 32-bit format
+    reg [31:0] multiplier; // holds the B input in 32-bit format
+    reg [4:0] count; // counter for the algorithm
+    reg [31:0] partial_product; // holds the partial product in each iteration
+    reg [35:0] product; // holds the final product in 36-bit format
+    reg [35:0] shifted_product; // holds the shifted product for partial sum
+
+    // State definitions for the multiplier
+
+    localparam S_IDLE = 4'b0000; // initial state
+    localparam S_SHIFT = 4'b0001; // state for shifting partial product
+    localparam S_SUM = 4'b0010; // state for adding partial product to product
+
+    // Initializations and clock edge detection
+
+    always @(posedge clk or posedge reset) begin
+        if(reset) begin // reset state to S_IDLE
+            state <= S_IDLE;
+            multiplicand <= 0;
+            multiplier <= 0;
+            count <= 0;
+            partial_product <= 0;
+            product <= 0;
+            shifted_product <= 0;
+        end else begin
+            case(state)
+                S_IDLE: begin // load inputs into variables and start algorithm
+                    multiplicand <= A;
+                    multiplier <= B;
+                    count <= 0;
+                    state <= S_SHIFT; // change state to start shifting
+                end
+
+                S_SHIFT: begin // shift partial product and check for end of algorithm
+                    if(count < 16) begin
+                        partial_product <= multiplicand << count; // shift multiplicand by count bits
+                        count <= count + 1; // increment count
+                    end else begin
+                        state <= S_SUM; // change state to start adding partial product to product
+                    end
+                end
+
+                S_SUM: begin // add partial product to product and output result
+                    shifted_product <= {partial_product, 4'b0000}; // pad partial product with zeros
+                    product <= product + shifted_product; // add shifted product to product
+                    result <= product[35:4]; // output final result in 32-bit format
+                    state <= S_IDLE; // reset state to start next multiplication
+                end
+            endcase
+        end
+    end
+endmodule

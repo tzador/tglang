@@ -1,0 +1,38 @@
+%% This is a module that implements a parallel divide-and-conquer algorithm using the actor model
+
+-module(parallel_dac).
+-compile(export_all).
+
+%% This function divides a list into two equal-sized sublists
+%% Input: list of elements, Output: tuple with two sublists
+%% Uses pattern matching and recursion
+divide(List) ->
+    [{take_left(1,1,[List]), take_right(1,1,[List])}].
+
+%% This function takes the left half of a list
+%% Input: index (i), current index (n), list, Output: sublists
+%% Uses guard clauses to check if index is equal to or greater than the length of the list
+take_left(I, N, [H | T]) when I =< N ->
+    [H | take_left(I+1, N, T)];
+take_left(_, _, _) ->
+    [].
+
+%% This function takes the right half of a list
+%% Input: index (i), current index (n), list, Output: sublists
+%% Uses guard clauses to check if index is equal to or greater than the length of the list
+take_right(I, N, [H | T]) when I >= N ->
+    [H | take_right(I+1, N, T)];
+take_right(_, _, _) ->
+    [].
+
+%% This function implements the divide-and-conquer algorithm
+%% Uses recursion and the spawn/1 BIF to create actors that perform tasks in parallel
+dac(List) ->
+    case length(List) < 2 of
+        true -> List; % if list has less than 2 elements, return the list
+        false ->
+            {Left, Right} = divide(List), % divide list into two sublists
+            {Pid1, Pid2} = {spawn(fun() -> dac(Left) end), spawn(fun() -> dac(Right) end)}, % spawn two actors and pass sublists to them
+            [Result1, Result2] = [Pid1 ! self(), Pid2 ! self()], % send a message to actors and get their results
+            [Result1, Result2] % return the results
+    end.

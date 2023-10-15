@@ -1,0 +1,60 @@
+pragma solidity ^0.8.6;
+
+contract Lottery {
+    // Variables
+    address public manager;
+    address payable[] public players;
+    uint public roundIndex = 0;
+    uint public ticketPrice;
+    uint public constant maximumPlayers = 100;
+    uint public minimumPlayers = 20;
+    uint public winnerIndex;
+    uint public randomIndex;
+
+    // Events
+    event PlayerAdded(address indexed player);
+    event WinnerSelected(address indexed winner, uint indexed roundIndex);
+
+    // Modifiers
+    modifier onlyManager() {
+        require(msg.sender == manager, "Only manager can call this function.");
+        _;
+    }
+    
+    // Constructor function to set initial ticket price and manager address
+    constructor(uint _price) {
+        manager = msg.sender;
+        ticketPrice = _price;
+    }
+    
+    // Public function to allow players to buy a ticket
+    function buyTicket() public payable {
+        require(msg.value == ticketPrice, "Ticket price must be equal to the ticket price set by the manager.");
+        require(players.length < maximumPlayers, "Maximum number of players reached.");
+        players.push(payable(msg.sender)); // add player to players array
+        emit PlayerAdded(msg.sender); // emit event
+    }
+    
+    // Public function for the manager to change the minimum number of players required to start a new round
+    function changeMinimumPlayers(uint _minPlayers) public onlyManager {
+        minimumPlayers = _minPlayers;
+    }
+    
+    // Public function for the manager to select a winner when minimum number of players is reached
+    function selectWinner() public onlyManager {
+        require(players.length >= minimumPlayers, "Minimum number of players not yet reached.");
+        // generate random index
+        randomIndex = uint(keccak256(abi.encodePacked(
+            block.timestamp, 
+            block.difficulty, 
+            players.length))) % players.length;
+        winnerIndex = randomIndex;
+        players[winnerIndex].transfer(address(this).balance); // transfer winnings to winner
+        roundIndex++; // increment round index
+        emit WinnerSelected(players[winnerIndex], roundIndex); // emit event
+        // reset players array for next round
+        for (uint i = 0; i < players.length; i++){
+            players[i] = address(0);
+        }
+    }
+}

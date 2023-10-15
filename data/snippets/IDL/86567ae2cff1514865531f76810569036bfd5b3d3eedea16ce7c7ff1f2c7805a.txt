@@ -1,0 +1,83 @@
+PRO CRV_FIT, X, Y, Order, A, ChiSq
+;+
+; Name:
+;    CRV_FIT
+;
+; Purpose:
+;    Performs a least-squares fit to a set of data points using a polynomial function.
+;
+; Calling Sequence:
+;    IDL> CRV_FIT, X, Y, Order, A, ChiSq
+;
+; Input Parameters:
+;    X - array of X values for the data points
+;    Y - array of Y values for the data points
+;    Order - order of the polynomial function to use in the fit
+;
+; Output Parameters:
+;    A - array of coefficients for the polynomial function, with A[0] being the constant term and A[1] being the coefficient for the linear term, etc.
+;    ChiSq - chi-squared value for the fit, used to determine the quality of the fit
+;
+; Example:
+;    Fit a set of data points with a 3rd order polynomial and print the results
+;    IDL> X = [0, 1, 2, 3, 4]
+;    IDL> Y = [1, 3, 7, 15, 31]
+;    IDL> CRV_FIT, X, Y, 3, A, ChiSq
+;    IDL> PRINT, A
+;    IDL> PRINT, ChiSq
+;
+; History:
+; Version 1 - 10/15/2020, Author: John Doe
+;-
+
+; Define the function CRV_FIT
+PRO CRV_FIT, X, Y, Order, A, ChiSq
+    ; Check for number of arguments
+    IF N_PARAMS() LT 5 THEN BEGIN
+        MESSAGE, "CRV_FIT requires five input arguments"
+        RETURN
+    ENDIF
+
+    ; Check for correct input types
+    IF TYPE(X) NE "ARRAY" OR TYPE(Y) NE "ARRAY" OR TYPE(Order) NE "INT" THEN BEGIN
+        MESSAGE, "Incorrect input types for CRV_FIT"
+        RETURN
+    ENDIF
+
+    ; Check for same number of data points
+    IF N_ELEMENTS(X) NE N_ELEMENTS(Y) THEN BEGIN
+        MESSAGE, "X and Y must have the same number of data points"
+        RETURN
+    ENDIF
+
+    ; Get the number of coefficients needed for the polynomial
+    NumCoeff = Order + 1
+
+    ; Create the matrix A and vector B for the linear equation Ax = B
+    A = FLTARR(NumCoeff, NumCoeff)
+    B = FLTARR(NumCoeff, 1)
+
+    ; Fill the matrix A and vector B with the appropriate values
+    FOR i = 0, NumCoeff-1 DO BEGIN
+        FOR j = 0, NumCoeff-1 DO BEGIN
+            A[i,j] = TOTAL(X^((i+j)))
+        ENDFOR
+        B[i,0] = TOTAL(Y*X^i)
+    ENDFOR
+
+    ; Use the linear equation solver to get the coefficients
+    Sol = LINSOLVE(A, B)
+
+    ; Assign the coefficients to the output array A
+    FOR i = 0, NumCoeff-1 DO BEGIN
+        A[i] = Sol[i,0]
+    ENDFOR
+
+    ; Calculate the chi-squared value
+    ChiSq = TOTAL((Y - POLY(A, X))^2)
+
+    ; Print the results
+    PRINT, "Coefficients: ", A
+    PRINT, "Chi-squared: ", ChiSq
+
+END

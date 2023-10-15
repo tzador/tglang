@@ -1,0 +1,92 @@
+const mongoose = require('mongoose'); //Importing mongoose library for database connectivity
+const express = require('express'); //Importing express library for RESTful API
+const { ApolloServer, gql } = require('apollo-server-express'); //Importing ApolloServer and gql for GraphQL implementation
+const { GraphQLScalarType } = require('graphql'); //Importing GraphQLScalarType for custom scalar type
+const { Kind } = require('graphql/language'); //Importing Kind for value kind differentiation
+
+//Creating a new instance of express
+const app = express();
+
+//Connecting to MongoDB database using mongoose
+mongoose.connect('<MONGODB_URI>');
+const db = mongoose.connection;
+
+//Defining a new mongoose schema for user
+const userSchema = new mongoose.Schema({
+  name: String,
+  email: String,
+  age: Number
+});
+
+//Creating a mongoose model for user
+const User = mongoose.model('User', userSchema);
+
+//Defining a GraphQL schema with a custom scalar type 'Date'
+const typeDefs = gql`
+  scalar Date
+
+  type User {
+    id: ID!
+    name: String!
+    email: String!
+    age: Int!
+    created: Date!
+    updated: Date!
+  }
+
+  type Query {
+    users: [User!]!
+  }
+
+  type Mutation {
+    createUser(name: String!, email: String!, age: Int!): User!
+  }
+`;
+
+//Resolvers for the GraphQL operations
+const resolvers = {
+  Query: {
+    users: () => User.find()
+  },
+  Mutation: {
+    createUser: (parent, args) => {
+      const newUser = new User({
+        name: args.name,
+        email: args.email,
+        age: args.age,
+        created: new Date(),
+        updated: new Date()
+      });
+
+      return newUser.save();
+    }
+  },
+  Date: new GraphQLScalarType({
+    name: 'Date',
+    description: 'Date custom scalar type',
+    parseValue(value) {
+      return new Date(value); //Convert incoming serialized value to date object
+    },
+    serialize(value) {
+      return value.getTime(); //Convert outgoing date object to integer timestamp
+    },
+    parseLiteral(ast) {
+      if (ast.kind === Kind.INT) {
+        return new Date(parseInt(ast.value, 10)); //Convert hardcoded date strings to date object
+      }
+      return null;
+    },
+  }),
+};
+
+//Creating a new ApolloServer instance with typeDefs and resolvers
+const server = new ApolloServer({
+  typeDefs,
+  resolvers
+});
+
+//Applying ApolloServer as middleware to express
+server.applyMiddleware({ app });
+
+//Starting express server
+app.listen(4000, () => console.log(`Server running at http://localhost:4000${server.graphqlPath}`));

@@ -1,0 +1,82 @@
+// This is a contract that implements a voting system with multiple candidates
+
+pragma solidity ^0.8.0;
+
+// Contract to handle the voting process
+contract Voting {
+    // Struct to define a candidate
+    struct Candidate {
+        uint id; // Unique id of the candidate
+        string name; // Name of the candidate
+        uint voteCount; // Number of votes received by the candidate
+    }
+
+    // Variables
+    address public organizer; // Address of the contract organizer
+    mapping(address => bool) public voters; // Mapping to keep track of which voter has voted
+    uint public totalVotes; // Total number of votes casted
+    uint public totalCandidates; // Total number of candidates
+    mapping(uint => Candidate) public candidates; // Mapping to store the candidates, indexed by their unique id
+
+    // Events
+    event voted(address indexed _voter, uint indexed _candidateId); // Event triggered when a voter casts a vote
+
+    // Constructor to set the organizer address and add initial candidates
+    constructor() {
+        organizer = msg.sender;
+
+        // Add initial candidates
+        addCandidate("John Smith");
+        addCandidate("Jane Doe");
+    }
+
+    // Modifier to restrict access to only the organizer
+    modifier onlyOrganizer() {
+        require(msg.sender == organizer, "Only the organizer can perform this action.");
+        _;
+    }
+
+    // Function to add a new candidate
+    function addCandidate(string memory _name) public onlyOrganizer {
+        totalCandidates++;
+        candidates[totalCandidates] = Candidate(totalCandidates, _name, 0);
+    }
+
+    // Function to cast a vote
+    function vote(uint _candidateId) public {
+        // Check if the voter has not voted before
+        require(!voters[msg.sender], "You have already voted.");
+
+        // Check if the candidate exists
+        require(_candidateId > 0 && _candidateId <= totalCandidates, "Invalid candidate.");
+
+        // Update the vote count
+        candidates[_candidateId].voteCount++;
+
+        // Mark the voter as voted
+        voters[msg.sender] = true;
+
+        // Trigger the voted event
+        emit voted(msg.sender, _candidateId);
+
+        // Increment the total votes
+        totalVotes++;
+    }
+
+    // Function to get the winner candidate id
+    function getWinner() public view returns (uint) {
+        uint winnerId = 1; // By default, the first candidate is the winner
+        uint winningVotes = candidates[1].voteCount; // By default, the first candidate has the most votes
+
+        // Loop through all the candidates, starting from the second one
+        for (uint i = 2; i <= totalCandidates; i++) {
+            // If the current candidate has more votes than the current winner, update the winner
+            if (candidates[i].voteCount > winningVotes) {
+                winnerId = i;
+                winningVotes = candidates[i].voteCount;
+            }
+        }
+
+        return winnerId;
+    }
+}

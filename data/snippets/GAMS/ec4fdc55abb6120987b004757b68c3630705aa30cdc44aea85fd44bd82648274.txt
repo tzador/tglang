@@ -1,0 +1,45 @@
+* This is a GAMS model for a production planning problem
+
+set factories 'factories'
+    /f1*f5/;  # define a set of factories
+
+set months 'months'
+    /jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec/; # define a set of months
+
+table demand(factories, months) 'monthly demand for each factory';
+*           jan     feb     mar     apr     may     jun     jul     aug     sep     oct     nov     dec    
+demand(*,*) 1300    1100    1000    1500    1200    1300    1400    1700    1500    1400    1200    1500;
+
+option optCr = 0.000001;  # set optimality criteria for solver
+
+parameter production_limit(factories);  # parameter for maximum production capacity for each factory
+production_limit('f1') = 1000;
+production_limit('f2') = 800;
+production_limit('f3') = 1200;
+production_limit('f4') = 900;
+production_limit('f5') = 1100;
+
+variable production(factories, months);  # variable for production quantity in each factory for each month
+
+positive variable inventory;  # variable for inventory level at the end of each month
+
+positive variable production_cost;  # variable for total production cost
+
+equation demand_constraint(factories,months);  # constraint to meet monthly demand for each factory
+demand_constraint(factories,months).. sum(months, production(factories,months)) =e= demand(factories,months);
+
+equation production_capacity(factories,months);  # constraint for maximum production capacity for each factory
+production_capacity(factories,months).. sum(months, production(factories,months)) =l= production_limit(factories);
+
+equation inventory_constraint(months);  # constraint for maintaining inventory at the end of each month
+inventory_constraint(months).. inventory =g= sum(factories, production(factories,months)) - sum(months, demand(factories,months));
+
+equation production_cost_eq;  # equation for total production cost
+production_cost_eq.. production_cost =e= sum(months, sum(factories, 0.5*production(factories,months)));  # assume production cost is half of production quantity
+
+model production_planning 'production planning model' / all /;  # define the model
+
+solve production_planning using LP minimizing production_cost;  # solve the model using linear programming with objective to minimize production cost
+
+* output the optimal solution
+display production.l, inventory.l, production_cost.l;

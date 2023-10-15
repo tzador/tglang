@@ -1,0 +1,105 @@
+# This is a complex NGINX configuration file
+# It includes multiple server blocks for different domains
+
+# Global settings
+user nginx;
+worker_processes auto;
+error_log /var/log/nginx/error.log;
+
+# Configure default server block
+server {
+  listen 80 default_server;
+  server_name _;
+
+  # Set root directory for default server
+  root /var/www/html;
+
+  # Disable server tokens
+  server_tokens off;
+
+  # Configure error pages
+  error_page 404 /404.html;
+  error_page 500 502 503 504 /50x.html;
+
+  # Set default index file
+  index index.html;
+
+  # Configure caching
+  expires 1d;
+  add_header Cache-Control "public";
+
+  # Configure gzip compression
+  gzip on;
+  gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+  # Configure reverse proxy for API server
+  location /api {
+    proxy_pass http://localhost:8000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  }
+
+  # Configure location for static assets
+  location /static {
+    alias /var/www/static;
+  }
+}
+
+# Second server block for example.com
+server {
+  listen 80;
+  server_name example.com;
+
+  # Set SSL configuration
+  ssl on;
+  ssl_certificate /etc/nginx/cert/example.com/cert.crt;
+  ssl_certificate_key /etc/nginx/cert/example.com/private.key;
+
+  # Configure location for static assets
+  location /static {
+    alias /var/www/example.com/static;
+  }
+
+  # Configure reverse proxy for web application
+  location / {
+    proxy_pass http://localhost:3000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  }
+}
+
+# Third server block for blog.example.com
+server {
+  listen 80;
+  server_name blog.example.com;
+
+  # Set root directory for blog
+  root /var/www/blog;
+
+  # Configure location for blog posts
+  location /posts {
+    proxy_pass http://localhost:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  }
+}
+
+# Fourth server block for admin.example.com
+server {
+  listen 80;
+  server_name admin.example.com;
+
+  # Set root directory for admin panel
+  root /var/www/admin;
+
+  # Configure reverse proxy for admin panel
+  location / {
+    proxy_pass http://localhost:8001;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  }
+}

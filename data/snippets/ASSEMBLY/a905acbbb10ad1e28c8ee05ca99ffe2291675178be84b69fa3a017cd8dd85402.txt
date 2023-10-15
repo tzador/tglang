@@ -1,0 +1,63 @@
+.section .text
+.global _start
+.type _start, @function
+
+_start:
+    nop             # No operation
+    movl $1, %eax   # Move value 1 to register eax
+    movl $0, %ebx   # Move value 0 to register ebx
+    int $0x80       # Call system interrupt to exit
+
+.section .data
+    hello_str:      # Define label for string
+        .ascii "Hello, World!\n" # String literal
+    hello_len = . - hello_str    # Variable storing length of string
+
+.section .bss
+    .lcomm buffer, 20   # Defines a local uninitialized variable space with 20 bytes
+
+.section .rodata
+    numbers:                # Define label for array
+        .long 1, 2, 3, 4    # Define array of 4 long integers
+
+.section .text
+    # Function to print string to console
+    print_string:
+        pushl %ebp      # Save base pointer to stack
+        movl %esp, %ebp # Set base pointer to current stack pointer
+        pushl $hello_str    # Push address of string to stack
+        pushl $hello_len    # Push length of string to stack
+        pushl $1            # Push stdout file descriptor to stack
+        movl $4, %eax       # Move value 4 to register eax (sys_write syscall number)
+        movl $0, %ebx       # Move value 0 to register ebx (file descriptor- stdout)
+        movl %esp, %ecx     # Move stack pointer to register ecx (address of string)
+        movl $hello_len, %edx   # Move length of string to register edx (length of string)
+        int $0x80           # Call system interrupt to write to console
+        addl $12, %esp      # Remove arguments from stack
+        popl %ebp           # Restore base pointer
+        ret                 # Return from function
+
+    # Function to add two numbers
+    add_numbers:
+        pushl %ebp      # Save base pointer to stack
+        movl %esp, %ebp # Set base pointer to current stack pointer
+        movl 8(%ebp), %eax  # Move first argument to register eax
+        addl 12(%ebp), %eax # Add second argument to register eax
+        movl %ebp, %esp     # Set stack pointer to base pointer
+        popl %ebp           # Restore base pointer
+        ret                 # Return from function
+
+.section .text
+    # Main function
+    main:
+        pushl %ebp      # Save base pointer to stack
+        movl %esp, %ebp # Set base pointer to current stack pointer
+        call print_string   # Call function to print string
+        pushl $5            # Push first argument for add_numbers
+        pushl $10           # Push second argument for add_numbers
+        call add_numbers    # Call function to add numbers
+        movl %eax, %ebx     # Move return value to ebx register
+        call print_string   # Call function to print string
+        xorl %eax, %eax     # Set return value to 0
+        popl %ebp           # Restore base pointer
+        ret                 # Return from main

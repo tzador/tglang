@@ -1,0 +1,44 @@
+/*** This is a complex SAS code snippet ***/
+
+/* Create a macro variable for the current date */
+%let today = %sysfunc(today());
+
+/* Set up options for the SAS output */
+options nocenter nodate nonumber ls=80;
+
+/* Connect to a database and create a new SAS data set */
+libname mylib oledb init_string="Provider=SQLOLEDB.1;
+    Data Source=MYDB; Integrated Security=SSPI" schema=MYSCHEMA;
+data mydata;
+    set mylib.mytable;
+
+/* Create a temporary table to store aggregated data */
+proc sql;
+    create table temp_table as
+    select datepart(&today) as date,
+        sum(sales_amount) as total_sales,
+        count(distinct customer_id) as unique_customers
+    from mydata
+    group by datepart(&today);
+
+/* Merge the temporary table with the original data set by date */
+data merged_data;
+    merge mydata(in=a) temp_table(in=b);
+    by date;
+    if a;
+run;
+
+/* Create a histogram of the total sales */
+proc sgplot data=merged_data;
+    histogram total_sales;
+    title "Histogram of Total Sales for &today";
+run;
+
+/* Export the merged data set to a CSV file */
+proc export data=merged_data
+    infile="C:\MyDocuments\merged_data.csv"
+    dbms=csv replace;
+run;
+
+/* Close the database connection */
+libname mylib clear;

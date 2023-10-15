@@ -1,0 +1,100 @@
+// This code snippet uses FIFT, a programming language designed for the creation and execution of smart contracts on the TON blockchain.
+
+// Define a new smart contract for an escrow service
+smartContract EscrowService
+{
+	// Define the storage variables
+	storage
+		payer: pubkey   // Public key of the person paying for the service
+		service_provider: pubkey    // Public key of the person providing the service
+		arbitrator: pubkey    // Public key of the arbitrator for dispute resolution
+		escrow_amount: gram   // Amount of Grams held in escrow for the service
+		end_date: uint256    // Timestamp for when the service period ends
+		
+	// Define the constructor to initialize the storage variables
+	constructor (payer: pubkey, provider: pubkey, arbitrator: pubkey, amount: gram, date: uint256)
+	{
+		// Initialize the storage variables with the provided values
+		@payer = payer
+		@service_provider = provider
+		@arbitrator = arbitrator
+		@escrow_amount = amount
+		@end_date = date
+	}
+	
+	// Define the function for the payer to deposit the escrow amount
+	giverDeposit: payer
+	{
+		// Check if the given public key matches the payer's key
+		payer () @payer eq assert
+	
+		// Get the current balance of the contract
+		gramme () balance @gramme_balance
+	
+		// Check if the contract has enough balance to hold the escrow amount
+		gramme_balance () @escrow_amount gt assert
+		
+		// Transfer the escrow amount from the payer's balance to the contract's balance
+		0 @payer balance getref balance 0 rollput gramme_transfer
+		
+		// Print a success message
+		"Escrow amount successfully deposited." println
+	}
+	
+	// Define the function for the service provider to withdraw the escrow amount
+	serviceProviderWithdraw: service_provider
+	{
+		// Check if the given public key matches the service provider's key
+		payer () @service_provider eq assert
+		
+		// Get the current balance of the contract
+		gramme () balance @gramme_balance
+		
+		// Check if the contract has enough balance to cover the escrow amount
+		gramme_balance () @escrow_amount gt assert
+		
+		// Transfer the escrow amount from the contract's balance to the service provider's balance
+		gramme_transfer @service_provider balance getref balance 0 rollput 
+		
+		// Print a success message
+		"Escrow amount successfully withdrawn." println
+	}
+	
+	// Define the function for the arbitrator to resolve any disputes between the payer and service provider
+	arbitrate: arbitrator payer service_provider
+	{
+		// Check if the given public key matches the arbitrator's key
+		payer () @arbitrator eq assert
+		
+		// Get the current balance of the contract
+		gramme () balance @gramme_balance
+		
+		// Check if the contract has enough balance to hold the escrow amount
+		gramme_balance () @escrow_amount gt assert
+		
+		// Transfer the escrow amount from the contract's balance to the appropriate party
+		2 roll 2 swap grame_transfer
+		
+		// Print a success message
+		"Dispute resolved and escrow amount transferred." println
+	}
+	
+	// Define the function for the payer to retrieve the escrow amount if the service was completed to their satisfaction
+	payerRetrieve: payer end_date
+	{
+		// Check if the given public key matches the payer's key
+		payer () @payer eq assert
+		
+		// Check if the current date has passed the scheduled end date of the service
+		now () swap < assert
+		
+		// Get the current balance of the contract
+		gramme () balance @gramme_balance
+		
+		// Transfer the escrow amount from the contract's balance back to the payer's balance
+		gramme_balance @payer balance getref balance 0 rollput gramme_transfer
+		
+		// Print a success message
+		"Escrow amount successfully retrieved." println
+	}
+}

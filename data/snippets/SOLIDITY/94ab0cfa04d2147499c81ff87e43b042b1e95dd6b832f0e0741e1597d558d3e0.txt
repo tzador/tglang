@@ -1,0 +1,171 @@
+/**
+ * @title Token Contract
+ * @dev This contract allows for the creation, management, and transfer of a custom ERC20 token.
+ */
+ 
+ // Import necessary libraries and interfaces
+pragma solidity ^0.8.0;
+import "./ERC20.sol";
+import "./Ownable.sol";
+import "./IERC20.sol";
+
+contract Token is ERC20, Ownable {
+    
+    // Declaration of state variables
+    string private _name;
+    string private _symbol;
+    uint8 private _decimals;
+    uint256 private _totalSupply;
+    address private _owner;
+    
+    // Mapping to track balances of token holders
+    mapping(address => uint256) private _balances;
+    
+    // Mapping to track allowances for token transfers
+    mapping(address => mapping(address => uint256)) private _allowances;
+    
+    // Event triggered when new tokens are minted
+    event Minted(address indexed account, uint256 amount);
+    
+    // Event triggered when tokens are burned
+    event Burned(address indexed account, uint256 amount);
+    
+    // Constructor function to set initial values
+    constructor(string memory name_, string memory symbol_) {
+        _name = name_;
+        _symbol = symbol_;
+        _decimals = 18;
+        _totalSupply = 1000000 * 10 ** _decimals;
+        _owner = msg.sender;
+        
+        // Assign total supply to owner's balance
+        _balances[_owner] = _totalSupply;
+        
+        // Emit Transfer event to record initial token distribution
+        emit Transfer(address(0), _owner, _totalSupply);
+    }
+    
+    // Function to return the name of the token
+    function name() public view virtual returns (string memory) {
+        return _name;
+    }
+    
+    // Function to return the symbol of the token
+    function symbol() public view virtual returns (string memory) {
+        return _symbol;
+    }
+    
+    // Function to return the number of decimals of the token
+    function decimals() public view virtual returns (uint8) {
+        return _decimals;
+    }
+    
+    // Function to return the total supply of the token
+    function totalSupply() public view virtual override returns (uint256) {
+        return _totalSupply;
+    }
+    
+    // Function to return the balance of a specific account
+    function balanceOf(address account) public view virtual override returns (uint256) {
+        return _balances[account];
+    }
+    
+    // Function to transfer tokens from the sender to a specified recipient
+    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+        require(msg.sender != address(0), "ERC20: transfer from the zero address");
+        require(recipient != address(0), "ERC20: transfer to the zero address");
+        require(amount <= _balances[msg.sender], "ERC20: transfer amount exceeds balance");
+        
+        // Subtract amount from sender's balance
+        _balances[msg.sender] -= amount;
+        
+        // Add amount to recipient's balance
+        _balances[recipient] += amount;
+        
+        // Trigger transfer event
+        emit Transfer(msg.sender, recipient, amount);
+        
+        return true;
+    }
+    
+    // Function to approve a specified amount of tokens for a specified spender
+    function approve(address spender, uint256 amount) public virtual override returns (bool) {
+        require(msg.sender != address(0), "ERC20: approve from the zero address");
+        require(spender != address(0), "ERC20: approve to the zero address");
+        
+        // Set allowance
+        _allowances[msg.sender][spender] = amount;
+        
+        // Trigger approval event
+        emit Approval(msg.sender, spender, amount);
+        
+        return true;
+    }
+    
+    // Function to return the allowance of a spender for a specific account
+    function allowance(address owner, address spender) public view virtual override returns (uint256) {
+        return _allowances[owner][spender];
+    }
+    
+    // Function for a spender to transfer tokens from a specified account to another specified account
+    function transferFrom(address sender, address recipient, uint256 amount) public virtual override returns (bool) {
+        require(sender != address(0), "ERC20: transfer from the zero address");
+        require(recipient != address(0), "ERC20: transfer to the zero address");
+        require(amount <= _balances[sender], "ERC20: transfer amount exceeds balance");
+        require(amount <= _allowances[sender][msg.sender], "ERC20: transfer amount exceeds allowance");
+        
+        // Subtract amount from sender's balance
+        _balances[sender] -= amount;
+        
+        // Add amount to recipient's balance
+        _balances[recipient] += amount;
+        
+        // Decrease allowance
+        _allowances[sender][msg.sender] -= amount;
+        
+        // Trigger transfer event
+        emit Transfer(sender, recipient, amount);
+        
+        return true;
+    }
+    
+    // Function to mint new tokens, can only be called by the owner
+    function mint(address account, uint256 amount) public onlyOwner {
+        require(account != address(0), "ERC20: mint to the zero address");
+        
+        // Increase total supply
+        _totalSupply += amount;
+        
+        // Add amount to account's balance
+        _balances[account] += amount;
+        
+        // Trigger mint event
+        emit Minted(account, amount);
+        
+        // Trigger transfer event
+        emit Transfer(address(0), account, amount);
+    }
+    
+    // Function to burn tokens, can only be called by the owner
+    function burn(address account, uint256 amount) public onlyOwner {
+        require(account != address(0), "ERC20: burn from the zero address");
+        require(amount <= _balances[account], "ERC20: burn amount exceeds balance");
+        
+        // Decrease total supply
+        _totalSupply -= amount;
+        
+        // Subtract amount from account's balance
+        _balances[account] -= amount;
+        
+        // Trigger burn event
+        emit Burned(account, amount);
+        
+        // Trigger transfer event
+        emit Transfer(account, address(0), amount);
+    }
+    
+    // Function to renounce ownership of the contract
+    function renounceOwnership() public override onlyOwner {
+        revert("Ownership cannot be renounced for this contract.");
+    }
+}

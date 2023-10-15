@@ -1,0 +1,83 @@
+require 'httparty'
+require 'json'
+
+# Class defining a character
+class Character
+  # Accessors for name, level, and stats
+  attr_accessor :name, :level, :stats
+
+  # Constructor with default level of 1
+  def initialize(name, level = 1)
+    @name = name
+    @level = level
+    @stats = {}
+  end
+
+  # Function to calculate the total value of all stats
+  def total_stats
+    @stats.values.reduce(:+)
+  end
+
+  # Function to add a new stat and its value to the character's stats
+  def add_stat(stat, value)
+    @stats[stat] = value
+  end
+
+  # Function to retrieve a specific stat's value
+  def get_stat(stat)
+    @stats[stat]
+  end
+end
+
+# Example usage:
+# Creating a new character
+char = Character.new("John Doe")
+# Adding stats
+char.add_stat("strength", 10)
+char.add_stat("agility", 8)
+char.add_stat("intelligence", 6)
+# Retrieving a specific stat
+char.get_stat("strength") # => 10
+
+# Class for retrieving and setting character data from an external API
+class CharacterAPI
+  include HTTParty
+  base_uri "http://example.com/api/characters"
+
+  # Function to retrieve a character's data from the API
+  def self.get_character(character_id)
+    response = get("/#{character_id}")
+    if response.code == 200
+      # Creating a new character object and setting its data using the API response
+      character = Character.new(response['name'], response['level'])
+      # Looping through the stats in the response and adding them to the character's stats
+      response['stats'].each do |stat, value|
+        character.add_stat(stat, value)
+      end
+      # Returning the character object
+      character
+    else
+      # Handling error if the character doesn't exist
+      raise "Character not found"
+    end
+  end
+
+  # Function to update a character's data on the API
+  def self.update_character(character_id, new_data)
+    response = put("/#{character_id}", body: new_data.to_json, headers: { 'Content-Type' => 'application/json' })
+    if response.code == 200
+      # Printing a success message if the data was updated
+      puts "Character data updated successfully"
+    else
+      # Handling error if the character doesn't exist
+      raise "Character not found"
+    end
+  end
+end
+
+# Example usage:
+# Retrieving a character's data from the API
+char_from_api = CharacterAPI.get_character(123)
+# Updating the character's data
+new_data = { level: 5, stats: { strength: 12, agility: 10 } }
+CharacterAPI.update_character(123, new_data)

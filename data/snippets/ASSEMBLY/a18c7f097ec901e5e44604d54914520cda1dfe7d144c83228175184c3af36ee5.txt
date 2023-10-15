@@ -1,0 +1,88 @@
+.section .rodata  ; Creates a read-only data section
+    prompt db "Please enter a number:",0xA,0xD,0  ; Declares a string for later use
+    invalid_msg db "Invalid number! Please try again:",0xA,0xD,0  ; Declares a message for invalid input
+.section .text  ; Creates a code section
+    global _start  ; Makes the _start label visible to the linker
+_start:  ; Defines the entry point for the program
+    ; Prints the prompt message
+    mov eax, 4  ; Move 4 into the EAX register
+    mov ebx, 1  ; Move 1 into the EBX register
+    mov ecx, prompt  ; Move the address of the prompt string into the ECX register
+    mov edx, 18  ; Move the length of the prompt message into the EDX register
+    int 0x80  ; Calls the kernel to print the message
+    
+    ; Reads user input
+    mov eax, 3  ; Move 3 into the EAX register
+    mov ebx, 0  ; Move 0 into the EBX register
+    mov ecx, input  ; Move the address of the input variable into the ECX register
+    mov edx, 256  ; Move the length of the input buffer into the EDX register
+    int 0x80  ; Calls the kernel to read user input
+    
+    ; Converts input to integer
+    xor ebx, ebx  ; Clears the EBX register
+    xor edx, edx  ; Clears the EDX register
+    mov ecx, input  ; Move the address of the input variable into the ECX register
+    mov al, [ecx]  ; Move the first character of the input into the AL register
+    mov bl, 10  ; Move 10 into the BL register for later use
+.convert_loop:
+    sub al, '0'  ; Converts ASCII character to integer value
+    cmp al, 0  ; Checks if input is a number
+    jl invalid  ; Jumps to the invalid label if input is not a number
+    mul ebx  ; Multiplies the existing integer by 10
+    add al, bl  ; Adds 10 to the existing integer
+loop convert_loop  ; Repeats the conversion process for the remaining characters
+    mov [result], ebx  ; Moves the converted integer into the result variable
+    
+    ; Checks for overflow
+    mov ecx, result  ; Move the address of the result variable into the ECX register
+    cmp ecx, 0xFFFFFFE  ; Checks if the result is larger than the maximum allowed integer
+    ja overflow  ; Jumps to the overflow label if the result is larger than the maximum allowed integer
+    
+    ; Prints the result
+    lea ebx, [result+30]  ; Adds 30 to the result for ASCII conversion
+    mov ecx, [ebx]  ; Move the address of the result into the ECX register
+    mov edx, [ecx+4]  ; Move the length of the result into the EDX register
+    add edx, 2  ; Adds 2 to the length for newline and null character
+    mov [ecx+4], edx  ; Moves the new length into the result
+    mov eax, 4  ; Move 4 into the EAX register
+    mov ebx, 1  ; Move 1 into the EBX register
+    mov ecx, [ecx]  ; Move the address of the result into the ECX register
+    int 0x80  ; Calls the kernel to print the result
+    
+    ; Exits the program
+    mov eax, 1  ; Move 1 into the EAX register
+    xor ebx, ebx  ; Clears the EBX register
+    int 0x80  ; Calls the kernel to exit
+    
+overflow:  ; Handles overflow error
+    ; Prints an error message
+    mov eax, 4  ; Move 4 into the EAX register
+    mov ebx, 1  ; Move 1 into the EBX register
+    mov ecx, overflow_msg  ; Move the address of the overflow message into the ECX register
+    mov edx, 29  ; Move the length of the overflow message into the EDX register
+    int 0x80  ; Calls the kernel to print the message
+    
+    ; Exits the program
+    mov eax, 1  ; Move 1 into the EAX register
+    xor ebx, ebx  ; Clears the EBX register
+    int 0x80  ; Calls the kernel to exit
+    
+invalid:  ; Handles invalid input error
+    ; Prints an error message
+    mov eax, 4  ; Move 4 into the EAX register
+    mov ebx, 1  ; Move 1 into the EBX register
+    mov ecx, invalid_msg  ; Move the address of the invalid message into the ECX register
+    mov edx, 36  ; Move the length of the invalid message into the EDX register
+    int 0x80  ; Calls the kernel to print the message
+    
+    ; Exits the program
+    mov eax, 1  ; Move 1 into the EAX register
+    xor ebx, ebx  ; Clears the EBX register
+    int 0x80  ; Calls the kernel to exit
+    
+.section .data  ; Creates a data section
+    input resb 256  ; Reserves 256 bytes for user input
+    result resb 256  ; Reserves 256 bytes for the converted integer result
+.section .bss  ; Creates a unitialized data section
+.overflow_msg resb 29  ; Reserves 29 bytes for the overflow error message
+    db "Result is too large! Please enter a smaller number.",0xA,0xD,0  ; Declares the overflow error message

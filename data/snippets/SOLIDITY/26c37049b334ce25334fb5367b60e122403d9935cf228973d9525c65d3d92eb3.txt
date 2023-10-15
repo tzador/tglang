@@ -1,0 +1,103 @@
+// Contract to manage a marketplace for buying and selling products
+
+pragma solidity ^0.8.0;
+
+contract Marketplace {
+    // Stores the number of products created
+    uint public productCount;
+
+    // Stores the administrator of the marketplace
+    address public admin;
+
+    // Mapping for storing products and their details
+    mapping(uint => Product) public products;
+
+    // Defines the product structure
+    struct Product {
+        uint id; // Product ID
+        string name; // Product Name
+        string description; // Product Description
+        uint price; // Product Price
+        address payable seller; // Product Seller
+        bool isSold; // Flag to check if the product is sold or not
+    }
+
+    // Events to notify when a product is added or sold
+    event ProductAdded(uint id, string name, uint price);
+    event ProductSold(uint id, address buyer, uint price);
+
+    // Modifier to restrict certain functions to only the admin
+    modifier onlyAdmin() {
+        require(msg.sender == admin, "Only admin can perform this action");
+        _;
+    }
+
+    // Modifier to check if the product ID exists
+    modifier productExists(uint _productId) {
+        require(products[_productId].id != 0, "Product does not exist");
+        _;
+    }
+
+    // Modifier to restrict the function to only the seller of the product
+    modifier onlySeller(uint _productId) {
+        require(products[_productId].seller == msg.sender, "Only the seller can perform this action");
+        _;
+    }
+
+    // Constructor to set the admin and initial product count on deployment
+    constructor() {
+        admin = msg.sender;
+        productCount = 0;
+    }
+
+    // Function to add a new product
+    function addProduct(string memory _name, string memory _description, uint _price) public onlyAdmin {
+        require(bytes(_name).length > 0 && bytes(_description).length > 0, "Invalid product details");
+        require(_price > 0, "Price must be greater than 0");
+
+        // Increment product count
+        productCount++;
+
+        // Add the new product to the mapping
+        products[productCount] = Product(productCount, _name, _description, _price, payable(msg.sender), false);
+
+        // Emit event to notify product addition
+        emit ProductAdded(productCount, _name, _price);
+    }
+
+    // Function to buy a product
+    function buyProduct(uint _productId) public payable productExists(_productId) {
+        // Get the product from the mapping
+        Product memory _product = products[_productId];
+
+        // Check if the product is already sold
+        require(!_product.isSold, "Product has already been sold");
+
+        // Check if the value sent is equal to the product price
+        require(msg.value == _product.price, "Insufficient or excess funds sent");
+
+        // Transfer funds to the seller
+        _product.seller.transfer(msg.value);
+
+        // Update product owner
+        _product.seller = payable(msg.sender);
+
+        // Update product sold status
+        _product.isSold = true;
+
+        // Update product in the mapping
+        products[_product.id] = _product;
+
+        // Emit event to notify product sale
+        emit ProductSold(_productId, msg.sender, _product.price);
+    }
+
+    // Function to withdraw funds from the contract
+    function withdrawFunds() public onlyAdmin {
+        // Get current contract balance
+        uint balance = address(this).balance;
+
+        // Transfer balance to admin
+        admin.transfer(balance);
+    }
+}

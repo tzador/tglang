@@ -1,0 +1,71 @@
+pragma solidity ^0.8.0;
+// ^ Defines the compatibility of the code with Solidity version 0.8.0 and up
+
+// I. Defining an interface
+interface Token {
+    // A. Creating the required functions that the contract should implement
+    function transfer(address receiver, uint256 amount) external returns (bool);
+    function balanceOf(address owner) external returns (uint256);
+}
+
+// II. Defining a library
+library SafeMath {
+    // A. Creating a function to add two numbers safely
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        // i. Checking for overflow
+        require(a + b >= a, "Addition overflow");
+        // ii. Returning the result
+        return a + b;
+    }
+
+    // B. Creating a function to subtract two numbers safely
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        // i. Checking for underflow
+        require(b <= a, "Insufficient balance");
+        // ii. Returning the result
+        return a - b;
+    }
+}
+
+// III. Defining a contract
+contract TokenExchange {
+    // A. Importing the SafeMath library
+    using SafeMath for uint256;
+
+    // B. Declaring variables
+    address public admin;
+    Token public token;
+    uint256 public exchangeRate;
+
+    // C. Constructor function that sets the admin and token address
+    constructor(address _admin, address _tokenAddress) {
+        admin = _admin;
+        token = Token(_tokenAddress);
+    }
+
+    // D. Function to set the exchange rate, only allowed by the admin
+    function setExchangeRate(uint256 _exchangeRate) external onlyAdmin {
+        exchangeRate = _exchangeRate;
+    }
+
+    // E. Function to buy tokens, sends the requested amount of tokens to the sender and receives ETH in return
+    function buyTokens(uint256 _amount) external payable {
+        // i. Calculating the number of tokens based on the exchange rate
+        uint256 tokensToBuy = _amount.mul(exchangeRate);
+
+        // ii. Checking if the token exchange contract has enough tokens
+        require(token.balanceOf(address(this)) >= tokensToBuy, "Insufficient tokens in contract");
+
+        // iii. Transferring tokens from contract to sender
+        token.transfer(msg.sender, tokensToBuy);
+
+        // iv. Sending ETH to admin
+        admin.transfer(msg.value);
+    }
+
+    // F. Modifier to check if the sender is the admin
+    modifier onlyAdmin() {
+        require(msg.sender == admin, "Unauthorized access, only admin can call this function");
+        _;
+    }
+}

@@ -1,0 +1,94 @@
+{-# LANGUAGE LambdaCase, FlexibleContexts #-}
+import Control.Applicative
+import Control.Applicative.Lift
+import Control.Monad.State
+import Data.Bifunctor
+import Data.Tuple
+import Data.Maybe
+    
+type Parser a = StateT String Maybe a
+
+many :: Alternative m => m a -> m [a]
+many p = (:) <$> p <*> many p <|> pure []
+
+sepBy1 :: Alternative m => m a -> m sep -> m [a]
+sepBy1 p sep = (:) <$> p <*> many (sep *> p)
+
+anyChar :: Parser Char
+anyChar =
+    get >>= \case
+        (c : s) -> c <$ put s
+        _       -> empty
+
+char :: Char -> Parser Char
+char c =
+    anyChar >>= \c' ->
+        if c == c'
+            then pure c
+            else empty
+
+string :: String -> Parser String
+string = traverse char
+
+token :: Parser a -> Parser a
+token p = p <* many (char ' ')
+
+number :: Num b => Parser b
+number =
+    token (many (char '0')) *> (fmap read . (`sepBy1` char '.') . some $ digit)
+    where
+        digit = satisfy (`elem` ['0'..'9'])
+
+data Expr
+    = Var String
+    | Number Double
+    | Negate Expr
+    | Add Expr Expr
+    | Subtract Expr Expr
+    | Multiply Expr Expr
+    | Divide Expr Expr
+    | Assign String Expr
+    | IfElse Expr Expr Expr
+    | While Expr Expr
+
+variable :: Parser String
+variable =
+    token . some . satisfy $ \c ->
+        c `elem` (['_','A'..'Z'] ++ ['a'..'z'])
+
+expr :: Parser Expr
+expr =
+    (Var <$> variable)
+    <|> (Number <$> number)
+    <|> (Negate <$> (string "~" *> expr))
+    <|> (Add <$> inParens "+" expr)
+    <|> (Subtract <$> inParens "-" expr)
+    <|> (Multiply <$> inParens "*" expr)
+    <|> (Divide <$> inParens "/" expr)
+    <|> (Assign <$> (string "let" *> variable <* char '=') <*> expr)
+    <|> (IfElse <$> (string "if" *> expr) <*> (string "then" *> expr) <*> (string "else" *> expr))
+    <|> (While <$> (string "while" *> expr) <*> (string "do" *> expr))
+    where
+        inParens :: String -> Parser a -> Parser a
+        inParens s p = char '(' *> p <* char ')'
+    
+identifier :: Parser String
+identifier =
+    many (satisfy (`elem` ['a'..'z']))
+
+function :: Parser (String, [String])
+function =
+    (,) <$> identifier <*> (spaces *> many identifier)
+    where
+        spaces = many (char ' ')
+
+parseFunction :: String -> Maybe (String, [String])
+parseFunction = runStateT function
+
+main :: IO ()
+main =
+    interact $
+        \input ->
+            case parseFunction input of
+                Nothing -> "Invalid function"
+                Just (name, args) -> "Function name: " ++ name ++ ", Arguments: " ++ show args

@@ -1,0 +1,51 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use LWP::Simple;
+use HTML::Parse;
+use DBI;
+
+# open database connection
+my $dbh = DBI->connect("dbi:mysql:database=products;host=localhost",
+                       "username", "password")
+    or die "Could not connect to database: $DBI::errstr";
+
+# create table to store product information
+$dbh->do("CREATE TABLE IF NOT EXISTS products
+         (
+         id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+         name VARCHAR(255) NOT NULL,
+         price DECIMAL(10,2) NOT NULL,
+         description TEXT NOT NULL
+         )");
+
+# get url of product page to scrape
+my $url = "https://www.example.com/products";
+
+# download product page
+my $page = get($url);
+
+# parse HTML
+my $parsed_page = HTML::Parse::parse_html($page);
+
+# get all <div> elements with class "product"
+my @product_divs = $parsed_page->find("div", "class", "product");
+
+# loop through each <div> element
+foreach my $div (@product_divs) {
+    # get product name
+    my $product_name = $div->find("div", "class", "product-name")->as_text;
+
+    # get product price
+    my $product_price = $div->find("div", "class", "product-price")->as_text;
+
+    # get product description
+    my $product_description = $div->find("div", "class", "product-description")->as_text;
+
+    # insert product information into database
+    $dbh->do("INSERT INTO products (name, price, description)
+              VALUES (?, ?, ?)", undef, $product_name, $product_price, $product_description);
+}
+
+# close database connection
+$dbh->disconnect();

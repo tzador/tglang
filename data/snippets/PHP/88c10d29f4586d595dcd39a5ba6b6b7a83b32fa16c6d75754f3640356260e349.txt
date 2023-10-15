@@ -1,0 +1,55 @@
+<?php
+
+// Start a session
+session_start();
+
+// Define a constant
+define('DB_HOST', 'localhost');
+
+// Create connection to database
+$conn = mysqli_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+
+// Define a function to sanitize user input
+function clean_input($input)
+{
+    // Remove whitespace
+    $input = trim($input);
+
+    // Remove backslashes
+    $input = stripslashes($input);
+
+    // Prevent potential malicious input
+    $input = htmlspecialchars($input);
+
+    // Return sanitized input
+    return $input;
+}
+
+// Get user input from form
+$username = clean_input($_POST['username']);
+$password = clean_input($_POST['password']);
+
+// Prepare statement to check if user exists
+$stmt = $conn->prepare("SELECT * FROM users WHERE username = ? AND password = ?");
+$stmt->bind_param("ss", $username, $password);
+$stmt->execute();
+
+// Store result in variable
+$result = $stmt->get_result();
+
+// Check if user exists
+if ($result->num_rows === 1) {
+    // Set session variable to logged in
+    $_SESSION['logged_in'] = true;
+
+    // Redirect to user's dashboard
+    header('Location: dashboard.php');
+    exit();
+} else {
+    // User does not exist, display error message
+    echo "Invalid username or password";
+}
+
+// Close statement and connection
+$stmt->close();
+$conn->close();

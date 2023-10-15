@@ -1,0 +1,69 @@
+# import necessary libraries
+import graphql
+import json
+import requests
+
+# define GraphQL Schema
+schema = '''
+  type Movie {
+    id: ID!
+    title: String!
+    release_year: Int
+    genre: String
+    director: String
+  }
+
+  type Query {
+    movies(id: ID, release_year: Int): [Movie]
+  }
+'''
+
+# build resolvers for Queries
+async def resolve_movies(parent, info, id=None, release_year=None):
+  # prepare API endpoint
+  url = 'https://movies-api.example.com/graphql'
+  
+  # define GraphQL query
+  query = f'''
+    query {{
+      movies(id: {id}, release_year: {release_year}) {{
+        id
+        title
+        release_year
+        genre
+        director
+      }}
+    }}
+  '''
+ 
+  # send GraphQL request with query to API endpoint
+  response = await requests.post(url, data=query)
+  
+  # parse JSON response
+  json_response = json.loads(response.text)
+  
+  # return movie data
+  return json_response['data']['movies']
+
+# create GraphQL server
+server = graphql.GraphQL(schema, root_value={'movies': resolve_movies})
+
+# run GraphQL server on port 5000
+server.execute('''
+  mutation {
+    movies: createMovie(
+      input: {
+        title: "Inception",
+        release_year: 2010,
+        genre: "Sci-Fi",
+        director: "Christopher Nolan"
+      }
+    ) {
+      id
+      title
+      release_year
+      genre
+      director
+    }
+  }
+''')

@@ -1,0 +1,100 @@
+# This is a complex code snippet for an NGINX server configuration
+# It includes multiple directives and advanced settings for enhanced performance and security
+# It is recommended to have a good understanding of NGINX before using this configuration
+
+# basic settings
+# sets the user and group that the NGINX process will run as
+user www-data;
+# specifies the number of worker processes
+worker_processes auto;
+# sets the maximum number of connections that each worker can handle simultaneously
+worker_connections 1024;
+
+# error logging
+# sets the location and format of the error log file
+error_log /var/log/nginx/error.log notice;
+
+# handling of client requests
+# sets the timeout for connections, in this case, any idle connection will be closed after 15 seconds
+keepalive_timeout 15;
+# sets the maximum size of client request body, in this case, 1MB
+client_max_body_size 1M;
+
+# server directives
+# defines the virtual server and the port it will listen on
+server {
+    listen 80;
+    # specifies the domain name associated with the server
+    server_name example.com;
+    
+    # SSL configuration
+    listen 443 ssl;
+    # sets the location of the SSL certificate and private key files
+    ssl_certificate /etc/ssl/certs/example.com.crt;
+    ssl_certificate_key /etc/ssl/private/example.com.key;
+    
+    # security settings
+    # sets the allowed HTTP methods and headers
+    allow_methods GET POST;
+    allow_headers X-Requested-With Content-Type;
+    # sets the IP addresses that are allowed to access the server
+    # in this example, only the loopback address and a specific IP range are allowed
+    allow 127.0.0.1;
+    allow 192.168.0.0/24;
+    # sets the IP address that is denied access to the server
+    # in this example, all requests from 203.0.113.1 will be denied
+    deny 203.0.113.1;
+    
+    # caching
+    # enables caching in NGINX for faster content delivery
+    # specifies the location and size of the cache
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=one:10m;
+    # enables caching for images, CSS, and JavaScript files
+    proxy_cache_key "$scheme$request_method$host$request_uri";
+    # sets the cache expiration time to 1 hour
+    proxy_cache_valid 200 1h;
+    
+    # proxy settings
+    # defines a proxy to divert requests to a different server
+    location /api/ {
+        proxy_pass https://api.example.com/;
+        # disables the buffering and sends the response as soon as it's received
+        proxy_buffering off;
+        # configures the proxy server to ignore client request headers
+        proxy_ignore_headers "Cache-Control";
+        proxy_ignore_headers "Expires";
+    }
+}
+
+# global settings
+# sets the timeout for reading client request headers
+client_header_timeout 10s;
+# sets the timeout for sending client request headers to the server
+client_body_timeout 10s;
+# disables logging of server health checks for load balancer
+health_check_enable off;
+# enables gzip compression for faster content delivery
+gzip on;
+# sets the compression level
+gzip_comp_level 6;
+# specifies the MIME types that should be compressed
+gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+# directory settings
+# defines the root directory for the server
+root /var/www/example.com;
+
+# virtual host settings
+upstream backend {
+    # specifies the server addresses that NGINX will distribute requests to
+    server 192.168.1.2:8080;
+    server 192.168.1.3:8080;
+}
+
+# redirects
+# redirects all http requests to https
+server {
+    listen 80;
+    # redirects all requests to the same URI under https
+    return 301 https://$host$request_uri;
+}

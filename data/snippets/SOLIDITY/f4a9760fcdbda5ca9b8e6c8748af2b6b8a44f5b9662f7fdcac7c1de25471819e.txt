@@ -1,0 +1,124 @@
+pragma solidity ^0.8.0;
+
+interface IERC20 {
+    function totalSupply() external view returns (uint);
+    function balanceOf(address tokenHolder) external view returns (uint);
+    function allowance(address tokenOwner, address spender) external view returns (uint);
+    
+    event Transfer(address indexed from, address indexed to, uint value);
+    event Approval(address indexed owner, address indexed spender, uint value);
+    
+    function transfer(address to, uint value) external returns (bool);
+    function approve(address spender, uint value) external returns (bool);
+    function transferFrom(address from, address to, uint value) external returns (bool);
+}
+
+library SafeMath {
+    function add(uint a, uint b) internal pure returns (uint) {
+        uint c = a + b;
+        require(c >= a, "SafeMath: addition overflow");
+        return c;
+    }
+
+    function sub(uint a, uint b) internal pure returns (uint) {
+        require(b <= a, "SafeMath: subtraction overflow");
+        uint c = a - b;
+        return c;
+    }
+
+    function mul(uint a, uint b) internal pure returns (uint) {
+        if (a == 0) {
+            return 0;
+        }
+        uint c = a * b;
+        require(c / a == b, "SafeMath: multiplication overflow");
+        return c;
+    }
+
+    function div(uint a, uint b) internal pure returns (uint) {
+        require(b > 0, "SafeMath: division by zero");
+        uint c = a / b;
+        return c;
+    }
+}
+
+contract Token is IERC20 {
+    using SafeMath for uint;
+    
+    string public name;
+    string public symbol;
+    uint public decimals = 18;
+    
+    uint _totalSupply;
+    
+    mapping (address => uint) _balances;
+    mapping (address => mapping (address => uint)) _allowed;
+    
+    constructor(string memory tokenName, string memory tokenSymbol) {
+        name = tokenName;
+        symbol = tokenSymbol;
+    }
+    
+    function totalSupply() external override view returns (uint) {
+        return _totalSupply;
+    }
+    
+    function balanceOf(address tokenHolder) external override view returns (uint) {
+        return _balances[tokenHolder];
+    }
+    
+    function allowance(address tokenOwner, address spender) external override view returns (uint) {
+        return _allowed[tokenOwner][spender];
+    }
+    
+    function transfer(address to, uint value) external override returns (bool) {
+        _transfer(msg.sender, to, value);
+        return true;
+    }
+    
+    function approve(address spender, uint value) external override returns (bool) {
+        _approve(msg.sender, spender, value);
+        return true;
+    }
+    
+    function transferFrom(address from, address to, uint value) external override returns (bool) {
+        _transfer(from, to, value);
+        _approve(from, msg.sender, _allowed[from][msg.sender].sub(value));
+        return true;
+    }
+    
+    function _transfer(address from, address to, uint value) internal {
+        require(to != address(0), "Transfer to the zero address");
+        require(_balances[from] >= value, "Insufficient balance");
+        _balances[from] = _balances[from].sub(value);
+        _balances[to] = _balances[to].add(value);
+        emit Transfer(from, to, value);
+    }
+    
+    function _approve(address owner, address spender, uint value) internal {
+        require(owner != address(0), "Approve from the zero address");
+        require(spender != address(0), "Approve to the zero address");
+        _allowed[owner][spender] = value;
+        emit Approval(owner, spender, value);
+    }
+    
+    function _mint(address tokenHolder, uint value) internal {
+        require(tokenHolder != address(0), "Mint to the zero address");
+        _totalSupply = _totalSupply.add(value);
+        _balances[tokenHolder] = _balances[tokenHolder].add(value);
+        emit Transfer(address(0), tokenHolder, value);
+    }
+    
+    function _burn(address tokenHolder, uint value) internal {
+        require(tokenHolder != address(0), "Burn from the zero address");
+        require(_balances[tokenHolder] >= value, "Insufficient balance");
+        _balances[tokenHolder] = _balances[tokenHolder].sub(value);
+        _totalSupply = _totalSupply.sub(value);
+        emit Transfer(tokenHolder, address(0), value);
+    }
+    
+    function _burnFrom(address tokenHolder, uint value) internal {
+        _burn(tokenHolder, value);
+        _approve(tokenHolder, msg.sender, _allowed[tokenHolder][msg.sender].sub(value));
+    }
+}

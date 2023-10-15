@@ -1,0 +1,66 @@
+// This code snippet creates a custom object and adds fields and validation rules to it.
+// It uses the Schema class to generate dynamic code, allowing for a more flexible and efficient solution.
+
+// Create the custom object
+Schema.SObjectType customObject = Schema.getGlobalDescribe().get('Custom_Object__c');
+if(customObject == null) {
+  customObject = new Schema.SObjectType('Custom_Object__c');
+  Schema.DescribeSObjectResult customObjectDescribe = customObject.getDescribe();
+}
+
+// Add fields to the custom object
+List<Schema.SObjectField> fields = new List<Schema.SObjectField>();
+
+// Add a number field
+Schema.SObjectField numberField = new Schema.SObjectField('Number_Field__c', Schema.sObjectType.Account);
+numberField.put('type', 'Number');
+numberField.put('label', 'Number Field');
+numberField.put('defaultValue', 0);
+numberField.put('precision', 10);
+numberField.put('scale', 2);
+fields.add(numberField);
+
+// Add a picklist field
+Schema.SObjectField picklistField = new Schema.SObjectField('Picklist_Field__c', Schema.sObjectType.Account);
+picklistField.put('type', 'Picklist');
+picklistField.put('label', 'Picklist Field');
+Schema.PicklistEntry entry1 = new Schema.PicklistEntry('Option 1', '1');
+Schema.PicklistEntry entry2 = new Schema.PicklistEntry('Option 2', '2');
+picklistField.put('picklistEntries', new List<Schema.PicklistEntry>{entry1, entry2});
+fields.add(picklistField);
+
+// Add a formula field
+Schema.SObjectField formulaField = new Schema.SObjectField('Formula_Field__c', Schema.sObjectType.Account);
+formulaField.put('type', 'Formula');
+formulaField.put('formula', 'Number_Field__c * 2');
+formulaField.put('label', 'Formula Field');
+formulaField.put('defaultValue', 0);
+fields.add(formulaField);
+
+// Add the fields to the custom object
+customObjectDescribe.fields.getMap().putAll(fields);
+
+// Add validation rules to the custom object
+List<Schema.SObjectField> validationRuleFields = new List<Schema.SObjectField>();
+validationRuleFields.add(numberField);
+validationRuleFields.add(picklistField);
+
+// Create the validation rule
+Schema.ValidationRule validationRule = new Schema.ValidationRule();
+validationRule.put('active', true);
+validationRule.put('description', 'Validates that the number field is greater than the picklist field.');
+validationRule.put('errorConditionFormula', 'Number_Field__c <= Picklist_Field__c');
+validationRule.put('errorMessage', 'Number Field must be greater than Picklist Field.');
+validationRule.put('entityDefinitionId', customObjectDescribe.getId());
+validationRule.put('formula', 'AND(' +
+                                    'NOT(ISBLANK(Number_Field__c)), ' +
+                                    'NOT(ISBLANK(Picklist_Field__c))' +
+                                  ')' 
+validationRule.put('validationName', 'Number_Bigger_Than_Picklist_Validation');
+customObjectDescribe.validationRules.getMap().put('Number_Bigger_Than_Picklist_Validation', validationRule);
+
+// Update the custom object
+Database.DMLOptions dml = new Database.DMLOptions();
+dml.DuplicateRuleHeader.allowSave = true;
+dml.DuplicateRuleHeader.runAsCurrentUser = true;
+Database.Saveresult result = Database.update(customObjectDescribe, dml);

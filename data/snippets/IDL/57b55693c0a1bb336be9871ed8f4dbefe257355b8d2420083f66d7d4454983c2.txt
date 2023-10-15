@@ -1,0 +1,62 @@
+PRO ganymedeMagneticFieldData, outputString, x, y, z
+; This program generates a magnetic field map of Ganymede
+; Inputs: 
+; outputString: string - name of output file
+; x,y,z: arrays - coordinates of map points
+; Outputs:
+; outputString: string - name of output file
+;
+; Created on 03/27/21 by Jane Doe
+
+; Define physical constants
+constant Pi = !PI ; pi
+constant R = 2634.1 ; radius of Ganymede in km
+constant mu0 = 4e-7 ; magnetic permeability of vacuum in N/A^2
+constant mu1 = 3.84086e-5 ; lagrangian multiplier
+constant eps = 1e-12 ; convergence criteria
+
+; Calculate coordinates of magnetic field probe
+xProbe = x
+yProbe = y*cos(mu1) + z*sin(mu1)
+zProbe = -y*sin(mu1) + z*cos(mu1)
+
+; Initialize arrays for magnetic field values
+bX = fltarr(n_elements(x), n_elements(y), n_elements(z))
+bY = fltarr(n_elements(x), n_elements(y), n_elements(z))
+bZ = fltarr(n_elements(x), n_elements(y), n_elements(z))
+
+; Loop through each point and calculate magnetic field values
+for i = 0, n_elements(x)-1 do begin
+	for j = 0, n_elements(y)-1 do begin
+		for k = 0, n_elements(z)-1 do begin
+			; Calculate distance from probe to point
+			r = sqrt((xProbe[i]-x[j])^2 + (yProbe[i]-y[j])^2 + (zProbe[i]-z[k])^2)
+
+			; Check for convergence
+			if (abs(r-R) lt eps) then begin
+				; Point is at the surface of Ganymede, use analytical expression
+				bX[i,j,k] = -mu0*mu1*y[j]*z[k]/R^2
+				bY[i,j,k] = mu0*mu1*x[j]*z[k]/R^2
+				bZ[i,j,k] = 0
+			endif else begin
+				; Point is not at surface, use numerical calculation
+				bX[i,j,k] = bX[i,j,k] + mu0*mu1*(y[j]/r^3 - yProbe[i]/(r-R)^3)
+				bY[i,j,k] = bY[i,j,k] + mu0*mu1*(x[j]/r^3 - xProbe[i]/(r-R)^3)
+				bZ[i,j,k] = bZ[i,j,k] + mu0*mu1*(z[k]/r^3 - zProbe[i]/(r-R)^3)
+			end
+		endfor
+	endfor
+endfor
+
+; Write magnetic field values to output file
+openw, unit, outputString
+printf, unit, 'x, y, z, bX, bY, bZ'
+for i = 0, n_elements(x)-1 do begin
+	for j = 0, n_elements(y)-1 do begin
+		for k = 0, n_elements(z)-1 do begin
+			printf, unit, x[i], y[j], z[k], bX[i,j,k], bY[i,j,k], bZ[i,j,k]
+		endfor
+	endfor
+endfor
+close, unit
+END

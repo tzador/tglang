@@ -1,0 +1,45 @@
+# NGINX Configuration File
+upstream app_servers { 
+    server 127.0.0.1:8000;
+
+    server 127.0.0.1:8001;
+
+    server 127.0.0.1:8002 weight=3; # This server has a higher weight than the others
+}
+
+server {  # Server block
+    listen 80;  # Specify port to listen on
+    server_name example.com;  # Server's hostname
+
+    location / {  # Location block for root path
+        proxy_pass http://app_servers;  # Send requests to app servers defined in upstream block
+    }
+
+    location /images/ {  # Location block for images path
+        root /var/www/images;  # Serve images from this directory
+        autoindex on;  # Enable directory listing
+    }
+
+    error_page 404 /404.html;  # Serve custom 404 page in case of a not found error
+    location = /404.html {  # Location block for custom 404 page
+        internal;  # Indicates this location block should only be accessible internally
+        root /var/www/errors;  # Serve error page from this directory
+    }
+
+    error_page 500 502 503 504 /50x.html;  # Serve custom error page for server errors
+    location = /50x.html {
+        internal;
+        root /var/www/errors;
+    }
+
+    location ~ \.php$ {  # Location block for all PHP files
+        root /var/www/php;  # Serve PHP files from this directory
+        include fastcgi_params;  # Include fastcgi configuration
+        fastcgi_pass unix:/var/run/php-fpm.sock;  # Specify PHP-FPM socket for processing PHP files
+    }
+
+    location /admin {  # Location block for admin path
+        auth_basic "Restricted";  # Enable basic authentication
+        auth_basic_user_file /etc/nginx/.htpasswd;  # Specify location of user credentials file
+    }
+}

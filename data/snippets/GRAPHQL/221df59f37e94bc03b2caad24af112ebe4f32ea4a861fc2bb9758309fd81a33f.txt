@@ -1,0 +1,99 @@
+const { ApolloServer, gql } = require('apollo-server');
+const { buildFederatedSchema } = require('@apollo/federation');
+
+const typeDefs = gql`
+  type Book @key(fields: "id") {
+    id: ID!
+    name: String!
+    author: [Author!]!
+  }
+
+  extend type Author @key(fields: "id") {
+    id: ID! @external
+    books: [Book!]!
+  }
+
+  type Query {
+    books: [Book!]!
+  }
+
+  type Mutation {
+    createBook(id: ID!, name: String!, authorId: String!): Book!
+  }
+`;
+
+const books = [
+  {
+    id: '1',
+    name: 'Harry Potter and the Sorcerer\'s Stone',
+    authorId: '1'
+  },
+  {
+    id: '2',
+    name: 'The Great Gatsby',
+    authorId: '2'
+  },
+  {
+    id: '3',
+    name: 'To Kill a Mockingbird',
+    authorId: '3'
+  }
+];
+
+const authors = [
+  {
+    id: '1',
+    name: 'J.K. Rowling'
+  },
+  {
+    id: '2',
+    name: 'F. Scott Fitzgerald'
+  },
+  {
+    id: '3',
+    name: 'Harper Lee'
+  }
+];
+
+const resolvers = {
+  Book: {
+    __resolveReference(book, { fetchAuthorById }) {
+      return fetchAuthorById(book.authorId);
+    },
+  },
+  Author: {
+    __resolveReference(author) {
+      return authors.find(({ id }) => id === author.id);
+    },
+    books(author) {
+      return books.filter(book => book.authorId === author.id);
+    }
+  },
+  Query: {
+    books() {
+      return books;
+    },
+  },
+  Mutation: {
+    createBook(_, { id, name, authorId }) {
+      const newBook = {
+        id,
+        name,
+        authorId
+      };
+      books.push(newBook);
+      return newBook;
+    }
+  }
+};
+
+const server = new ApolloServer({
+  schema: buildFederatedSchema([{
+    typeDefs,
+    resolvers
+  }]),
+});
+
+server.listen().then(({ url }) => {
+  console.log(`🚀 Apollo Server ready at ${url}`);
+});

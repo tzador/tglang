@@ -1,0 +1,46 @@
+/******************************************************************************
+*
+* SAS Macro: Calculate Average and Standard Deviation of a Numeric Variable
+*
+******************************************************************************/
+
+%macro calcStats(dset=, var=);
+
+   /******************************************************
+   * Macro to calculate average and standard deviation of 
+   * a numeric variable in a SAS dataset.
+   ******************************************************/
+
+   data _null_;
+      set &dset.;
+      call symput('obs', _n_);
+   run;
+
+   data stats;
+      set &dset.;
+      retain sum 0;
+      sum + &var.;
+      if _n_ = &obs. then do;
+         &var._avg = sum / &obs.;
+         set &dset. (keep=&var.);
+         retain sumsq 0;
+         do _i_ = 1 to &obs.;
+            sqdiff = (&var. - &var._avg) ** 2;
+            sumsq = sumsq + sqdiff;
+         end;
+         &var._std = sqrt(sumsq / (&obs. - 1));
+         drop sum sumsq sqdiff _i_;
+      end;
+   run;
+%mend calcStats;
+
+/******************************************************************************
+*
+* Sample Usage:
+* %calcStats(dset=mydata, var=age);
+*
+* This will create a new dataset called "stats" with two variables:
+* age_avg and age_std, containing the average and standard deviation of the
+* "age" variable in the "mydata" dataset.
+*
+*****************************************************************************/

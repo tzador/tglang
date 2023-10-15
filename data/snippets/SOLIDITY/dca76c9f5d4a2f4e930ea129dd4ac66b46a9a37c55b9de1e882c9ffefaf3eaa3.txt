@@ -1,0 +1,112 @@
+// Exchange contract for trading ERC20 tokens
+contract Exchange {
+
+    // Variables to keep track of user balances
+    mapping (address => mapping (address => uint)) public balances;
+	
+	// Struct for storing order details
+	struct Order {
+	    address trader;
+	    address baseToken;
+	    address quoteToken;
+	    uint baseAmount;
+	    uint quoteAmount;
+	}
+	
+	// Mapping for storing orders by their hash value
+	mapping (bytes32 => Order) public orders;
+	
+	// Events for logging order placement, cancellation, and trade execution
+	event OrderPlaced(bytes32 orderHash, address trader, address baseToken, address quoteToken, uint baseAmount, uint quoteAmount);
+	event OrderCancelled(bytes32 orderHash);
+	event TradeExecuted(bytes32 orderHash, uint baseAmount, uint quoteAmount);
+	
+	// Function for depositing tokens into the exchange
+	function deposit(address token, uint amount) public {
+	    require(token != address(0)); // Make sure the token address is not the 0 address (Ethereum)
+	    require(amount > 0); // Make sure the amount is greater than 0
+	    
+	    // Transfer tokens from the sender to the exchange
+	    require(Token(token).transferFrom(msg.sender, address(this), amount));
+	    
+	    // Update the user's balance in the exchange
+	    balances[msg.sender][token] = balances[msg.sender][token] + amount;
+	}
+	
+	// Function for withdrawing tokens from the exchange
+	function withdraw(address token, uint amount) public {
+	    require(token != address(0)); // Make sure the token address is not the 0 address (Ethereum)
+	    require(amount > 0); // Make sure the amount is greater than 0
+	    require(amount <= balances[msg.sender][token]); // Make sure the user has enough balance to withdraw
+	    
+	    // Transfer tokens from the exchange to the sender
+	    require(Token(token).transfer(msg.sender, amount));
+	    
+	    // Update the user's balance in the exchange
+	    balances[msg.sender][token] = balances[msg.sender][token] - amount;
+	}
+	
+	// Function for placing a buy order
+	function placeOrder(address baseToken, address quoteToken, uint baseAmount, uint quoteAmount) public {
+	    require(baseToken != address(0)); // Make sure the base token address is not the 0 address (Ethereum)
+	    require(quoteToken != address(0)); // Make sure the quote token address is not the 0 address (Ethereum)
+	    require(baseAmount > 0); // Make sure the base amount is greater than 0
+	    require(quoteAmount > 0); // Make sure the quote amount is greater than 0
+	    
+	    // Generate a unique hash for the order
+	    bytes32 orderHash = keccak256(abi.encodePacked(baseToken, quoteToken, baseAmount, quoteAmount));
+	    
+	    // Create a new order
+	    Order memory order = Order(msg.sender, baseToken, quoteToken, baseAmount, quoteAmount);
+	    
+	    // Store the order in the mapping
+	    orders[orderHash] = order;
+	    
+	    // Emit an event for logging purposes
+	    emit OrderPlaced(orderHash, msg.sender, baseToken, quoteToken, baseAmount, quoteAmount);
+	}
+	
+	// Function for cancelling an order
+	function cancelOrder(bytes32 orderHash) public {
+	    require(orders[orderHash].trader == msg.sender); // Make sure only the order owner can cancel it
+	    
+	    // Delete the order from the mapping
+	    delete orders[orderHash];
+	    
+	    // Emit an event for logging purposes
+	    emit OrderCancelled(orderHash);
+	}
+	
+	// Function for executing a trade between two orders
+	function executeTrade(bytes32 buyerOrderHash, bytes32 sellerOrderHash) public {
+	    require(orders[buyerOrderHash].baseToken == orders[sellerOrderHash].quoteToken); // Make sure the tokens being traded are compatible
+	    require(orders[buyerOrderHash].quoteToken == orders[sellerOrderHash].baseToken); // Make sure the tokens being traded are compatible
+	    require(balances[orders[buyerOrderHash].trader][orders[buyerOrderHash].baseToken] >= orders[buyerOrderHash].baseAmount); // Make sure the buyer has enough balance to execute the trade
+	    require(balances[orders[sellerOrderHash].trader][orders[sellerOrderHash].baseToken] >= orders[sellerOrderHash].baseAmount); // Make sure the seller has enough balance to execute the trade
+	    
+	    // Calculate the amount of base token and quote token to be traded
+	    uint baseAmount = orders[buyerOrderHash].baseAmount;
+	    uint quoteAmount = orders[sellerOrderHash].quoteAmount;
+	    
+	    // Transfer the base token from the buyer to the seller
+	    require(Token(orders[buyerOrderHash].baseToken).transferFrom(orders[buyerOrderHash].trader, orders[sellerOrderHash].trader, baseAmount));
+	    
+	    // Transfer the quote token from the seller to the buyer
+	    require(Token(orders[sellerOrderHash].quoteToken).transferFrom(orders[sellerOrderHash].trader, orders[buyerOrderHash].trader, quoteAmount));
+	    
+	    // Update the buyer's and seller's balances in the exchange
+	    balances[orders[buyerOrderHash].trader][orders[buyerOrderHash].baseToken] = balances[orders[buyerOrderHash].trader][orders[buyerOrderHash].baseToken] - baseAmount;
+	    balances[orders[buyerOrderHash].trader][orders[buyerOrderHash].quoteToken] = balances[orders[buyerOrderHash].trader][orders[buyerOrderHash].quoteToken] + quoteAmount;
+	    balances[orders[sellerOrderHash].trader][orders[sellerOrderHash].baseToken] = balances[orders[sellerOrderHash].trader][orders[sellerOrderHash].baseToken] + baseAmount;
+	    balances[orders[sellerOrderHash].trader][orders[sellerOrderHash].quoteToken] = balances[orders[sellerOrderHash].trader][orders[sellerOrderHash].quoteToken] - quoteAmount;
+	    
+	    // Log the execution of the trade
+	    emit TradeExecuted(buyerOrderHash, baseAmount, quoteAmount);
+	}
+}
+
+// Token interface for interacting with ERC20 tokens
+interface Token {
+    function transferFrom(address from, address to, uint amount) external returns(bool);
+    function transfer(address to, uint amount) external returns(bool);
+}

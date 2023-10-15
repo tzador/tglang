@@ -1,0 +1,79 @@
+// This code creates a custom projectile class that inherits from the default projectile class
+class MyCustomProjectile extends Projectile
+	unsafe
+	placeable
+	abilityPower
+	buffs
+	buffDuration
+	damageType
+
+	defaultproperties
+	{
+		bProjectileBounce=true
+		bReplicateUTWeaponFire=true
+		ProjectileDamage=50
+		ProjectileSpeed=2000
+		ForbiddenDeathMessages=false
+		InitialLifeSpan=5
+		bReplicateUTPlayerHits=true
+		
+		bCanRicochet=true
+		OwningPawnVelocityTransferMultiplier=30
+	}
+    
+    // This function allows the projectile to apply buffs when it hits a target
+	function ApplyBuffs(UTPawn other)
+	{
+		local UTPawn utTarget;
+		utTarget = UTPawn(other);
+		
+		if (utTarget != None && utTarget.bCanBeDamaged && utTarget.Health > 0)
+		{
+			local int index;
+			for(index=0; index<buffs.Length; index++)
+			{
+				utTarget.ApplyBuff(buffs[index], buffDuration);
+			}
+		}
+	}
+	
+	// This function calculates the damage based on the projectile's ability power and target's resistance
+	function ApplyDamage(UTPawn other)
+	{
+		local UTPawn utTarget;
+		utTarget = UTPawn(other);
+		
+		if (utTarget != None && utTarget.bCanBeDamaged && utTarget.Health > 0)
+		{
+			local int baseDamage;
+			local int totalDamage;
+			
+			baseDamage = abilityPower * 0.2; // Base damage calculated as 20% of ability power
+			totalDamage = baseDamage * (1 - utTarget.resistance); // final damage after reducing by target's resistance
+			
+			utTarget.Health -= totalDamage;
+		}
+	}
+	
+	// This function overrides the default HitWall function in order to bounce off walls
+	function HitWall(HitWallInfo Wall)
+	{
+		if (bCanRicochet)
+		{
+			local vector newDir;
+			newDir = projectileVelocity + (2 * dot(projectileVelocity, Wall.Normal) * Wall.Normal);
+			
+			if (OwningPawn != None)
+			{
+				OwningPawn.SetPawnRotation(rotator(vectortorotator(newDir)));
+			}
+			
+			projectileVelocity = newDir * OwningPawnVelocityTransferMultiplier;
+			
+			HadWallHit = true;
+		}
+		else
+		{
+			Super.HitWall(HitWallInfo);
+		}
+	}

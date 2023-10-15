@@ -1,0 +1,78 @@
+\ Demonstration of quicksort in FORTH
+\ Input: array n -- sorted array
+\ Variable definitions
+variable stack: a  \ stack to store partition indices
+variable stack: b  \ stack to store left and right indices
+variable stack: pivot  \ stack to store pivot value
+variable stack: left  \ left index of current partition
+variable stack: right  \ right index of current partition
+
+\ Quicksort subroutine
+: quick (
+    left right --              
+    a! b!  \ clear stacks
+    dup s" do" interpret  \ interpret loop control
+    swap 
+    do
+        dup 2>r
+        s" left <" interpret
+        if  \ swap left and right if needed
+            over r> swap
+        then
+        2r> 1- 2r> swap  \ move left one element right
+        0 left right !
+       
+        begin  \ partition loop
+            begin
+                2dup left over l@ u>= 
+                while
+                    2r> left 1+ stack: a push  \ save left index to stack a
+                    left 1+ 2dup swap l@ <=
+                    while
+                        left 1+ 
+                    repeat
+                    swap left swap
+                repeat
+                2dup right over r@ u< 
+                while
+                    2r> right stack: b push  \ save right index to stack b
+                    right 1- 2dup swap r@ >=
+                    while
+                        right 1- 
+                    repeat
+                    swap right swap
+                repeat
+                s" a stack: b stack: pivot b stack: a stack: pivot a stack: b !" 
+                interpret  \ put stack contents in proper order
+                right 1+ left 1- 0<  \ check for partition size > 1
+            until
+            if  \ move index and values if partition size = 1
+                2r>
+                right stack: right push
+                left stack: left push
+                stack: a push stack: pivot push stack: b push
+                interpret
+            then
+        end
+    repeat
+    2drop stack: pivot pop empty?  \ check for remaining indices in pivot stack
+    if  \ generate indices for next partition
+        stack: a pop stack: b pop
+        a@ stack: left pop
+        b@ stack: right pop
+        swap left right  \ move indices to top of stack
+    then
+    2r> drop  \ drop remaining stack contents
+) 
+
+\ Quicksort algorithm
+: quicksort (
+    array n -- array n              
+    dup 2>r 
+    left right 
+    quick
+    2r>n 1 left swap quick  \ sort n smaller elements
+    right 2r>n-e 1- right quick 
+    order  \ rearrange for stack status
+    swap  \ swap resulting arrays
+);

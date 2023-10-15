@@ -1,0 +1,55 @@
+pragma solidity ^0.8.0; //specifies Solidity version to use
+
+contract ExampleContract { //contract keyword used to create a new contract
+    address owner; //declares a state variable of type address
+    uint256 public totalSupply; //declares a public state variable of type uint256
+
+    mapping(address => uint256) private balances; //creates a mapping of addresses to uint256
+
+    event LogTransfer(address indexed _from, address indexed _to, uint256 _value); //declares an event to log transfer of tokens
+
+    modifier onlyOwner { //creates a modifier for restricting certain functions to the contract owner
+        require(msg.sender == owner, "Sender not authorized.");
+        _;
+    }
+
+    constructor() {
+        owner = msg.sender; //sets the owner of the contract as the address that deployed it
+        balances[msg.sender] = totalSupply; //assigns the total supply to the owner's balance
+        emit LogTransfer(address(0), msg.sender, totalSupply);//emits an event to log the initial transfer
+    }
+
+    function transfer(address _to, uint256 _value) public { //function for transferring tokens
+        require(_to != address(0),"Invalid recipient address."); //adds a condition to check if recipient address is valid
+        
+        require(balances[msg.sender] >= _value, "Insufficient balance."); //checks if the sender has enough balance to transfer
+        require(balances[_to] + _value >= balances[_to], "Transfer overflow."); //prevents overflow when adding new tokens
+        
+        balances[msg.sender] -= _value;
+        balances[_to] += _value; //updates the balances of the sender and recipient
+        emit LogTransfer(msg.sender, _to, _value); //emits an event to log the transfer
+    }
+
+    function mint(uint256 _amount) public onlyOwner { //function for creating new tokens
+        require(_amount > 0, "Invalid amount."); //checks if the amount is greater than 0
+        
+        totalSupply += _amount; //updates the total supply
+        balances[msg.sender] += _amount; //updates the owner's balance
+        emit LogTransfer(address(0), msg.sender, _amount); //emits an event to log the minted tokens
+    }
+
+    function burn(uint256 _amount) public onlyOwner { //function for burning tokens
+        require(_amount > 0, "Invalid amount."); //checks if the amount is greater than 0
+        
+        require(balances[msg.sender] >= _amount, "Insufficient balance."); //checks if the owner has enough tokens to burn
+        require(totalSupply >= _amount, "Total supply cannot be negative."); //prevents total supply from becoming negative
+        
+        balances[msg.sender] -= _amount;
+        totalSupply -= _amount; //updates the owner's balance and the total supply
+        emit LogTransfer(msg.sender, address(0), _amount); //emits an event to log the burned tokens
+    }
+
+    function balanceOf(address _owner) public view returns (uint256) { //function for getting the balance of an address
+        return balances[_owner]; //returns the balance of the specified address
+    }
+}

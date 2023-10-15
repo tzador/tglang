@@ -1,0 +1,52 @@
+/* This code snippet generates a report of top-selling products for a given period */
+
+DEFINE VARIABLE i AS INTEGER NO-UNDO. /* Define variable to be used for looping */
+
+/* Prompt user to enter start and end dates for report */
+PROMPT-FOR start_date LABEL "Enter starting date (mm/dd/yyyy)": VIEW-AS DATE FORMAT "99/99/9999".
+PROMPT-FOR end_date LABEL "Enter ending date (mm/dd/yyyy)": VIEW-AS DATE FORMAT "99/99/9999".
+
+/* Create temporary table to store product sales data */
+CREATE TEMP-TABLE tt_product_sales
+  FIELD product_id AS CHARACTER
+  FIELD product_name AS CHARACTER
+  FIELD unit_price AS DECIMAL
+  FIELD total_sales_amt AS DECIMAL.
+
+/* Use for loop to iterate through each product */
+DO i = 1 TO 10:
+  /* Retrieve product data from database */
+  FIND FIRST product WHERE product.id = i NO-LOCK NO-ERROR.
+  /* Calculate total sales for product during given time period */
+  SUM total_sales_amt OF order_line WHERE order.date >= start_date AND order.date <= end_date AND order_line.product_id = product.id.
+  /* Store product data and sales amount in temporary table */
+  CREATE tt_product_sales.
+  ASSIGN
+    tt_product_sales.product_id = product.id
+    tt_product_sales.product_name = product.name
+    tt_product_sales.unit_price = product.unit_price
+    tt_product_sales.total_sales_amt = total_sales_amt.
+END.
+
+/* Display report header */
+DISPLAY "Top-Selling Products Report" FORMAT "x(30)".
+DISPLAY "Sales Period: " + STRING(start_date) + " to " + STRING(end_date) FORMAT "x(30)".
+DISPLAY "".
+
+/* Display table headers for product data */
+DISPLAY "Product ID" COLUMN-LABEL FORMAT "x(15)" SKIP(1).
+DISPLAY "Product Name" COLUMN-LABEL FORMAT "x(30)" SKIP(1).
+DISPLAY "Unit Price" COLUMN-LABEL FORMAT "zzz,zz9.99" SKIP(1).
+DISPLAY "Total Sales Amount" COLUMN-LABEL FORMAT "zzz,zz9.99" SKIP(1).
+DISPLAY("---------- ---------- ------------- -------------").
+/* Use for each statement to iterate through temporary table and display data */
+FOR EACH tt_product_sales:
+  /* Display product data for each row */
+  DISPLAY tt_product_sales.product_id FORMAT "x(15)" SKIP(1).
+  DISPLAY tt_product_sales.product_name FORMAT "x(30)" SKIP(1).
+  DISPLAY tt_product_sales.unit_price FORMAT "zzz,zz9.99" SKIP(1).
+  DISPLAY tt_product_sales.total_sales_amt FORMAT "zzz,zz9.99" SKIP(1).
+END.
+
+/* Delete temporary table */
+DELETE OBJECT tt_product_sales.

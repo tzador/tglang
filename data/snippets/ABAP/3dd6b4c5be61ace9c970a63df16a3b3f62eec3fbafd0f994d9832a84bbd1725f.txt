@@ -1,0 +1,55 @@
+*&---------------------------------------------------------------------*
+*& Report Z_EXAMPLE_REPORT
+*&---------------------------------------------------------------------*
+*& This report generates Employee data in a table format
+*&---------------------------------------------------------------------*
+
+REPORT Z_EXAMPLE_REPORT .
+
+*---- Field-Symbols Declaration for Internal Tables ----
+FIELD-SYMBOLS: <fs_employee> TYPE STANDARD TABLE,
+               <fs_info> TYPE STANDARD TABLE.
+
+*---- Table Types Definition for Employee Data ----
+TYPES: BEGIN OF ty_employee,
+        emplid TYPE i,
+        name TYPE string,
+        address TYPE string,
+        salary TYPE p LENGTH 10 DECIMALS 2,
+      END OF ty_employee.
+
+*---- Internal Table to store Employee Data ----
+DATA: lt_employee TYPE STANDARD TABLE OF ty_employee.
+
+*---- Fetching data from database table ----
+SELECT emplid, name, address, salary
+FROM employee
+INTO CORRESPONDING FIELDS OF TABLE lt_employee.
+
+*---- Sorting the Internal Table by Salary ----
+SORT lt_employee BY salary DESCENDING.
+
+*---- Looping through the Internal Table data ----
+LOOP AT lt_employee ASSIGNING <fs_employee>.
+
+  *---- Calculating Bonus based on Salary ----
+  <fs_employee>-bonus = <fs_employee>-salary * 0.05.
+
+  *---- Selecting the Employee Info to be displayed ----
+  SELECT SINGLE name, address
+  INTO CORRESPONDING FIELDS OF TABLE <fs_info>
+  WHERE emplid = <fs_employee>-emplid.
+
+  *---- Displaying Employee data in ALV Grid ----
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      i_structure_name = 'TY_EMPLOYEE'
+      it_fieldcat      = {lt_fieldcat}
+    TABLES
+      t_outtab         = {<fs_info>}-line
+    EXCEPTIONS
+      not_found        = 1
+      program_error    = 2
+      OTHERS           = 3.
+
+ENDLOOP.

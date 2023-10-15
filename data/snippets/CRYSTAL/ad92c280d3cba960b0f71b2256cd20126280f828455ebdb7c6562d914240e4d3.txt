@@ -1,0 +1,127 @@
+# This code snippet demonstrates a complex algorithm for finding the shortest path between two points on a grid
+# The algorithm makes use of A* search and a priority queue to efficiently find the shortest path
+
+class Point
+  # crystal has built-in support for complex numbers, which we use to represent each point on the grid
+  coordinate : Complex(Int32)
+
+  # constructor
+  def initialize(x, y)
+    @coordinate = x + y.i
+  end
+end
+
+class Grid
+  # stores the grid as a 2D array of points
+  @grid : Array(Array(Point))
+
+  # stores the dimensions of the grid
+  @height : Int32
+  @width : Int32
+
+  # constructor
+  def initialize(height, width)
+    @points = Array.new(width) { Array.new(height) }
+    @height = height
+    @width = width
+  end
+
+  # method to return the point at a given x and y coordinate on the grid
+  def get_point(x, y)
+    return @grid[x][y]
+  end
+
+  # method to check if a given position is within the boundaries of the grid
+  def in_bounds(x, y)
+    return x >= 0 && x < @width && y >= 0 && y < @height
+  end
+
+  # method to calculate the heuristic cost for the A* search, in this case the distance between two points
+  def calculate_heuristic(point1, point2)
+    return (point1.coordinate - point2.coordinate).abs
+  end
+end
+
+# A* search algorithm
+def a_star_search(grid, start, goal)
+  # initialize priority queue
+  open_set = PriorityQueue.new
+  # put starting point into queue with a cost of 0
+  open_set.put(start, 0)
+
+  # initialize a dictionary to keep track of the parent of each point in the path
+  came_from = Hash.new
+
+  # initialize a dictionary to keep track of the current best known cost of reaching each point on the grid
+  g_scores = Hash.new(Float64::INFINITY)
+  # starting point has a known cost of 0
+  g_scores[start] = 0
+
+  # initialize a dictionary to keep track of the total cost of reaching each point, taking into account the heuristic
+  f_scores = Hash.new(Float64::INFINITY)
+  # starting point has a total cost of just the heuristic, since its known cost is 0
+  f_scores[start] = grid.calculate_heuristic(start, goal)
+
+  # loop until the priority queue is empty
+  while !open_set.empty?
+    # get the point with the lowest total cost from the priority queue
+    current = open_set.get
+    # if the current point is the goal, we have found the shortest path
+    if current == goal
+      # reconstruct the path using the parent dictionary and return it
+      return reconstruct_path(came_from, current)
+    end
+
+    # loop through all the neighboring points
+    grid.get_neighbors(current).each do |neighbor|
+      # calculate the tentative g score for reaching this neighbor from the current point
+      tentative_g_score = g_scores[current] + grid.get_movement_cost(current, neighbor)
+
+      # if we have found a better way to reach this neighbor
+      if tentative_g_score < g_scores[neighbor]
+        # update the parent dictionary to reflect the new better path
+        came_from[neighbor] = current
+        # update the g score for this point
+        g_scores[neighbor] = tentative_g_score
+        # update the f score, taking into account the new g score and the heuristic
+        f_scores[neighbor] = tentative_g_score + grid.calculate_heuristic(neighbor, goal)
+        # add this neighbor to the open set priority queue
+        open_set.put(neighbor, f_scores[neighbor])
+      end
+    end
+  end
+  # if we reach this point, it means there is no valid path between the start and goal points
+  return []
+end
+
+# method to reconstruct the path from the parent dictionary
+def reconstruct_path(came_from, current)
+  # initialize an empty array to store the path
+  path = []
+  # loop until the current point is no longer in the parent dictionary (reached the starting point)
+  while came_from.key?(current)
+    # add the current point to the beginning of the path array
+    path.unshift(current)
+    # update the current point to be its parent
+    current = came_from[current]
+  end
+  # add the starting point to the beginning of the path array
+  path.unshift(current)
+  # return the path
+  return path
+end
+
+# example usage
+grid = Grid.new(10, 10)
+
+# set up an obstacle on the grid
+grid.get_point(2, 4).obstacle = true
+
+# find the shortest path between two points
+start_point = grid.get_point(1, 1)
+goal_point = grid.get_point(9, 9)
+shortest_path = a_star_search(grid, start_point, goal_point)
+
+# print the path
+print "Shortest path from (1, 1) to (9, 9):"
+print shortest_path

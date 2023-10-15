@@ -1,0 +1,36 @@
+# This script will prompt the user to enter a password and then generate a random salt to be used for encryption
+# It will then use the entered password and salt to create a secure password hash using the PBKDF2 algorithm
+# Finally, it will save the salt and password hash to a file for later use
+
+# Import the SecureString class from the System.Security namespace
+Add-Type -AssemblyName System.Security
+
+# Prompt the user to enter the password and store it in a secure string
+$securePassword = Read-Host "Enter a secure password" -AsSecureString
+
+# Convert the secure string into a plaintext string
+$plaintextPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword))
+
+# Generate a random salt using the RNGCryptoServiceProvider class from the System.Security.Cryptography namespace
+$salt = New-Object System.Byte[](32)
+$RNGCrypto = [System.Security.Cryptography.RNGCryptoServiceProvider]::Create()
+$RNGCrypto.GetBytes($salt)
+
+# Convert the salt to a base64 string for storage
+$base64Salt = [System.Convert]::ToBase64String($salt)
+
+# Use the PBKDF2 algorithm with HMACSHA1 as the underlying hash function to create a password hash
+# The iteration count is set to 10000 and the length of the hash is set to 32 bytes
+$PBKDF2 = New-Object System.Security.Cryptography.Rfc2898DeriveBytes($plaintextPassword, $salt, 10000)
+$hash = $PBKDF2.GetBytes(32)
+
+# Convert the password hash to a base64 string for storage
+$base64Hash = [System.Convert]::ToBase64String($hash)
+
+# Save the salt and password hash to a file for later use
+# The file will be named "password_file.txt" and will contain the salt and password hash in the format "salt\nhash"
+$saltAndHash = $base64Salt + "`n" + $base64Hash
+$saltAndHash | Out-File "password_file.txt"
+
+# Output a success message
+"Password and salt have been saved to password_file.txt"

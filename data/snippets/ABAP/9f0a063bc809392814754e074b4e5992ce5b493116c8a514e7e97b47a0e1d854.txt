@@ -1,0 +1,100 @@
+*&---------------------------------------------------------------------*
+*& Report ZSAMPLE_EDIT_LIST
+*&
+*&---------------------------------------------------------------------*
+*& This report displays a list of customer data, allowing editing and updating
+*& of certain fields.
+*&---------------------------------------------------------------------*
+REPORT ZSAMPLE_EDIT_LIST.
+
+*-- Selection screen definition and parameters
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE text-010.
+PARAMETERS: p_kunnr TYPE kunnr OBLIGATORY,
+            p_name1 TYPE name1 MATCHCODE OBJECT cvar.
+SELECTION-SCREEN END OF BLOCK b1.
+
+*-- Internal table declaration
+DATA: BEGIN OF t_customer OCCURS 0,
+        kunnr TYPE kunnr,
+        name1 TYPE name1,
+        ort01 TYPE ort01,
+      END OF t_customer.
+
+*-- ALV grid display settings
+DATA: gr_table TYPE REF TO cl_gui_alv_grid,
+      v_fname TYPE lvc_fname.
+
+*-- Custom field catalog
+DATA: BEGIN OF t_fieldcat OCCURS 0,
+        fieldname TYPE lvc_fname,
+        position TYPE i,
+        outputlen TYPE i,
+        hdrtext TYPE lvc_title,
+        key TYPE abap_bool,
+        editable TYPE abap_bool,
+        seltext TYPE lvc_t_ltxt,
+      END OF t_fieldcat.
+
+*-- Field catalog initialization
+CLEAR t_fieldcat.
+t_fieldcat-fieldname = 'KUNNR'.
+t_fieldcat-position = 1.
+t_fieldcat-outputlen = 10.
+t_fieldcat-hdrtext = 'Customer Number'.
+t_fieldcat-key = abap_true.
+t_fieldcat-editable = abap_false.
+APPEND t_fieldcat.
+
+CLEAR t_fieldcat.
+t_fieldcat-fieldname = 'NAME1'.
+t_fieldcat-position = 2.
+t_fieldcat-outputlen = 30.
+t_fieldcat-hdrtext = 'Name'.
+t_fieldcat-key = abap_false.
+t_fieldcat-editable = abap_true.
+APPEND t_fieldcat.
+
+CLEAR t_fieldcat.
+t_fieldcat-fieldname = 'ORT01'.
+t_fieldcat-position = 3.
+t_fieldcat-outputlen = 30.
+t_fieldcat-hdrtext = 'City'.
+t_fieldcat-key = abap_false.
+t_fieldcat-editable = abap_true.
+APPEND t_fieldcat.
+
+*-- Retrieve data from database table
+SELECT kunnr name1 ort01
+INTO CORRESPONDING FIELDS OF TABLE t_customer
+FROM kna1
+WHERE kunnr = p_kunnr.
+
+*-- Initialize ALV grid
+CREATE OBJECT gr_table
+EXPORTING
+  i_parent = cl_gui_container=>screen0.
+CALL METHOD gr_table->set_table_for_first_display
+  EXPORTING
+    i_structure_name = 'T_CUSTOMER'
+  CHANGING
+    it_fieldcatalog = t_fieldcat.
+
+*-- Check for user input and update database accordingly
+IF sy-ucomm = 'SAVE'.
+  UPDATE kna1 SET name1 = t_customer-name1,
+               ort01 = t_customer-ort01
+  WHERE kunnr = p_kunnr.
+ENDIF.
+
+*-- ALV grid toolbar buttons for editing and saving
+SET PF-STATUS 'ALV_TOOLBAR'.
+SET TITLEBAR 'EDIT_LIST_TITLE'.
+
+*-- Display data in ALV grid
+CALL METHOD gr_table->set_initial_state
+  EXPORTING
+    is_layout = VALUE #( edit = abap_true ).
+CALL METHOD gr_table->refresh_table_display.
+
+*-- End of report
+ENDREPORT.

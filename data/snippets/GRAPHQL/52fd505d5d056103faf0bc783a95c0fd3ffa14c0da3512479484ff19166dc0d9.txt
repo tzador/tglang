@@ -1,0 +1,89 @@
+`#import schema files and types
+import { buildSchema, GraphQLObjectType, GraphQLScalarType, GraphQLID, GraphQLBoolean, GraphQLFloat, GraphQLInt, GraphQLList, GraphQLString } from "graphql";
+
+#create new scalar type for date
+const DateScalar = new GraphQLScalarType({
+   name: "Date",
+   description: "Custom scalar type for representing dates",
+   serialize(value) {
+      return new Date(value); //convert incoming value to Date type
+   },
+   parseValue(value) {
+      return value.getTime(); //convert value to Epoch time
+   },
+   parseLiteral(ast) {
+      if (ast.kind == Kind.INT) {
+         return new Date(ast.value); //convert literal value to Date type
+      }
+      return null;
+   },
+});
+
+#declare GraphQL schema
+const schema = new buildSchema(`
+   scalar Date
+
+   type User {
+      id: ID!
+      name: String!
+      email: String!
+      age: Int!
+      dateOfBirth: Date
+      isActive: Boolean!
+      averageScore: Float
+      friends: [User] #list of User objects
+   }
+
+   type Query {
+      getUser(id: ID!): User
+      getUsersByAge(minAge: Int, maxAge: Int): [User]
+   }
+
+   type Mutation {
+      addUser(name: String!, email: String!, age: Int!, dateOfBirth: Date, isActive: Boolean!, averageScore: Float, friends: [ID]): User
+      updateUser(id: ID!, name: String, email: String, age: Int, dateOfBirth: Date, isActive: Boolean, averageScore: Float, friends: [ID]): User
+      deleteUser(id: ID!): Boolean
+   }
+`);
+
+#resolve queries/mutations
+const root = {
+   getUser: ({ id }) => {
+      return { id, name: "John Doe", email: "johndoe@example.com", age: 25, dateOfBirth: new Date(1996, 4, 22), isActive: true, averageScore: 8.9 };
+   },
+   getUsersByAge: ({ minAge, maxAge }) => {
+      let users = [
+         { id: 1, name: "John Doe", email: "johndoe@example.com", age: 25, dateOfBirth: new Date(1996, 4, 22), isActive: true, averageScore: 8.9 },
+         { id: 2, name: "Jane Smith", email: "janesmith@example.com", age: 27, dateOfBirth: new Date(1994, 8, 10), isActive: false, averageScore: 7.5 },
+         { id: 3, name: "Bob Johnson", email: "bobjohnson@example.com", age: 22, dateOfBirth: new Date(1999, 2, 15), isActive: true, averageScore: 9.2 },
+         { id: 4, name: "Alice Williams", email: "alicewilliams@example.com", age: 30, dateOfBirth: new Date(1991, 11, 5), isActive: false, averageScore: 6.8 },
+         { id: 5, name: "Mike Brown", email: "mikebrown@example.com", age: 29, dateOfBirth: new Date(1992, 6, 8), isActive: true, averageScore: 7.9 },
+      ];
+      if (minAge) {
+         users = users.filter(user => user.age >= minAge);
+      }
+      if (maxAge) {
+         users = users.filter(user => user.age <= maxAge);
+      }
+      return users;
+   },
+   addUser: ({ name, email, age, dateOfBirth, isActive, averageScore, friends }) => {
+      const newUser = { id: 6, name, email, age, dateOfBirth, isActive, averageScore, friends }; //assume id is automatically generated
+      return newUser;
+   },
+   updateUser: ({ id, name, email, age, dateOfBirth, isActive, averageScore, friends }) => {
+      //assume update is successful and return updated user
+      return { id, name, email, age, dateOfBirth, isActive, averageScore, friends };
+   },
+   deleteUser: ({ id }) => {
+      //assume deletion is successful and return true
+      return true;
+   }
+};
+
+#execute GraphQL query/mutation
+graphql(schema, mutation, root).then(response => {
+   console.log(response); //output response from query/mutation
+}).catch(error => {
+   console.log(error); //output error if query/mutation fails
+});

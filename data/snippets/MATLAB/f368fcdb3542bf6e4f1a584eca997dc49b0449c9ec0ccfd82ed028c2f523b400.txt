@@ -1,0 +1,96 @@
+%% Simulate Flight Dynamics of a UAV
+%% Parameters and Initial Conditions
+g = 9.81; % acceleration due to gravity (m/s^2)
+m = 10; % mass of UAV (kg)
+Ixx = 0.1; % moment of inertia about x-axis (kg*m^2)
+Iyy = 0.1; % moment of inertia about y-axis (kg*m^2)
+Izz = 0.2; % moment of inertia about z-axis (kg*m^2)
+L = 0.5; % length of UAV arm (m)
+d = 0.25; % drag coefficient
+alpha = 0.4; % attack angle (radians)
+
+% Initial Conditions
+x0 = [0; 0; 0]; % initial x, y, z positions (m)
+v0 = [0; 0; 0]; % initial velocities along x, y, z axes (m/s)
+q0 = [1; 0; 0; 0]; % initial quaternion (q0, q1, q2, q3)
+w0 = [0; 0; 0]; % initial body angular velocities (rad/s)
+
+%% Define Control Inputs
+% We can define our control inputs as either a constant value or a function of time
+u = 0; % constant control input (newtons)
+% u = @(t) sin(t); % control input as a function of time (newtons)
+
+%% Define State Equations (nonlinear)
+% x1 = x position
+% x2 = y position
+% x3 = z position
+% x4 = x velocity
+% x5 = y velocity
+% x6 = z velocity
+% x7 = q0
+% x8 = q1
+% x9 = q2 
+% x10 = q3
+% x11 = wx (body angular velocity about x-axis)
+% x12 = wy (body angular velocity about y-axis)
+% x13 = wz (body angular velocity about z-axis)
+dx = @(t,x) [x(4); x(5); x(6); g*x(8)*x(10)*sin(alpha)/m - d*x(4)/m; -g*x(7)*x(10)*sin(alpha)/m - d*x(5)/m; g - g*x(7)^2*x(10)*sin(alpha)/m - d*x(6)/m; 0.5*(-x(11)*x(8) - x(12)*x(9) - x(13)*x(10)); 0.5*(x(11)*x(7) - x(12)*x(10) + x(13)*x(9)); 0.5*(x(11)*x(10) + x(12)*x(7) - x(13)*x(8)); 0.5*(-x(11)*x(9) + x(12)*x(8) + x(13)*x(7)); (Iyy - Izz)/Ixx*x(12)*x(13); (Izz - Ixx)/Iyy*x(11)*x(13); (Ixx - Iyy)/Izz*x(11)*x(12)];
+
+%% Compute State Trajectory
+% Solve the state equations numerically using ode45
+[t,x] = ode45(dx, [0, 10], [x0; v0; q0; w0]);
+
+%% Plot Results
+% Plot position over time
+figure(1)
+hold on
+plot(t,x(:,1))
+plot(t,x(:,2))
+plot(t,x(:,3))
+legend('x position', 'y position', 'z position')
+xlabel('Time (seconds)')
+ylabel('Position (m)')
+title('UAV Position over Time')
+
+% Plot orientation over time
+figure(2)
+hold on
+plot(t,x(:,7))
+plot(t,x(:,8))
+plot(t,x(:,9))
+plot(t,x(:,10))
+legend('q0', 'q1', 'q2', 'q3')
+xlabel('Time (seconds)')
+ylabel('Quaternion')
+title('UAV Orientation over Time')
+
+% Plot velocity over time
+figure(3)
+hold on
+plot(t,x(:,4))
+plot(t,x(:,5))
+plot(t,x(:,6))
+legend('x velocity', 'y velocity', 'z velocity')
+xlabel('Time (seconds)')
+ylabel('Velocity (m/s)')
+title('UAV Velocity over Time')
+
+% Plot angular velocity over time
+figure(4)
+hold on
+plot(t,x(:,11))
+plot(t,x(:,12))
+plot(t,x(:,13))
+legend('wx', 'wy', 'wz')
+xlabel('Time (seconds)')
+ylabel('Angular Velocity (rad/s)')
+title('UAV Angular Velocity over Time')
+
+% Plot 3D trajectory of UAV
+figure(5)
+hold on
+plot3(x(:,1),x(:,2),x(:,3))
+xlabel('X position (m)');
+ylabel('Y position (m)');
+zlabel('Z position (m)');
+title('UAV Trajectory')

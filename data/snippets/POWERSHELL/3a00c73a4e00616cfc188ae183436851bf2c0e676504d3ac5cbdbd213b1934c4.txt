@@ -1,0 +1,69 @@
+# This is a PowerShell script to retrieve new email messages from an Exchange server and send a report to the user.
+# It makes use of multiple cmdlets and requires users to input their email credentials.
+# Output is in formatted HTML for an email report.
+
+# Import the required modules
+Import-Module ExchangeOnlineShell
+Import-Module ActiveDirectory
+
+# Retrieve user information for credentials
+$UserCred = Get-Credential -Message "Please enter your email credentials"
+
+# Set Exchange online admin credentials
+$ExchangeCred = Get-Credential -Message "Please enter your Exchange online admin credentials"
+
+# Create session to Exchange server using admin credentials
+$Session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri https://outlook.office365.com/powershell-liveid/ -Credential $ExchangeCred -Authentication Basic -AllowRedirection
+
+# Import the session
+Import-PSSession $Session
+
+# Set date for report and create formatted HTML table
+$Today = Get-Date
+$Report = @"
+<head>
+    <style>
+        body {
+            font-family: Arial;
+        }
+        table {
+            font-family: Arial;
+            border: 1px solid black;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid black;
+            text-align: center;
+            padding: 5px;
+        }
+        th {
+            background-color: #D5D5D5;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+<h2>Email Report for $Today</h2>
+<table>
+    <tr>
+        <th>Sender</th>
+        <th>Subject</th>
+        <th>DateTime</th>
+    </tr>
+"@
+
+# Retrieve new email messages from inbox
+$Messages = Get-Mailbox -Credential $UserCred | Get-MailboxFolderStatistics -IncludeOldestAndNewestItems -FolderScope Inbox | Select-Object -ExpandProperty NewestItemIDs
+
+# Loop through each message and append to the HTML report
+Foreach ($ID in $Messages) {
+    $MessageDetails = Get-Mailbox -Credential $UserCred | Get-Message -ID $ID | Select-Object Sender, Subject, DateTime
+    $Report += "<tr><td>$($MessageDetails.Sender)</td><td>$($MessageDetails.Subject)</td><td>$($MessageDetails.DateTime)</td></tr>"
+}
+
+# Finish HTML table and close session
+$Report += "</table></body>"
+Remove-PSSession $Session
+
+# Send the HTML report to the user's email
+Send-MailMessage -To $UserCred.Username -From "ExchangeServer@company.com" -Subject "New Email Messages Report for $Today" -SmtpServer "smtp.office365.com" -BodyAsHtml -Body $Report -Credential $ExchangeCred

@@ -1,0 +1,42 @@
+contract Lottery {
+    address public manager;
+    address[] public players;
+    
+    constructor() public {
+        // The manager is the one deploying the contract
+        manager = msg.sender;
+    }
+    
+    function enter() public payable {
+        // Require a minimum amount of ether to enter
+        require(msg.value > .01 ether);
+        players.push(msg.sender);
+    }
+    
+    function random() private view returns (uint) {
+        // SHA3 Converter in Solidity uses 'keccak256' hash function
+        return uint(keccak256(abi.encodePacked(block.difficulty, now, players)));
+    }
+    
+    function pickWinner() public restricted {
+        // Generate a random index from the 'random()' function
+        uint index = random() % players.length;
+        
+        // Transfer the contract's balance to the winner
+        players[index].transfer(address(this).balance);
+        
+        // Reset the list of players for the next round
+        players = new address[](0);
+    }
+    
+    modifier restricted() {
+        // Only the manager can call the 'pickWinner()' method
+        require(msg.sender == manager);
+        _;
+    }
+    
+    function getPlayers() public view returns (address[] memory) {
+        // Returns the list of players in the lottery
+        return players;
+    }
+}

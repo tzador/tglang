@@ -1,0 +1,81 @@
+# nginx configuration file
+# Main section
+user www-data;
+worker_processes auto;
+error_log /var/log/nginx/error.log;
+pid /var/run/nginx.pid;
+
+# Events section
+events {
+  worker_connections 1024;
+  multi_accept on;
+  use epoll;
+}
+
+# Http section
+http {
+  include /etc/nginx/mime.types;
+  default_type application/octet-stream;
+
+  # Logging
+  log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                '$status $body_bytes_sent "$http_referer" "$http_user_agent"';
+
+  # Gzip compression
+  gzip on;
+  gzip_min_length 1000;
+  gzip_types text/plain text/css text/javascript
+             application/json application/xml
+             application/javascript application/rss+xml;
+
+  # Server section
+  server {
+    listen 80;
+    server_name example.com www.example.com;
+    
+    # Redirect all HTTP requests to HTTPS
+    return 301 https://$server_name$request_uri;
+  }
+
+  server {
+    listen 443 ssl;
+    server_name example.com;
+    
+    # SSL configuration
+    ssl on;
+    ssl_certificate /etc/nginx/ssl/example.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/example.com.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    
+    # Location section
+    location / {
+      proxy_pass http://localhost:3000;
+      proxy_set_header Host $host;
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection 'upgrade';
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    
+    # Error pages
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html {
+      root /usr/share/nginx/html;
+    }
+    
+    # Redirect all www requests to non-www with 301 permanent redirect
+    if ($host = www.example.com) {
+      return 301 https://example.com$request_uri;
+    }
+    
+    # Cache control for static assets
+    location ~* \.(jpg|jpeg|gif|png|css|js|ico)$ {
+      access_log off;
+      add_header Cache-Control "public, max-age=31536000, immutable";
+      expires 365d;
+    }
+  }
+}

@@ -1,0 +1,77 @@
+% A multivariate Gaussian Mixture Model (GMM) implementation in MATLAB
+% Using expectation-maximization algorithm for parameter estimation 
+% Author: John Doe
+
+% Initialize the parameters
+K = 3; % number of mixture components
+N = size(data,1); % number of data points
+D = size(data,2); % dimensionality of data
+max_iters = 100; % maximum number of iterations
+tol = 0.001; % tolerance for convergence
+
+% Initialize the mixture weights
+w = ones(1,K)./K; % equal weights
+
+% Initialize the mean vectors
+mu = zeros(K,D); % all zeros
+
+% Initialize the covariance matrices
+sigma = zeros(D,D,K); % all zeros
+
+% Randomly assign data points to mixture components
+r = rand(N,K);
+r = r./sum(r,2);
+
+% Calculate the log-likelihood at initialization
+prev_ll = 0;
+ll = compute_loglikelihood(data, w, mu, sigma);
+
+% Initialize the iteration counter
+t = 0;
+
+while (abs(ll-prev_ll)>tol && t<max_iters)
+    % Expectation Step
+    for i=1:K
+        for j=1:N
+            gamma(j,i) = w(i)*normal_pdf(data(j,:),mu(i,:),sigma(:,:,i));
+        end
+    end
+    gamma = gamma./sum(gamma,2);
+
+    % Maximization Step
+    Nk = sum(gamma,1);
+    w = Nk./N;
+    for i=1:K
+        mu(i,:) = gamma(:,i)'*data/Nk(i);
+        sigma(:,:,i) = (data-repmat(mu(i,:),N,1))'*diag(gamma(:,i))*(data-repmat(mu(i,:),N,1))./Nk(i);
+    end
+
+    % Calculate the log-likelihood and update the counter
+    prev_ll = ll;
+    ll = compute_loglikelihood(data, w, mu, sigma);
+    t = t+1;
+end
+
+% Function for computing the log-likelihood of data given the current parameters
+function ll = compute_loglikelihood(data, w, mu, sigma)
+    N = size(data,1); % number of data points
+    K = size(mu,1); % number of mixture components
+    ll = 0;
+    for j=1:N
+        l = 0;
+        for i=1:K
+            l = l + w(i)*normal_pdf(data(j,:),mu(i,:),sigma(:,:,i));
+        end
+        ll = ll + log(l);
+    end
+end
+
+% Function for calculating the probability density function of a multivariate normal distribution
+function p = normal_pdf(x, mu, sigma)
+    % x: data point
+    % mu: mean vector
+    % sigma: covariance matrix
+    % p: probability density function value
+    D = size(x,2); % dimensionality of data
+    p = (2*pi)^(-D/2)*det(sigma)^(-1/2)*exp(-0.5*(x-mu)*inv(sigma)*(x-mu)');
+end

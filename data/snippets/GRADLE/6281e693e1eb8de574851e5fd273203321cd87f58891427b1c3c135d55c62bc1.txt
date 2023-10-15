@@ -1,0 +1,101 @@
+plugins {
+    //Apply the Spring Boot plugin
+    id 'org.springframework.boot' version '2.1.1.RELEASE'
+    //Exposes the dependency management feature
+    id 'io.spring.dependency-management' version '1.0.6.RELEASE'
+    //Plugin to build and publish Java libraries
+    id 'java-library'
+    //Plugin for generating project website reports
+    id 'project-report'
+    //Enables the publishing of generated API documentation
+    id 'org.asciidoctor.convert' version '1.5.8'
+}
+
+//Define project properties
+ext {
+    springBootVersion = '2.1.1.RELEASE'
+    groupId = 'com.example'
+    artifactId = 'myProject'
+    //Define API version
+    apiVersion = '1.0.0'
+}
+
+//Configure project settings
+group = 'com.example'
+version = '1.0.0'
+
+//Configure dependencies
+dependencies {
+    //Spring Boot starter dependency for embedded Tomcat server
+    implementation group: 'org.springframework.boot', name: 'spring-boot-starter-web', version: springBootVersion
+    //Dependency for API documentation generation
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    //Dependency for testing
+    testImplementation group: 'org.springframework.boot', name: 'spring-boot-starter-test', version: springBootVersion
+    //Dependency for API documentation generation
+    asciidoctor 'org.springframework.restdocs:spring-restdocs-asciidoctor'
+}
+
+//Configure tasks
+tasks {
+    //Task to publish API documentation to project website
+    ascidoctor (type: AsciidoctorTask) {
+        inputs.dir = file('src/docs/asciidoc')
+        dependsOn test
+        outputFile = file("${buildDir}/docs/index.html")
+        attributes 'generated': new Date(), 'outputdir': outputFile.parentFile, 'source-highlighter': 'coderay'
+    }
+
+    //Task to create Spring Boot executable jar
+    bootJar {
+        //Set the entry point class of the jar
+        mainClassName = 'com.example.Application'
+        //Configure jar manifest
+        manifest {
+            attributes(
+                    'Implementation-Title': project.name,
+                    'Implementation-Version': project.version,
+                    'Built-By': System.getProperty("user.name"),
+                    'Built-Date': new Date(),
+                    'API-Version': project.apiVersion,
+                    'Main-Class': 'com.example.Application'
+            )
+        }
+        //Include all dependencies in the jar
+        from {
+            configurations.compile.filter { it.name.endsWith('jar') }.collect { zipTree(it) }
+        }
+    }
+
+    //Task to run Spring Boot application
+    bootRun {
+        //Set the application's arguments
+        args = ["--api-version=${project.apiVersion}"]
+    }
+}
+
+//Configure Spring Boot plugin settings
+springBoot {
+    //Set location for generated API documentation
+    docsDir = file("$buildDir/docs/asciidoc")
+    //Configure project package structure
+    generationInfo() {
+        project {
+            name = "${project.groupId}:${project.artifactId}"
+            version = project.version
+        }
+        api {
+            //Set package structure for API documentation
+            sourcePaths = [file("${projectDir}/src/main/java/com/example/controllers")]
+        }
+    }
+}
+
+//Configure project reports
+projectReports {
+    //Configure API documentation report
+    api {
+        //Include generated API documentation in project website
+        generatedDocumentationUrl = 'docs/index.html'
+    }
+}

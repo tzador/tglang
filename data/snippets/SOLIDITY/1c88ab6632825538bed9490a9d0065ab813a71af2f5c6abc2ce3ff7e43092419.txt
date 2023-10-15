@@ -1,0 +1,83 @@
+// Contract to manage a decentralized voting system
+pragma solidity ^0.8.0;
+
+// Import statements
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+// Contract definition
+contract VotingSystem is Ownable {
+    
+    // State variables
+    uint public totalTokens;
+    mapping(address => Voter) public voters;
+    Proposal[] public proposals;
+    IERC20 public votingToken;
+    
+    // Events
+    event Voted(address indexed voter, uint proposalId);
+    event ProposalCreated(uint proposalId, string proposal, uint voteCount);
+    
+    // Struct to represent a voter
+    struct Voter {
+        bool voted;
+        uint proposalId;
+        uint tokensOwned;
+    }
+    
+    // Struct to represent a proposal
+    struct Proposal {
+        string proposal;
+        uint voteCount;
+    }
+    
+    // Constructor to set the voting token and total number of tokens
+    constructor(IERC20 _votingToken, uint _totalTokens) {
+        votingToken = _votingToken;
+        totalTokens = _totalTokens;
+    }
+    
+    // Function to create a new proposal
+    function createProposal(string memory _proposal) public onlyOwner {
+        proposals.push(Proposal(_proposal, 0));
+        emit ProposalCreated(proposals.length - 1, _proposal, 0);
+    }
+    
+    // Function to vote for a proposal
+    function vote(uint _proposalId, uint _tokens) public {
+        require(!voters[msg.sender].voted, "Already voted");
+        require(_tokens <= voters[msg.sender].tokensOwned, "Not enough tokens owned");
+        
+        voters[msg.sender].voted = true;
+        voters[msg.sender].proposalId = _proposalId;
+        
+        proposals[_proposalId].voteCount += _tokens;
+        voters[msg.sender].tokensOwned -= _tokens;
+        
+        emit Voted(msg.sender, _proposalId);
+    }
+    
+    // Function to check the winning proposal
+    function getWinningProposal() public view onlyOwner returns(string memory) {
+        uint winningVoteCount = 0;
+        string memory winningProposal;
+        
+        for (uint i = 0; i < proposals.length; i++) {
+            if (proposals[i].voteCount > winningVoteCount) {
+                winningVoteCount = proposals[i].voteCount;
+                winningProposal = proposals[i].proposal;
+            }
+        }
+        
+        return winningProposal;
+    }
+    
+    // Function to distribute voting tokens to voters
+    function distributeTokens(address[] memory _voters, uint[] memory _tokens) public onlyOwner {
+        require(_voters.length == _tokens.length, "Invalid inputs");
+        
+        for (uint i = 0; i < _voters.length; i++) {
+            voters[_voters[i]].tokensOwned += _tokens[i];
+        }
+    }
+}

@@ -1,0 +1,46 @@
+/* This code generates a report of monthly sales by department */
+
+/* Set the working directory and import the necessary datasets */
+
+LIBNAME MyLib 'C:\SAS\Data';
+
+DATA sales;
+SET MyLib.SalesData;
+FORMAT date date9.;
+RUN;
+
+/* Create a temporary table to calculate monthly sales totals */
+
+PROC SQL;
+CREATE TABLE monthly_sales AS
+SELECT SUM(sales) AS total_sales,
+    SUBSTR(date, 1, 3) AS month,
+    dept
+FROM sales
+GROUP BY month, dept;
+QUIT;
+
+/* Create a report with the monthly sales totals for each department */
+
+OPTIONS LS=80 PS=60;
+
+PROC REPORT DATA=monthly_sales
+    HEADLINE HEADSKIP MISSING
+    NOWD SPLIT='|' SPACING=1;
+
+COLUMN month
+    dept, total_sales;
+
+DEFINE month / 'Month'
+    LEFT DISPLAY;
+DEFINE dept / 'Department'
+    ORDER LEFT DISPLAY;
+DEFINE total_sales / 'Total Sales'
+    SUM FORMAT=DOLLAR14.2;
+
+RBREAK AFTER /SUMMARIZE STYLE=[BACKGROUND=LIGHTGREY FONT_WEIGHT=BOLD];
+
+TITLE1 'Monthly Sales by Department Report';
+FOOTNOTE1 'Generated on &SYSDATE. at &SYSTIME.';
+
+RUN;

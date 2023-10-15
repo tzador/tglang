@@ -1,0 +1,80 @@
+/* This program is used to process sales data and calculate total revenue */
+
+DEFINE VARIABLE  cCustomer AS CHARACTER NO-UNDO.
+DEFINE VARIABLE  iOrderNum AS INTEGER NO-UNDO.
+DEFINE VARIABLE  dOrderDate AS DATE NO-UNDO.
+DEFINE VARIABLE  dShipDate AS DATE NO-UNDO.
+DEFINE VARIABLE  dQty AS DECIMAL NO-UNDO.
+DEFINE VARIABLE  dUnitPrice AS DECIMAL NO-UNDO.
+DEFINE VARIABLE  dDiscount AS DECIMAL NO-UNDO.
+DEFINE VARIABLE  dTotal AS DECIMAL NO-UNDO.
+
+DEFINE TEMP-TABLE  ttSales
+    FIELD cCustomer AS CHARACTER 
+    FIELD iOrderNum AS INTEGER 
+    FIELD dOrderDate AS DATE 
+    FIELD dShipDate AS DATE 
+    FIELD dQty AS DECIMAL 
+    FIELD dUnitPrice AS DECIMAL 
+    FIELD dDiscount AS DECIMAL 
+    FIELD dTotal AS DECIMAL.
+
+/* Create a procedure to calculate total revenue for each customer */
+
+DEFINE PROCEDURE CalculateRevenue:
+    DEFINE INPUT  PARAMETER cCustomer AS CHARACTER.
+    DEFINE OUTPUT  PARAMETER dTotal AS DECIMAL.
+    DEFINE VARIABLE dRevenue AS DECIMAL NO-UNDO.
+    
+    /* Retrieve sales data for specified customer from temp-table */
+    FOR EACH ttSales WHERE ttSales.cCustomer = cCustomer:
+        /* Calculate revenue for each order by multiplying quantity, unit price, and discount */
+        dRevenue = ttSales.dQty * ttSales.dUnitPrice * (1 - ttSales.dDiscount).
+        /* Add the revenue to total for the specified customer */
+        dTotal = dTotal + dRevenue.
+    END.
+
+    /* Display total revenue for the specified customer */
+    DISPLAY "Total revenue for customer " cCustomer "is" dTotal.
+END PROCEDURE.
+
+/* Loop through temp-table to process sales data and call procedure to calculate revenue for each customer */
+FOR EACH ttSales BY ttSales.cCustomer NO-LOCK:
+    /* Store customer, order number, and order date in variables */
+    cCustomer = ttSales.cCustomer.
+    iOrderNum = ttSales.iOrderNum.
+    dOrderDate = ttSales.dOrderDate.
+    
+    /* Perform some calculations to determine the shipment date and quantity */
+    dShipDate = dOrderDate + 10.
+    dQty = iOrderNum * 2.
+    
+    /* Calculate unit price based on order date */
+    IF dOrderDate < 01/01/2020 THEN dUnitPrice = 10 ELSE dUnitPrice = 15.
+    
+    /* Calculate discount based on quantity ordered */
+    IF dQty > 5 THEN dDiscount = 0.1 ELSE dDiscount = 0.05.
+    
+    /* Calculate total for this order */
+    dTotal = dQty * dUnitPrice * (1 - dDiscount).
+    
+    /* Add order data to temp-table */
+    CREATE ttSales.
+    ASSIGN
+        ttSales.cCustomer = cCustomer
+        ttSales.iOrderNum = iOrderNum
+        ttSales.dOrderDate = dOrderDate
+        ttSales.dShipDate = dShipDate
+        ttSales.dQty = dQty
+        ttSales.dUnitPrice = dUnitPrice
+        ttSales.dDiscount = dDiscount
+        ttSales.dTotal = dTotal.
+
+    /* Call procedure to calculate revenue for current customer */
+    RUN CalculateRevenue (INPUT cCustomer, OUTPUT dTotal).
+END. 
+
+/* Display temp-table with updated data */
+FOR EACH ttSales NO-LOCK:
+    DISPLAY ttSales WITH FRAME f-sales.
+END.

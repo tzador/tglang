@@ -1,0 +1,90 @@
+# NGINX Configuration for Load Balancing and Caching
+user nginx;
+worker_processes auto;
+pid /run/nginx.pid;
+
+events {
+  worker_connections 1024;
+}
+
+http {
+  include /etc/nginx/mime.types;
+  default_type application/octet-stream;
+
+  upstream backend_servers {
+    server 10.0.0.1:8080;
+    server 10.0.0.2:8080;
+  }
+
+  server {
+    listen 80;
+    server_name example.com;
+
+    location / {
+      proxy_pass http://backend_servers/;
+      proxy_http_version 1.1;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header Host $http_host;
+      proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location /static {
+      root /var/www/example.com;
+      expires 30d;
+      access_log off;
+      add_header Cache-Control "public, max-age=2592000, immutable";
+    }
+  }
+
+  server {
+    listen 443 ssl;
+    server_name example.com;
+    ssl_certificate /etc/ssl/certs/example.com.crt;
+    ssl_certificate_key /etc/ssl/private/example.com.key;
+
+    location / {
+      proxy_pass http://backend_servers/;
+      proxy_http_version 1.1;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header Host $http_host;
+      proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location /static {
+      root /var/www/example.com;
+      expires 30d;
+      access_log off;
+      add_header Cache-Control "public, max-age=2592000, immutable";
+    }
+  }
+
+  server {
+    listen 80;
+    server_name blog.example.com;
+
+    location / {
+      root /var/www/blog.example.com;
+      try_files $uri $uri/ =404;
+    }
+  }
+}
+### Annotation:
+- The code begins by setting the user and worker processes for NGINX.
+- The `events` section specifies the maximum number of worker connections.
+- The `http` section is where the main configuration for the server resides.
+- The `include` directive is used to include additional configuration files.
+- The `upstream` block defines the backend servers to be load balanced.
+- The `server` block defines the main server configuration.
+- The `listen` directive specifies the port and protocol to listen on.
+- The `server_name` directive defines the server name for this block.
+- The `location` block defines specific configurations for certain locations.
+- The `proxy_pass` directive specifies the backend server(s) to proxy requests to.
+- The `proxy_http_version` specifies the HTTP protocol version for the proxy.
+- The `proxy_set_header` directives set additional headers for the proxy request.
+- The `location /static` block specifies configurations for serving static files.
+- The `root` directive specifies the root directory for static files.
+- The `expires` directive sets the expiration time for cached files.
+- The `access_log` directive disables logging for this location.
+- The `add_header` directive adds a custom header to the response.
+- The `server` block for HTTPS connections additionally specifies the SSL certificate and key.
+- The final `server` block is an example for serving a specific subdomain.

@@ -1,0 +1,85 @@
+type alias User =
+  { name : String
+  , age : Int
+  , email : String
+  }
+
+main : Program () Model Msg
+main =
+  App.beginnerProgram
+    { model = initialModel
+    , view = view
+    , update = update
+    }
+
+initialModel :Model
+initialModel =
+  { users = []
+  , userInput = ""
+  }
+
+type Msg
+  = AddUser
+  | UserAdded User
+  | ChangeInput String
+
+update : Msg -> Model -> (Model, Cmd Msg)
+update msg model =
+  case msg of
+    AddUser ->
+      let
+          newUser =
+            { name = model.userInput
+            , age = 18
+            , email = "example@example.com"
+            }
+        in
+          ( { model
+              | users = newUser :: model.users
+              , userInput = ""
+            }
+          , getUserCmd newUser
+          )
+
+    UserAdded user ->
+      ( { model
+          | users = user :: model.users
+        }
+      , Cmd.none
+      )
+
+    ChangeInput input ->
+      ( { model | userInput = input }
+      , Cmd.none
+      )
+
+getUserCmd : User -> Cmd Msg
+getUserCmd user =
+  Http.send UserAdded
+    (Http.get "https://example.com/users")
+  |> Task.perform (always (Decode.succeed user)) \_ -> GetUserError
+
+view : Model -> Html Msg
+view model =
+  div []
+    [ h1 [] [ text "User List" ]
+    , input [ onInput ChangeInput ] []
+    , button [ onClick AddUser ] [ text "Add User" ]
+    , div []
+    [ ul []
+      (List.map viewUser model.users)
+      ]
+    ]
+
+viewUser : User -> Html Msg
+viewUser user =
+  div [ class "user" ]
+    [ h2 [] [ text user.name ]
+    , p [] [ text ("Age: " ++ (toString user.age)) ]
+    , p [] [ text ("Email: " ++ user.email) ]
+    ]
+
+type alias Model =
+  { users : List User
+  , userInput : String
+  }

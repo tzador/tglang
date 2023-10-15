@@ -1,0 +1,92 @@
+%% Multilayer Perceptron
+% This code snippet shows the implementation of a multilayer perceptron (MLP) neural network algorithm in MATLAB.
+
+%% Dataset Preparation
+% In this section, we will load the dataset and prepare it for training and testing.
+load('dataset.mat') % Load the dataset from a .mat file
+data = normalize(data); % Normalize the dataset to improve training performance
+input_data = data(:,1:4); % Get the input features for training and testing
+target_data = data(:,5); % Get the target labels for training and testing
+[train_input,train_target,val_input,val_target,test_input,test_target] = split_data(input_data,target_data,0.6,0.2,0.2); % Split the dataset into train, validation and test sets
+
+%% MLP Structure and Parameters
+% Next, we will define the structure and parameters of the MLP model.
+hidden_size = 5; % Number of hidden layers
+input_size = size(train_input,2); % Number of input features
+output_size = 1; % Number of output neurons
+W_ih = randn(input_size,hidden_size); % Initialize weights for input to hidden layer
+W_ho = randn(hidden_size,output_size); % Initialize weights for hidden to output layer
+lr = 0.01; % Learning rate
+epochs = 1000; % Number of training epochs
+
+%% Training
+% We will now train the MLP model using the training set.
+for i=1:epochs
+    % Forward Propagation
+    hidden = train_input*W_ih; % Calculate the dot product of input and input-to-hidden weights
+    hidden = relu(hidden); % Apply ReLU activation function
+    output = hidden*W_ho; % Calculate the dot product of hidden and hidden-to-output weights
+    output = sigmoid(output); % Apply sigmoid activation function
+    
+    % Backpropagation
+    error = train_target - output; % Calculate the error between target and output
+    d_output = error .* sigmoid_derivative(output); % Calculate the derivative of output with respect to error
+    error_hidden = d_output*W_ho'; % Calculate the error of hidden layer
+    d_hidden = error_hidden .* relu_derivative(hidden); % Calculate the derivative of hidden layer with respect to error
+    W_ho = W_ho + lr * (hidden' * d_output); % Update hidden-to-output weights using gradient descent
+    W_ih = W_ih + lr * (train_input' * d_hidden); % Update input-to-hidden weights using gradient descent
+end
+
+%% Testing and Evaluation
+% Finally, we will test the trained model on the validation and test sets and evaluate its performance.
+val_pred = relu(val_input*W_ih)*W_ho; % Make predictions on validation set
+val_pred = sigmoid(val_pred); % Apply sigmoid activation function
+val_acc = sum(abs(round(val_pred)-val_target)==0)/size(val_target,1); % Calculate validation accuracy
+test_pred = relu(test_input*W_ih)*W_ho; % Make predictions on test set
+test_pred = sigmoid(test_pred); % Apply sigmoid activation function
+test_acc = sum(abs(round(test_pred)-test_target)==0)/size(test_target,1); % Calculate test accuracy
+
+%% MLP Function Definitions
+% This section contains the definition of the ReLU and sigmoid activation functions, and their derivatives.
+
+function y = relu(x)
+    % ReLU activation function
+    y = x;
+    y(x<0) = 0;
+end
+
+function y = relu_derivative(x)
+    % Derivative of ReLU activation function
+    y = 1;
+    y(x<0) = 0;
+end
+
+function y = sigmoid(x)
+    % Sigmoid activation function
+    y = 1./(1+exp(-x));
+end
+
+function y = sigmoid_derivative(x)
+    % Derivative of sigmoid activation function
+    y = sigmoid(x).*(1-sigmoid(x));
+end
+
+function [train_input,train_target,val_input,val_target,test_input,test_target] = split_data(input_data,target_data,train_ratio,val_ratio,test_ratio)
+    % Function to split the dataset into train, validation and test sets
+    % based on the given ratios
+    n = size(input_data,1); % Number of data points
+    p = randperm(n); % Randomly shuffle the indices of data points
+    train_size = floor(train_ratio*n); % Number of data points for training
+    val_size = floor(val_ratio*n); % Number of data points for validation
+    test_size = n-train_size-val_size; % Number of data points for testing
+    train_index = p(1:train_size); % Indices for training set
+    val_index = p(train_size+1:train_size+val_size); % Indices for validation set
+    test_index = p(train_size+val_size+1:end); % Indices for test set
+    % Split the data and target based on the indices
+    train_input = input_data(train_index,:);
+    train_target = target_data(train_index,:);
+    val_input = input_data(val_index,:);
+    val_target = target_data(val_index,:);
+    test_input = input_data(test_index,:);
+    test_target = target_data(test_index,:);
+end

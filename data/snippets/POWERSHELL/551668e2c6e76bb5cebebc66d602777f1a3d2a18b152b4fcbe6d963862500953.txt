@@ -1,0 +1,89 @@
+# This code snippet creates a function that downloads a file from a given URL, saves it to a specified location, and sends a custom message upon completion
+
+Function Download-File {
+  <#
+    .SYNOPSIS
+      Downloads a file from a URL and saves it to a local location.
+
+    .DESCRIPTION
+      This function can be used to download a file from a specified URL and save it to a local location. It also allows for a custom message to be sent upon completion of the download.
+
+    .PARAMETER Url
+      The URL of the file to be downloaded.
+
+    .PARAMETER LocalPath
+      The local destination path and filename for the downloaded file.
+
+    .PARAMETER Message
+      A custom message to be sent upon completion of the download.
+
+    .EXAMPLE
+      Download-File -Url "https://example.com/file.zip" -LocalPath "C:\Downloads\file.zip" -Message "File downloaded successfully."
+
+    .NOTES
+      Author: John Smith
+      Date: 10/10/2021
+  #>
+
+  [CmdletBinding()]
+  param (
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$Url,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$LocalPath,
+
+    [Parameter()]
+    [string]$Message
+  )
+
+  # Create a web request to download the file
+  $webRequest = [System.Net.WebRequest]::Create($Url)
+
+  try {
+    # Send the request and get the response
+    $webResponse = $webRequest.GetResponse()
+
+    # Create a FileStream to write the downloaded file
+    $fileStream = New-Object System.IO.FileStream ($LocalPath, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None);
+
+    # Create a buffer for downloading the file in chunks
+    $byteArray = New-Object byte[] 4096
+
+    # Get the stream of the response
+    $responseStream = $webResponse.GetResponseStream()
+
+    # Loop through the response stream and write the file
+    do {
+      $bytesRead = $responseStream.Read($byteArray, 0, 4096)
+      # Check if file is done downloading
+      if ($bytesRead -gt 0) {
+        # Write the bytes to the file
+        $fileStream.Write($byteArray, 0, $bytesRead)
+      }
+
+    } while ($bytesRead -gt 0)
+
+    # Close the file stream and response stream
+    $fileStream.Close()
+    $responseStream.Close()
+
+    # Send the custom message if provided
+    if ($Message) {
+      Write-Output $Message
+    }
+
+    # Return success
+    return $true
+  }
+  catch [System.Net.WebException] {
+    # Catch any errors from the web request
+    Write-Error $_.Exception.Message
+    return $false
+  }
+}
+
+# Example usage
+Download-File -Url "https://example.com/file.zip" -LocalPath "C:\Downloads\file.zip" -Message "File downloaded successfully."

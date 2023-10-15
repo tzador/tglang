@@ -1,0 +1,73 @@
+-module(maze_solver).
+
+-export([solve/2, print_maze/1]).
+
+%%% Solving maze using depth-first search algorithm
+
+%% % Define maze data structure as a list of lists of atoms
+-type maze() :: [[atom()]].
+
+%% % Define coordinates data structure as a tuple
+-type coordinates() :: {integer(), integer()}.
+
+%% % Function that receives a maze and returns the solution (path) using depth-first search
+%% % Each step checks if the current cell is the exit, if not, it explores adjacent cells
+solve(Maze, Path) ->
+    %%% Converting maze to a list of coordinates
+    %%% Assuming that the start cell is at bottom left and exit is at top right
+    %%% Converting walls to '1', empty cells to '0', and marking the start as 'S' and exit as 'E'
+    MazeCoords = list_coords(Maze),
+
+    %%% Starting from the bottom left cell and exploring adjacent cells
+    {_, _, Path} = dfs([{1, 1}], MazeCoords, [], [], Path).
+
+%% % Function that converts a maze to a list of coordinates, with start and exit marked
+%% % Returns a list of tuples where the first element is the coordinate and the second is the value
+list_coords(Maze) ->
+    Coords = [{1, Length} || Line <- Maze, Length <- lists:seq(1, length(Line))],
+    %%% Reversing the coordinates to match the maze structure
+    lists:reverse(Coords).
+
+%% % Function that performs depth-first search on a maze
+%% % Receives a list of current coordinates, remaining maze coordinates, visited cells, and path so far
+dfs([{X, Y} | Rest], Coords, Visited, Path, Solution) ->
+    %%% Marking current cell as visited
+    VisitedCells = [{X, Y} | Visited],
+
+    %%% Checking if current cell is the exit
+    case {X, Y} of
+        {X, X} ->
+            %%% If yes, return the path so far and the updated list of visited cells
+            {[{X, Y} | Path], VisitedCells, Solution};
+
+        _ ->
+            %%% If not, explore adjacent cells
+            Adjacent = get_adjacent(X, Y, Coords),
+            %%% Removing visited cells from the adjacent cells list
+            NewCoords = lists:subtract(Adjacent, VisitedCells),
+            %%% Adding adjacent cells to the list of current coordinates
+            dfs([Cell | Rest], NewCoords, VisitedCells, Path ++ [{X, Y}], Solution)
+    end.
+
+%% % Function that gets the adjacent cells of a current cell
+%% % Returns a list of tuples where the first element is the coordinate and the second is the value
+get_adjacent(X, Y, Coords) ->
+    %%% Filtering out cells that are not adjacent to the current cell
+    Adjacent = [{X-1, Y}, {X, Y-1}, {X+1, Y}, {X, Y+1}],
+    %%% Filtering out cells that are not in the maze (coordinates that are out of bounds)
+    lists:filter(fun({X, Y}) -> X > 0 andalso Y > 0 andalso X =< length(Coords) andalso Y =< length(lists:nth(1, Coords)) end, Adjacent).
+
+%% % Function that prints the maze with solution path
+%% % Receives the maze and the solution path
+print_maze(Maze, Solution) ->
+    %%% Printing the maze with the marked solution path
+    [io:format("~s", [print_line(Line, Solution)++"\t|"]) || Line <- Maze].
+
+%% % Function that prints a single line of the maze with the solution path
+%% % Receives the current line of the maze and the solution path
+%% % Returns a string with the line and the solution path marked with '*'
+print_line(Line, Solution) ->
+    {X, _} = lists:unzip(Solution),
+    Tmp = [if (X == Cell) andalso (lists:nth(Cell-1, Line) /= $S) andalso (lists:nth(Cell-1, Line) /= $E) -> "*"; true -> lists:nth(Cell-1, Line) end || Cell <- lists:seq(1, length(Line))],
+    %%% Inserting start and exit symbols into the line
+    lists:nth(1, Tmp, $S) ++ lists:nth(2, Tmp, $E) ++ lists:sublist(Tmp, 3, length(Tmp)-2).

@@ -1,0 +1,77 @@
+# Set a default server for request handling
+server {
+    listen 8000;
+    server_name _;
+    root /var/www/default;
+
+    # Redirect all requests to the default server to a specific location
+    location / {
+        return 301 https://example.com$request_uri;
+    }
+}
+
+# Configure a main server
+server {
+    # Listen on port 443 for secure connections
+    listen 443 ssl http2;
+    server_name example.com;
+    index index.html;
+
+    # Configure SSL certificate and key for secure connection
+    ssl_certificate /etc/nginx/ssl/example.crt;
+    ssl_certificate_key /etc/nginx/ssl/example.key;
+
+    # Set default character encoding
+    charset utf-8;
+
+    # Enable secure HTTP headers
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-Content-Type-Options "nosniff";
+    add_header X-XSS-Protection "1; mode=block";
+
+    # Enable OCSP Stapling to increase SSL/TLS performance
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    resolver 8.8.8.8 8.8.4.4 valid=300s;
+
+    # Restrict access based on client's IP address
+    # Only allow connections from a specific IP
+    allow 192.168.1.1;
+    deny all;
+
+    # Set caching for certain file types
+    location ~* \.(css|js|png|jpg|jpeg|gif|ico)$ {
+        expires 7d;
+        add_header Pragma "public";
+        add_header Cache-Control "public";
+    }
+
+    # Handle requests for specific paths
+    location /blog/ {
+        # Serve files from a different root folder
+        root /var/www/blog;
+        # Forward PHP requests to PHP-FPM backend server
+        location ~ \.php$ {
+            include fastcgi_params;
+            fastcgi_param SCRIPT_FILENAME $request_filename;
+            # Pass requests to a specific PHP-FPM pool
+            fastcgi_pass unix:/var/run/php-fpm/blog.sock;
+        }
+        # Configure caching for specific file types
+        location ~* \.(png|jpg|jpeg|gif|ico|css)$ {
+            expires 7d;
+            add_header Pragma "public";
+            add_header Cache-Control "public";
+        }
+    }
+}
+
+# Configure a server block for handling alternate domains
+server {
+    # Listen on port 80 for non-secure connections
+    listen 80;
+    server_name www.example.com anotherexample.com;
+
+    # Redirect all non-secure requests to secure version of the site
+    return 301 https://example.com$request_uri;
+}

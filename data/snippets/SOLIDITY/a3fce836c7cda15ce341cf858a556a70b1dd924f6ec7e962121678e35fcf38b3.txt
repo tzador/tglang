@@ -1,0 +1,66 @@
+pragma solidity >=0.6.0 <0.8.0; // Specifying the minimum and maximum versions of Solidity
+
+/**
+* @title Auction // Annotated markdown to specify the title of the contract
+* @dev Implements an auction with bidding and end time.
+*/
+contract Auction {
+    address payable owner; // Annotated markdown to specify the variable owner as a payable address
+    uint public startBid; // Annotated markdown to specify the variable startBid as an unsigned integer
+    uint public endBid; // Annotated markdown to specify the variable endBid as an unsigned integer
+    mapping(address => uint) public bids; // Annotated markdown to specify a mapping of address to uint for bids
+    address public highestBidder; // Annotated markdown to specify the variable highestBidder as an address
+    uint public highestBid; // Annotated markdown to specify the variable highestBid as an unsigned integer
+    bool public ended; // Annotated markdown to specify the variable ended as a boolean
+
+    event HighestBidIncreased(address bidder, uint amount); // Annotated markdown to specify an event for when the highest bid is increased
+    event AuctionEnded(address winner, uint amount); // Annotated markdown to specify an event for when the auction ends and a winner is declared
+
+    constructor(uint _startBid, uint _endBid) {
+        owner = msg.sender; // Annotated markdown to set the owner variable as the address of the person deploying the contract
+        startBid = _startBid; // Annotated markdown to set the startBid variable as the inputted startBid parameter
+        endBid = _endBid; // Annotated markdown to set the endBid variable as the inputted endBid parameter
+    }
+
+    function bid() public payable {
+        require(block.timestamp < endBid, "Auction already ended."); // Annotated markdown to require that the auction has not ended yet
+        require(msg.value > bids[msg.sender], "There already is a higher bid."); // Annotated markdown to require that the current bid is higher than any previous bids from the same address
+        
+        if (bids[msg.sender] > 0) {
+            // Refund the previous bidder if there was one
+            bids[highestBidder] += bids[msg.sender]; // Annotated markdown to increment the amount of the previous bidder's bid back into their balance
+        }
+
+        highestBid = msg.value; // Annotated markdown to update the highestBid variable with the current bid amount
+        highestBidder = msg.sender; //Annotated markdown to update the highestBidder variable with the current bidder's address
+        bids[msg.sender] = msg.value; //Annotated markdown to update the mapping with the current bidder's address and bid amount
+
+        emit HighestBidIncreased(msg.sender, msg.value); // Annotated markdown to emit an event for the new highest bid
+    }
+
+    function withdraw() public {
+        uint amount = bids[msg.sender]; // Annotated markdown to set the amount variable to the bidder's bid amount
+        require(amount > 0, "You have not bid yet."); // Annotated markdown to require that the bidder has actually bid
+
+        bids[msg.sender] = 0; // Annotated markdown to reset the bidder's bid amount to 0
+        (bool success, ) = msg.sender.call{value: amount}(""); // Annotated markdown to send the bidder's bid amount back to them
+
+        require(success, "Failed to send bid amount back."); // Annotated markdown to require that the return of the bidder's bid amount was successful
+    }
+
+    function auctionEnd() public {
+        require(block.timestamp >= endBid, "Auction not yet ended."); // Annotated markdown to require that the auction is over
+        require(!ended, "Auction has already ended."); // Annotated markdown to require that the auction has not already ended
+
+        ended = true; // Annotated markdown to update the ended variable to true
+        emit AuctionEnded(highestBidder, highestBid); // Annotated markdown to emit an event for the winner and the winning bid amount
+
+        owner.transfer(highestBid); // Annotated markdown to send the highest bid amount to the owner of the contract
+    }
+    
+    // Function to get the current highest bid and bidder
+    function getCurrentHighBid() public view returns (address, uint) {
+        return (highestBidder, highestBid);
+    }
+
+}

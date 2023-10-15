@@ -1,0 +1,85 @@
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* A simple calculator that can perform addition, subtraction,
+multiplication, and division operations on two numbers entered by the user. */
+%}
+
+/* Bison declarations section */
+%token NUM
+%left '+' '-'
+%left '*' '/'
+
+%% /* Grammar rules section */
+
+/* Start rule */
+calc: /* empty */
+    | calc line
+    ;
+
+/* Line rule */
+line: exp '\n'      /* prints result of the expression */
+    | error '\n'
+    ;
+
+/* Expression rule */
+exp: factor
+    | exp '+' factor  { printf("%d\n", $1 + $3); }     /* addition operation */
+    | exp '-' factor  { printf("%d\n", $1 - $3); }     /* subtraction operation */
+    | exp '*' factor  { printf("%d\n", $1 * $3); }     /* multiplication operation */
+    | exp '/' factor  {                           /* division operation */
+        if ($3 == 0) {                             /* checks for division by zero */
+            fprintf(stderr, "Division by zero is undefined!");
+            exit(1);
+        }
+        else {
+            printf("%d\n", $1 / $3);
+        }
+    }
+    ;
+
+/* Factor rule */
+factor: NUM | '-' factor {%($2);}     /* handles negative numbers */
+
+%% /* Bison code section */
+
+/* Scanner code section */
+int yylex(void)
+{
+    int c;
+    while ((c = getchar()) == ' ' || c == '\t')
+        ;
+    if (c == EOF)
+        return 0;
+    if (c == '+' || c == '-' || c == '*' || c == '/')           /* handles operators */
+        return c;
+    if (isdigit(c)) {                                           /* handles numbers */
+        int num = c - '0';
+        while (isdigit(c = getchar()))
+            num = num*10 + c-'0';
+        ungetc(c, stdin);
+        yylval = num;
+        return NUM;
+    }
+    fprintf(stderr, "Invalid input.");
+    exit(1);
+}
+
+/* Error handling function */
+void yyerror(const char *msg)
+{
+    fprintf(stderr, "%s\n", msg);
+}
+
+/* Main function */
+int main(void)
+{
+    while (1) {         /* loops until user inputs EOF (ctrl+d) */
+        yyparse();      /* calls the parser */
+    }
+    return 0;
+}
+
+/* End of code snippet */

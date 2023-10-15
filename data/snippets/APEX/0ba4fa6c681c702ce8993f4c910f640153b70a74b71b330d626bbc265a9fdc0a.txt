@@ -1,0 +1,52 @@
+public class SalesOrderUpdateTriggerHandler{
+    //This class handles the logic for updating sales orders
+    
+    //Method for checking if sales order update should be allowed
+    public static boolean allowSalesOrderUpdate(Sales_Order__c order) {
+        boolean allowUpdate = false;
+        
+        //Only allow update if order status is 'Draft'
+        if (order.Status__c == 'Draft') {
+            allowUpdate = true;
+        }
+        
+        //Check if order has any associated line items
+        List<Line_Item__c> lineItems = [SELECT Id FROM Line_Item__c WHERE Sales_Order__c = :order.Id];
+        if (lineItems.size() == 0) {
+            allowUpdate = false;
+        }
+        
+        //Return the boolean value for allowing or disallowing sales order update
+        return allowUpdate;
+    }
+    
+    //Method for updating the sales order's total amount
+    public static void updateSalesOrderTotal(Sales_Order__c order, List<Line_Item__c> updatedLineItems) {
+        Decimal orderTotal = 0;
+        
+        //Loop through the updated line items and calculate the total amount
+        for (Line_Item__c item : updatedLineItems) {
+            orderTotal += item.Price__c * item.Quantity__c;
+        }
+        
+        //Update the sales order's total amount field
+        order.Total_Amount__c = orderTotal;
+        
+        //Update the sales order record
+        update order;
+    }
+    
+    //Trigger handler method for the before update event
+    public static void beforeUpdate(List<Sales_Order__c> newOrders) {
+        //Loop through the list of new sales orders
+        for (Sales_Order__c order : newOrders) {
+            //Check if sales order update is allowed
+            if (allowSalesOrderUpdate(order)) {
+                //Get the updated line items for the sales order
+                List<Line_Item__c> updatedLineItems = Trigger.newMap.get(order.Id).Line_Items__r;
+                //Call the method to update the sales order's total amount
+                updateSalesOrderTotal(order, updatedLineItems);
+            }
+        }
+    }
+}

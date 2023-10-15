@@ -1,0 +1,87 @@
+//This contract represents an escrow service where funds are held until conditions are met
+contract Escrow {
+    address public payer; //Address of the person making the payment
+    address public payee; //Address of the person receiving the payment
+    address public arbiter; //Address of the arbiter who decides when the funds are released
+    
+    uint public balance; //Total amount of funds in escrow
+    
+    mapping (address => uint) public balances; //Mapping to keep track of individual balances of payer, payee, and arbiter
+    
+    enum State { //Enum to represent the different states of the escrow
+        Created,
+        Locked,
+        Released
+    }
+    
+    State public state; //Variable to store the current state of the escrow
+    
+    //Event to emit when the funds are locked in the escrow
+    event Locked(address payer, uint amount, address payee);
+    
+    //Event to emit when the funds are released from the escrow
+    event Released(address payer, address payee);
+    
+    //Constructor function to initialize the escrow with the addresses of payer, payee, and arbiter
+    constructor(address _payer, address _payee, address _arbiter) public {
+        payer = _payer;
+        payee = _payee;
+        arbiter = _arbiter;
+    }
+    
+    //Function that allows the payer to deposit funds into the escrow
+    function deposit() public payable {
+        require(state == State.Created, "Escrow is not in created state");
+        require(msg.sender == payer, "Only payer can deposit funds");
+        
+        balances[msg.sender] += msg.value;
+        balance += msg.value;
+    }
+    
+    //Function that allows the payer to cancel the escrow and retrieve their funds
+    function cancel() public {
+        require(state == State.Created, "Escrow is not in created state");
+        require(msg.sender == payer, "Only payer can cancel escrow");
+        
+        uint amount = balances[msg.sender];
+        require(amount > 0, "Amount is 0");
+        
+        balances[msg.sender] = 0;
+        msg.sender.transfer(amount);
+        
+        state = State.Released;
+        
+        emit Released(msg.sender, payee);
+    }
+    
+    //Function that allows the arbiter to lock the escrow once conditions are met
+    function lock() public {
+        require(state == State.Created, "Escrow is not in created state");
+        require(msg.sender == arbiter, "Only arbiter can lock escrow");
+        
+        state = State.Locked;
+        
+        emit Locked(payer, balance, payee);
+    }
+    
+    //Function that allows the payee to withdraw the funds from the escrow
+    function withdraw() public {
+        require(state == State.Locked, "Escrow is not in locked state");
+        require(msg.sender == payee, "Only payee can withdraw funds");
+        
+        uint amount = balances[msg.sender];
+        require(amount > 0, "Amount is 0");
+        
+        balances[msg.sender] = 0;
+        msg.sender.transfer(amount);
+        
+        state = State.Released;
+        
+        emit Released(payer, payee);
+    }
+    
+    //Fallback function to receive any unexpected ether sent to the contract
+    function() external payable {
+        deposit();
+    }
+}

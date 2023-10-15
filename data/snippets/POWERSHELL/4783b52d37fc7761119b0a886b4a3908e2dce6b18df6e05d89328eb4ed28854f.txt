@@ -1,0 +1,36 @@
+#Import ActiveDirectory Module
+Import-Module ActiveDirectory
+
+#Set variables for OU, Group, and User
+$ou = "OU=Engineering,DC=example,DC=com"
+$group = "Engineers"
+$user = "John Smith"
+
+#Create new OU
+New-ADOrganizationalUnit -Name "Engineering" -Description "Contains all engineering users" -Path $ou
+
+#Create new security group
+New-ADGroup -Name "Engineers" -Description "Group for engineering users" -Path $ou -GroupCategory Security -GroupScope Global
+
+#Create new user object
+New-ADUser -Name "John Smith" -Path $ou -AccountPassword (ConvertTo-SecureString "Password123" -AsPlainText -Force) -Enabled $true -PasswordNeverExpires $true
+
+#Add user to group
+Add-ADGroupMember -Identity $group -Members $user
+
+#Assign group permissions
+$group = Get-ADGroup "Engineers"
+$domain = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()
+$domainAD = [ADSI]"LDAP://$domain"
+$acl = $domainAD.ObjectSecurity
+$permission = "WriteProperty"
+$adRights = [System.DirectoryServices.ActiveDirectoryRights]::$permission
+$objectType = [System.DirectoryServices.ActiveDirectorySecurityInheritance]::None
+$inheritanceType = [System.DirectoryServices.ActiveDirectorySecurityInheritance]::None
+$aceType = [System.Security.AccessControl.AccessControlType]::Allow
+$ace = New-Object System.DirectoryServices.ActiveDirectoryAccessRule($user, $adRights, $objectType, $inheritanceType, $aceType)
+$acl.AddAccessRule($ace)
+Set-ADGroup -Identity $group -Replace @{ 'nTSecurityDescriptor' = $acl }
+
+#Output confirmation
+Write-Host "OU, group, and user have been successfully created and user has been added to the group with appropriate permissions."

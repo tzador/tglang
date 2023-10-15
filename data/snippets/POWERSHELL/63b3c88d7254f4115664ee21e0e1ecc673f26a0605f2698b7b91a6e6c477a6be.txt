@@ -1,0 +1,31 @@
+# This is a script to check a user's disk usage and send an email notification if it exceeds a specified threshold.
+# Get user's username and set threshold value
+$username = Read-Host "Enter username"
+$threshold = 50 * 1GB
+
+# Get user's disk usage and convert to GB
+$diskUsage = (Get-WmiObject Win32_UserProfile -Filter "LocalPath like 'C:\\Users\\$username'" | Select-Object -Property @{Name="UsedSpace";Expression={($_.Size)}}, @{Name="AvailableSpace";Expression={($_.Size - $_.ConvertFromRawDisk}}}).UsedSpace/1GB
+$diskUsage = [math]::Round($diskUsage, 2)
+
+# Check if disk usage exceeds threshold
+if($diskUsage -gt $threshold) {
+    # Create email message body
+    $body = "Hello $username, your disk usage on the C drive has exceeded $threshold GB. Please free up some space."
+
+    # Send email using Gmail SMTP server
+    $smtpServer = "smtp.gmail.com"
+    $smtp = New-Object Net.Mail.SmtpClient($smtpServer, 587)
+    $smtp.EnableSsl = $true
+    $smtp.Credentials = New-Object System.Net.NetworkCredential("username@gmail.com", "password")
+    $msg = New-Object Net.Mail.MailMessage
+    $msg.From = "username@gmail.com"
+    $msg.To.Add("$username@domain.com")
+    $msg.Subject = "Disk Usage Alert"
+    $msg.Body = $body
+    $smtp.Send($msg)
+}
+
+# If disk usage does not exceed threshold
+else {
+    Write-Host "Disk usage for $username is currently at $diskUsage GB and is below the threshold of $threshold GB."
+}

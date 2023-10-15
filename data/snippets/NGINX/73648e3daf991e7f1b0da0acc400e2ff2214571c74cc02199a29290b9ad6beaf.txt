@@ -1,0 +1,52 @@
+worker_processes 1; #set the number of worker processes to 1
+error_log /var/log/nginx/error.log notice; #specify the path for nginx error log and set the level to "notice"
+events { #define event behavior
+  worker_connections 1024; #set the maximum number of connections per worker process
+}
+http { #define http server block
+  include mime.types; #include the file that contains mime types
+  default_type application/octet-stream; #set the default mime type
+  sendfile on; #enable sendfile to optimize file transfers
+  keepalive_timeout 65; #set the timeout for keep-alive connections
+  upstream app_servers { #define upstream server block
+    server 127.0.0.1:8080; #specify the server and port of the upstream application
+    server 127.0.0.1:8081;
+  }
+  server { #define server block
+    listen 80; #listen for requests on port 80
+    location / { #location block for root path
+      proxy_pass http://app_servers; #proxy requests to the upstream servers
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; #add the client IP to the request header
+      proxy_set_header Host $host; #set the host header to the original request
+      proxy_http_version 1.1; #use HTTP version 1.1 for proxy requests
+      proxy_set_header Connection ""; #disable setting "Connection" header
+      proxy_buffers 8 32k; #set the number and size of proxy buffers
+      proxy_buffer_size 64k;
+    }
+    location ~ \.(jpg|jpeg|png|gif|ico)$ { #location block for image files
+      expires 30d; #set the cache expiration to 30 days
+      access_log off; #disable access logging
+    }
+    location ~ ^/static/(.*)$ { #location block for static files
+      root /var/www/example.com; #set the root directory for static files
+      try_files $1 @fallback; #try to serve the requested file, if not found route to @fallback
+    }
+    location @fallback { #location block for fallback route
+      proxy_pass http://127.0.0.1:8082; #proxy requests to a different backend server
+    }
+  }
+  server { #define server block
+    listen 443 ssl; #listen for requests on port 443 using SSL
+    ssl_certificate /etc/ssl/certs/example_com.crt; #specify the path for the SSL certificate
+    ssl_certificate_key /etc/ssl/private/example_com.key; #specify the path for the SSL certificate key
+    location / { #location block for root path
+      proxy_pass http://app_servers; #proxy requests to the upstream servers
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; #add the client IP to the request header
+      proxy_set_header Host $host; #set the host header to the original request
+      proxy_http_version 1.1; #use HTTP version 1.1 for proxy requests
+      proxy_set_header Connection ""; #disable setting "Connection" header
+      proxy_buffers 8 32k; #set the number and size of proxy buffers
+      proxy_buffer_size 64k;
+    }
+  }
+}

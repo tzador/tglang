@@ -1,0 +1,55 @@
+pro rpca, image
+;This is a procedure to perform RPCA on an input image
+;Inputs:
+;   image - input 2D array image
+;
+;Outputs:
+;   l - low rank matrix
+;   s - sparse matrix
+;   t - transformation matrix
+
+;Calculate SVD of input image
+svd_result = svd(image)
+
+;Extract matrices from svd_result
+u = svd_result[*, 0:1] ;unitary matrix u
+s = diag(svd_result[*, 2]) ;diagonal matrix s
+v = svd_result[*, 3:4] ;unitary matrix v
+
+;Set parameters
+lambda = 1/sqrt(nrow(image)) ;threshold parameter
+max_iter = 100 ;maximum number of iterations
+tol = 1e-4 ;convergence tolerance
+
+;Initialize l and s matrices
+l = replicate(0.5, [nrow(image), ncol(image)]) ;initialize l to 0.5
+s = replicate(0.5, [nrow(image), ncol(image)]) ;initialize s to 0.5
+
+;Set error variable to track convergence
+error = 1
+
+;Iterate until convergence or maximum number of iterations is reached
+for i=0, max_iter-1 do begin
+    ;Update l matrix
+    l = (s - v) > lambda ;threshold s-v matrix using lambda
+    l = (l * (s - lambda)) / (1 - lambda) ;scale l based on thresholded values
+
+    ;Update s matrix
+    s = (image - l) > 0 ;threshold (image-l) matrix
+    s = s * (image - l) ;assign non-zero values to s
+
+    ;Calculate error for convergence check
+    error = norm(image - l - s)
+
+    ;If error is below tolerance, break out of loop
+    if (error < tol) then begin
+        break
+    endif
+endfor
+
+;Calculate transformation matrix
+t = u * v
+
+;Return l, s, and t matrices
+return, l, s, t
+end

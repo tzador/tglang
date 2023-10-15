@@ -1,0 +1,134 @@
+// This code creates a custom character class with various properties and functions.
+
+class CustomCharacter extends Player;
+
+/* This function spawns the player's character in the game with
+ * the specified spawn location and rotation.
+ */
+simulated event PostBeginPlay()
+{
+    Super.PostBeginPlay();
+
+    // Spawn the character at the specified location and set its rotation.
+    SetLocationAndRotation(SpawnLocation, SpawnRotation);
+
+    // Set the character's initial movement speed.
+    Default.speed = 300.0;
+
+    // Set the character's initial health.
+    Health = 100;
+
+    // Enable crouching for the character.
+    bCanCrouch = true;
+
+    // Set the character's collision component to use the built-in capsule shape.
+    CollisionComponent = CapsuleComponent;
+
+    // Set the character's movement mode to walking.
+    SetMovement(EMovementMode.MOVEMENT_Walking);
+
+    /* Set the character's default mesh to use our custom Skeletal Mesh,
+     * located at the specified path.
+     */
+    SetStaticMesh(CustomSkeletalMesh, true, true);
+
+    // Attach a custom weapon to the character's hand socket.
+    Weapon = Spawn(class'CustomWeapon', owner, "", Location, Rotation, none, true);
+    Weapon.AttachTo(CharacterMesh, "hand_r");
+
+    // Add the character's default animations.
+    CharacterAnimations.Add(Action_Walk);
+    CharacterAnimations.Add(Action_Idle);
+    CharacterAnimations.Add(Action_Jump);
+    CharacterAnimations.Add(Weapon_Fire);
+
+    // Enable the character's collision with the world.
+    CharacterCollisionType = COLLIDE_WorldDynamic;
+}
+
+/* This function is called when the character takes damage.
+ * It subtracts the specified amount from the character's health.
+ */
+function TakeDamage(int Damage, Actor Other, Object.Vector HitLocation, Object.Vector Momentum, class<DamageType> DamageType)
+{
+    // Subtract the damage from the character's current health.
+    Health -= Damage;
+
+    // If the character's health reaches 0 or below, destroy the character.
+    if (Health <= 0)
+    {
+        ReceiveKilled(Other, HitLocation, Momentum, DamageType);
+    }
+}
+
+/* This function is called when the character is killed.
+ * It triggers a death event and destroys the character.
+ */
+simulated function ReceiveKilled(Actor Killer, Object.Vector HitLocation, Object.Vector Momentum, class<DamageType> DamageType)
+{
+    /* Trigger a death event on the character,
+     * with the specified killer, hit location, and damage type.
+     */
+    DoDeath(Killer, HitLocation, DamageType);
+
+    // Destroy the character.
+    Destroy();
+}
+
+/* This custom event is triggered when the character is killed.
+ * It can be used to implement additional functionality upon death.
+ */
+event DoDeath(Actor Killer, Object.Vector HitLocation, class<DamageType> DamageType);
+
+// This function is called when the character jumps.
+event OnJump()
+{
+    Super.OnJump();
+
+    // Play the jump animation on the character.
+    PlayAnim(Action_Jump, , true, 1.0, 1.0);
+
+    // Set the character's movement mode to falling.
+    SetMovement(EMovementMode.MOVEMENT_Falling);
+}
+
+// This function is called when the character lands after jumping.
+event Landed(Object.Vector HitNormal, Actor FloorActor)
+{
+    Super.Landed(HitNormal, FloorActor);
+
+    // Play the landing animation on the character.
+    PlayAnim(Action_Land, , true, 1.0, 1.0);
+
+    // Set the character's movement mode to walking.
+    SetMovement(EMovementMode.MOVEMENT_Walking);
+}
+
+// This function is called whenever the character's movement mode changes.
+event SetMovement(byte NewMovement)
+{
+    Super.SetMovement(NewMovement);
+
+    // If the character is walking or falling, enable the character's movement.
+    if (NewMovement == MOVEMENT_Walking || NewMovement == MOVEMENT_Falling)
+    {
+        EnableMovement();
+    }
+    // Otherwise, disable the character's movement.
+    else
+    {
+        DisableMovement();
+    }
+}
+
+// This function is called when the character is moving.
+simulated event Tick(float DeltaTime)
+{
+    Super.Tick(DeltaTime);
+
+    // If the character's health reaches 0 or below, destroy the character.
+    if (Health <= 0)
+    {
+        ReceiveKilled(None, Object.Vector(0, 0, 0), Object.Vector(0, 0, 0), None);
+    }
+}

@@ -1,0 +1,93 @@
+! This is a code snippet in FORTRAN for finding the eigenvalues of a matrix
+PROGRAM eigenvalues
+
+  IMPLICIT NONE
+  INTEGER :: n, i, j, k, num_iterations, max_iterations
+  REAL, DIMENSION(100,100) :: A, V
+  REAL, DIMENSION(100) :: lam, lam_old, lam_new
+
+  ! Initialize matrix A with some values
+  DO i = 1, 100
+    DO j = 1, 100
+      A(i,j) = SIN(REAL((i+j)**2)) + COS(REAL((i-j)**2))
+    END DO
+  END DO
+
+  ! Set starting values for eigenvalues
+  DO k = 1, 100
+    lam_old(k) = 0.0
+    lam_new(k) = 1.0
+  END DO
+
+  ! Set maximum number of iterations
+  max_iterations = 100
+
+  ! Start Jacobi method for finding eigenvalues
+  DO num_iterations = 1, max_iterations
+
+    ! Copy eigenvalue vector from previous iteration
+    DO k = 1, 100
+      lam_old(k) = lam_new(k)
+    END DO
+
+    ! Loop over matrix elements and perform Jacobi rotation
+    DO i = 1, 100
+      DO j = 1, 100
+        IF(i /= j) THEN
+          CALL jacobi_rot(A, V, i, j, n)
+        END IF
+      END DO
+    END DO
+
+    ! Calculate new eigenvalues
+    DO k = 1, 99
+      lam_new(k) = min(lam_old(k), A(k+1,k+1))
+    END DO
+
+    ! Check for convergence
+    IF (MAXVAL(ABS(lam_new - lam_old)) < 1.0e-6) EXIT
+
+  END DO
+
+  ! Print solution
+  WRITE(*,*) 'Eigenvalues:'
+  DO k = 1, 100
+    WRITE(*,'(A,I3,F10.6)') 'lam(', k, ') = ', lam_new(k)
+  END DO
+
+CONTAINS
+
+  ! Subroutine to perform Jacobi rotation
+  SUBROUTINE jacobi_rot(A, Q, i, j, n)
+    IMPLICIT NONE
+    INTEGER, INTENT(IN) :: i, j, n
+    REAL, DIMENSION(n,n), INTENT(INOUT) :: A
+    REAL, DIMENSION(n,n), INTENT(INOUT) :: Q
+
+    REAL :: theta, c, s
+    REAL, DIMENSION(n) :: x, y
+
+    ! Calculate Jacobi rotation angle and cosine/sine
+    theta = ATAN(2*A(i,j) / (A(i,i) - A(j,j)))
+    c = COS(theta)
+    s = SIN(theta)
+
+    ! Create rotation matrix
+    DO k = 1, n
+      x(k) = A(i,k)
+      y(k) = A(j,k)
+      A(i,k) = c*x(k) - s*y(k)
+      A(j,k) = s*x(k) + c*y(k)
+    END DO
+
+    ! Update eigenvector matrix
+    DO k = 1, n
+      x(k) = Q(i,k)
+      y(k) = Q(j,k)
+      Q(i,k) = c*x(k) - s*y(k)
+      Q(j,k) = s*x(k) + c*y(k)
+    END DO
+
+  END SUBROUTINE
+
+END PROGRAM eigenvalues

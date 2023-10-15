@@ -1,0 +1,66 @@
+(* This code snippet calculates the shortest path between two nodes in a graph using Dijkstra's algorithm *)
+
+(* Define function to initialize distance map with all nodes except start node having infinity distance *)
+initDistMap[graph_, start_] := Module[{nodeList},
+   nodeList = VertexList[graph];
+   AssociationThread[nodeList, If[# == start, 0, Infinity] & /@ nodeList]
+   ];
+
+(* Define function to update distances in distance map based on current path node and neighboring nodes *)
+updateDistMap[distMap_, pathNode_, neighbors_, currentDist_] := Module[{},
+   AssociateTo[distMap,
+     KeyValueMap[
+      With[{node = #1, dist = #2}, If[MemberQ[neighbors, node], 
+        Min[dist, currentDist + PropertyValue[{graph, pathNode, node}, EdgeWeight]], dist]] &,
+      distMap]
+     ]
+   ];
+
+(* Define function to get minimum distance node from distance map *)
+getMinDistNode[distMap_] := Module[{nodeList, minDist, minNode},
+   nodeList = Keys[distMap];
+   minDist = Min[Values[distMap]];
+   minNode = SelectFirst[nodeList, distMap[#] == minDist &];
+   {minNode, minDist}
+   ];
+
+(* Define function to update paths map based on current path node and neighboring nodes *)
+updatePathsMap[distMap_, pathsMap_, pathNode_, neighbors_] := Module[{},
+   AssociateTo[pathsMap,
+     KeyValueMap[
+      With[{node = #1, path = #2}, If[MemberQ[neighbors, node] &&
+         path[[1]] == pathNode && distMap[node] > path[[2]] + currentDist, {node -> pathNode}, path]] &,
+      pathsMap]
+     ]
+   ];
+
+(* Define function to return shortest path and its distance *)
+findShortestPath[graph_, start_, end_] := Module[{distMap, pathsMap, numNodes, currentDist, pathNode, neighbors, currentNode, minNode, minDist, shortestPath, shortestDist},
+   distMap = initDistMap[graph, start];
+   pathsMap = Association[Thread[VertexList[graph] -> {{}, Infinity}]];
+   numNodes = VertexCount[graph];
+   currentDist = 0;
+   pathNode = start;
+   neighbors = First /@ FindShortestPath[graph, pathNode, All, Method -> "BellmanFord"];
+   updateDistMap[distMap, pathNode, neighbors, currentDist];
+   updatePathsMap[distMap, pathsMap, pathNode, neighbors];
+   For[i = 1, i < numNodes, i++,
+    {minNode, minDist} = getMinDistNode[distMap];
+    pathNode = minNode;
+    neighbors = First /@ FindShortestPath[graph, pathNode, All, Method -> "BellmanFord"];
+    currentDist = minDist;
+    updateDistMap[distMap, pathNode, neighbors, currentDist];
+    updatePathsMap[distMap, pathsMap, pathNode, neighbors];
+    distMap = KeyDrop[distMap, minNode];
+    pathsMap = KeyDrop[pathsMap, minNode];
+    If[pathNode == end, Break[]];
+    ];
+   shortestPath = pathsMap[end];
+   shortestDist = distMap[end];
+   {shortestPath, shortestDist}
+   ];
+
+(* Example usage *)
+ExamplesGraph = Graph[{"A" -> "B", "A" -> "C", "B" -> "D", "C" -> "D"}, EdgeWeight -> {2, 3, 4, 5}];
+{path, dist} = findShortestPath[ExamplesGraph, "A", "D"];
+Row[{"Shortest path from A to D is ", path, " with distance ", dist}]

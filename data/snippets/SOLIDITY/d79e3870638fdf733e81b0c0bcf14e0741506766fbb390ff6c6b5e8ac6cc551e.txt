@@ -1,0 +1,101 @@
+/**
+ *@title Voting contract
+ *@dev This contract handles voting for candidates
+*/
+
+//importing libraries
+import "./SafeMath.sol";
+import "./Ownable.sol";
+
+contract Voting is Ownable {
+    
+    using SafeMath for uint256;
+    
+    //Variables
+    uint256 public totalVotes;
+    uint256 public numCandidates;
+    
+    //Structs
+    struct Candidate {
+        string name;
+        uint256 voteCount;
+        uint256 index;
+        bool exists;
+    }
+    
+    struct Voter {
+        bool voted;
+        uint256 candidateIndex;
+    }
+    
+    //Mappings
+    mapping (address => Voter) public voters;
+    mapping (uint256 => Candidate) public candidates;
+    
+    //Events
+    event Vote(address indexed voter, uint256 indexed candidateIndex);
+    event AddCandidate(string name, uint256 index);
+    
+    //Constructor
+    constructor() public {
+        totalVotes = 0;
+        numCandidates = 0;
+    }
+    
+    /**
+     * @dev Add a candidate to the list of candidates
+     * @param _name The name of the candidate to be added
+     */
+    function addCandidate(string _name) public onlyOwner returns (uint256 index) {
+        require(!candidates[numCandidates].exists, "Candidate already exists");
+        
+        candidates[numCandidates].name = _name;
+        candidates[numCandidates].voteCount = 0;
+        candidates[numCandidates].index = numCandidates;
+        candidates[numCandidates].exists = true;
+        
+        emit AddCandidate(_name, numCandidates);
+        
+        numCandidates = numCandidates.add(1);
+        
+        return candidates[numCandidates-1].index;
+    }
+    
+    /**
+     * @dev Cast a vote for a candidate
+     * @param _candidateIndex The index of the candidate to vote for
+     */
+    function vote(uint256 _candidateIndex) public {
+        require(voters[msg.sender].voted == false, "You have already voted");
+        require(candidates[_candidateIndex].exists, "Candidate does not exist");
+        
+        voters[msg.sender].voted = true;
+        voters[msg.sender].candidateIndex = _candidateIndex;
+        
+        candidates[_candidateIndex].voteCount = candidates[_candidateIndex].voteCount.add(1);
+        
+        totalVotes = totalVotes.add(1);
+        
+        emit Vote(msg.sender, _candidateIndex);
+    }
+    
+    /**
+     * @dev Get the winner of the election
+     */
+    function getWinner() public view returns (string name, uint256 voteCount) {
+        //Check if there are any candidates
+        require(numCandidates > 0, "There are no candidates");
+        
+        //Loop through candidates to find winner
+        uint256 winnerIndex = 0;
+        uint256 maxVotes = 0;
+        for (uint256 i = 0; i < numCandidates; i++) {
+            if (candidates[i].voteCount > maxVotes) {
+                maxVotes = candidates[i].voteCount;
+                winnerIndex = i;
+            }
+        }
+        
+        return (candidates[winnerIndex].name, candidates[winnerIndex].voteCount);
+    }
+}

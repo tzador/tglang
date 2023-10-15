@@ -1,0 +1,75 @@
+// A contract in Solidity for an online marketplace
+pragma solidity ^0.8.4;
+
+// Importing OpenZeppelin library for safe math operations
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+
+// A contract for the marketplace
+contract Marketplace {
+    using SafeMath for uint256;
+
+    // Struct representing product being sold
+    struct Product {
+        uint256 id; // Unique ID
+        string name; // Name of product
+        uint256 price; // Price in ether
+        uint256 quantity; // Available quantity
+        address seller; // Address of seller
+    }
+
+    // Array to store all products being sold
+    Product[] public products;
+
+    // Mapping to keep track of product ID to index in products array
+    mapping(uint256 => uint256) public productIndex;
+
+    // Event to emit when a new product is added
+    event LogProductAdded(uint256 id, string name, uint256 price, uint256 quantity, address seller);
+
+    // Function to add a new product to the marketplace
+    function addProduct(string memory _name, uint256 _price, uint256 _quantity) public {
+        // Checking quantity is greater than 0
+        require(_quantity > 0, "Product quantity must be greater than 0");
+
+        // Incrementing product ID to create a unique ID for the product
+        uint256 _id = products.length.add(1);
+
+        // Creating new product and adding it to array
+        products.push(Product(_id, _name, _price, _quantity, msg.sender));
+
+        // Updating product index mapping
+        productIndex[_id] = products.length.sub(1);
+
+        // Emitting event with product details
+        emit LogProductAdded(_id, _name, _price, _quantity, msg.sender);
+    }
+
+    // Function to buy a product
+    function buyProduct(uint256 _id, uint256 _quantity) public payable {
+        // Retrieving product from products array using index
+        Product memory product = products[productIndex[_id]];
+
+        // Checking that product exists
+        require(product.quantity > 0, "Product not found");
+
+        // Checking that desired quantity is available
+        require(_quantity <= product.quantity, "Insufficient quantity");
+
+        // Calculating total price to be paid
+        uint256 totalPrice = product.price.mul(_quantity);
+
+        // Checking that enough ether has been sent
+        require(msg.value == totalPrice, "Insufficient ether sent");
+
+        // Transferring ether to seller
+        product.seller.transfer(totalPrice);
+
+        // Updating product quantity
+        product.quantity = product.quantity.sub(_quantity);
+    }
+
+    // Function to get total number of products in marketplace
+    function getTotalProducts() public view returns (uint256) {
+        return products.length;
+    }
+}

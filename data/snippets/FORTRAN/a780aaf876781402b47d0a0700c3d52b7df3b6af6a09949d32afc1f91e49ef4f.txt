@@ -1,0 +1,55 @@
+! This is a FORTRAN code snippet that performs a fast Fourier transform
+
+program fft
+
+implicit none
+
+! Define variables and arrays
+complex :: f(4096), fhat(4096)
+real :: theta, dtheta, d, pi
+integer :: n, m, i, j, k, k_prev, k_new, n_half, n_quarter, n_eighth
+logical :: M(4)
+
+pi = 3.141592653589793 ! Set the value of pi
+
+n = size(f) ! Use the size function to get the length of the array
+
+! Initialize the array
+do i = 1, n
+    f(i) = complex(cos(i*theta), sin(i*theta))
+end do
+
+! Set up the variables for the iteration
+n_half = n/2
+n_quarter = n/4
+n_eighth = n/8
+dtheta = 2 * pi / n
+
+! Perform the fast Fourier transform
+do m = 0, n_half-1 ! Outer loop for each stage
+    do i = 0, n_quarter-1 ! Inner loop for each butterfly
+        j = i + m*n_quarter ! Index of first element of butterfly
+        k_prev = j + n_eighth ! Index of second element of butterfly
+        k_new = j + n_eighth + n_half ! Index of element that is added to first element
+        theta = dtheta * i
+        d = -2 * pi * k / n
+        M = .TRUE. ! Initialize mask for determining which elements are transformed
+        do k = j, k_new, n_eighth ! Loop over elements in butterfly
+            if (M(1)) then
+                fhat(j) = f(j) + f(k) * exp(d)
+                f(k) = f(j) - f(k) * exp(d)
+            else
+                fhat(j) = f(j) + f(k+1) * exp(d)
+                f(k+1) = f(j) - f(k+1) * exp(d)
+            end if
+            M = M + (/ .FALSE., .TRUE., .TRUE., .TRUE. /) ! Update mask for next iteration
+        end do
+    end do
+end do
+
+! Print the output array
+do i = 1, n
+    print *, i, fhat(i)
+end do
+
+end program fft

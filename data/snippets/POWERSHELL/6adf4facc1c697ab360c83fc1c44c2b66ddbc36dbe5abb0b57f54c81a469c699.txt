@@ -1,0 +1,24 @@
+# Retrieve the current date and set it as a variable
+$currentDate = Get-Date
+
+# Convert current date to a string with desired format
+$formattedDate = $currentDate.ToString("MM/dd/yyyy")
+
+# Create a resource group with a randomly generated name
+$resourceGroupName = "ResourceGroup_" + [System.Guid]::NewGuid().ToString("N")
+New-AzResourceGroup -Name $resourceGroupName -Location "West US"
+
+# Create a storage account that is associated with the resource group
+$storageAccountName = "StorageAccount_" + [System.Guid]::NewGuid().ToString("N")
+New-AzStorageAccount -ResourceGroupName $resourceGroupName -Name $storageAccountName -Location "West US" -SkuName "Standard_LRS"
+
+# Create a web app that is associated with the resource group and storage account
+$webAppName = "WebApp_" + [System.Guid]::NewGuid().ToString("N")
+New-AzWebApp -ResourceGroupName $resourceGroupName -Name $webAppName -Location "West US" -AppServicePlan "AppServicePlanWest" -AssignIdentity $true
+
+# Assign permissions to the web app to manage storage account
+New-AzRoleAssignment -Scope "/subscriptions/{subscription-id}/resourcegroups/$resourceGroupName/providers/Microsoft.Storage/storageAccounts/$storageAccountName" -RoleDefinitionName "Storage Blob Data Owner" -assignee $webAppName
+
+# Deploy a sample code to the web app from a GitHub repository
+$WebDeployCreds = Get-AzDeploymentSourceCreds -ResourceGroupName $resourceGroupName -Name $webAppName
+Publish-AzWebapp -ResourceGroupName $resourceGroupName -Name $webAppName -Package "https://github.com/myGitHubRepo/myWebAppCode.zip" -Credential $WebDeployCreds -[validate]

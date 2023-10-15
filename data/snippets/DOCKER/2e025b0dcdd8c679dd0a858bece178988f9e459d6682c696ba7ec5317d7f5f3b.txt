@@ -1,0 +1,55 @@
+#This is a dockerfile that pulls a base image with Java installed
+FROM openjdk:8-jdk
+
+#Defining environment variables for the project
+ENV PROJECT_DIR=/opt/
+ENV JAVA_OPTS="-Xmx512m -Xms256m"
+
+#Creating a directory for the project
+RUN mkdir -p $PROJECT_DIR
+
+#Setting the working directory within the container
+WORKDIR $PROJECT_DIR
+
+#Copying the project files to the container
+COPY . .
+
+#Installing necessary dependencies for the project
+RUN apt-get update && apt-get install -y \
+    nginx \
+    maven \
+    gcc
+
+#Exposing the necessary ports for the project
+EXPOSE 80
+
+#Configuring nginx
+ADD conf/nginx.conf /etc/nginx/sites-available/default
+RUN echo "daemon off;" >> /etc/nginx/nginx.conf
+CMD ["nginx"]
+
+#Building the project within the container
+RUN mvn clean install
+
+#Defining the entrypoint for the container
+ENTRYPOINT ["java","-jar","target/my-project.jar"]
+
+#Command to be executed when the container is run
+CMD ["-Dspring.profiles.active=production"]
+
+#Annotating the dockerfile with useful information
+LABEL maintainer="John Doe <johndoe@example.com>"
+LABEL version="1.0"
+LABEL description="Dockerfile for running my project on a Java environment"
+
+#Specifying the health check for the container
+HEALTHCHECK --interval=5s --timeout=3s CMD curl -f http://localhost:80/ || exit 1
+
+#Creating a volume for persistent data storage
+VOLUME /data
+
+#Setting the user for the container
+USER 1001
+
+#Specifying the working directory for the container
+WORKDIR /opt/my-project

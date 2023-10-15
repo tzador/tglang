@@ -1,0 +1,48 @@
+Sets
+    i 'cities' /1*5/
+    t 'time periods' /1*10/;
+ 
+Parameters
+    c(i) 'costs'
+    r(i) 'demands'
+    h(i) 'holding costs'
+    d(i) 'demand growth rates';
+ 
+c(i) = uniform(50,100);
+r(i) = uniform(50,100);
+h(i) = uniform(5,10);
+d(i) = uniform(0.5,1);
+
+Binary Variables
+    x(i,t) 'transports'
+    y(i,t) 'inventory';
+
+x(i,t+1)$(ord(t) > 1) = sum(j, x(j,t) - r(i)*y(i,t)) =l= 0; % Defines x as the sum of previous x values minus r multiplied by y for each time period
+y(i,t+1)$(ord(t) > 1) = x(i,t)*d(i) + y(i,t); % Defines y as the previous x value multiplied by d plus the previous y value for each time period
+
+Positive Variables
+    z 'total cost'
+    w 'total demand'
+    v 'total inventory'
+    u(i,t) 'holding cost';
+
+Equations
+    obj 'objective function'
+    tot_dem_def 'total demand definition'
+    tot_inv_def 'total inventory definition'
+    tot_cost_def 'total cost definition'
+    holding_cost_def 'holding cost definition';
+
+obj.. z =e= sum((i,t), c(i)*x(i,t)) + sum((i,t), h(i)*u(i,t)); % Defines the objective function as the sum of c multiplied by x plus the sum of h multiplied by u for each city and time period
+tot_dem_def.. w =e= sum(i, r(i)); % Defines total demand as the sum of r for all cities
+tot_inv_def(i,t).. v =e= y(i,t); % Defines total inventory as y for each city and time period
+tot_cost_def.. z =e= sum((i,t), c(i)*x(i,t)) + sum((i,t), h(i)*u(i,t)); % Defines total cost as the sum of c multiplied by x plus the sum of h multiplied by u for each city and time period
+holding_cost_def(i,t).. u(i,t) =e= y(i,t)*d(i); % Defines holding cost as y multiplied by d for each city and time period
+
+Model transportation /all/; % Creates a GAMS model named 'transportation' and applies it to all sets and variables specified
+
+Solve transportation using lp minimizing z; % Solves the model using linear programming and minimizing the objective function 'z'
+
+Display x.l, y.l, u.l; % Displays the optimal values for binary variables x, y, and holding cost
+
+*Note: This code snippet solves a transportation problem, where a company must decide how much inventory to transport between cities over time in order to minimize costs and meet demand. The objective function maximizes profits by reducing transportation and holding costs, while ensuring enough inventory is available to meet demand.

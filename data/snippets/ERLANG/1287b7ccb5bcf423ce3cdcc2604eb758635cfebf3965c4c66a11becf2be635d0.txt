@@ -1,0 +1,56 @@
+-module(data_processing).
+
+%% This module handles data processing for a specified input file and outputs the result to a specified output file.
+%% The data processing includes reading, cleaning, sorting, and transforming the data.
+
+-export([process_data/2]).
+-export([read_file/1, clean_data/1, sort_data/1, transform_data/1, write_file/2]).
+
+%% Function to handle the overall data processing flow.
+process_data(InputFile, OutputFile) ->
+    Input = read_file(InputFile),
+    CleanedData = clean_data(Input),
+    SortedData = sort_data(CleanedData),
+    TransformedData = transform_data(SortedData),
+    write_file(OutputFile, TransformedData).
+
+%% Function to read data from input file and return a list of records.
+read_file(InputFile) ->
+    {ok, InputFD} = file:open(InputFile, [read]),
+    read_file(InputFD, []).
+
+%% Helper function for read_file to recursively read each line from the file and add it to the list.
+read_file(InputFD, Acc) ->
+    case io:get_line(InputFD, '') of
+        eof -> file:close(InputFD),
+                lists:reverse(Acc);
+        {ok, Line} -> read_file(InputFD, [Line | Acc])
+    end.
+
+%% Function to clean the data by removing any invalid or empty records.
+clean_data(Data) ->
+    lists:filter(fun(X) -> X =/= "" end, Data).
+
+%% Function to sort the data in ascending order.
+sort_data(Data) ->
+    lists:sort(Data).
+
+%% Function to transform the data by converting each record to a tuple of the form {Index, Record}.
+transform_data(Data) ->
+    transform_data(Data, 1).
+
+%% Helper function for transform_data to add the index to each record and convert it to a tuple.
+transform_data([Record | Rest], Index) ->
+    {Index, Record} = {Index, Record},
+    [Record | transform_data(Rest, Index + 1)];
+transform_data([], _) -> [].
+
+%% Function to write the transformed data to the output file.
+write_file(OutputFile, Data) ->
+    {ok, OutputFD} = file:open(OutputFile, [write]),
+    [file:write(OutputFD, FormatRecord(Record)) || Record <- Data],
+    file:close(OutputFD).
+
+%% Function to format the record as a string with a new line character at the end.
+FormatRecord(Record) ->
+    lists:flatten(io_lib:format("~s~n", [Record])).

@@ -1,0 +1,20 @@
+{-# LANGUAGE InstanceSigs #-}
+
+module Main where
+
+-- | A monad transformer that encapsulates computations
+-- with a context of a writable, storable state.
+newtype StateT s m a = StateT { runStateT :: s -> m (a, s) }
+
+instance Functor m => Functor (StateT s m) where
+  fmap :: (a -> b) -> StateT s m a -> StateT s m b
+  fmap f (StateT g) = StateT $ \s -> (\(a, s') -> (f a, s')) <$> g s
+
+instance Monad m => Applicative (StateT s m) where
+  pure :: a -> StateT s m a
+  pure x = StateT $ \s -> pure (x, s)
+  (<*>) :: StateT s m (a -> b) -> StateT s m a -> StateT s m b
+  StateT mf <*> StateT ma = StateT $ \s -> do
+    (f, s') <- mf s
+    (a, s'') <- ma s'
+    pure (f a, s'')

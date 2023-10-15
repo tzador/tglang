@@ -1,0 +1,52 @@
+# This is a comment in NGINX configuration file
+# Virtual Server Configuration for example.com
+server {
+    listen 80;
+    server_name example.com;
+    
+    location / {
+        # Proxy pass to backend server at localhost:3000
+        proxy_pass http://localhost:3000;
+        
+        # Configure cache settings
+        proxy_cache_bypass $http_pragma;
+        proxy_cache_revalidate on;
+        proxy_cache_valid 200 10m;
+        proxy_cache_valid 404 10s;
+        proxy_no_cache $http_pragma;
+        proxy_cache_bypass $http_pragma;
+        
+        # Configure compression settings
+        gzip on;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+        gzip_min_length 1000;
+        gzip_proxied expired no-cache no-store private auth;
+        gzip_disable msie6;
+    }
+    
+    location /api {
+        # In case of server overload, limit requests to 10 per minute
+        limit_req zone=api burst=10 nodelay;
+        # Allow only GET and POST methods
+        limit_except GET POST {
+            deny all;
+        }
+        # Reverse proxy to backend API server
+        proxy_pass http://127.0.0.1:5000;
+        # Set proxy request header
+        proxy_set_header Host $host:$server_port;
+        
+        # Configure rate limit settings
+        limit_req_status 429;
+        limit_req_log_level warn;
+        limit_conn_status 429;
+        limit_conn_log_level warn;
+    }
+    
+    location /static {
+        # Configure caching for static files
+        expires 1w;
+        add_header Pragma public;
+        add_header Cache-Control "public";
+    }
+}

@@ -1,0 +1,53 @@
+%%% This is a module that implements a basic TCP server in Erlang %%%
+
+-module(tcp_server).
+
+%%% Imports the necessary Erlang libraries %%%
+
+-compile(export_all).
+-define(PORT, 8000).
+
+%%% Starts the server by calling the 'start' function %%%
+
+start() ->
+    io:format("Starting the TCP server on port ~w~n", [?PORT]),
+    {ok, ListenSocket} = gen_tcp:listen(?PORT, [binary, {active, false}, {packet, 0}]),
+    accept_connections(ListenSocket).
+
+%%% Accepts incoming connections and spawns a new process to handle each connection %%%
+
+accept_connections(ListenSocket) ->
+    case gen_tcp:accept(ListenSocket) of
+        {ok, Socket} ->
+            spawn(fun() -> handle_connection(Socket) end),
+            accept_connections(ListenSocket);
+        {error, closed} ->
+            ok
+    end.
+
+%%% Handles a single connection %%%
+
+handle_connection(Socket) ->
+    case gen_tcp:recv(Socket, 0) of
+        {ok, Bin} ->
+            %% parse the data received from the client
+            Command = binary_to_term(Bin),
+            %% perform some operation or send a response back to the client
+            Result = do_something(Command),
+            gen_tcp:send(Socket, term_to_binary(Result)),
+            handle_connection(Socket);
+        {error, closed} ->
+            gen_tcp:close(Socket)
+    end.
+
+%%% A function that performs some operation on the received command %%%
+
+do_something(Command) ->
+    %% do some computation based on the received command
+    %% and return the result
+    {ok, Result}.
+
+%%% A function that sends a response back to the client %%%
+
+send_response(Socket, Response) ->
+    gen_tcp:send(Socket, term_to_binary(Response)).

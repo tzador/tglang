@@ -1,0 +1,67 @@
+// Example contract to demonstrate SOLID principles
+
+// OpenZeppelin libraries used for secure contract development
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
+
+// Example contract owned by a company
+contract Company is AccessControl {
+    
+    // State variables
+    address[] private employees; // array of employee addresses
+    string private companyName; // company name
+    uint256 private totalShares; // total number of shares in the company
+    
+    // Events
+    event EmployeeAdded(address employee);
+    event EmployeeRemoved(address employee);
+    event SharesIssued(uint256 amount);
+    
+    // Constructor function
+    constructor(string memory name, uint256 shares) {
+        require(msg.sender == owner(), "Only the owner can create this contract");
+        companyName = name;
+        totalShares = shares;
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
+    
+    // Modifier to check if sender is an employee
+    modifier onlyEmployee() {
+        require(_msgSender() == owner() || hasRole(DEFAULT_ADMIN_ROLE, _msgSender()), "Caller is not an employee");
+        _;
+    }
+    
+    // Function to add a new employee
+    function addEmployee(address employee) public onlyEmployee {
+        employees.push(employee);
+        emit EmployeeAdded(employee);
+    }
+    
+    // Function to remove an employee
+    function removeEmployee(address employee) public onlyEmployee {
+        for (uint i = 0; i < employees.length; i++) {
+            if (employees[i] == employee) {
+                delete employees[i];
+                emit EmployeeRemoved(employee);
+                break;
+            }
+        }
+    }
+    
+    // Function to issue new shares
+    function issueShares(uint256 amount) public onlyEmployee {
+        require(amount > 0, "Amount must be greater than zero");
+        totalShares += amount;
+        emit SharesIssued(amount);
+    }
+    
+    // Function to transfer shares to another address
+    function transferShares(address recipient, uint256 amount) public onlyEmployee {
+        require(amount > 0, "Amount must be greater than zero");
+        require(recipient != address(0), "Recipient address cannot be zero");
+        require(amount <= totalShares, "Not enough shares available");
+        totalShares -= amount;
+        IERC721(address(this)).transferFrom(msg.sender, recipient, amount);
+    }
+    
+}

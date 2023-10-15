@@ -1,0 +1,67 @@
+%% This is a program that solves a Sudoku puzzle using the backtracking algorithm
+%% The Sudoku puzzle is represented as a 9x9 grid, with empty cells represented by underscores (_)
+
+%% Helper predicate to determine if the current board is valid, meaning there are no repeating digits in any row, column or 3x3 subgrid
+valid([], []). %% Base case for empty board
+valid([H|T], Cols) :- %% Helper predicate to validate a single row on the board
+    member(H, Cols), %% The value of the current cell must be a member of the possible values in the column
+    length(H, Len), Len #= 1, %% The length of the current cell's value must be 1, meaning it is filled in
+    valid(T, Cols). %% Recursively check the rest of the board
+
+valid_board(Board) :- %% Main predicate to check if the given board is valid
+    valid(Board, Board). %% Check each row on the board
+
+%% Helper predicate to get the row from a given column in the board
+get_row(_, [], []).
+get_row(Col, [H|T], [X|Row]) :- % Get the current row from the board
+    get_row(Col, T, Row),
+    nth1(Col, H, X).
+
+%% Helper predicate to get the column from a given row in the board
+get_col(_, [], []).
+get_col(Row, [H|T], [X|Col]) :- % Get the current column from the board
+    get_col(Row, T, Col),
+    nth1(Row, H, X).
+
+%% Helper predicate to get the 3x3 subgrid from the given board
+get_subgrid(_, _, [], []). %% Base case for empty rows
+get_subgrid(Col, Row, [H|T], Subgrid) :- %% Get the 3x3 subgrid from a single row
+    get_row(Col, H, R), %% Get the current row from the board
+    get_subgrid(Col, Row, T, S), %% Recursively get the subgrid from the rest of the rows
+    append(R, S, Subgrid). %% Append the current row's values to the subgrid
+
+%% Main predicate to solve the Sudoku puzzle using backtracking
+solve(Board) :-
+    select_empty(Board, Col, Row), %% Select an empty cell from the board
+    between(1, 9, X), %% Use backtracking to test each possible value for the empty cell
+    replace(Col, Row, X, Board, NewBoard), %% Replace the empty cell with the possible value
+    valid_board(NewBoard), %% Check if the new board is still valid
+    solve(NewBoard). %% Recursively solve the new board with the selected value
+
+%% Helper predicate to select an empty cell from the board
+select_empty(Board, Col, Row) :-
+    nth0(Row, Board, Cols), %% Get the current row from the board
+    nth0(Col, Cols, _), %% Select an empty cell (represented by an underscore)
+    !. %% Cut operator to stop backtracking once an empty cell is found
+
+%% Helper predicate to replace a cell in the board with a new value
+replace(Col, Row, X, Board, NewBoard) :-
+    nth0(Row, Board, Cols), %% Get the current row from the board
+    nth0(Col, Cols, _), %% Select an empty cell (represented by an underscore)
+    replace_cell(Col, Row, X, Cols, NewCols), %% Replace the selected cell with the new value
+    replace_row(Row, NewCols, Board, NewBoard). %% Replace the updated row in the board
+
+%% Helper predicate to replace a cell in a row with a new value
+replace_cell(0, Row, X, [H|T], [X|T]) :- %% Base case for replacing the first cell in the row
+    H = _.
+replace_cell(Col, Row, X, [H|T], [H|R]) :- %% Recursively replace the cell in the given column
+    Col > 0,
+    NewCol is Col - 1,
+    replace_cell(NewCol, Row, X, T, R).
+
+%% Helper predicate to replace a row in the board with a new row
+replace_row(0, NewRow, [H|T], [NewRow|T]). %% Base case for replacing the first row in the board
+replace_row(Row, NewRow, [H|T], [H|R]) :- %% Recursively replace the row at the given index
+    Row > 0,
+    NewRowNo is Row - 1,
+    replace_row(NewRowNo, NewRow, T, R).

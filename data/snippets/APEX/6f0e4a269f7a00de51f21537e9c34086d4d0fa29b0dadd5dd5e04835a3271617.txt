@@ -1,0 +1,44 @@
+// This code snippet is a sample trigger that updates a custom object when a related record is updated
+
+trigger UpdateCustomObject on Related_Object__c (after update) {
+	
+	// Create a set to store the IDs of related records that have been updated
+	Set<Id> relatedRecordIds = new Set<Id>();
+	
+	// Loop through the related records that were updated
+	for (Related_Object__c record : Trigger.new) {
+		// Add the IDs to the set
+		relatedRecordIds.add(record.Id);
+	}
+	
+	// Create a new list to hold the changes to the custom object records
+	List<Custom_Object__c> customObjectsToUpdate = new List<Custom_Object__c>();
+	
+	// Query for the related records' parent record information
+	Map<Id, Parent_Object__c> parentRecords = new Map<Id, Parent_Object__c>([
+		SELECT Id, Name, Field1__c, Field2__c
+		FROM Parent_Object__c
+		WHERE Id IN :relatedRecordIds
+	]);
+	
+	// Loop through the custom objects that need to be updated
+	for (Custom_Object__c customObject : [
+		SELECT Id, Name, Field1__c, Field2__c
+		FROM Custom_Object__c
+		WHERE Id IN :relatedRecordIds
+	]) {
+		// Get the parent record's information from the map
+		Parent_Object__c parentRecord = parentRecords.get(customObject.Parent_Record__c);
+		
+		// Update the custom object fields with the parent record information
+		customObject.Name = parentRecord.Name;
+		customObject.Field1__c = parentRecord.Field1__c;
+		customObject.Field2__c = parentRecord.Field2__c;
+		
+		// Add the custom object to the list of changes to be updated
+		customObjectsToUpdate.add(customObject);
+	}
+	
+	// Perform the update on the custom objects
+	update customObjectsToUpdate;
+}

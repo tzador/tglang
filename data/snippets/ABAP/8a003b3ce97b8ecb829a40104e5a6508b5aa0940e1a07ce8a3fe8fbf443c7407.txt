@@ -1,0 +1,37 @@
+METHOD create_new_purchase_order.
+  DATA: lv_po_number TYPE ekko-ebeln,
+        lt_po_details TYPE STANDARD TABLE OF ekpo,
+        ls_po_detail TYPE ekpo.
+
+  SELECT MAX( ebeln )
+    FROM ekko
+    INTO lv_po_number.
+
+  ADD 1 TO lv_po_number.
+
+  LOOP AT lt_po_details ASSIGNING FIELD-SYMBOL(<ls_detail>).
+    CLEAR ls_po_detail.
+    ls_po_detail-ebeln = lv_po_number.
+    " Populate purchase order details
+    ls_po_detail-ebelp = <ls_detail>-ebelp.
+    ls_po_detail-matnr = <ls_detail>-matnr.
+    ls_po_detail-menge = <ls_detail>-menge.
+    " Add discounts to the purchase order
+    IF <ls_detail>-discount > 0.
+      ls_po_detail-kzawr = 'X'.
+      ls_po_detail-zwskz = 'Z'.
+      ls_po_detail-zwskn = <ls_detail>-discount.
+      ls_po_detail-zwskr = <ls_detail>-discount * <ls_detail>-menge.
+    ENDIF.
+    APPEND ls_po_detail TO lt_po_details.
+  ENDLOOP.
+
+  " Save the new purchase order
+  CALL FUNCTION 'BAPI_PO_CREATE1'
+    EXPORTING
+      purchaseorderheader = lt_po_details.
+
+  " Output purchase order number
+  WRITE: / 'New Purchase Order Number:', lv_po_number.
+
+ENDMETHOD.

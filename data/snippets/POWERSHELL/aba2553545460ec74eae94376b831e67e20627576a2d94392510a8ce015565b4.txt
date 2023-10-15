@@ -1,0 +1,31 @@
+# This script is used to retrieve information from a remote computer and update Active Directory
+
+# Connect to remote computer
+$session = New-PSSession -ComputerName <remote computer name> -Credential <credentials>
+Invoke-Command -Session $session -ScriptBlock {
+
+# Get basic computer information
+$computerInfo = Get-ComputerInfo
+
+# Get current time
+$currentTime = Get-Date
+
+# Get list of currently logged in users
+$activeUsers = Get-WmiObject -Class Win32_LoggedOnUser
+
+# Get Active Directory information for current user
+$currentUser = Get-ADUser -Identity $env:USERNAME -Properties *
+
+# Update user's last logon time in Active Directory
+Set-ADUser -Identity $env:USERNAME -Replace @{lastLogon=$currentTime}
+
+# Create a log file with the retrieved information
+$logFile = "C:\Logs\UserInfo.log"
+$computerInfo | Add-Content $logFile
+$currentTime | Add-Content $logFile
+$activeUsers | Add-Content $logFile
+$currentUser | Add-Content $logFile
+
+# Close remote connection
+} | Out-Null
+Remove-PSSession -Session $session

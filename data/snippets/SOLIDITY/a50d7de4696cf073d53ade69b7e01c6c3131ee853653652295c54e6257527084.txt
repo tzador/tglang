@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+// Interface for the ERC20 token standard
+interface IERC20 {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+}
+
+// Contract to implement a simple ERC20 token
+contract MyToken is IERC20 {
+    // Variables to store total supply and token balances of each account 
+    uint256 private _totalSupply;
+    mapping (address => uint256) private _balances;
+
+    // Variables to store allowances approved by token holders
+    mapping (address => mapping (address => uint256)) private _allowances;
+
+    // Constructor to initialize the total supply and assign all tokens to the contract creator
+    constructor(uint256 totalSupply_) {
+        _totalSupply = totalSupply_;
+        _balances[msg.sender] = totalSupply_;
+    }
+
+    // Function to get the total supply of tokens
+    function totalSupply() public view override returns (uint256) {
+        return _totalSupply;
+    }
+
+    // Function to get the token balance of a specific account
+    function balanceOf(address account) public view override returns (uint256) {
+        return _balances[account];
+    }
+
+    // Function to transfer tokens from one account to another
+    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+        // Ensure sender has enough tokens to transfer
+        require(_balances[msg.sender] >= amount, "Insufficient balance");
+        
+        // Update balances of sender and recipient
+        _balances[msg.sender] -= amount;
+        _balances[recipient] += amount;
+
+        // Emit Transfer event
+        emit Transfer(msg.sender, recipient, amount);
+
+        // Return true on successful transfer
+        return true;
+    }
+
+    // Function to get the allowance approved by a token holder for a spender
+    function allowance(address owner, address spender) public view virtual override returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    // Function to approve a spender to spend a certain number of tokens on behalf of the token holder
+    function approve(address spender, uint256 amount) public virtual override returns (bool) {
+        // Update allowance of spender for msg sender
+        _allowances[msg.sender][spender] = amount;
+
+        // Emit Approval event
+        emit Approval(msg.sender, spender, amount);
+
+        // Return true on successful approval
+        return true;
+    }
+
+    // Function to transfer tokens from an account if approved by the token holder
+    function transferFrom(address sender, address recipient, uint256 amount) public virtual override returns (bool) {
+        // Ensure sender has enough tokens to transfer
+        require(_balances[sender] >= amount, "Insufficient balance");
+
+        // Ensure sender is allowed to spend the approved amount
+        require(_allowances[sender][msg.sender] >= amount, "Not allowed to spend this amount");
+
+        // Update balances of sender, recipient and allowance of spender
+        _balances[sender] -= amount;
+        _balances[recipient] += amount;
+        _allowances[sender][msg.sender] -= amount;
+
+        // Emit Transfer event
+        emit Transfer(sender, recipient, amount);
+
+        // Return true on successful transfer
+        return true;
+    }
+}

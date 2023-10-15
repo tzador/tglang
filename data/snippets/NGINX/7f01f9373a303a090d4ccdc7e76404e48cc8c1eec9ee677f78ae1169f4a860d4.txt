@@ -1,0 +1,67 @@
+# This block defines the configuration for all servers
+http {
+   # The 'include' directive allows you to include other configuration files
+   include mime.types;  # Include the mime.types file
+   
+   # The 'map' directive allows you to define variables
+   # that can be used in other parts of the configuration
+   map $scheme $proxy_protocol {
+      default "";  # If the value of $scheme is not defined, set $proxy_protocol to empty string
+      https on;   # If $scheme is 'https', set $proxy_protocol to 'on'
+   }
+   
+   # The 'server' block defines the configuration for a specific server
+   server {
+      # Listen on port 80
+      listen 80;
+      # Define the server name
+      server_name example.com;
+      
+      # The 'location' block allows you to define directives
+      # that are specific to a certain URL pattern
+      location / {
+         # Define the root directory for this location
+         root /var/www/example.com;
+         # Enable gzip compression
+         gzip on;
+         # Specify which file types to compress
+         gzip_types text/plain text/css application/json;
+      }
+      
+      # The 'error_page' directive allows you to define custom error pages
+      error_page 404 /404.html;
+   }
+   
+   # Another 'server' block for a different site
+   server {
+      listen 80;
+      server_name blog.example.com;
+      
+      # Redirect all requests to https
+      return 302 https://$server_name$request_uri;
+   }
+   
+   # HTTPS server configuration
+   server {
+      listen 443 ssl;
+      server_name secure.example.com;
+      
+      # Specify the location of the SSL certificate and key files
+      ssl_certificate /etc/ssl/certs/example.com.crt;
+      ssl_certificate_key /etc/ssl/private/example.com.key;
+      
+      # Enable HTTP/2
+      http2_push_preload on;
+      
+      # Specify the root directory and index file
+      root /var/www/secure.example.com;
+      index index.html;
+      
+      # Enable server-side caching using the proxy_cache directive
+      location /images/ {
+         proxy_cache images;  # Name the cache 'images'
+         proxy_cache_valid 200 1d;   # Cache valid for 1 day
+         proxy_pass https://example.com:8080/images/;
+      }
+   }
+}

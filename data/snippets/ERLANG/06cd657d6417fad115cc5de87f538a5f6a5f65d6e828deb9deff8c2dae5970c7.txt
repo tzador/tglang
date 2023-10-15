@@ -1,0 +1,37 @@
+%% This module defines a process that generates random numbers and sends them to a receiver process
+
+-module(random_generator).
+
+-export([start/0]).
+-export([init/1, loop/1, generate_random/0, send_random/1]).
+
+%% Start the process
+start() ->
+    spawn(random_generator, init, [self()]).
+
+%% Initialize the process with a receiver
+init(Receiver) ->
+    process_flag(trap_exit, true),
+    loop(Receiver).
+
+%% The main loop of the process
+loop(Receiver) ->
+    receive
+        {generate, Sender} ->
+            Numbers = generate_random(),
+            send_random({Numbers, Sender}),
+            loop(Receiver);
+        {'EXIT', _From, shutdown} ->
+            ok;
+        {'EXIT', _From, Reason} ->
+            io:format("Error: ~p~n", [Reason]),
+            loop(Receiver)
+    end.
+
+%% Generate a list of 100 random numbers
+generate_random() ->
+    [random:uniform(100) || _ <- lists:seq(1, 100)].
+
+%% Send the generated random numbers to the Receiver process
+send_random({Numbers, Receiver}) ->
+    Receiver ! {received, Numbers}.

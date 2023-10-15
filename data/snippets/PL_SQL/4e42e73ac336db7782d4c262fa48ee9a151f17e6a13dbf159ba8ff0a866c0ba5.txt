@@ -1,0 +1,59 @@
+-- Create a temporary table to store customer information
+CREATE GLOBAL TEMPORARY TABLE temp_customer
+(
+    customer_id number(10) NOT NULL,
+    customer_name varchar2(100),
+    account_type varchar2(20),
+    balance number(10,2)
+) ON COMMIT DELETE ROWS;
+
+-- Declare a cursor to select distinct customer account types
+CURSOR customer_types IS
+SELECT DISTINCT account_type FROM customers;
+
+-- Open the cursor and loop through the results
+OPEN customer_types;
+LOOP
+    -- Declare variables to store total balance for each account type
+    total_balance number(10,2) := 0;
+    account_type varchar2(20);
+    
+    -- Fetch the next account type from the cursor
+    FETCH customer_types INTO account_type;
+    
+    -- Exit the loop if no more account types to process
+    EXIT WHEN customer_types%NOTFOUND;
+    
+    -- Create a nested cursor to select all customers with the current account type
+    CURSOR customer_info(customer_account_type varchar2) IS
+        SELECT customer_name, balance
+        FROM customers
+        WHERE account_type = customer_account_type;
+    
+    -- Open the nested cursor and loop through the results
+    OPEN customer_info(account_type);
+    LOOP
+        -- Fetch the customer name and balance into variables
+        customer_name varchar2(100);
+        customer_balance number(10,2);
+        FETCH customer_types INTO customer_name, customer_balance;
+        
+        -- Add the customer balance to the total balance for the current account type
+        total_balance := total_balance + customer_balance;
+        
+        -- Exit the loop if no more customers to process
+        EXIT WHEN customer_info%NOTFOUND;
+    END LOOP;
+    
+    -- Print the total balance for the current account type
+    dbms_output.put_line('Total balance for ' || account_type || ' accounts: ' || total_balance); 
+    
+    -- Close the nested cursor
+    CLOSE customer_info;
+END LOOP;
+
+-- Close the main cursor
+CLOSE customer_types;
+
+-- Drop the temporary table
+DROP TABLE temp_customer;

@@ -1,0 +1,76 @@
+#This code snippet create a server block in NGINX#
+
+#Start of server block#
+server { 
+  #Server name#
+  server_name example.com; 
+  
+  #Root directory for server#
+  root /var/www/example.com; 
+  
+  #Enable TLS/SSL for secure HTTPS connection#
+  listen 443 ssl; 
+  
+  #Location of TLS/SSL certificate files#
+  ssl_certificate /etc/nginx/ssl/example.com.crt; 
+  ssl_certificate_key /etc/nginx/ssl/example.com.key; 
+  
+  #Redirect HTTP traffic to HTTPS#
+  location / { 
+    return 301 https://$host$request_uri; 
+  } 
+  
+  #Reverse proxy configuration#
+  
+  #Set a timeout for requests to upstream server#
+  proxy_connect_timeout 5s; 
+  
+  #Set a timeout for data transfer from upstream server#
+  proxy_read_timeout 60s; 
+  
+  #Set the maximum size of the data that nginx can receive from the upstream server#
+  proxy_max_temp_file_size 1024m; 
+  
+  #Set the maximum number of requests that can be sent to an
+  #upstream server at a time#
+  proxy_send_timeout 60s; 
+  
+  #Configuration for upstream server#
+  #Server name#
+  upstream backend { 
+    server backend1.example.com; 
+    server backend2.example.com; 
+    
+    #Other server options#
+    keepalive 256; 
+    max_fails 10; 
+  } 
+  
+  location /api/ { 
+    #Pass request to the upstream server#
+    proxy_pass http://backend; 
+    
+    #Specify the original HTTP request headers#
+    proxy_set_header Host $host; 
+    proxy_set_header X-Real-IP $remote_addr; 
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; 
+    proxy_set_header X-Forwarded-Proto $scheme; 
+  } 
+  
+  #Logging configuration#
+  #Specify the format of the logs#
+  log_format example '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"'; 
+  #Write logs to a file and enable buffering#
+  access_log /var/log/nginx/example.com.log.example buffer=16k; 
+  
+  #Gzip compression configuration#
+  #Enable gzip compression#
+  gzip on; 
+  #Set compression level#
+  gzip_comp_level 6; 
+  #Set minimum file size to compress#
+  gzip_min_length 1000; 
+  #Compress certain file types only#
+  gzip_types application/json text/css text/javascript;
+} 
+#End of server block#

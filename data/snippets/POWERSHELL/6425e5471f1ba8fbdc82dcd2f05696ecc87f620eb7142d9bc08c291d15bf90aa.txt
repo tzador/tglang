@@ -1,0 +1,63 @@
+function Get-NetAdapterInfo {
+    <#
+    .SYNOPSIS
+    Retrieves information about network adapters on a local or remote computer.
+    
+    .DESCRIPTION
+    The Get-NetAdapterInfo function utilizes the Get-NetAdapter cmdlet in PowerShell to retrieve detailed information about network adapters on a local or remote computer. It includes information such as adapter name, state, link speed, and MAC address.
+    
+    .PARAMETER ComputerName
+    Specifies the name of a remote computer. If not specified, the function will retrieve information about network adapters on the local computer.
+    
+    .EXAMPLE 
+    PS C:\> Get-NetAdapterInfo -ComputerName Server01
+    Retrieves information about network adapters on the remote computer named Server01.
+    
+    .OUTPUTS
+    System.Management.Automation.PSCustomObject
+    #>
+    
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory=$false,
+                   ValueFromPipeline=$true,
+                   ValueFromPipelineByPropertyName=$true,
+                   Position=0)]
+        [Alias('CN','Computer')]
+        [string[]]$ComputerName = $env:computername
+    )
+    Begin {
+        # Import the NetAdapter module if not already imported
+        if (-not(Get-Module -ListAvailable NetAdapter)) {
+            Import-Module NetAdapter
+        }
+    }
+    Process {
+        foreach ($computer in $ComputerName) {
+            # Try to retrieve network adapter information using Get-NetAdapter cmdlet
+            try {
+                $adapters = Get-NetAdapter -CimSession $computer -ErrorAction 'Stop' | select Name,Status,LinkSpeed,MediaType,MacAddress
+                if ($adapters) {
+                    # Output information in custom object format
+                    $output = foreach ($adapter in $adapters) {
+                        [pscustomobject]@{
+                            'ComputerName' = $computer
+                            'AdapterName' = $adapter.Name
+                            'Status' = $adapter.Status
+                            'LinkSpeed' = $adapter.LinkSpeed
+                            'MediaType' = $adapter.MediaType
+                            'MacAddress' = $adapter.MacAddress
+                        }
+                    }
+                    Write-Output $output
+                }
+                else {
+                    Write-Warning "No network adapters found on $computer."
+                }
+            }
+            catch {
+                Write-Warning "Failed to retrieve network adapter information on $computer."
+            }
+        }
+    }
+}

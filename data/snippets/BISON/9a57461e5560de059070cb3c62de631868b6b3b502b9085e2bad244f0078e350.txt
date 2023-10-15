@@ -1,0 +1,94 @@
+%{
+// declares a symbol table that stores identifiers and their associated values
+struct symbol {
+   char *name;
+   double value;
+} symbol_table[100];
+
+// function to add new symbol to the symbol table
+void add_symbol(char *name, double value) {
+   int i;
+   for (i = 0; i < 100; i++) {
+      if (symbol_table[i].name == NULL) { // check if slot is empty
+         symbol_table[i].name = strdup(name); // copies name to symbol table
+         symbol_table[i].value = value; // assigns value to symbol
+         break;
+      }
+   }
+   // if symbol table is full, print error message
+   if (i == 100) {
+      printf("Too many symbols\n");
+      exit(1);
+   }
+}
+
+// function to find symbol in symbol table and return its value
+double find_symbol(char *name) {
+   int i;
+   for (i = 0; i < 100; i++) {
+      if (strcmp(symbol_table[i].name, name) == 0) { // check if name matches
+         return symbol_table[i].value; // return symbol's value
+      }
+   }
+   // if symbol is not found, print error message
+   printf("Undefined symbol: %s\n", name);
+   exit(1);
+}
+%}
+
+// declare the tokens to be used in the grammar
+%token <string> ID // identifier token
+%token <num> NUM // number token
+%token PLUS { // "+" symbol token
+   // use strdup to store the token's value in the yylval union variable
+   yylval.string = strdup("+");
+   return PLUS;
+} 
+%token MINUS { // "-" symbol token
+   yylval.string = strdup("-");
+   return MINUS;
+}
+%left PLUS MINUS // '+' and '-' have the same level of precedence
+%left MULT DIV // '*' and '/' have higher level of precedence than '+' and '-'
+
+%% // marks the beginning of the grammar rules
+
+// rule to assign value to an identifier
+assignment: ID '=' expression {% {
+   // calls the function to add the identifier and its value to the symbol table
+   add_symbol($1, $3);
+ %}
+;
+// rule for mathematical expressions
+expression: expression PLUS expression {% { // evalutes an addition expression
+   $$ = $1 + $3; // assigns the result to the output variable ($$)
+ %}
+   | expression MINUS expression {% { // evaluates a subtraction expression 
+   $$ = $1 - $3;
+ %}
+   | expression MULT expression {% { // evaluates a multiplication expression
+   $$ = $1 * $3;
+ %}
+   | expression DIV expression {% { // evaluates a division expression
+   $$ = $1 / $3;
+ %}
+   | NUM {% { // returns the numerical value of a number token
+   $$ = $1;
+ %}
+   | ID {% { // searches for the value of an identifier in the symbol table
+   $$ = find_symbol($1); // and assigns it to the output variable ($$)
+ %}
+;
+%% // marks the end of the grammar rules
+
+// main function that calls yyparse to start the parsing process
+int main(void) {
+   yyparse();
+   return 0;
+}
+
+// function to handle syntax errors
+void yyerror(const char *msg) {
+   printf("%s\n", msg); // print error message
+   exit(1); // exit the program
+}

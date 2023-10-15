@@ -1,0 +1,125 @@
+REPORT Z_MY_REPORT.
+
+*&---------------------------------------------------------------------*
+*& Report  Z_MY_REPORT
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&
+*&---------------------------------------------------------------------*
+REPORT  Z_MY_REPORT.
+
+* Data declarations
+TABLES: MARA, EKKO, EKPO.
+
+DATA: BEGIN OF gs_ekko,
+        ebeln TYPE ebeln,
+        bukrs TYPE bukrs,
+        lifnr TYPE lifnr,
+        s_name TYPE string,
+        eindt TYPE eindt,
+      END OF gs_ekko.
+
+* Fields to display in the final report
+DATA: gt_fieldcat TYPE slis_t_fieldcat_alv,
+      gs_fieldcat TYPE slis_fieldcat_alv,
+      gt_layout TYPE slis_layout_alv,
+      gs_variant TYPE disvariant.
+
+* Internal table to store data
+DATA: gt_data TYPE STANDARD TABLE OF gs_ekko.
+
+* Selection-screen parameters
+PARAMETERS: p_bukrs TYPE bukrs.
+PARAMETERS: p_eindt TYPE eindt.
+
+* Initialization event
+INITIALIZATION.
+  gs_variant-report = sy-repid.
+  gs_variant-variant = 'My_Variant'.
+  gs_variant-variant_text = 'My Variant'.
+  gs_variant-quickinfo = 'This is my variant for the report'.
+  gs_variant-reporttype = 'P'.
+  CALL FUNCTION 'REUSE_ALV_VARIANT_DEFAULT_SET'
+    EXPORTING
+      i_save   = 'A'
+    CHANGING
+      cs_variant = gs_variant.
+
+* Selection-screen select-options
+SELECT-OPTIONS: s_lifnr FOR gs_ekko-lifnr.
+
+* Selection-screen AT SELECTION-SCREEN ON VALUE-REQUEST
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_eindt.
+  DATA: l_date TYPE sy-datum,
+        msg TYPE string.
+  l_date = sy-datum.
+  msg = 'Please enter a date before or on ' && l_date.
+  CALL FUNCTION 'POPUP_GET_VALUES'
+    EXPORTING
+      pappl = 'TEST'
+      pkey    = 'P_EINDT'
+    IMPORTING
+      P_EINDT = p_eindt.
+
+* Start-of-selection event
+START-OF-SELECTION.
+  SELECT ebeln bukrs lifnr s_name eindt
+    FROM ekko
+    INTO TABLE gt_data
+    WHERE bukrs = p_bukrs
+    AND lifnr IN s_lifnr
+    AND eindt <= p_eindt.
+
+* Build field catalog for ALV report
+  CLEAR gs_fieldcat.
+  gs_fieldcat-col_pos = '1'.
+  gs_fieldcat-fieldname = 'EBELN'.
+  gs_fieldcat-seltext_l = 'Purchase Order'.
+  APPEND gs_fieldcat TO gt_fieldcat.
+
+  CLEAR gs_fieldcat.
+  gs_fieldcat-col_pos = '2'.
+  gs_fieldcat-fieldname = 'BUKRS'.
+  gs_fieldcat-seltext_l = 'Company Code'.
+  APPEND gs_fieldcat TO gt_fieldcat.
+
+  CLEAR gs_fieldcat.
+  gs_fieldcat-col_pos = '3'.
+  gs_fieldcat-fieldname = 'LIFNR'.
+  gs_fieldcat-seltext_l = 'Vendor'.
+  APPEND gs_fieldcat TO gt_fieldcat.
+
+  CLEAR gs_fieldcat.
+  gs_fieldcat-col_pos = '4'.
+  gs_fieldcat-fieldname = 'S_NAME'.
+  gs_fieldcat-seltext_l = 'Vendor Name'.
+  APPEND gs_fieldcat TO gt_fieldcat.
+
+  CLEAR gs_fieldcat.
+  gs_fieldcat-col_pos = '5'.
+  gs_fieldcat-fieldname = 'EINDT'.
+  gs_fieldcat-seltext_l = 'Document Date'.
+  APPEND gs_fieldcat TO gt_fieldcat.
+
+* ALV report display settings
+  gt_layout-colwidth_optimize = 'X'.
+  gt_layout-zebra = 'X'.
+
+* Display ALV report
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+    EXPORTING
+      is_layout      = gt_layout
+      is_variant     = gs_variant
+    TABLES
+      t_outtab       = gt_data
+      t_fieldcat     = gt_fieldcat
+    EXCEPTIONS
+      program_error  = 1
+      OTHERS         = 2.
+
+  IF sy-subrc <> 0.
+    MESSAGE ID sy-msgid TYPE 'I' NUMBER sy-msgno
+    WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  ENDIF.

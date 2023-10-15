@@ -1,0 +1,159 @@
+// SPDX-License-Identifier: MIT
+
+pragma solidity ^0.8.0;
+
+//This is a contract that utilizes inheritance and multiple interfaces
+
+interface ERC20 {
+    event Transfer(address indexed _from, address indexed _to, uint256 _value);
+
+    function balanceOf(address _owner) external view returns (uint256 balance);
+
+    function transfer(address _to, uint256 _value) external returns (bool success);
+}
+
+interface ApproveAndCallFallBack {
+    function receiveApproval(
+        address _from,
+        uint256 _amount,
+        address _token,
+        bytes calldata _data
+    ) external;
+}
+
+abstract contract Owned {
+    address public owner;
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    modifier onlyOwner {
+        require(msg.sender == owner, "Only owner can call this function.");
+        _;
+    }
+}
+
+contract MyToken is ERC20, Owned {
+    uint256 public totalSupply;
+
+    mapping(address => uint256) public balances;
+    mapping(address => mapping(address => uint256)) public allowed;
+
+    // This is the constructor, it will be called at the deployment of the contract
+    constructor(uint256 _initialSupply) {
+        totalSupply = _initialSupply;
+        balances[msg.sender] = totalSupply;
+    }
+
+    function balanceOf(address _owner) external view override returns (uint256 balance) {
+        return balances[_owner];
+    }
+
+    function transfer(address _to, uint256 _value) external override returns (bool success) {
+        require(balances[msg.sender] >= _value, "Insufficient balance.");
+        require(_to != address(0), "Invalid recipient address.");
+
+        balances[msg.sender] -= _value;
+        balances[_to] += _value;
+        emit Transfer(msg.sender, _to, _value);
+        return true;
+    }
+
+    function approve(address _spender, uint256 _value) external returns (bool success) {
+        allowed[msg.sender][_spender] = _value;
+        emit Approval(msg.sender, _spender, _value);
+        return true;
+    }
+
+    function transferFrom(
+        address _from,
+        address _to,
+        uint256 _value
+    ) external override returns (bool success) {
+        require(balances[_from] >= _value, "Insufficient balance.");
+        require(_to != address(0), "Invalid recipient address.");
+        require(allowed[_from][msg.sender] >= _value, "Insufficient allowance.");
+
+        balances[_from] -= _value;
+        balances[_to] += _value;
+        allowed[_from][msg.sender] -= _value;
+        emit Transfer(_from, _to, _value);
+        return true;
+    }
+
+    function approveAndCall(
+        address _spender,
+        uint256 _value,
+        bytes calldata _data
+    ) external returns (bool success) {
+        require(_spender != address(this), "Token contract cannot be approved.");
+        approve(_spender, _value);
+        ApproveAndCallFallBack(_spender).receiveApproval(msg.sender, _value, address(this), _data);
+        return true;
+    }
+}
+
+contract MyTokenSale is Owned, ApproveAndCallFallBack {
+    uint256 public tokenPrice;
+    uint256 public tokensSold;
+    uint256 public ethRaised;
+    MyToken public tokenContract;
+    address payable public fund;
+    address payable public admin;
+
+    event Sell(address _buyer, uint256 _amount);
+
+    constructor(MyToken _tokenContract, address payable _fund, uint256 _tokenPrice) {
+        admin = msg.sender;
+        tokenContract = _tokenContract;
+        fund = _fund;
+        tokenPrice = _tokenPrice;
+    }
+
+    function receiveApproval(
+        address _from,
+        uint256 _amount,
+        address _token,
+        bytes calldata _data
+    ) external override {
+        require(_token == address(tokenContract), "Invalid token address.");
+
+        //sell tokens based on allowance
+        uint256 tokenAllowance = _amount;
+        tokenContract.transferFrom(_from, fund, tokenAllowance);
+
+        //calculate amount of ether raised and increase tokensSold
+        ethRaised += msg.value;
+        tokensSold += tokenAllowance;
+
+        //send ether to admin
+        admin.transfer(msg.value);
+
+        emit Sell(_from, tokenAllowance);
+    }
+
+    function buyTokens(uint256 _numTokens) external payable {
+        require(msg.value == _numTokens * tokenPrice, "Incorrect amount of ether sent.");
+
+        //sell tokens based on specified amount
+        uint256 tokenAllowance = _numTokens;
+        tokenContract.transferFrom(msg.sender, fund, tokenAllowance);
+
+        //increase tokensSold
+        tokensSold += tokenAllowance;
+
+        //send ether to admin
+        admin.transfer(msg.value);
+
+        emit Sell(msg.sender, tokenAllowance);
+    }
+
+    function endSale() external onlyOwner {
+        //transfer remaining balance in contract to admin
+        admin.transfer(address(this).balance);
+
+        //transfer remaining tokens in contract to admin
+        tokenContract.transfer(admin, tokenContract.balanceOf(address(this)));
+    }
+}

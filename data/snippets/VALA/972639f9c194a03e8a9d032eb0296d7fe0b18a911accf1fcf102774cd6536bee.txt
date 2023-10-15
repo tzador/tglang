@@ -1,0 +1,86 @@
+/* This code snippet creates a multi-threaded program
+* that calculates the first 100 prime numbers */
+
+using GLib;
+
+try
+{
+	// Create an array to store the prime numbers
+	int[] primes = new int[100];
+
+	// Create a mutex to synchronize access to the array
+	// Mutexes are used to prevent data race conditions
+	Mutex mutex = new Mutex();
+
+	// Create a thread pool to handle the calculations
+	ThreadPool threadpool = new ThreadPool(10);
+
+	// Create a function to check if a number is prime
+	bool is_prime(int num)
+	{
+		// Check if the number is less than 2, which is not a prime number
+		if (num < 2)
+		{
+			return false;
+		}
+
+		// Loop through all numbers up to the square root of the given number
+		for (int i = 2; i <= Math.sqrt(num); i++)
+		{
+			// If any number divides evenly into the given number, it is not prime
+			if (num % i == 0)
+			{
+				return false;
+			}
+		}
+
+		// If the loop completes without returning false, the number is prime
+		return true;
+	}
+
+	// Create a function that will run on each thread
+	void calculate_prime(void* data)
+	{
+		// Convert the data pointer to an integer
+		int num = (int) data;
+
+		// Check if the number is prime
+		if (is_prime(num))
+		{
+			// Lock the mutex to prevent race conditions when accessing the array
+			mutex.lock();
+
+			// Get the next available index in the array and store the prime number
+			int index = Array.index_of(primes, -1);
+			primes[index] = num;
+
+			// Unlock the mutex to allow other threads to access the array
+			mutex.unlock();
+		}
+	}
+
+	// Create 100 tasks and add them to the thread pool
+	for (int i = 0; i < 100; i++)
+	{
+		threadpool.push(calculate_prime, (void*) i);
+	}
+
+	// Wait for all tasks to complete
+	threadpool.join();
+
+	// Print out the calculated prime numbers
+	print ("The first 100 prime numbers are:");
+
+	foreach (int prime in primes)
+	{
+		print ("%d ", prime);
+	}
+}
+catch (Error error)
+{
+	// Print out any errors that may occur
+	if (error != null)
+	{
+		print ("%s", error.message);
+	}
+}

@@ -1,0 +1,42 @@
+//  This task runs the compileJava task and then runs the jarTask
+task buildJar(type: Jar) {
+    dependsOn compileJava
+    baseName = 'my-app'
+    version = '1.0'
+    from sourceSets.main.output
+    // Add all dependencies to the jar package
+    from {
+        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+    } {
+        // Exclude specific files from dependencies
+        exclude 'META-INF/*.RSA', 'META-INF/*.SF','META-INF/*.DSA'
+    }
+}
+
+// This task cleans the build directory
+task clean(type: Delete) {
+    delete 'build'
+}
+
+// This task runs the buildJar task and then pushes the jar to a remote repository
+task deployJar(dependsOn: ['buildJar']) {
+    doLast {
+        println "Deploying jar file to remote repository"
+        repository.push {
+            from "$buildDir/my-app.jar"
+            into "remote-repository"
+        }
+    }
+}
+
+// This task configures the test task with dependencies and other settings
+task test(type: Test) {
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'skipped'
+    }
+    include "**/Test*.java"
+    exclude "**/NotTest*.java"
+    testClassesDirs = project.sourceSets.test.output.classesDirs
+    classpath += project.sourceSets.test.compileClasspath + project.sourceSets.main.output + configurations.testCompile
+}

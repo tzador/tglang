@@ -1,0 +1,68 @@
+Sets
+  j   plants   plant locations / liverpool, manchester, birmingham /
+  k   markets  sales markets / london, bristol /
+  p   products products transported / bread, milk, eggs /
+  i   containers  container types / container_1, container_2, container_3 /;
+
+Sets
+  n   connections connections between plants and markets / liverpool.london
+                                                        liverpool.bristol
+                                                        manchester.london
+                                                        manchester.bristol
+                                                        birmingham.london *
+                                                        birmingham.bristol /;
+
+Parameters
+  d(j,k,p)   demand
+  t(j,k)     transport costs
+  supply(j,p,i)   maximum number of containers available at plants
+
+Scalars
+  maxcost   maximum shipping cost allowed
+  maxcon    maximum connections allowed;
+
+Table demand(j,k,p)   'demand for product p at market k from plant j'
+                    london  bristol
+  liverpool         500     200
+  manchester        150     300
+  birmingham        100     100 ;
+
+Table transportcosts(j,k)  'cost of transporting from plant j to market k'
+              london  bristol
+  liverpool   3,000   4,000
+  manchester  2,500   5,000
+  birmingham  4,000   2,500 ;
+
+Parameter maxcost 'maximum shipping cost allowed' 10,000;
+
+scalar maxconnections 'maximum connections allowed' / 5 /;
+
+Equations
+  costdef       define shipping costs
+  demanddef     satisfy demand
+  capacitydef   limit number of containers used;
+
+costdef..
+  cost =e= sum((j,k), t(j,k)*ship(j,k));
+
+demanddef(k,p)..
+  sum(j, ship(j,k)) =e= d(k,p);
+
+capacitydef(j,i)..
+  sum(p, ship(j,k)*load(j,k,p,i)) =l= supply(j,i);
+
+Variable
+  ship(j,k)       shipment quantities;
+
+binary variables
+  load(j,k,p,i)   load counts in containers;
+
+Equation obj       objective function
+         c1(j)      maximum connections constraint;
+
+obj..  z =e= sum((j,k), ship(j,k)*t(j,k));
+
+c1(j).. sum(n, load(n,j)) =l= maxcon;
+
+Model transp / all /;
+Solve transp minimizing z using lp;

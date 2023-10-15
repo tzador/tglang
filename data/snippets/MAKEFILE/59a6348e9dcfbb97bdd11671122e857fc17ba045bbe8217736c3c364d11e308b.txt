@@ -1,0 +1,86 @@
+# Makefile syntax is used for automating software builds and related tasks.
+
+# Variable Declaration
+EXECUTABLE := app # Variable to store executable name
+SOURCES := main.cpp func1.cpp func2.cpp # Variable to store source files
+
+# File Targets
+.PHONY: all clean
+all: $(EXECUTABLE) # Default target, depends on executable
+clean: # Target to clean all generated files
+	@echo "Cleaning up..."
+	rm -rf $(EXECUTABLE)
+
+# Compilation Rules
+$(EXECUTABLE): $(SOURCES) # Target to build executable, depends on source files
+	@echo "Building executable..."
+	g++ -std=c++17 $(SOURCES) -o $(EXECUTABLE)
+
+# Conditional Statements
+ifdef DEBUG # If DEBUG variable is defined
+	CPPFLAGS += -DDEBUG # Add -DDEBUG flag to compiler
+else # Default case if DEBUG variable is not defined
+	CPPFLAGS += -DNDEBUG # Add -DNDEBUG flag to compiler
+endif
+
+# Function
+define print_help # Function to print help message
+	@echo "Usage: make [target]"
+	@echo "Target options: all, clean"
+endef
+
+# Built-in Functions
+CC := $(shell command -v gcc 2>/dev/null) # CC variable stores path to gcc if exists, otherwise empty
+ifeq ($(CC),) # If CC variable is empty
+	CC := clang # Set CC to clang
+endif
+
+# Automatic Variables
+.cpp.obj: # File transformation rule for objects from C++ sources
+	$(CC) $(CPPFLAGS) -c $< -o $@ # $< represents input file, $@ represents output file
+
+# Shell Commands
+.PHONY: check # Target to run shell commands
+check:
+	@make clean # Make command to clean all generated files
+	@echo "Running code analysis..."
+	@cppcheck --enable=all $(SOURCES) # Run cppcheck on all source files
+	@echo "Done."
+
+# Main Target
+.PHONY: default # Target to execute by default
+default: check # Depends on 'check' target
+
+# Conditional Execution
+.INTERMEDIATE: temp.txt # File marked as intermediate, will be deleted after execution
+.temp.txt: # Temporary file target
+	@echo "Creating temporary file..."
+	touch temp.txt
+
+# Multiple Targets
+.PHONY: build_all # Target to build all executables for different architectures
+build_all: build_arm build_x86 build_riscv # Depends on all three architecture specific build targets
+	@echo "All executables built."
+
+# Target Specific Variables
+.PHONY: build_arm build_x86 build_riscv # Targets for building executables for different architectures
+build_arm: CC := arm-linux-gcc # CC variable set only for this target to use cross-compiler for ARM
+build_arm: $(EXECUTABLE)_arm # Executable specific to ARM architecture
+$(EXECUTABLE)_arm: $(SOURCES) # Target specific to building ARM executable
+	@echo "Building ARM executable..."
+	$(CC) -std=c++17 $(SOURCES) -o $(EXECUTABLE)_arm
+build_x86: CC := i686-linux-gcc # CC variable set only for this target to use cross-compiler for x86
+build_x86: $(EXECUTABLE)_x86 # Executable specific to x86 architecture
+$(EXECUTABLE)_x86: $(SOURCES) # Target specific to building x86 executable
+	@echo "Building x86 executable..."
+	$(CC) -std=c++17 $(SOURCES) -o $(EXECUTABLE)_x86
+build_riscv: CC := riscv-linux-gcc # CC variable set only for this target to use cross-compiler for RISC-V
+build_riscv: $(EXECUTABLE)_riscv # Executable specific to RISC-V architecture
+$(EXECUTABLE)_riscv: $(SOURCES) # Target specific to building RISC-V executable
+	@echo "Building RISC-V executable..."
+	$(CC) -std=c++17 $(SOURCES) -o $(EXECUTABLE)_riscv
+
+# Automatic Execution
+ifdef AUTORUN # If AUTORUN variable is defined
+	@$(MAKE) default # Automatically run 'default' target
+endif

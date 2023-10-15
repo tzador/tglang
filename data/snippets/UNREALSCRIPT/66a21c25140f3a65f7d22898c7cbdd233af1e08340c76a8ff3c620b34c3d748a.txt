@@ -1,0 +1,95 @@
+////////////////////////////////////////////////////////////////////////////////
+//
+// GameInfo
+// Holds information about the current game being played.
+// 
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * This is the GameInfo class, which holds information about the current game being played.
+ * It contains functions for initializing the game, handling player login and logout, and more.
+ * This code snippet includes comments for each function and variable for better understanding.
+ */
+
+class GameInfo extends Actor
+
+    // Declare required variables
+    placeable int MapWidth;
+    placeable int MapHeight;
+    placeable int NumPlayers;
+    config string GameName;
+    config string GameMode;
+    config string MutatorList[];
+
+    // Called when the game is initialized
+    // Sets the MapWidth and MapHeight variables based on the selected map
+    function InitGame( string Options, out string Error )
+        Super.InitGame( Options, Error ); // calls the parent class's InitGame function
+
+        // use the GetMapInfo() function to get information about the current map
+        local MapInfoResult MapResult;
+        GetMapInfo( MapResult );
+        
+        // set MapWidth and MapHeight variables based on the map's width and height
+        MapWidth = MapResult.Volume.X;
+        MapHeight = MapResult.Volume.Y;
+    endfunction
+
+    // Called when a player logs into the game
+    // Updates the NumPlayers variable and sends a message to all players
+    function PostLogin( PlayerLogin PL )
+        // increment number of players by 1
+        NumPlayers++;
+        
+        // send a welcome message to the player
+        PL.BroadcastLocalizedMessage( "Welcome to the game!" );
+        
+        // send a message to all players notifying them of the new player
+        local array<PlayerReplicationInfo> PRIArray;
+        GetPlayerList( PRIArray );
+        foreach PRIArray( class'PlayerReplicationInfo', PRI )
+            PRI.SendMessage( PL.PlayerName @ " has joined the game!" );
+        Next;
+    endfunction
+
+    // Called when a player logs out of the game
+    // Updates the NumPlayers variable and sends a message to all players
+    function Logout( Controller Exiting )
+        // decrement number of players by 1
+        NumPlayers--;
+        
+        // send a message to all players notifying them of the player's logout
+        local array<PlayerReplicationInfo> PRIArray;
+        GetPlayerList( PRIArray );
+        foreach PRIArray( class'PlayerReplicationInfo', PRI )
+            PRI.SendMessage( Exiting.PlayerReplicationInfo.PlayerName @ " has left the game!" );
+        Next;
+    endfunction
+
+    // Called when the game ends
+    // Sends a message to all players with the game results
+    function EndGame( string Reason )
+        // send a message to all players with the game results
+        local array<PlayerReplicationInfo> PRIArray;
+        GetPlayerList( PRIArray );
+        foreach PRIArray( class'PlayerReplicationInfo', PRI )
+            PRI.SendMessage( "Game over! The " @ GameName @ " was won by " @ Winner.TeamName @ "." );
+        Next;
+    endfunction
+
+    // Secondary game mode event
+    // This can be used to set game mode specific actions
+    exec function GameModeEvent( int EventIndex )
+        `switch( EventIndex )
+        {
+            case 1:
+                // do something for event 1
+                break;
+            case 2:
+                // do something for event 2
+                break;
+            default:
+                `warn( "GameModeEvent: unrecognized event index: '" @ EventIndex @ "'" );
+        }
+    endexec
+endclass

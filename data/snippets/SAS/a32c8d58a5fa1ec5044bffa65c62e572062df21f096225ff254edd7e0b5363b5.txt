@@ -1,0 +1,65 @@
+/* This is a complex macro that generates a report for a given dataset 
+using various statistical tests and visualization techniques */
+
+%macro report(dataset);
+	
+/* Set up temporary variables to store input dataset information */
+%let var_list=;
+%let num_vars=0;
+
+/* Get list of variables in dataset */
+proc sql noprint;
+    select name
+    into :var_list separated by ','
+    from dictionary.columns
+    where libname = 'WORK' and memname = "&dataset";
+quit;
+
+/* Count number of variables in dataset */
+%let num_vars = %sysfunc(countw(&var_list));
+
+/* Run Summary Procedure to calculate descriptive statistics for numeric variables */
+ods output Summary=summary_data;
+proc summary data=&dataset nway nmiss;
+    var &var_list;
+run;
+
+/* Create a dataset with variable names and labels */
+data var_labels;
+	set sashelp.vcolumn (where=(libname='WORK' and memname="%upcase(&dataset)"));
+	rename libname = libref memname = memref;
+	label varnum = "Variable Number" varname = "Variable Name" label = "Variable Label";
+run;
+
+/* Merge summary data with variable labels */
+data report_data;
+	set summary_data;
+	merge var_labels;
+	by varnum;
+run;
+
+/* Generate histograms for each numeric variable and save as PNG files */
+%do i = 1 %to &num_vars;
+ods graphics on / reset=output width=800px height=500px imagefmt=png;
+proc sgpanel data=&dataset;
+	panelby varname;
+	histogram &var_list;
+run;
+quit;
+ods graphics off;
+
+/* Print out statistical results for each variable */
+%do i = 1 %to &num_vars;
+proc print data=report_data noobs label;
+	where varnum = &i;
+	var varname n mean median mode minq maxq ;
+	format n comma9. mean median mode minq maxq percent12.2;
+	label varname="Variable Name" n="# Observations" mean="Mean" median="Median" mode="Mode" minq="25th Percentile" maxq="75th Percentile";
+	title "Statistical Results for Variable: &varname";
+run;
+%end;
+
+%mend;
+
+/* Invoke macro and create report */
+%report(dataset=my_data);

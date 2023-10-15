@@ -1,0 +1,70 @@
+server {
+    listen 80; # listens on port 80 for incoming requests
+    server_name example.com; # server name for the website
+    root /var/www/example; # root directory for the website files
+    
+    # location block for handling requests to /images
+    location /images {
+        alias /var/www/example/images; # serves images from this directory
+        expires 1y; # sets cache expiration time for images to 1 year
+        access_log off; # disables logging for image requests
+    }
+    
+    # location block for handling requests to /admin
+    location /admin {
+        proxy_pass http://127.0.0.1:8000; # proxies requests to a backend server listening on port 8000
+        proxy_set_header Host $host; # sets the Host header to the original request host
+        proxy_set_header X-Real-IP $remote_addr; # sets the X-Real-IP header to the client's IP address
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # sets the X-Forwarded-For header to include the client's IP address
+        proxy_set_header X-Forwarded-Proto $scheme; # sets the X-Forwarded-Proto header to the original request protocol
+        proxy_buffering off; # disables buffering for responses from the backend server
+    }
+    
+    # location block for handling all other requests
+    location / {
+        try_files $uri $uri/ /index.html; # tries to serve the requested file, then the corresponding directory, then the index.html file
+        error_page 404 = /404.html; # redirects to a custom 404 page if a file is not found
+        error_page 500 502 503 504 = /500.html; # redirects to a custom 500 page if there is a server error
+    }
+    
+    # SSL configuration
+    listen 443 ssl; # listens on port 443 for HTTPS requests
+    ssl_certificate /etc/ssl/certs/example.crt; # path to SSL certificate file
+    ssl_certificate_key /etc/ssl/private/example.key; # path to SSL private key file
+    ssl_protocols TLSv1.2; # forces the use of TLS version 1.2
+    ssl_prefer_server_ciphers on; # prefer ciphers defined on the server over those of the client
+    ssl_ciphers 'ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256'; # set the list of ciphers to be used for SSL connections
+    ssl_session_cache shared:SSL:10m; # sets the shared memory size for storing SSL session parameters
+    ssl_session_timeout 10m; # sets the timeout for SSL sessions
+    ssl_session_tickets off; # disables the use of session tickets for resuming SSL sessions
+    
+    # security headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubdomains; preload" always; # adds the HTTP Strict Transport Security header to force the use of HTTPS for the entire website
+    add_header X-Frame-Options "SAMEORIGIN" always; # adds the X-Frame-Options header to prevent clickjacking attacks
+    add_header X-XSS-Protection "1; mode=block" always; # adds the X-XSS-Protection header to enable the cross-site scripting (XSS) filter
+    add_header X-Content-Type-Options "nosniff" always; # adds the X-Content-Type-Options header to prevent MIME-sniffing attacks
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always; # adds the Referrer-Policy header to limit the information sent in the Referer header
+    
+    # enable gzip compression
+    gzip on; # enables gzip compression for responses
+    gzip_comp_level 5; # sets the compression level to 5 (moderate compression)
+    gzip_types text/plain text/css application/javascript; # sets the file types to be compressed
+    
+    # enable caching
+    etag on; # enables generation of etags for caching
+    if_modified_since before; # enables caching based on the Last-Modified header
+    expires max; # sets the maximum expiration time for caching
+    add_header Cache-Control "public, must-revalidate, proxy-revalidate"; # adds the Cache-Control header to enable caching by intermediate proxies
+    access_log /var/log/nginx/example.access.log; # sets the path for the access log file
+    error_log /var/log/nginx/example.error.log; # sets the path for the error log file
+    
+    # rate limiting
+    limit_req zone=example_limit burst=10 nodelay; # limits the request rate to 1 request per second, with a burst of 10 requests before limiting
+    
+    # deny access to sensitive files
+    location ~ /\.(?!well-known).* {
+        deny all; # denies access to any file or directory starting with a dot (except /.well-known)
+        access_log off; # disables logging for these requests
+        log_not_found off; # disables logging for 404 errors
+    }
+}

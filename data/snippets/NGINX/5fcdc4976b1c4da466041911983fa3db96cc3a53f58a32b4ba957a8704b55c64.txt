@@ -1,0 +1,41 @@
+server {
+    listen 80 default_server; # listens on port 80 for incoming requests
+    server_name example.com; # sets the hostname for the server
+
+    # location block defines the configuration for requests to a specific location
+    location / {
+        proxy_pass http://localhost:3000; # forwards requests to the specified address
+        proxy_http_version 1.1; # sets the HTTP version for the proxy connection
+        proxy_set_header Upgrade $http_upgrade; # passes the Upgrade request header to the server
+        proxy_set_header Connection 'upgrade'; # passes the Connection request header to the server
+        proxy_set_header Host $host; # passes the Host request header to the server
+        proxy_cache_bypass $http_upgrade; # defines parameters for caching requests
+    }
+
+    # location block for handling requests to the /api endpoint
+    location /api {
+        proxy_pass http://localhost:8080; # forwards requests to the specified address
+        proxy_set_header X-Real-IP $remote_addr; # passes the client's IP address to the server
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # passes the client's original IP address to the server
+        proxy_set_header Host $host; # passes the Host request header to the server
+        proxy_cache_bypass $http_upgrade; # defines parameters for caching requests
+
+        # allows for WebSocket connections to the server
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    # location block for handling requests to static files
+    location /static/ {
+        root /var/www/example.com/; # sets the root directory for static files
+        expires 7d; # sets the expiration period for caching
+    }
+
+    # location block for handling requests to files with .php extension
+    location ~ \.php$ {
+        proxy_pass http://localhost:9000; # forwards requests to the specified address
+        include snippets/fastcgi-php.conf; # includes the specified file for additional configuration
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; # sets the path to the requested PHP script
+    }
+}

@@ -1,0 +1,53 @@
+//Module to implement a FIFO buffer using Verilog
+
+module fifo_buffer(
+ input clk,                //clock input
+ input rst_n,              //reset input
+ input wr_en,              //write enable input
+ input rd_en,              //read enable input
+ input [7:0] data_in,      //data input
+ output [7:0] data_out,    //data output
+ output empty,             //buffer empty indicator
+ output full,              //buffer full indicator
+ output [7:0] count        //number of items in buffer
+ );
+
+parameter size = 8;       //size of buffer
+reg [7:0] buff[size-1:0]; //buffer storage
+reg [7:0] out;            //item output
+
+always @(posedge clk or negedge rst_n) //clock edge or reset pulse
+ begin
+  if (!rst_n) begin          //reset 
+   count <= #1 'd0;          //initialize count
+   full <= #1 1'bx;          //indicate buffer is full
+   empty <= #1 1'b1;         //indicate buffer is empty
+   out <= #1 8'h00;          //clear output
+   for(int i=0; i<size; i++) //reset buffer contents
+    buff[i] <= #1 8'h00; 
+  end else if (wr_en)begin   //write to buffer
+   buff[count] <= #1 data_in;//store data in buffer
+   count <= #1 count + 1;    //increment count
+   if(count == size)begin    //if buffer is full
+    full <= #1 1'b1;         //set full indicator
+    empty <= #1 1'b0;        //clear empty indicator
+   end
+  end else if (rd_en)begin   //read from buffer
+   out <= #1 buff[0];        //read first item from buffer
+   for(int i=0; i<size-1; i++)//update buffer contents
+    buff[i] <= #1 buff[i+1];
+   buff[size-1] <= #1 8'h00; //clear last item in buffer
+   count <= #1 count - 1;    //decrement count
+   if(count == 1)begin       //if buffer is empty
+    full <= #1 1'b0;         //clear full indicator
+    empty <= #1 1'b1;        //set empty indicator
+   end
+  end
+ end
+ 
+assign data_out = #1 out;    //assign output to data_out
+assign empty = #1 empty;     //assign empty indicator
+assign full = #1 full;       //assign full indicator
+assign count = #1 count;     //assign count value
+
+endmodule

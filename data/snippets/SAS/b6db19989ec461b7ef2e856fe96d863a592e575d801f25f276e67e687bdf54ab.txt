@@ -1,0 +1,35 @@
+%macro create_table(dataset, out);
+/*This macro creates a new table 'out' from an existing table 'dataset' in SAS*/
+
+options compress=yes; /*enables compression of the new table for better storage efficiency*/
+
+data &out; /*creates a new dataset with name specified in 'out' macro variable*/
+
+	if _n_=1 then do; /*executes only once, before any data is read*/
+		if 0 then set &dataset; /*suppresses ERROR if the input dataset does not exist*/
+		dcl hash h(dataset:'alldata', multidata:'yes'); /*creates a hash object named 'h', setting the input dataset and enables reading multiple observations*/
+		rc=h.definekey('_n_'); /*defining '_n_' as the key variable for the hash object, which is the observation number*/
+		rc=h.definedone(); /*finishing setup of the hash object*/
+		dcl hiter hi('h'); /*creates an iterator object for the hash object*/
+	end;
+
+	set &dataset; /*sets input dataset to read data*/
+
+	hi.next(); /*iterates to the next entry in the hash object*/
+	if hi.status() ne 0 then do; /*checks if there is another observation*/
+		stop; /*stops reading data once there are no more observations*/
+	end;
+
+	output; /*outputs the current observation to the new dataset 'out'*/
+	
+	if eof then do; /*executes only once, after all data is read*/
+		stop; /*stops macro from executing further*/
+	end;
+	
+	run; /*runs the data step*/
+	
+	proc append data=&out base=alldata force; /*appends the new dataset 'out' to the existing dataset 'alldata', automatically creating the dataset if it does not exist and overwriting if it does*/
+	run; /*runs the proc append step*/
+	
+	%put NOTE: Table &out created and appended to alldata; /*prints a note to the log stating that the new table has been created and appended*/
+%mend;

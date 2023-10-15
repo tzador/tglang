@@ -1,0 +1,91 @@
+c This program calculates the determinant of a matrix using the
+c Cooley-Tukey fast Fourier transform algorithm.
+
+c Dimension of matrix
+parameter (n = 4)
+
+c Size of complex array
+parameter (nsize = n/2+1)
+
+c Declare input and output arrays
+complex array x(nsize), y(nsize), z(nsize)
+dimension a(n,n)
+
+c Populate the input matrix with random complex numbers
+do i = 1, n
+    do j = 1, n
+        a(i,j) = cmplx(real(rand(0)), real(rand(0)))
+    end do
+end do
+
+c Perform the fast Fourier transform on each column of the matrix
+do j = 1, n
+    call cfftf(n, a(1,j), x, y)
+end do
+
+c Perform the fast Fourier transform on each row of the matrix
+do i = 1, n
+    call cfftf(n, a(i,1), x, y)
+end do
+
+c Calculate the determinant of the matrix using FFT algorithm
+det = 1.0
+do i = 1, n
+    det = det * a(i,i)
+end do
+
+c Print the determinant to the screen
+print *, 'The determinant of the matrix is: ', det
+
+c Cooley-Tukey fast Fourier transform subroutine
+c This implementation is based on the pseudocode from https://en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm
+subroutine cfftf (n, x, y, z)
+implicit none
+integer, intent(in) :: n
+complex, intent(inout) :: x(n), y(n), z(n)
+integer :: k, m, i, j, stage, step
+
+c Bit reversal stage
+m = n/2
+j = 1
+
+do i = 1, n-1
+    if (i < j) then
+        t = x(i)
+        x(i) = x(j)
+        x(j) = t
+    end if
+
+    k = m
+    do while (j>k)
+        j = j - k
+        k = k/2
+    end do
+    j = j + k
+end do
+
+c FFT stages
+stage = 1
+do while (stage < n)
+    step = 2 * stage
+    angle = -2.0 * dble(stage) * dble(pi) / dble(n)
+
+    do m = 0, stage-1
+        do i = m+1, n, step
+            cos = dcos(angle * dble(m))
+            sin = dsin(angle * dble(m))
+            z = cmplx(cos, sin) * x(i+stage)
+            x(i+stage) = x(i) - z
+            x(i) = x(i) + z
+        end do
+    end do
+
+    stage = step
+end do
+
+c Divide results by sqrt(n)
+do i = 1, n
+    x(i) = x(i) / cmplx(dble(sqrt(n)), 0.0)
+end do
+
+end subroutine cfftf

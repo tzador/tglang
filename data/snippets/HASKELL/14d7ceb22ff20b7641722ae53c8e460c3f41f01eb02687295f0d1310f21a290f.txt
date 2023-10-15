@@ -1,0 +1,28 @@
+{-# LANGUAGE GADTSyntax #-}
+
+data Expr a where
+    Literal :: a -> Expr a
+    App :: Expr (a -> b) -> Expr a -> Expr b
+    Lambda :: (a -> Expr b) -> Expr (a -> b)
+    If :: Expr Bool -> Expr a -> Expr a -> Expr a
+    Fix :: (a -> a) -> Expr a
+    Let :: [(String, Expr a)] -> Expr a -> Expr a
+
+eval :: Expr a -> a
+eval (Literal x) = x
+eval (App f x) = eval f (eval x)
+eval (Lambda f) = \x -> eval (f x)
+eval (If c t f) =
+  if eval c
+    then eval t
+    else eval f
+eval (Fix f) = fix (eval . f)
+eval (Let bindings scope) = eval (substitute bindings scope)
+    where
+        substitute :: [(String, Expr a)] -> (String -> Expr a) -> Expr a
+        substitute [(k, v)] s = let s' k' = if k == k' then v else s k' in v s'
+        substitute (b:bs) s = substitute bs (substitute [b] s)
+
+main :: IO ()
+main = do
+    print (eval (Let [("x", Literal 1), ("y", Literal 2)] (App (Lambda (\x -> Lambda (\y -> App (App (Literal (+)) (Literal x)) (Literal y)))) (Literal 3)))

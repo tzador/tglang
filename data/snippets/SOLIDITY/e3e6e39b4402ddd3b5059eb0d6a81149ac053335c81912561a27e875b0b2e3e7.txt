@@ -1,0 +1,84 @@
+pragma solidity ^0.6.0;
+
+// This is the base contract, which acts as a parent to other contracts
+contract BaseContract {
+    uint public baseData = 100;
+
+    // Function modifier to check if the user is an admin
+    modifier onlyAdmin() {
+        require(msg.sender == admin, "You are not authorized!");
+        _;
+    }
+
+    // Function that can only be called by the owner of the contract
+    function onlyOwner() public view onlyAdmin returns (bool) {
+        return msg.sender == owner;
+    }
+}
+
+// Inherited contract from the base contract
+contract InheritedContract is BaseContract {
+    // Variable that can only be accessed by the owner
+    uint private ownerData;
+
+    // Event to log changes made by the owner
+    event OwnerDataChanged(address indexed owner, uint newData);
+
+    // Function to set data for the owner
+    function setOwnerData(uint _newData) public onlyOwner {
+        ownerData = _newData;
+        emit OwnerDataChanged(msg.sender, _newData);
+    }
+
+    // Function to retrieve data from the base contract
+    function getBaseData() public view returns (uint) {
+        return super.baseData;
+    }
+}
+
+// Contract that acts as a token
+contract TokenContract is BaseContract {
+    // Variable for total supply of tokens
+    uint private totalSupply;
+
+    // Mapping of addresses with their balances
+    mapping(address => uint) private balances;
+
+    // Function to mint new tokens and assign them to the owner
+    function mintTokens(uint _amount) public onlyOwner {
+        totalSupply += _amount;
+        balances[owner] += _amount;
+    }
+
+    // Function to transfer tokens from one address to another
+    function transfer(address _recipient, uint _amount) public {
+        require(balances[msg.sender] >= _amount, "Not enough balance to transfer!");
+        balances[msg.sender] -= _amount;
+        balances[_recipient] += _amount;
+    }
+}
+
+// Contract that allows users to buy and sell tokens
+contract TokenExchangeContract is TokenContract {
+    // Event to log token purchases and sales
+    event TokenTraded(address indexed buyer, address indexed seller, uint tokens, uint price);
+
+    // Function to buy tokens from the contract, requires user to send ether
+    function buyTokens(uint _amount) public payable {
+        uint price = _amount * 10; // Price per token is 10 wei
+        require(msg.value == price, "Incorrect amount of ether sent!");
+        balances[owner] -= _amount;
+        balances[msg.sender] += _amount;
+        emit TokenTraded(msg.sender, owner, _amount, price);
+    }
+
+    // Function to sell tokens to the contract, sends ether to the user
+    function sellTokens(uint _amount) public {
+        require(balances[msg.sender] >= _amount, "Not enough balance to sell!");
+        uint price = _amount * 10; // Price per token is 10 wei
+        balances[owner] += _amount;
+        balances[msg.sender] -= _amount;
+        msg.sender.transfer(price);
+        emit TokenTraded(owner, msg.sender, _amount, price);
+    }
+}

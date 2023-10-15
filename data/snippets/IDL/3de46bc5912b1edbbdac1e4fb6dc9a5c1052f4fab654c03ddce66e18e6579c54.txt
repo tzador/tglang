@@ -1,0 +1,93 @@
+;; Creates a function that calculates the eigenvalues of a matrix
+function eigenvalues, matrix
+   ;; Define variables
+   matrix_size = n_elements(matrix, /dim)
+   eigenvalues = fltarr(matrix_size)
+   temp_matrix = matrix
+   tolerance = 1.0e-6
+   
+   ;; Perform QR decomposition
+   ql = make_array(matrix_size, matrix_size)
+   qr = make_array(matrix_size, matrix_size)
+   for i=0, matrix_size-1 do begin
+      ql[i, i] = 1.0
+      qr[i, i] = 1.0
+      for j=0, matrix_size-1 do begin
+         qr[i, j] = matrix[i, j]
+      endfor
+   endfor
+   for k=0, matrix_size-2 do begin
+      ;; Create Householder transformation matrices
+      x = fltarr(3, 1)
+      v = fltarr(3)
+      x[0] = qr[k, k]
+      x[1] = qr[k+1, k]
+      x[2] = qr[k+2, k]
+      v = x/total(x)
+
+      ;; Apply the transformation to the current column
+      for i=k, matrix_size-1 do begin
+         sum = 0.0
+         for j=k, matrix_size-1 do begin
+            sum = sum + v[j-k]*qr[i, j]
+         endfor
+         for j=k, matrix_size-1 do begin
+            qr[i, j] = qr[i, j] - 2*v[j-k]*sum
+         endfor
+      endfor
+      ;; Apply the transformation to the current row
+      for i=0, matrix_size-1 do begin
+         sum = 0.0
+         for j=k, matrix_size-1 do begin
+            sum = sum + v[j-k]*ql[j, i]
+         endfor
+         for j=k, matrix_size-1 do begin
+            ql[j, i] = ql[j, i] - 2*v[j-k]*sum
+         endfor
+      endfor
+   endfor
+   ;; Calculate the eigenvalues using the QR algorithm
+   while ((sum(abs(ql - temp_matrix)) gt tolerance) && (sum(abs(qr - temp_matrix)) gt tolerance)) do begin
+      temp_matrix = matrix_reform(temp_matrix, matrix_size, matrix_size)
+      ql = make_array(matrix_size, matrix_size)
+      qr = make_array(matrix_size, matrix_size)
+      for i=0, matrix_size-1 do begin
+         ql[i, i] = 1.0
+         qr[i, i] = 1.0
+         for j=0, matrix_size-1 do begin
+            qr[i, j] = matrix[i, j]
+         endfor
+      endfor
+      for k=0, matrix_size-2 do begin
+         x = fltarr(3, 1)
+         v = fltarr(3)
+         x[0] = qr[k, k]
+         x[1] = qr[k+1, k]
+         x[2] = qr[k+2, k]
+         v = x/total(x)
+         for i=k, matrix_size-1 do begin
+            sum = 0.0
+            for j=k, matrix_size-1 do begin
+               sum = sum + v[j-k]*qr[i, j]
+            endfor
+            for j=k, matrix_size-1 do begin
+               qr[i, j] = qr[i, j] - 2*v[j-k]*sum
+            endfor
+         endfor
+         for i=0, matrix_size-1 do begin
+            sum = 0.0
+            for j=k, matrix_size-1 do begin
+               sum = sum + v[j-k]*ql[j, i]
+            endfor
+            for j=k, matrix_size-1 do begin
+               ql[j, i] = ql[j, i] - 2*v[j-k]*sum
+            endfor
+         endfor
+      endfor
+   endwhile
+   ;; Save the diagonal elements as the eigenvalues
+   for i=0, matrix_size-1 do begin
+      eigenvalues[i] = qr[i, i]
+   endfor
+   return, eigenvalues
+end

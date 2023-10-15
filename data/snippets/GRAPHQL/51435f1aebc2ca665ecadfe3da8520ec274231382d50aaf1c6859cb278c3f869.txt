@@ -1,0 +1,163 @@
+# Define a schema for a blog post
+type BlogPost {
+  id: ID!
+  title: String!
+  content: String!
+  author: Author!
+  comments: [Comment!]!
+}
+
+# Define a schema for an author
+type Author {
+  id: ID!
+  name: String!
+  posts: [BlogPost!]!
+}
+
+# Define a schema for a comment
+type Comment {
+  id: ID!
+  content: String!
+  author: Author!
+  post: BlogPost!
+}
+
+# Define query and mutation types
+type Query {
+  getBlogPost(id: ID!): BlogPost
+  getAllBlogPosts: [BlogPost!]!
+  getAuthor(id: ID!): Author
+  getAllAuthors: [Author!]!
+}
+
+type Mutation {
+  createBlogPost(title: String!, content: String!, authorId: ID!): BlogPost!
+  updateBlogPost(id: ID!, title: String, content: String, authorId: ID): BlogPost!
+  deleteBlogPost(id: ID!): Boolean
+  createAuthor(name: String): Author!
+  updateAuthor(id: ID!, name: String): Author!
+  deleteAuthor(id: ID!): Boolean
+  createComment(postId: ID!, content: String!, authorId: ID!): Comment!
+  updateComment(id: ID!, content: String!): Comment!
+  deleteComment(id: ID!): Boolean
+}
+
+# Define resolvers to handle queries and mutations
+const resolvers = {
+  Query: {
+    getBlogPost: (parent, args) => getById(args.id, blogPosts),
+    getAllBlogPosts: () => blogPosts,
+    getAuthor: (parent, args) => getById(args.id, authors),
+    getAllAuthors: () => authors,
+  },
+  Mutation: {
+    createBlogPost: (parent, args) => {
+      const newPost = {
+        id: uuidv4(),
+        title: args.title,
+        content: args.content,
+        authorId: args.authorId,
+      };
+      blogPosts.push(newPost);
+      return newPost;
+    },
+    updateBlogPost: (parent, args) => {
+      const post = getById(args.id, blogPosts);
+      if (args.title) {
+        post.title = args.title;
+      }
+      if (args.content) {
+        post.content = args.content;
+      }
+      if (args.authorId) {
+        post.authorId = args.authorId;
+      }
+      return post;
+    },
+    deleteBlogPost: (parent, args) => {
+      const index = blogPosts.findIndex(post => post.id === args.id);
+      if (index === -1) {
+        throw new Error('Blog post not found');
+      }
+      blogPosts.splice(index, 1);
+      return true;
+    },
+    createAuthor: (parent, args) => {
+      const newAuthor = {
+        id: uuidv4(),
+        name: args.name,
+      };
+      authors.push(newAuthor);
+      return newAuthor;
+    },
+    updateAuthor: (parent, args) => {
+      const author = getById(args.id, authors);
+      if (args.name) {
+        author.name = args.name;
+      }
+      return author;
+    },
+    deleteAuthor: (parent, args) => {
+      const index = authors.findIndex(author => author.id === args.id);
+      if (index === -1) {
+        throw new Error('Author not found');
+      }
+      // Delete all blog posts written by the author
+      blogPosts = blogPosts.filter(post => post.authorId !== args.id);
+      authors.splice(index, 1);
+      return true;
+    },
+    createComment: (parent, args) => {
+      const newComment = {
+        id: uuidv4(),
+        content: args.content,
+        postId: args.postId,
+        authorId: args.authorId,
+      }
+      comments.push(newComment);
+      return newComment;
+    },
+    updateComment: (parent, args) => {
+      const comment = getById(args.id, comments);
+      comment.content = args.content;
+      return comment;
+    },
+    deleteComment: (parent, args) => {
+      const index = comments.findIndex(comment => comment.id === args.id);
+      if (index === -1) {
+        throw new Error('Comment not found');
+      }
+      comments.splice(index, 1);
+      return true;
+    }
+  },
+  // Define custom resolvers for fields that need to be resolved
+  BlogPost: {
+    author: (parent) => getById(parent.authorId, authors),
+    comments: (parent) => comments.filter(comment => comment.postId === parent.id),
+  },
+  Author: {
+    posts: (parent) => blogPosts.filter(post => post.authorId === parent.id),
+  },
+  Comment: {
+    author: (parent) => getById(parent.authorId, authors),
+    post: (parent) => getById(parent.postId, blogPosts),
+  }
+}
+
+# Define a function to fetch data by id from an array
+function getById(id, array) {
+  const item = array.find(item => item.id === id);
+  if (!item) {
+    throw new Error('Item not found');
+  }
+  return item;
+}
+
+# Create a GraphQL server
+const server = new ApolloServer({ typeDefs, resolvers });
+
+# Start the server
+server.listen().then(({ url }) => {
+  console.log(`Server ready at ${url}`);
+});

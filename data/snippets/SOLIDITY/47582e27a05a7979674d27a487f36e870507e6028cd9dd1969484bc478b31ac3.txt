@@ -1,0 +1,138 @@
+// Contract that implements a token with optional restrictions
+contract Token is IERC20 {
+    string private _name;
+    string private _symbol;
+    uint8 private _decimals;
+    
+    uint256 private _totalSupply;
+    
+    mapping(address => uint256) private _balances;
+    
+    mapping(address => mapping(address => uint256)) private _allowances;
+    
+    // Owner of contract
+    address private _owner;
+    
+    // Indicates if any restrictions are in place
+    bool private _restrictionsEnabled;
+    
+    // Mapping of addresses that are restricted
+    mapping(address => bool) private _restrictedAddresses;
+    
+    // Modifier that allows functions to only be called by the contract owner
+    modifier onlyOwner() {
+        require(msg.sender == _owner, "Caller is not the owner");
+        _;
+    }
+    
+    // Modifier that restricts functions to only be called when restrictions are enabled
+    modifier whenRestrictionsEnabled() {
+        require(_restrictionsEnabled, "Restrictions are not enabled");
+        _;
+    }
+    
+    // Event that is triggered when restrictions are enabled or disabled
+    event RestrictionsEnabledChanged(bool enabled);
+    
+    // Constructor function that sets the initial token details and total supply
+    constructor(string memory name, string memory symbol, uint8 decimals, uint256 totalSupply) public {
+        _name = name;
+        _symbol = symbol;
+        _decimals = decimals;
+        _totalSupply = totalSupply;
+        _balances[msg.sender] = totalSupply;
+        _owner = msg.sender;
+    }
+    
+    // Returns the name of the token
+    function name() external view returns (string memory) {
+        return _name;
+    }
+    
+    // Returns the symbol of the token
+    function symbol() external view returns (string memory) {
+        return _symbol;
+    }
+    
+    // Returns the number of decimals the token uses
+    function decimals() external view returns (uint8) {
+        return _decimals;
+    }
+    
+    // Returns the total supply of tokens
+    function totalSupply() external view returns (uint256) {
+        return _totalSupply;
+    }
+    
+    // Returns the balance of tokens for a given address
+    function balanceOf(address account) external view returns (uint256) {
+        return _balances[account];
+    }
+    
+    // Transfers tokens from the caller's account to another account
+    function transfer(address recipient, uint256 amount) external returns (bool) {
+        _transfer(msg.sender, recipient, amount);
+        return true;
+    }
+    
+    // Approves another address to spend a certain amount of tokens on the caller's behalf
+    function approve(address spender, uint256 amount) external returns (bool) {
+        require(spender != address(0), "Cannot approve the zero address");
+        _allowances[msg.sender][spender] = amount;
+        emit Approval(msg.sender, spender, amount);
+        return true;
+    }
+    
+    // Transfers tokens from one account to another if the caller is allowed to do so
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool) {
+        _transfer(sender, recipient, amount);
+        _approve(sender, msg.sender, _allowances[sender][msg.sender] - amount);
+        return true;
+    }
+    
+    // Sets whether restrictions are enabled or disabled
+    function setRestrictionsEnabled(bool enabled) external onlyOwner {
+        _restrictionsEnabled = enabled;
+        emit RestrictionsEnabledChanged(enabled);
+    }
+    
+    // Adds an address to the list of restricted addresses
+    function addRestrictedAddress(address restrictedAddress) external whenRestrictionsEnabled onlyOwner {
+        require(restrictedAddress != address(0), "Cannot add the zero address");
+        require(!_restrictedAddresses[restrictedAddress], "Address is already restricted");
+        _restrictedAddresses[restrictedAddress] = true;
+
+    }
+    
+    // Removes an address from the list of restricted addresses
+    function removeRestrictedAddress(address restrictedAddress) external whenRestrictionsEnabled onlyOwner {
+        require(restrictedAddress != address(0), "Cannot remove the zero address");
+        require(_restrictedAddresses[restrictedAddress], "Address is not restricted");
+        _restrictedAddresses[restrictedAddress] = false;
+    }
+    
+    // Internal function to transfer tokens from one account to another
+    function _transfer(address sender, address recipient, uint256 amount) internal {
+        require(sender != address(0), "Cannot transfer from the zero address");
+        require(recipient != address(0), "Cannot transfer to the zero address");
+        require(_balances[sender] >= amount, "Insufficient balance");
+        require(!_restrictedAddresses[sender], "Sender is restricted");
+        require(!_restrictedAddresses[recipient], "Recipient is restricted");
+        
+        _balances[sender] -= amount;
+        _balances[recipient] += amount;
+        emit Transfer(sender, recipient, amount);
+    }
+    
+    // Internal function to approve an address to spend a certain amount of tokens
+    function _approve(address owner, address spender, uint256 amount) internal {
+        require(owner != address(0), "Cannot approve from the zero address");
+        require(spender != address(0), "Cannot approve the zero address");
+        require(_balances[owner] >= amount, "Insufficient balance");
+        require(!_restrictedAddresses[owner], "Owner is restricted");
+        require(!_restrictedAddresses[spender], "Spender is restricted");
+        
+        _allowances[owner][spender] = amount;
+        emit Approval(owner, spender, amount);
+    }
+}

@@ -1,0 +1,159 @@
+/// @title MultiSigWallet
+/// @notice A contract for managing multi-signature wallets
+contract MultiSigWallet {
+    using SafeMath for uint256;
+
+    // Events
+    event Deposit(address indexed sender, uint256 amount, uint256 balance);
+    event SubmitTransaction(address indexed owner, uint256 indexed txIndex, address indexed to, uint256 value, bytes data);
+    event ConfirmTransaction(address indexed owner, uint256 indexed txIndex);
+    event RevokeConfirmation(address indexed owner, uint256 indexed txIndex);
+    event ExecuteTransaction(address indexed owner, uint256 indexed txIndex);
+
+    // Structs
+    struct Transaction {
+        address to;
+        uint256 value;
+        bytes data;
+        bool executed;
+        uint256 numConfirmations;
+    }
+
+    // State variables
+    address payable[] private _owners;
+    uint256 private _numConfirmationsRequired;
+    mapping(uint256 => mapping(address => bool)) private _confirmations;
+    Transaction[] private _transactions;
+
+    // Modifiers
+    modifier onlyOwner() {
+        require(isOwner(msg.sender), "MultiSigWallet: caller is not an owner");
+        _;
+    }
+
+    // Constructor
+    constructor(address payable[] memory owners, uint256 numConfirmationsRequired) {
+        require(owners.length > 0, "MultiSigWallet: owners must not be empty");
+        require(numConfirmationsRequired > 0 && numConfirmationsRequired <= owners.length, "MultiSigWallet: invalid number of required confirmations");
+
+        for (uint256 i = 0; i < owners.length; i++) {
+            require(owners[i] != address(0), "MultiSigWallet: owner must not be zero address");
+            require(!isOwner(owners[i]), "MultiSigWallet: owner already added");
+
+            _owners.push(owners[i]);
+        }
+
+        _numConfirmationsRequired = numConfirmationsRequired;
+    }
+
+    // Public functions
+    function deposit() public payable {
+        emit Deposit(msg.sender, msg.value, address(this).balance);
+    }
+
+    function submitTransaction(address to, uint256 value, bytes memory data) public onlyOwner {
+        require(to != address(0), "MultiSigWallet: transaction to must not be zero address");
+
+        uint256 txIndex = _transactions.length;
+        _transactions.push(Transaction({
+            to: to,
+            value: value,
+            data: data,
+            executed: false,
+            numConfirmations: 0
+        }));
+
+        emit SubmitTransaction(msg.sender, txIndex, to, value, data);
+    }
+
+    function confirmTransaction(uint256 txIndex) public onlyOwner {
+        require(txIndex < _transactions.length, "MultiSigWallet: transaction does not exist");
+        require(!_transactions[txIndex].executed, "MultiSigWallet: transaction already executed");
+        require(!_confirmations[txIndex][msg.sender], "MultiSigWallet: owner already confirmed");
+
+        _confirmations[txIndex][msg.sender] = true;
+        _transactions[txIndex].numConfirmations = _transactions[txIndex].numConfirmations.add(1);
+
+        emit ConfirmTransaction(msg.sender, txIndex);
+
+        if (_transactions[txIndex].numConfirmations >= _numConfirmationsRequired) {
+            _executeTransaction(txIndex);
+        }
+    }
+
+    function revokeConfirmation(uint256 txIndex) public onlyOwner {
+        require(txIndex < _transactions.length, "MultiSigWallet: transaction does not exist");
+        require(!_transactions[txIndex].executed, "MultiSigWallet: transaction already executed");
+        require(_confirmations[txIndex][msg.sender], "MultiSigWallet: owner has not confirmed");
+
+        _confirmations[txIndex][msg.sender] = false;
+        _transactions[txIndex].numConfirmations = _transactions[txIndex].numConfirmations.sub(1);
+
+        emit RevokeConfirmation(msg.sender, txIndex);
+    }
+
+    function executeTransaction(uint256 txIndex) public onlyOwner {
+        require(txIndex < _transactions.length, "MultiSigWallet: transaction does not exist");
+        require(!_transactions[txIndex].executed, "MultiSigWallet: transaction already executed");
+        require(_transactions[txIndex].numConfirmations >= _numConfirmationsRequired, "MultiSigWallet: transaction does not have enough confirmations");
+
+        _executeTransaction(txIndex);
+    }
+
+    // Private functions
+    function _isConfirmed(uint256 txIndex) private view returns (bool) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < _owners.length; i++) {
+            if (_confirmations[txIndex][_owners[i]]) {
+                count = count.add(1);
+            }
+
+            if (count == _numConfirmationsRequired) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    function _executeTransaction(uint256 txIndex) private {
+        _transactions[txIndex].to.call{value: _transactions[txIndex].value, data: _transactions[txIndex].data}("");
+        _transactions[txIndex].executed = true;
+
+        emit ExecuteTransaction(msg.sender, txIndex);
+    }
+
+    function isOwner(address account) public view returns (bool) {
+        for (uint256 i = 0; i < _owners.length; i++) {
+            if (_owners[i] == account) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    function getOwners() public view returns (address payable[] memory) {
+        return _owners;
+    }
+
+    function getNumConfirmationsRequired() public view returns (uint256) {
+        return _numConfirmationsRequired;
+    }
+
+    function getTransactionCount() public view returns (uint256) {
+        return _transactions.length;
+    }
+
+    function getTransaction(uint256 txIndex) public view returns (address, uint256, bytes memory, bool, uint256) {
+        require(txIndex < _transactions.length, "MultiSigWallet: transaction does not exist");
+
+        return (
+            _transactions[txIndex].to,
+            _transactions[txIndex].value,
+            _transactions[txIndex].data,
+            _transactions[txIndex].executed,
+            _transactions[txIndex].numConfirmations
+        );
+    }
+}

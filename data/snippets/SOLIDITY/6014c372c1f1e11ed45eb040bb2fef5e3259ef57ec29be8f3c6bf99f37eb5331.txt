@@ -1,0 +1,84 @@
+pragma solidity ^0.8.0;
+
+contract TicTacToe {
+    enum State {Uninitialized, Created, Started, Ended}
+    State public currentState;
+    
+    address public player1;
+    address public player2;
+    
+    uint8[9] public board;
+    uint8 public currentPlayer;
+    uint256 public betAmount;
+    
+    event GameCreated(address indexed player1, uint256 betAmount);
+    event GameStarted(address indexed player1, address indexed player2);
+    event MoveMade(address indexed player, uint8[9] board);
+    event GameEnded(address indexed winner, address indexed loser, uint8[9] board);
+    
+    modifier onlyPlayers() {
+        require(msg.sender == player1 || msg.sender == player2, "Only players can call this function");
+        _;
+    }
+    
+    modifier inState(State state) {
+        require(currentState == state, "Function can only be called in specified state");
+        _;
+    }
+    
+    constructor(address _player2) payable {
+        require(msg.value > 0, "Bet amount must be greater than 0");
+        player1 = msg.sender;
+        player2 = _player2;
+        currentState = State.Created;
+        betAmount = msg.value;
+        emit GameCreated(msg.sender, msg.value);
+    }
+    
+    function startGame() public onlyPlayers inState(State.Created) {
+        require(msg.sender == player2, "Only player 2 can start the game");
+        currentState = State.Started;
+        currentPlayer = 1;
+        emit GameStarted(player1, player2);
+    }
+    
+    function makeMove(uint8 index) public payable onlyPlayers inState(State.Started) {
+        require(msg.sender == player1 && currentPlayer == 1 || msg.sender == player2 && currentPlayer == 2, "Not your turn");
+        require(msg.value == betAmount, "Move amount must match bet amount");
+        // Check if index is within valid range and if the corresponding position on the board is empty
+        require(index >= 0 && index <= 8 && board[index] == 0, "Invalid move");
+        
+        board[index] = currentPlayer; // Assign current player's number (1 or 2) to the corresponding index on the board
+        
+        // Check if a winning move has been made
+        if (
+            (board[0] == board[1] && board[1] == board[2] && board[0] != 0) || // Horizontal top row
+            (board[3] == board[4] && board[4] == board[5] && board[3] != 0) || // Horizontal middle row
+            (board[6] == board[7] && board[7] == board[8] && board[6] != 0) || // Horizontal bottom row
+            (board[0] == board[3] && board[3] == board[6] && board[0] != 0) || // Vertical left column
+            (board[1] == board[4] && board[4] == board[7] && board[1] != 0) || // Vertical middle column
+            (board[2] == board[5] && board[5] == board[8] && board[2] != 0) || // Vertical right column
+            (board[0] == board[4] && board[4] == board[8] && board[0] != 0) || // Diagonal top left to bottom right
+            (board[6] == board[4] && board[4] == board[2] && board[6] != 0) // Diagonal bottom left to top right
+        ) {
+            if (currentPlayer == 1) {
+                emit GameEnded(player1, player2, board);
+                payable(player1).transfer(address(this).balance); // Transfer the entire balance of the contract to player 1
+            } else {
+                emit GameEnded(player2, player1, board);
+                payable(player2).transfer(address(this).balance); // Transfer the entire balance of the contract to player 2
+            }
+            currentState = State.Ended;
+        } else if (board[0] != 0 && board[1] != 0 && board[2] != 0 && board[3] != 0 && board[4] != 0 && board[5] != 0 && board[6] != 0 && board[7] != 0 && board[8] != 0) {
+            // Check if the board is completely filled with no winner, thus resulting in a tie
+            emit GameEnded(address(0), address(0), board);
+            player1.transfer(address(this).balance / 2); // Transfer half of the balance to both players (in case of a tie)
+            player2.transfer(address(this).balance / 2);
+            currentState = State.Ended;
+        } else {
+            // Switch to the other player's turn
+            currentPlayer = currentPlayer == 1 ? 2 : 1;
+            emit MoveMade(msg.sender, board);
+        }
+    }
+}

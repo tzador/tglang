@@ -1,0 +1,36 @@
+#![feature(custom_allocator)]
+
+use std::alloc::{GlobalAlloc, Allocator,Layout};
+use std::cmp::max;
+use std::ptr::NonNull;
+
+pub struct CustomAllocator;
+
+unsafe impl GlobalAlloc for CustomAllocator {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        let size = max(layout.size(), layout.align());
+        let raw_ptr = std::alloc::alloc(layout); // allocate memory using the standard allocator
+
+        NonNull::new(raw_ptr).map_or(std::ptr::null_mut(), |ptr| {
+        
+            let aligned_ptr = NonNull::new_unchecked(align(size as usize, layout.align()));
+            let new_layout = Layout::from_size_align(size, layout.align()).unwrap();
+
+            std::ptr::copy(raw_ptr, aligned_ptr.as_ptr(), new_layout.size());
+
+            std::alloc::dealloc(raw_ptr, layout); // deallocate the old memory
+            aligned_ptr.as_ptr()
+        })
+    }
+
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        std::ptr::drop_in_place(ptr);
+        std::alloc::dealloc(ptr, layout);
+    }
+}
+
+fn main() {
+    let my_alloc = CustomAllocator {};
+    let mut v = Vec::with_capacity(10); // Use custom allocator for this vector
+    v.set_alloc(my_alloc); // Set the vector's allocator to use the custom allocator
+}

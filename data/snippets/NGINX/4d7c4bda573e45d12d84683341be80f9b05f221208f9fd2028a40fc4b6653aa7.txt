@@ -1,0 +1,30 @@
+upstream backend_servers {                      # Creates an upstream group called 'backend_servers'
+    server backend1.example.com;                # Adds a server to the group with the address 'backend1.example.com'
+    server backend2.example.com;                # Adds another server to the group with the address 'backend2.example.com'
+    server backend3.example.com backup;         # Adds a third server to the group with the address 'backend3.example.com' and sets it as a backup
+}
+
+proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=my_cache:10m inactive=60m;    # Creates a cache in the specified location and sets cache parameters
+proxy_cache_key "$scheme$request_method$host$request_uri";                          # Specifies the key format for the cached responses
+
+server {                                        # Defines a server block
+    listen 80;                                  # Listens for requests on port 80
+    server_name example.com;                    # Sets the server name to 'example.com'
+
+    location / {                                # Defines the location of the main page
+        proxy_cache my_cache;                   # Enables caching for this location
+        proxy_pass http://backend_servers;      # Sets the destination for the requests to the upstream group
+        proxy_set_header Host $host;            # Sets the Host header to the original request host
+    }
+
+    location /images/ {                         # Defines the location of the images directory
+        proxy_cache_bypass $http_pragma;        # Bypasses caching if the pragma header is set
+        proxy_cache_valid 200 60m;              # Sets the cache validity for successful responses to 60 minutes
+        proxy_cache_valid 404 1m;               # Sets the cache validity for error responses to 1 minute
+    }
+
+    error_page 500 502 503 504 /50x.html;       # Sets the error page for the specified error codes
+    location = /50x.html {                      # Defines the location of the error page
+        root /var/www/errors;                   # Sets the root directory to look for the error page
+    }
+}

@@ -1,0 +1,202 @@
+/*
+This class represents a character in the game
+*/
+class Character extends Actor
+   extends(GamePlayer) // inherits from GamePlayer class
+   implements(IWeaponHolder) // implements IWeaponHolder interface
+   placeable; // can be placed in the level
+
+var() int Health; // stores the character's health value
+var() float MovementSpeed; // stores the character's movement speed
+var() Weapon currentWeapon; // stores the character's current equipped weapon
+var() int numBackpackSlots; // stores the number of backpack slots for inventory
+
+// default properties
+defaultproperties
+{
+   Begin Object Name=Collision
+      CollisionRadius=44.000000
+      CollisionHeight=80.000000
+      CollisionComponentName="CollisionCylinder"
+   End Object
+}
+/*
+This function is called when the character takes damage
+@param Damage - the amount of damage taken
+@param DamageType - the type of damage (e.g. bullet, explosion)
+@param InstigatedBy - the actor responsible for inflicting the damage
+@param DamageCauser - the weapon used to inflict the damage
+@return true if the character is still alive, false if dead
+*/
+function bool TakeDamage(int Damage, class<DamageType> DamageType, Actor InstigatedBy, vec HitLocation, vector Momentum)
+{
+   // subtract the damage from the character's health
+   Health -= Damage;
+   
+   // if health reaches 0, character is dead
+   if (Health <= 0)
+   {
+      // play death animation
+      PlayAnimTreeDeath();
+      
+      // disable collisions and physics
+      bCollideActors = false;
+      bBlockActors = false;
+      bHidden = true;
+      bNoDelete = true;
+      
+      // return false to indicate death
+      return false;
+   }
+   else
+   {
+      // return true to indicate character is still alive
+      return true;
+   }
+}
+
+/*
+This function is called when the character picks up a new weapon
+@param NewWeapon - the new weapon to be picked up
+*/
+function AddWeapon(Weapon NewWeapon)
+{
+   if (currentWeapon != none)
+   {
+      // drop current weapon and replace with new one
+      currentWeapon.Drop();
+      currentWeapon = none;
+      currentWeapon = NewWeapon;
+   }
+   else
+   {
+      currentWeapon = NewWeapon
+   }
+}
+
+/*
+This function is called when the character tries to fire their weapon
+@return true if successful, false if no weapon is equipped
+*/
+function bool FireWeapon()
+{
+   // check if a weapon is equipped
+   if (currentWeapon != none)
+   {
+      // call weapon's Fire() function
+      currentWeapon.Fire();
+      
+      // return true to indicate successful fire
+      return true;
+   }
+   else
+   {
+      // return false to indicate no weapon equipped
+      return false;
+   }
+}
+
+/*
+This function is called when the character attempts to reload their weapon
+@return true if successful, false if no weapon is equipped or if weapon is already fully loaded
+*/
+function bool ReloadWeapon()
+{
+   if (currentWeapon != none)
+   {
+      if (currentWeapon.NeedsReload())
+      {
+         // call weapon's Reload() function
+         currentWeapon.Reload();
+         
+         // return true to indicate successful reload
+         return true;
+      }
+      else
+      {
+         // return false to indicate weapon already fully loaded
+         return false;
+      }
+   }
+   else
+   {
+      // return false to indicate no weapon equipped
+      return false;
+   }
+}
+
+/*
+This function is called when the character needs to change weapons
+@param NewWeapon - the new weapon to switch to
+@return true if successful, false if no weapon is equipped
+*/
+function bool SwitchWeapon(Weapon NewWeapon)
+{
+   if (currentWeapon != none)
+   {
+      // drop current weapon and replace with new one
+      currentWeapon.Drop();
+      currentWeapon = none;
+      currentWeapon = NewWeapon;
+      
+      // return true to indicate successful switch
+      return true;
+   }
+   else
+   {
+      // return false to indicate no weapon equipped
+      return false;
+   }
+}
+
+/*
+This function is called when the character needs to pick up an item
+@param Item - the item to be picked up
+@return true if successful, false if no backpack slots available
+*/
+function bool PickUpItem(Item Item)
+{
+   // check if there are available backpack slots
+   if (numBackpackSlots > 0)
+   {
+      // add item to backpack inventory
+      Item.AddToInventory();
+      
+      // decrease available backpack slots
+      numBackpackSlots--;
+      
+      // return true to indicate successful pickup
+      return true;
+   }
+   else
+   {
+      // return false to indicate no available backpack slots
+      return false;
+   }
+}
+
+/*
+This function is called when the character needs to drop an item from their backpack
+@param Item - the item to be dropped
+@return true if successful, false if item not found
+*/
+function bool DropItem(Item Item)
+{
+   // check if item is in backpack inventory
+   if (Item.InventorySlot != "")
+   {
+      // decrease available backpack slots
+      numBackpackSlots++;
+      
+      // remove item from backpack inventory
+      Item.RemoveFromInventory();
+      
+      // return true to indicate successful drop
+      return true;
+   }
+   else
+   {
+      // return false to indicate item not found in backpack
+      return false;
+   }
+}

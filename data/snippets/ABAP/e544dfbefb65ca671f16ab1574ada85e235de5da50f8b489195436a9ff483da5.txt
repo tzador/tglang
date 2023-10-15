@@ -1,0 +1,57 @@
+*&---------------------------------------------------------------------*
+*& Report Z_CHECK_STOCK
+*&---------------------------------------------------------------------*
+*& Purpose: This report checks the stock of a specified material in a
+*&          specific plant and displays the results.
+*&---------------------------------------------------------------------*
+REPORT z_check_stock.
+
+* Declaring variables for user input
+DATA: lv_matnr TYPE matnr,
+      lv_werks TYPE werks_d,
+      lv_message TYPE c LENGTH 50,
+      lv_date TYPE sy-datum.
+
+* Getting user input using selection-screen
+SELECT-OPTIONS: s_matnr FOR lv_matnr,
+                s_werks FOR lv_werks,
+                s_date FOR lv_date.
+
+* Checking if all selection criteria have been entered
+IF sy-subrc = 0.
+
+  * Getting the stock level from MARC table for given material and plant
+  SELECT werks matnr labst FROM marc INTO TABLE @DATA(lt_marc)
+      FOR ALL ENTRIES IN @s_matnr
+      WHERE matnr = @s_matnr-sign AND
+            werks = @s_head-werks AND
+            ernam = @s_head-ernam.
+
+  * Looping through the results to check for excess or low stock levels
+  LOOP AT lt_marc ASSIGNING FIELD-SYMBOL(<fs_marc>).
+    IF <fs_marc>-labst GT 10000.
+      lv_message = |The stock level for material { <fs_marc>-matnr } in plant { <fs_marc>-werks } is currently too high.|.
+
+    ELSEIF <fs_marc>-labst LT 100.
+      lv_message = |The stock level for material { <fs_marc>-matnr } in plant { <fs_marc>-werks } is currently low.|.
+    ENDIF.
+
+    * Displaying the message in an ALV grid
+    DATA: lr_grid TYPE REF TO cl_gui_alv_grid.
+    CREATE OBJECT lr_grid EXPORTING i_parent = cl_gui_container=>screen0.
+    CALL METHOD lr_grid->set_table_for_first_display
+      EXPORTING
+        i_structure_name = 'MARC'
+      CHANGING
+        it_outtab = lt_marc.
+
+    * Adding a custom column for the message
+    lr_grid->set_ready_for_input( abap_true ).
+    DATA lr_column TYPE REF TO cl_salv_column.
+    lr_column ?= lr_grid->if_salv_wd_column_settings~get_column( 'LABST' ).
+    lr_column = lr_grid->show_toolbar( ).
+    lr_column->set_short_text( lv_message ).
+  ENDLOOP.
+ELSE.
+  WRITE: / 'Please enter all selection criteria.'.
+ENDIF.

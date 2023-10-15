@@ -1,0 +1,195 @@
+server {
+    # listen on port 80
+    listen 80;
+    
+    # define server name
+    server_name example.com;
+    
+    # set access log path and format
+    access_log /var/log/nginx/access.log main;
+    
+    # location block for root directory
+    location / {
+        # set root HTML directory
+        root /var/www/html;
+        
+        # allow only GET and POST requests
+        limit_except GET POST {
+            deny all;
+        }
+        
+        # enable gzip compression
+        gzip on;
+        
+        # set gzip compression level
+        gzip_comp_level 5;
+        
+        # set minimum file size for gzip compression
+        gzip_min_length 100;
+        
+        # specify file types to be compressed
+        gzip_types text/plain text/css application/json;
+    }
+    
+    # location block for static files
+    location ~* \.(jpg|jpeg|gif|png|css|js|ico)$ {
+        # set cache expiry time to 1 week
+        expires 1w;
+        
+        # set access log path and format
+        access_log off;
+        
+        # enable gzip compression
+        gzip on;
+        
+        # set gzip compression level
+        gzip_comp_level 5;
+        
+        # set minimum file size for gzip compression
+        gzip_min_length 100;
+        
+        # specify file types to be compressed
+        gzip_types text/plain text/css application/javascript;
+    }
+    
+    # location block for PHP files
+    location ~* \.php$ {
+        # set PHP-FPM socket
+        fastcgi_pass unix:/var/run/php-fpm.sock;
+        
+        # include common FastCGI parameters
+        include fastcgi_params;
+        
+        # set path to PHP-FPM configuration file
+        fastcgi_param SCRIPT_FILENAME /var/www/html$fastcgi_script_name;
+        
+        # disable FastCGI buffering
+        fastcgi_buffering off;
+        
+        # set access log path and format
+        access_log off;
+    }
+    
+    # location block for error pages
+    error_page 404 /404.html;
+    location = /40x.html {
+        # root directory for error pages
+        root /var/www/errors;
+    }
+    
+    # set up HTTPS for secure connections
+    server {
+        # listen on port 443
+        listen 443 ssl;
+        
+        # define server name
+        server_name example.com;
+        
+        # set SSL certificate file path
+        ssl_certificate /etc/nginx/ssl/example.crt;
+        
+        # set SSL certificate key file path
+        ssl_certificate_key /etc/nginx/ssl/example.key;
+        
+        # enable SSL session caching
+        ssl_session_cache shared:SSL:10m;
+        
+        # set up SSL protocols and ciphers
+        ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+        ssl_ciphers HIGH:!aNULL:!MD5;
+        
+        # enable OCSP stapling
+        ssl_stapling on;
+        ssl_stapling_verify on;
+        
+        # set access log path and format
+        access_log /var/log/nginx/ssl.access.log main;
+        
+        # location block for root directory
+        location / {
+            # set root HTML directory
+            root /var/www/html;
+            
+            # allow only GET and POST requests
+            limit_except GET POST {
+                deny all;
+            }
+        }
+        
+        # location block for PHP files
+        location ~* \.php$ {
+            # set PHP-FPM socket
+            fastcgi_pass unix:/var/run/php-fpm.sock;
+            
+            # include common FastCGI parameters
+            include fastcgi_params;
+            
+            # set path to PHP-FPM configuration file
+            fastcgi_param SCRIPT_FILENAME /var/www/html$fastcgi_script_name;
+            
+            # disable FastCGI buffering
+            fastcgi_buffering off;
+            
+            # set access log path and format
+            access_log off;
+        }
+    }
+    
+    # location block for load balancing
+    upstream backend {
+        # set list of servers to be load balanced
+        server backend1.example.com;
+        server backend2.example.com;
+    }
+    
+    location / {
+        # enable load balancing
+        proxy_pass http://backend;
+        
+        # enable HTTP persistent connections
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        
+        # enable caching of responses from the backend
+        proxy_cache_bypass $http_pragma;
+        proxy_cache_revalidate on;
+        proxy_cache $upstream_cache_status;
+        
+        # set cache expiry time to 1 hour
+        proxy_cache_valid 200 1h;
+        
+        # enable Gzip compression
+        gzip on;
+        
+        # set Gzip compression level
+        gzip_comp_level 5;
+        
+        # set minimum file size for Gzip compression
+        gzip_min_length 100;
+    }
+    
+    # specify server tokens to be shown in error pages
+    server_tokens on;
+    
+    # specify keep alive timeout
+    keepalive_timeout 65;
+    
+    # enable client requests via HTTP/2
+    listen 443 ssl http2;
+    
+    # add RESTful API caching
+    server {
+        location /api/ {
+            # enable caching
+            proxy_cache my_cache;
+            
+            # enable caching for all methods except POST
+            limit_except POST {
+                proxy_cache_methods GET HEAD;
+            }
+            
+            # set cache expiry time to 10 minutes
+            proxy_cache_valid 200 10m;
+        }
+    }
+}

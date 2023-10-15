@@ -1,0 +1,67 @@
+# set specific timeout for requests
+keepalive_timeout 300s;
+
+# enable gzip compression
+gzip on;
+gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+# set cache expiration for different file types
+location ~* \.(css|js|png|jpg|jpeg|gif|ico|svg)$ {
+   expires 1y;
+   log_not_found off;
+}
+
+# serve static files from a specific directory
+location /static/ {
+  root /var/www;
+}
+
+# set up a load balancing server with round-robin algorithm
+upstream backend {
+  server backend1.example.com weight=5;
+  server backend2.example.com;
+  server backend3.example.com max_fails=3 fail_timeout=30s;
+  server backend4.example.com;
+}
+
+# define server block for a specific domain
+server {
+  listen 80;
+  server_name example.com www.example.com;
+
+  # redirect all traffic to HTTPS
+  return 301 https://$host$request_uri;
+}
+
+# define server block for HTTPS
+server {
+  listen 443 ssl;
+  server_name example.com www.example.com;
+
+  # specify SSL certificate and key location
+  ssl_certificate /etc/ssl/certs/example.com.crt;
+  ssl_certificate_key /etc/ssl/private/example.com.key;
+
+  # only allow specific ciphers for increased security
+  ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384';
+  ssl_prefer_server_ciphers on;
+
+  # enable OCSP stapling for improved performance and security
+  ssl_stapling on;
+  ssl_stapling_verify on;
+
+  # set buffer size and timeout for proxy requests
+  proxy_buffer_size 128k;
+  proxy_buffers 4 256k;
+  proxy_busy_buffers_size 256k;
+  proxy_http_version 1.1;
+  proxy_set_header Connection "";
+
+  # proxy all requests except for certain file types
+  location / {
+    proxy_pass http://backend;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_redirect off;
+  }
+}

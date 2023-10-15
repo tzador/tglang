@@ -1,0 +1,58 @@
+SETS
+    i 'number of locations' /1*10/
+    j 'number of warehouses' /1*5/
+    k 'number of customers' /1*20/
+    m 'number of products' /1*50/;
+ 
+PARAMETERS
+    d(j) 'fixed transportation costs to warehouse'
+    c(i,j) 'variable transportation costs from locations to warehouses'
+    h(m) 'holding costs for each product'
+    s(m) 'selling prices for each product';
+
+TABLE t(i,k,m) 'transportation capacity from locations to customers'
+                k1        k2        k3
+m1   17  14  30
+m2   45  10  5
+m3   20  12  3
+m4   30  25  15
+m5   18  10  22;
+
+VARIABLES
+    x(i,j,k) 'amount of product shipped from locations to warehouses and customers'
+    y(i,j,k) 'binary variable for deciding which location to ship from'
+    q_m(m) 'amount of product held at each location'
+    obj 'total cost';
+ 
+EQUATIONS
+    balance(i,k) 'balance constraint'
+    capacity(i,j) 'capacity constraint'
+    warehouse(j) 'at least one warehouse must be chosen'
+    obj_def 'objective definition'
+    quantity(m) 'quantity constraint';
+ 
+balance(i,k).. sum(j, x(i,j,k)) =e= sum(m, t(i,k,m) * q_m(m));
+ 
+capacity(i,j).. sum(k, x(i,j,k)) =l= y(i,j,k) * 10000;
+ 
+warehouse(j).. sum(i, y(i,j,k)) =g= 1;
+ 
+obj_def.. obj =e= sum(i, d(j) * sum(k, x(i,j,k))) + sum(i, j, c(i,j) * sum(k, x(i,j,k))) + sum(m, h(m) * q_m(m)) - sum(m, s(m) * q_m(m));
+ 
+quantity(m).. q_m(m) =l= sum(i, sum(j, x(i,j,k)));
+ 
+MODEL transportation / all /;
+ 
+DISTANCE(i,k).. sum(j, x(i,j,k)) =l= d(j);
+ 
+y.fx(i,j,k) = 0;
+ 
+q_m.lo(m) = 0;
+
+OPTION reslim = 100;
+OPTION optcr = 1e-6;
+OPTION iterlim = 100000;
+ 
+SOLVE transportation USING mip MINIMIZING obj;
+ 
+DISPLAY x.l, q_m.l, obj.l;

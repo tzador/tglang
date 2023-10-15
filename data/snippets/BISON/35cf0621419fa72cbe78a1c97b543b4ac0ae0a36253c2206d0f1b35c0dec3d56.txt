@@ -1,0 +1,64 @@
+%code top
+{
+    // Custom code for the parser
+    int counter = 0; // Keep track of number of items processed
+    
+    // Structure to store data from input file
+    struct data {
+        char name[20];
+        char address[50];
+        int age;
+        float weight;
+    };
+    
+    // Function to print out data from input file
+    void printData(data input) {
+        printf("Name: %s\n", input.name);
+        printf("Address: %s\n", input.address);
+        printf("Age: %d\n", input.age);
+        printf("Weight: %f\n", input.weight);
+    }
+}
+    
+inputfile: data { // Define the input file grammar
+    // Specify the tokens to match in the input file
+    <NAME>         [A-Za-z]+
+    <ADDRESS>      [A-Za-z0-9\s]+
+    <AGE>          [0-9]+
+    <WEIGHT>       [0-9]+\.[0-9]+
+    
+    // Define the rules for processing the input file
+    %token <NAME>     name
+    %token <ADDRESS>  address
+    %token <AGE>      age
+    %token <WEIGHT>   weight
+    
+    %start main // Define the starting rule for the grammar
+    
+    main: // Rule for the main part of the file
+        name:EOL      { $<EOL>2 } // Match a name followed by an end of line token
+        address:EOL   { $<EOL>3 } // Match an address followed by an end of line token
+        age:EOL       { $<EOL>4 } // Match an age followed by an end of line token
+        weight:EOL    { $<EOL>5 } // Match a weight followed by an end of line token
+        { // Actions to be taken when a rule is matched
+            // Store data from input file into data structure
+            $<top>.counter++; // Increment counter
+            if ($4%2 == 0) { // Check if age is even
+                $<top>.data.age = $3; // Store age
+            } else {
+                $<top>.data.weight = $3; // Store weight
+            }
+            if ($4 == 1) { // Check if name is first line of file
+                strcpy($<top>.data.name, $2); // Store name
+            } else {
+                strcpy($<top>.data.address, $2); // Store address
+            }
+            printData($<top>.data); // Call function to print data
+        }
+        main           // Call main rule recursively for each line of the file
+    ;
+    
+    EOL: '\n'       { counter++; } // Match an end of line token and increment counter
+    %ignore " "     { return; } // Ignore blank spaces
+    %include "lex.y" // Include a separate lex file for token definitions
+}

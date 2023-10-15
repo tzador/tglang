@@ -1,0 +1,83 @@
+%% This module simulates a shopping cart
+-module(shopping_cart).
+
+%% Public functions
+-export([add_item/3, remove_item/2, checkout/1]).
+
+%% Shopping cart record definition
+-record(cart, {id, items=[]}).
+
+%% Internal functions
+%% Adds an item to the shopping cart
+-spec add_item (Pid::pid(), Item::tuple(), Cart::#cart{}) -> #cart{}
+add_item(Pid, Item, Cart) ->
+    Cart#cart{items=[Item|Cart#cart.items]}.
+
+%% Removes an item from the shopping cart
+-spec remove_item (Pid::pid(), Item::atom(), Cart::#cart{}) -> #cart{}
+remove_item(Pid, Item, Cart) ->
+    Cart#cart{items = lists:delete(Item, Cart#cart.items)}.
+
+%% Performs checkout for the shopping cart
+-spec checkout (Pid::pid(), Cart::#cart{}) -> ok | {error, Reason::term()}
+checkout(Pid, Cart) ->
+    %% Calculate total price
+    TotalPrice = lists:foldl(fun(Item, Acc) -> item_price(Item) + Acc end, 0, Cart#cart.items),
+
+    %% Make payment
+    case make_payment(Pid, TotalPrice) of
+        ok ->
+            %% Success message
+            io:format("Checkout successful! Your total price is: ~p.", [TotalPrice]),
+            %% Clear the cart
+            ok;
+        {error, _} = Reason ->
+            %% Error message
+            io:format("An error occurred during checkout. Reason: ~p.", [Reason])
+    end.
+
+%% Internal functions
+%% Calculates price of an item
+-spec item_price (Item::tuple()) -> integer()
+item_price(Item) ->
+    Price = Item#item.price,
+    Quantity = Item#item.quantity,
+    TotalPrice = Price * Quantity,
+    TotalPrice.
+    
+%% Makes payment using a payment gateway
+-spec make_payment (Pid::pid(), Amount::integer()) -> ok | {error, Reason::term()}
+make_payment(Pid, Amount) ->
+    %% Generate a random reference number
+    RefNumber = generate_ref(),
+
+    %% Send payment request to payment gateway
+    case send_payment_request(Pid, RefNumber, Amount) of
+        ok ->
+            %% Receive payment confirmation
+            receive
+                {payment_confirmed, RefNumber} ->
+                    %% Payment was successful
+                    ok;
+                {payment_declined, _Reason} ->
+                    %% Payment was declined
+                    {error, payment_declined}
+            end;
+        {error, Reason} ->
+            %% Error occurred during payment
+            {error, Reason}
+    end.
+
+%% Internal function
+%% Generates a random reference number for payment
+-spec generate_ref () -> integer()
+generate_ref() ->
+    RefNumber = rand:uniform(100000),
+    RefNumber.
+
+%% Internal function
+%% Sends payment request to payment gateway
+-spec send_payment_request (Pid::pid(), RefNumber::integer(), Amount::integer()) -> ok | {error, term()}
+send_payment_request(Pid, RefNumber, Amount) ->
+    Pid ! {request_payment, RefNumber, Amount},
+    ok.

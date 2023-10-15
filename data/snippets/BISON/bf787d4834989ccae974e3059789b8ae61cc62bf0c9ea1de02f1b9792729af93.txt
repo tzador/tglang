@@ -1,0 +1,143 @@
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+// define tokens
+%}
+
+%token <text> ID
+%token <number> NUM
+%token <letter> LETTERS
+%token <operation> ADD SUB MUL DIV
+%token <error> ERR
+
+// define grammar rules
+%start code
+
+code: statement
+    | statement code
+    |;
+
+statement: assignment
+    | math_expression
+    | print
+    | conditional
+    | loop;
+
+assignment: ID "=" NUM { // store variable assignment in symbol table (not shown)}
+    | ID "=" ID { // store variable assignment in symbol table (not shown) };
+
+math_expression: ID ADD ID
+    | ID SUB ID
+    | ID MUL ID
+    | ID DIV ID;
+
+print: "print" ID;
+
+conditional: "if" "(" ID ">" NUM ")" "{"
+            code
+        "}"
+        "else" "{"
+            code
+        "}";
+
+loop: "while" "(" ID "<" NUM ")" "{"
+        code
+    "}";
+
+// define functions to get user input and display output (not shown)
+
+// define error handling
+%parse-param { parser_t* parser } // function to handle parser errors (not shown)
+%error-verbose;
+
+%%
+int main(int argc, char** argv) {
+    // initialize parser and parse input
+    yyparse();
+}
+
+// define lexer rules
+%lex-param { parser_t* parser } // function to handle lexer errors (not shown)
+
+%option noyywrap
+%option yylineno
+
+%{
+// initialize line number count
+int line_num = 1;
+// initialize symbol table (not shown)
+%}
+
+delimiter [ \t]
+integer [0-9]+
+id [a-zA-Z][a-zA-Z0-9]*
+
+%x add_state
+%x sub_state
+%x mul_state
+%x div_state
+
+%%
+// handle lexical errors
+<<EOF>> {
+    // call parser error handling function
+    parser->lexerDone;
+}
+
+{delimiter} ;
+{integer} {
+    // define token type and value for NUM token
+    parser->token = NUM;
+    strncpy(parser->value, yytext, MAX_LEN);
+    return token;
+}
+{add_state} {
+    // define token type and value for ADD token
+    parser->token = ADD;
+    return token;
+}
+{sub_state} {
+    // define token type and value for SUB token
+    parser->token = SUB;
+    return token;
+}
+{mul_state} {
+    // define token type and value for MUL token
+    parser->token = MUL;
+    return token;
+}
+{div_state} {
+    // define token type and value for DIV token
+    parser->token = DIV;
+    return token;
+}
+{id} {
+    // check if ID is a keyword (if, else, while, print)
+    if (strcmp(yytext, "if") == 0) {
+        // change state to add_state
+        BEGIN(add_state);
+    } else if (strcmp(yytext, "else") == 0) {
+        // change state to sub_state
+        BEGIN(sub_state);
+    } else if (strcmp(yytext, "while") == 0) {
+        // change state to mul_state
+        BEGIN(mul_state);
+    } else if (strcmp(yytext, "print") == 0) {
+        // change state to div_state
+        BEGIN(div_state);
+    } else {
+        // define token type and value for ID token
+        parser->token = ID;
+        strncpy(parser->value, yytext, MAX_LEN);
+        return token;
+    }
+}
+\n { // increase line number count for each new line
+    line_num++;
+}
+
+// function to handle parser errors (not shown)
+
+// function to handle lexer errors (not shown)

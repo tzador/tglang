@@ -1,0 +1,109 @@
+{ This code snippet calculates the convex hull of a set of points using the Graham Scan algorithm }
+program ConvexHull;
+const
+    Max = 100; // maximum number of points
+
+type
+    Point = record
+        x, y: Integer; // coordinates of the point
+    end;
+
+var
+    P: array[0..Max] of Point; // array to store the points
+    n, i, j, top: Integer; // variables for loop and top of stack
+    S: array[0..Max] of Point; // stack to store the convex hull points
+
+// function to swap two points
+procedure Swap(var a, b: Point);
+var
+    temp: Point;
+begin
+    temp := a;
+    a := b;
+    b := temp;
+end;
+
+// function to find the orientation of three points (clockwise, counterclockwise, or colinear)
+function orientation(p, q, r: Point): Integer;
+begin
+    orientation := (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
+    if orientation > 0 then // clockwise
+        orientation := 1
+    else if orientation < 0 then // counterclockwise
+        orientation := -1
+    else // colinear
+        orientation := 0;
+end;
+
+// function to sort points in ascending order based on their polar angle from the leftmost and bottommost point
+function sortByAngle(p1, p2: Point): Integer;
+var
+    o: Integer; // orientation
+begin
+    o := orientation(P[0], p1, p2); // calculate orientation
+    if o = 0 then // if colinear, take the one closer to the leftmost and bottommost point
+        sortByAngle := (sqr(p1.x - P[0].x) + sqr(p1.y - P[0].y)) - (sqr(p2.x - P[0].x) + sqr(p2.y - P[0].y))
+    else // else sort based on orientation
+        sortByAngle := o;
+end;
+
+// function to find the distance between two points
+function distance(p1, p2: Point): Real;
+begin
+    distance := sqrt(sqr(p1.x - p2.x) + sqr(p1.y - p2.y));
+end;
+
+begin
+    Write('Enter the number of points: ');
+    ReadLn(n); // get number of points
+    for i := 0 to n-1 do
+    begin
+        WriteLn('Enter the coordinates of point  ', i+1);
+        Write('x: ');
+        ReadLn(P[i].x); // get x coordinate
+        Write('y: ');
+        ReadLn(P[i].y); // get y coordinate
+    end;
+
+    // find the leftmost and bottommost point and swap it with the first point
+    for i := 1 to n-1 do
+        if (P[i].y < P[0].y) or ((P[i].y = P[0].y) and (P[i].x < P[0].x)) then
+            Swap(P[0], P[i]);
+
+    // sort the points in ascending order based on their polar angle from the leftmost and bottommost point
+    P[n] := P[0];
+    P[n+1] := P[1];
+    P[n+2] := P[2];
+    j := 1;
+    for i := 3 to n do
+    begin
+        while (orientation(P[j], P[j+1], P[i]) > 0) do
+            j := j + 1; // find the starting index
+        P[j+1] := P[i];
+        j := j + 1;
+    end;
+    n := j; // number of points after sorting
+
+    // push first three points to stack
+    S[0] := P[0];
+    S[1] := P[1];
+    S[2] := P[2];
+    top := 2; // top of stack
+
+    // loop over the remaining points and add them to the stack if they form a counterclockwise turn with the top two points
+    for i := 3 to n-1 do
+    begin
+        while (orientation(S[top-1], S[top], P[i]) >= 0) do
+            top := top - 1;
+        top := top + 1;
+        S[top] := P[i];
+    end;
+
+    // print the points on the convex hull
+    WriteLn('Points on the convex hull are: ');
+    for i := 0 to top do
+        WriteLn(S[i].x, ' ', S[i].y);
+
+    // print the perimeter of the convex hull
+    WriteLn('Perimeter of the convex hull is: ', distance(S[0], S[top]));
+end.

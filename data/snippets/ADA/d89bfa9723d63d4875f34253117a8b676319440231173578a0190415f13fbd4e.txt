@@ -1,0 +1,84 @@
+with Ada.Text_IO; use Ada.Text_IO;
+procedure Recursive_Division is
+    type Grid is array (Positive range <>, Positive range <>) of Boolean;
+    type Wall_Direction is (Horizontal, Vertical);
+
+    -- Helper function to randomly choose a wall direction
+    function Random_Direction return Wall_Direction is
+    begin
+        if Random (1 .. 2) = 1 then
+            return Horizontal;
+        else
+            return Vertical;
+        end if;
+    end Random_Direction;
+
+    -- Procedure to recursively divide the grid using backtracking
+    procedure Divide (G : in out Grid; X, Y, Width, Height : in Positive) is
+        DeltaX, DeltaY : Positive := 0;
+        Wall_X, Wall_Y : Positive := 0;
+
+        -- Helper function to randomly choose a wall position within the grid
+        function Random_Wall_Position (Coord : Positive; Size : Positive) return Positive is
+        begin
+            return Coord + Random (1 .. Size - 1) * 2;
+        end Random_Wall_Position;
+
+    begin
+        -- Base case: if grid has a width or height of 2, exit recursion
+        if Width = 2 or else Height = 2 then
+            return;
+        else
+            -- Choose random wall position and direction
+            if Random_Direction = Horizontal then
+                Wall_X := Random_Wall_Position (X, Width);
+                DeltaX := Width - 1; -- Update width
+            else
+                Wall_Y := Random_Wall_Position (Y, Height);
+                DeltaY := Height - 1; -- Update height
+            end if;
+
+            -- Create a passage in the wall
+            for I in X .. X + Width - 1 loop
+                G (Wall_X, I) := True;
+            end loop;
+            for I in Y .. Y + Height - 1 loop
+                G (I, Wall_Y) := True;
+            end loop;
+
+            -- Recursively divide the sub-grids on either side of the wall
+            Divide (G, X, Y, Wall_X - X + 1, Wall_Y - Y + 1);
+            Divide (G, Wall_X + DeltaX, Y, X + Width - Wall_X - 1, Wall_Y - Y + 1);
+            Divide (G, X, Wall_Y + DeltaY, Wall_X - X + 1, Y + Height - Wall_Y - 1);
+            Divide (G, Wall_X + DeltaX, Wall_Y + DeltaY, X + Width - Wall_X - 1, Y + Height - Wall_Y - 1);
+        end if;
+    end Divide;
+
+    -- Generate a random grid with a defined size
+    procedure Generate_Grid (G : out Grid; Rows, Columns : in Positive) is
+    begin
+        G (1 .. Rows, 1 .. Columns) := False; -- Initialize grid
+        Divide (G, 1, 1, Rows, Columns); -- Divide grid recursively
+    end Generate_Grid;
+
+    -- Print out the grid
+    procedure Print_Grid (G : in Grid) is
+    begin
+        for Row in G'Range (1) loop
+            for Column in G'Range (2) loop
+                if G (Row, Column) then
+                    Put ("    "); -- Print passage
+                else
+                    Put_Line ("|   |"); -- Print wall
+                end if;
+            end loop;
+        end loop;
+    end Print_Grid;
+
+    -- Main program
+    Rows, Columns : Positive := 11;
+    My_Grid : Grid (1 .. Rows, 1 .. Columns);
+begin
+    Generate_Grid (My_Grid, Rows, Columns);
+    Print_Grid (My_Grid);
+end Recursive_Division;

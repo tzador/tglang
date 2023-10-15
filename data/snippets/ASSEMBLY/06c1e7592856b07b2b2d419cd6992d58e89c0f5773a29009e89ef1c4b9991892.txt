@@ -1,0 +1,170 @@
+; This code snippet implements a recursive function to calculate the factorial of a number
+
+; Define the main program
+section .text
+    global _start
+
+; Define the entry point
+_start:
+    ; Prompt the user for input
+    mov eax, 4 ; System call for print
+    mov ebx, 1 ; File descriptor for standard output (stdout)
+    mov ecx, message ; Address of the message to be printed
+    mov edx, message_len ; Length of the message
+    int 80h ; Call the kernel to perform the system call
+
+    ; Get the input from user
+    mov eax, 3 ; System call for read
+    mov ebx, 0 ; File descriptor for standard input (stdin)
+    mov ecx, buf ; Buffer for storing the input
+    mov edx, buf_len ; Length of the buffer
+    int 80h ; Call the kernel to perform the system call
+
+    ; Convert the input to an integer
+    xor eax, eax ; Clear the value of eax
+    mov ebx, buf ; Address of the input buffer
+    mov ecx, eax ; Store the converted integer in ecx
+    call str_to_int ; Call the function to convert the string to integer
+
+    ; Calculate the factorial using recursion
+    push eax ; Push the input onto the stack
+    call fac ; Call the function to calculate the factorial
+    add esp, 4 ; Adjust the stack pointer to remove the input from the stack
+
+    ; Convert the factorial to a string
+    xor ebx, ebx ; Clear the value of ebx
+    mov ebx, eax ; Store the factorial in ebx
+    call int_to_str ; Call the function to convert the integer to string
+
+    ; Print the output
+    mov eax, 4
+    mov ebx, 1
+    mov ecx, output ; Address of the output message
+    mov edx, output_len ; Length of the output message
+    int 80h
+
+    ; Exit the program
+    mov eax, 1
+    xor ebx, ebx
+    int 80h
+
+; Define the function to calculate the factorial
+fac:
+    ; Set up the function's stack frame
+    push ebp ; Save the old base pointer
+    mov ebp, esp ; Set the new base pointer
+
+    ; Get the parameter from the stack
+    mov ebx, [ebp+8] ; First parameter is the input
+    cmp ebx, 1 ; Check if the input is equal to 1
+    je .base_case ; If true, jump to base case
+
+    ; Calculate the factorial of n-1
+    dec ebx ; Decrement the input by 1
+    push ebx ; Push the new input onto the stack
+    call fac ; Call the function again to calculate the factorial
+    add esp, 4 ; Adjust the stack pointer to remove the input from the stack
+
+    ; Calculate the factorial of n
+    mov eax, [ebp+8] ; Move the input to eax
+    mul ebx ; Multiply eax by ebx
+    jmp .end ; Jump to the end of the function
+
+    .base_case:
+        ; Base case is when n = 1, so return 1
+        mov eax, 1
+        jmp .end
+
+    .end:
+        ; Restore the stack frame and return
+        mov esp, ebp ; Restore the stack pointer
+        pop ebp ; Restore the old base pointer
+        ret ; Return to the previous function or main program
+
+; Define the function to convert a string to an integer
+str_to_int:
+    ; Set up the function's stack frame
+    push ebp ; Save the old base pointer
+    mov ebp, esp ; Set the new base pointer
+
+    ; Initialize the variables
+    xor eax, eax ; Clear the value of eax
+    xor ebx, ebx ; Clear the value of ebx
+    mov edx, 0 ; Initialize the value of edx to 0
+
+    .loop:
+        ; Loop through each character in the string
+        mov bl, [ecx] ; Move the character to bl
+        inc ecx ; Increment the pointer to the next character
+        cmp bl, 0 ; Check if the character is null (end of string)
+        je .exit ; If true, jump to exit
+
+        ; Convert the character to integer
+        sub bl, '0' ; Subtract the ASCII value of '0' to convert to integer
+        imul eax, 10 ; Multiply eax by 10
+        add eax, ebx ; Add the converted character to eax
+        jmp .loop ; Repeat the loop for the next character
+
+    .exit:
+        ; Restore the stack frame and return
+        mov esp, ebp ; Restore the stack pointer
+        pop ebp ; Restore the old base pointer
+        ret ; Return to the previous function or main program
+
+; Define the function to convert an integer to a string
+int_to_str:
+    ; Set up the function's stack frame
+    push ebp ; Save the old base pointer
+    mov ebp, esp ; Set the new base pointer
+
+    ; Initialize the variables
+    xor eax, eax ; Clear the value of eax
+    xor ebx, ebx ; Clear the value of ebx
+    mov edi, str_buf ; Initialize the pointer to the string buffer
+
+    ; Convert the integer to a string
+    .loop:
+        ; Loop until the integer becomes 0
+        mov edx, 0 ; Initialize the value of edx to 0
+        mov ebx, 10 ; Move the value 10 to ebx
+        div ebx ; Divide eax by ebx, the remainder is stored in edx
+        add dl, '0' ; Add the ASCII value of '0' to convert to character
+        mov [edi], dl ; Move the character to the string buffer
+        inc edi ; Increment the pointer to the next character
+        cmp eax, 0 ; Check if eax is equal to 0
+        je .exit ; If true, jump to exit
+        jmp .loop ; Repeat the loop until eax becomes 0
+
+    .exit:
+        ; Add a null character at the end of the string
+        mov [edi], 0 ; Add null character to the end of the string
+        ; Reverse the string
+        mov esi, str_len ; Initialize the pointer to the start of the string
+        dec esi ; Decrement the pointer since string length starts from 1
+        mov ebx, 0 ; Initialize the counter to 0
+
+    .reverse:
+        ; Reverse the order of characters in the string
+        mov al, [esi] ; Move the character from the end of the string to al
+        mov [edi], al ; Move the character to the start of the string
+        dec esi ; Decrement the pointer to the next character from the end
+        inc edi ; Increment the pointer to the next character from the beginning
+        inc ebx ; Increment the counter
+        cmp ebx, str_len ; Compare the counter with the string length
+        jl .reverse ; If less than, repeat the loop
+
+        ; Restore the stack frame and return
+        mov esp, ebp ; Restore the stack pointer
+        pop ebp ; Restore the old base pointer
+        ret ; Return to the previous function or main program
+
+; Define the data section
+section .data
+    message db "Enter a number to calculate its factorial: ", 0xa ; Message to prompt user for input
+    message_len equ $-message ; Length of the message
+    buf times 16 db 0 ; Buffer to store input
+    buf_len equ $-buf ; Length of the buffer
+    output db "The factorial is: ", 0xa, 0xd, "Output: ", 0xa ; Output message
+    output_len equ $-output ; Length of the output message
+    str_buf times 16 db 0 ; Buffer to store string
+    str_len equ $-str_buf ; Length of the string buffer

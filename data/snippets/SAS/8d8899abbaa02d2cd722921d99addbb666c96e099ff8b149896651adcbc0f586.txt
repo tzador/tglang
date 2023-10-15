@@ -1,0 +1,36 @@
+/* Setting up the data set */
+DATA employees;
+SET employee_list;
+WHERE salary > 50000;
+RUN;
+
+/* Sorting the data by department */
+PROC SORT DATA=employees
+     OUT=sorted_employees 
+     NODUPKEY;
+  BY department;
+  /* Removing duplicate entries */
+  IF LAST.department;
+RUN;
+
+/* Calculating average salary by department */
+PROC MEANS DATA=sorted_employees
+          NOPRINT;
+  CLASS department;
+  VAR salary;
+  OUTPUT OUT=avg_salary
+         MEAN=avg_salary;
+RUN;
+
+/* Merging data sets */
+DATA final_data(KEEP=department avg_salary);
+MERGE sorted_employees avg_salary;
+BY department;
+IF CREATEVAR('avg_salary') THEN
+AVG_SALARY = 0;
+IF dept_vsw%sysfunc(findw (department,"Sales Support IT")) THEN
+DEPT = 'SSIT';
+ELSE IF IFC= (dept_vsw%sysfunc(findw (department,"Human Resources")));
+DEPT = 'HR';
+ELSE DEPT = 'ERROR';
+RUN;

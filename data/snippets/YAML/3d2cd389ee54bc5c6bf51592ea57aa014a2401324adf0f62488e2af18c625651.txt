@@ -1,0 +1,69 @@
+---
+- name: create virtual machine
+  hosts: local
+  remote_user: admin
+  vars:
+    vm_name: "{{ vm_name }}"
+    resource_group: "{{ resource_group }}"
+    location: "{{ location }}"
+
+  tasks:
+  - name: create new virtual machine
+    azure_rm_virtualmachine:
+        resource_group: "{{ resource_group }}"
+        name: "{{ vm_name }}"
+        vm_size: "{{ vm_size }}"
+        location: "{{ location }}"
+        admin_username: "{{ admin_username }}"
+        ssh_password_enabled: False
+        managed_disk_type: "{{ disk_type }}"
+        network_interfaces: "{{ vm_name }}-nic"
+        image:
+         offer: "{{ os_offer }}"
+         publisher: "{{ os_publisher }}"
+         sku: "{{ os_sku }}"
+         version: "{{ os_version }}"
+        os_disk_name: "{{ os_disk_name }}"
+        os_type: "{{ os_type }}"
+ 
+  - name: open port for SSH access
+    azure_rm_networkinterface:
+        resource_group: "{{ resource_group }}"
+        name: "{{ vm_name }}-nic"
+        security_group_name: "{{ vm_name }}"
+        security_rules: "*"
+        state: present
+        purge_rules: true
+        rules:
+        - name: SSH
+          protocol: Tcp
+          destination_port_range: 22
+          access: Allow
+
+  - name: deploy web server
+    azure_rm_deployment:
+        resource_group: "{{ resource_group }}"
+        location: "{{ location }}"
+        name: webserver
+        template:
+          $schema: "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#"
+          contentVersion: "1.0.0.0"
+          parameters: {}
+          variables: {}
+          resources:
+            - type: "Microsoft.Compute/virtualMachines/extensions"
+              name: "{{ vm_name }}/webserver"
+              location: "{{ location }}"
+              apiVersion: "2015-06-15"
+              dependsOn:
+                - "[concat('Microsoft.Compute/virtualMachines/', parameters('vmName'))]"
+              properties:
+                publisher: "Microsoft.Powershell"
+                type: "CustomScriptExtension"
+                typeHandlerVersion: "1.4"
+                settings:
+                  fileUris: 
+                    - "https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/101-vm-simple-linux/producer/install_apache_nodejs.sh"
+                  commandToExecute: "./install_apache_nodejs.sh"
+        mode: Incremental
+---

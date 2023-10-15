@@ -1,0 +1,45 @@
+# This NGINX configuration block performs load balancing with health checks for an upstream group.
+
+# Sets the index file that NGINX will serve, if a directory is requested.
+index index.html
+
+# Specifies the maximum number of connections that can be opened by a worker process.
+worker_connections 1024;
+
+# Defines the upstream group and sets the load balancing method to round-robin.
+upstream backend {
+  server 127.0.0.1:8000 weight=3;
+  server 127.0.0.1:8001 weight=2;
+  server 127.0.0.1:8002;
+  server 127.0.0.1:8003 backup;
+  health_check;
+}
+
+# Configures the server listening port and server name.
+server {
+  listen 80;
+  server_name example.com;
+
+  # Sets the root directory for requests.
+  root /var/www/html;
+
+  # Enables HTTP/2 protocol.
+  http2_push_preload on;
+
+  # Specifies the error log file.
+  error_log /var/log/nginx/error.log;
+
+  # Specifies which log format to use.
+  access_log /var/log/nginx/access.log main;
+
+  # Sets the location for health checks to the upstream group.
+  location / health_check {
+    access_log off;
+    return 200;
+  }
+
+  # Forwards all requests to the backend servers, using the configured load balancing method.
+  location / {
+    proxy_pass http://backend;
+  }
+}

@@ -1,0 +1,58 @@
+-- Package specification for a secure message transfer system
+
+with Ada.Text_IO;                               -- Import Ada's text input/output package
+with Ada.Unchecked_Conversion;                   -- Import Ada's unchecked type conversion package
+
+package Secure_Messaging is
+
+   type Message_Type is (Command, Data);         -- Define message types for command and data
+   for Message_Type use (                      -- Specify underlying integer values for types
+     Command => 1,
+     Data => 2
+   );
+
+   type Secure_Data is record                   -- Define a record type for secure data
+      Data_Length : Unsigned_32;                 -- Holds the length of the data in bytes
+      Message : Message_Type;                    -- Holds the type of message
+      Payload : String (1 .. Data_Length + 1);   -- Holds the actual data, padded to avoid overflow
+   end record;
+
+   -- Type for holding encrypted data
+   type Encrypted_Data is array (Natural range <>) of
+      Character;
+
+   -- Function to encrypt data using a password
+   function Encrypt (Data : in Secure_Data;
+                     Password : String) return Encrypted_Data;
+
+   -- Function to decrypt data using a password
+   function Decrypt (Data : in Encrypted_Data;
+                     Password : String) return Secure_Data;
+end Secure_Messaging;
+
+package body Secure_Messaging is
+
+   function Encrypt (Data : in Secure_Data;
+                     Password : String) return Encrypted_Data is
+      Secure_Payload : Encrypted_Data (1 .. Data.Data_Length);
+   begin
+      -- Loop through each character and convert it to a new character using the password
+      for i in 1 .. Data.Data_Length loop
+         Secure_Payload (i) := Ada.Characters.Handling.To_Lower (Ada.Characters.Handling.To_Character (Password (i mod Password'Length + 1)) xor Character'Val (Data.Payload (i)));
+      end loop;
+
+      return Secure_Payload;
+   end Encrypt;
+
+   function Decrypt (Data : in Encrypted_Data;
+                     Password : String) return Secure_Data is
+      Original_Payload : Secure_Data;
+   begin
+      -- Loop through each character and convert it back to its original form using the password
+      for i in Data'Range loop
+         Original_Payload.Payload (i) := Ada.Characters.Handling.To_Character (Character'Val (Data (i)) xor Ada.Characters.Handling.To_Character (Password (i mod Password'Length + 1)));
+      end loop;
+
+      return Original_Payload;
+   end Decrypt;
+end Secure_Messaging;

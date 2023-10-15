@@ -1,0 +1,60 @@
+; This snippet is used for automating the process of compressing images
+; It requires the user to select the images to be compressed and specify the desired compression level
+
+#SingleInstance, Force ;ensures only 1 instance of the script is running
+
+; user-defined hotkey to trigger the image compression
+^+c:: ;Ctrl+Shift+C
+{
+	; define the compression level
+	InputBox, compression_level, Choose Compression Level, Please enter a value between 1 and 10
+	
+	; validate the compression level input
+	if (compression_level < 1 || compression_level > 10)
+	{
+		MsgBox, Error, Invalid compression level. Please enter a value between 1 and 10.
+		return
+	}
+	
+	; create a loop to iterate through each selected image
+	loop, %Clipboard%
+	{
+		image := Clipboard%A_Index% ;get the image file path
+		
+		; check if the file is an image
+		if (SubStr(image, -4) != ".jpg" && SubStr(image, -5) != ".jpeg" && SubStr(image, -4) != ".png" && SubStr(image, -4) != ".gif")
+		{
+			MsgBox, Error, Invalid file type. Please select only image files.
+			return
+		}
+		
+		; create a new image object
+		gdipBitmap := Gdip_CreateBitmapFromFile(image)
+		
+		; get the original image dimensions
+		Gdip_GetImageWidth(gdipBitmap, width)
+		Gdip_GetImageHeight(gdipBitmap, height)
+		
+		; calculate the new image dimensions based on the desired compression level
+		new_width := width * (compression_level/10)
+		new_height := height * (compression_level/10)
+		
+		; create a new resized image object
+		gdipResizedBitmap := Gdip_CreateBitmapFromScan0(new_width, new_height)
+		
+		; resize the original image and store it in the resized image object
+		Gdip_GraphicsDrawImage(gdipResizedBitmap, gdipBitmap, 0, 0, new_width, new_height)
+		
+		; save the resized image with the same name and location as the original image
+		Gdip_SaveBitmapToFile(gdipResizedBitmap, image)
+		
+		; dispose of the image objects to free up memory
+		Gdip_DisposeImage(gdipBitmap)
+		Gdip_DisposeImage(gdipResizedBitmap)
+	}
+	
+	; notify the user that the compression process is complete
+	MsgBox, Success, Image Compression Complete, Images have been compressed successfully!
+	
+	return
+}

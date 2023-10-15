@@ -1,0 +1,83 @@
+//This code snippet generates a report for customer sales based on their purchase history
+//The report includes the customer's contact information, total purchases, and average purchase amount
+
+//Create query for selecting customer information
+query = new Query;
+query.Text = 
+"
+SELECT
+    'Customer Name' AS Name, /*This will be the title of the report*/
+    CT.FullName,
+    CT.Phone AS ContactNumber,
+    CT.Email AS Email,
+    CT.Address AS Address,
+    SUM(OD.Quantity * OD.Price) AS TotalPurchases,
+    AVG(OD.Price) AS AveragePurchaseAmount
+FROM
+    Catalog.Customer AS CT
+    LEFT JOIN Document.Orders AS OD ON CT.ID = OD.Customer
+GROUP BY
+    CT.ID,
+    CT.FullName,
+    CT.Phone,
+    CT.Email,
+    CT.Address
+HAVING
+    SUM(OD.Quantity * OD.Price) > 0 /*Only select customers with more than 0 total purchases*/
+    AND AVG(OD.Price) >= 50 /*Only select customers with an average purchase amount of $50 or more*/
+";
+
+//Execute the query and store the results
+result = query.Execute();
+
+//Create new spreadsheet document for the report
+report = new SpreadsheetDocument;
+report.Create();
+
+//Set font style and size for report title
+titleFont = new ObjectFont;
+titleFont.Size = 16; /*16 point font size*/
+titleFont.Bold = True; /*Bold style*/
+
+//Add title to the report
+report.Sheets[0].CellRange["A1:D1"].Merge(); /*Merge cells for the title*/
+report.Sheets[0].CellRange["A1"].Object.Value = "Customer Sales Report"; /*Set title text*/
+report.Sheets[0].CellRange["A1"].Object.Font = titleFont; /*Set font style for title*/
+
+//Add column headers to the report
+report.Sheets[0].CellRange["A2"].Object.Value = "Customer Name";
+report.Sheets[0].CellRange["B2"].Object.Value = "Contact Number";
+report.Sheets[0].CellRange["C2"].Object.Value = "Email";
+report.Sheets[0].CellRange["D2"].Object.Value = "Address";
+report.Sheets[0].CellRange["E2"].Object.Value = "Total Purchases";
+report.Sheets[0].CellRange["F2"].Object.Value = "Average Purchase Amount";
+
+//Loop through the results and add them to the report
+rowIndex = 3; /*Start at row 3 for data*/
+foreach (record in result) do
+{
+    //Set font style and size for data cells
+    dataFont = new ObjectFont;
+    dataFont.Size = 12; /*12 point font size*/
+
+    //Add data to report, using the record field names as column references
+    report.Sheets[0].CellRange["A" + rowIndex].Object.Value = record.FullName;
+    report.Sheets[0].CellRange["B" + rowIndex].Object.Value = record.ContactNumber;
+    report.Sheets[0].CellRange["C" + rowIndex].Object.Value = record.Email;
+    report.Sheets[0].CellRange["D" + rowIndex].Object.Value = record.Address;
+    report.Sheets[0].CellRange["E" + rowIndex].Object.Value = record.TotalPurchases;
+    report.Sheets[0].CellRange["F" + rowIndex].Object.Value = record.AveragePurchaseAmount;
+    
+    //Apply font style to data cells
+    report.Sheets[0].CellRange.GetRow(rowIndex).Object.Font = dataFont;
+    
+    //Increment row index for next record
+    rowIndex++;
+}
+
+//Save and close the report
+report.Save("CustomerSalesReport.xlsx"); /*Save the report as an Excel file*/
+report.Close();
+
+//Open the report for viewing
+report.Open(); /*Open the report in the default program for .xlsx files*/

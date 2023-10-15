@@ -1,0 +1,98 @@
+// Contract for a decentralized voting system using Smart Contracts
+contract VotingSystem {
+
+    // Struct to store information about a voter
+    struct Voter {
+        bool hasVoted; // flag to check if the voter has already voted
+        uint vote; // stores the index of the voted candidate
+        uint weight; // weight of the vote, can be changed by the administrator
+    }
+
+    // Struct to store information about a candidate
+    struct Candidate {
+        string name; // name of the candidate
+        uint voteCount; // number of votes received by the candidate
+    }
+
+    address public administrator; // address of the administrator of the voting system
+    mapping(address => Voter) public voters; // mapping of voter addresses to Voter structs
+    Candidate[] public candidates; // array of Candidate structs
+    bool public votingClosed; // flag to check if voting has closed
+    uint public totalVotes; // total number of votes received
+
+    // Events to notify when an action is performed
+    event VoteCast(address voter, uint candidateIndex);
+    event AdminChange(address oldAdmin, address newAdmin);
+    event CandidateAdded(string name);
+
+    // Modifier to restrict a function to be called only by the administrator
+    modifier onlyAdmin() {
+        require(msg.sender == administrator, "Only the administrator can call this function");
+        _;
+    }
+
+    // Constructor to initialize the administrator and add candidates to the election
+    constructor() public {
+        administrator = msg.sender; // set the constructor caller as the administrator
+        addCandidate("John Smith"); // add some candidates to the election
+        addCandidate("Jane Doe");
+        addCandidate("Bob Johnson");
+    }
+
+    // Function to allow the administrator to add a new candidate to the election
+    function addCandidate(string name) public onlyAdmin {
+        // create a new Candidate struct with the given name and add it to the array
+        candidates.push(Candidate({
+            name: name,
+            voteCount: 0
+        }));
+        emit CandidateAdded(name); // emit the CandidateAdded event
+    }
+
+    // Function to cast a vote for a candidate
+    function castVote(uint candidateIndex) public {
+        Voter storage voter = voters[msg.sender]; // get the Voter struct for the current caller
+        require(!voter.hasVoted, "You have already voted"); // check if the voter has already voted
+        require(!votingClosed, "Voting is closed"); // check if voting is still open
+        voter.hasVoted = true; // update the voter's hasVoted flag
+        voter.vote = candidateIndex; // update the voter's vote to the given candidate's index
+        voter.weight = 1; // set the voter's weight to 1, can be changed by the administrator
+        candidates[candidateIndex].voteCount += voter.weight; // increment the candidate's vote count
+        totalVotes++; // increment the total vote count
+        emit VoteCast(msg.sender, candidateIndex); // emit the VoteCast event
+    }
+
+    // Function to allow the administrator to change the weight of a voter's vote
+    function changeVoteWeight(address voterAddress, uint newWeight) public onlyAdmin {
+        require(voters[voterAddress].hasVoted, "This voter has not voted yet"); // check if the voter has voted
+        voters[voterAddress].weight = newWeight; // update the voter's vote weight
+    }
+
+    // Function to check the winning candidate
+    function getWinner() public view returns (string) {
+        require(votingClosed, "Voting is still open"); // check if voting has closed
+        string memory winner; // declare a new string to store the name of the winner
+        uint winningVoteCount = 0; // initialize the winning vote count to 0
+        for (uint i = 0; i < candidates.length; i++) {
+            if (candidates[i].voteCount > winningVoteCount) {
+                // if the current candidate has more votes than the current winning vote count,
+                // update the winning vote count and the name of the winner
+                winningVoteCount = candidates[i].voteCount;
+                winner = candidates[i].name;
+            }
+        }
+        return winner; // return the name of the winner
+    }
+
+    // Function to close the voting
+    function closeVoting() public onlyAdmin {
+        votingClosed = true; // set the votingClosed flag to true
+    }
+
+    // Function to change the administrator of the voting system
+    function changeAdministrator(address newAdmin) public onlyAdmin {
+        address oldAdmin = administrator; // store the current administrator's address
+        administrator = newAdmin; // update the administrator's address
+        emit AdminChange(oldAdmin, newAdmin); // emit the AdminChange event
+    }
+}

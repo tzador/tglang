@@ -1,0 +1,82 @@
+%token NUMBER
+%start expressions
+
+%%
+
+expressions:
+  | %empty //empty production rule
+  | expressions expr //recursive rule
+  ;
+
+expr:
+  | NUMBER
+  | expr '+' expr //addition
+  | expr '*' expr //multiplication
+  | '(' expr ')' //parentheses
+  | '-' expr %prec UMINUS //unary minus
+  ;
+
+%%
+
+//This is the flex file that will generate the lex.yy.c file
+%{
+  #include <stdio.h>
+  #include "y.tab.h"
+%}
+
+%%
+[ \t\n]+ { //ignore whitespace
+}
+[0-9]+ { //return NUMBER token
+  int val = atoi(yytext);
+  yylval = val;
+  return NUMBER;
+}
+//all other tokens will be handled by default rule
+. {}
+
+%%
+
+int main() {
+  //generate lex.yy.c file from input
+  yyparse();
+  return 0;
+}
+
+//This is the yacc file that will generate the y.tab.c and y.tab.h files
+%{
+  #include <stdio.h>
+  #include <stdlib.h>
+  extern int yylex();
+  extern int yyparse();
+  extern FILE* yyin;
+  extern int yylval;
+%}
+
+%token NUMBER
+
+%%
+
+expressions: //same non-terminal used in flex file
+  | %empty
+  | expressions expr
+  ;
+
+expr:
+  | NUMBER
+  | expr '+' expr
+  | expr '*' expr
+  | '(' expr ')'
+  | '-' expr %prec UMINUS
+  ;
+
+%%
+
+int main(int argc, char **argv) {
+  yyparse(); //parse input
+  return 0;
+}
+
+//This is the header file that will be included in both the flex and yacc files
+#define YYSTYPE int //define the type for the yylval variable
+#include "y.tab.h" //include the yacc generated header file

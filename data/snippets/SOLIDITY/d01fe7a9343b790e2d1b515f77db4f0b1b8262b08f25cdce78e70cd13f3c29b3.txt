@@ -1,0 +1,118 @@
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity ^0.8.0;
+
+// Importing Staking contract from OpenZeppelin library
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+/**
+ * @title Staking contract
+ * @notice A basic staking contract where users can deposit and withdraw a token
+ * and earn rewards for staking.
+ * 
+ * The staking rewards are distributed among stakers based on their share of the total staked
+ * tokens. Rewards are accrued every time a user stakes or withdraws tokens.
+ * 
+ * This contract uses the OpenZeppelin library for safe math operations and access control.
+ */
+contract Staking is Ownable {
+    using SafeMath for uint256;
+    
+    // State variables
+    IERC20 private _token; // Token being staked
+    uint256 private _totalStaked; // Total amount of tokens staked on the contract
+    mapping(address => uint256) private _stakes; // Mapping of users' staked tokens
+    mapping(address => uint256) private _rewards; // Mapping of users' accrued rewards
+    uint256 private _rewardRate = 0.1 ether; // Reward rate in wei per token staked
+    
+    // Events
+    event TokenDeposited(address indexed user, uint256 amount);
+    event TokenWithdrawn(address indexed user, uint256 amount);
+    event RewardClaimed(address indexed user, uint256 amount);
+    
+    // Constructor
+    constructor(address tokenAddress) {
+        _token = IERC20(tokenAddress);
+    }
+    
+    /**
+     * @notice Deposits tokens into the staking contract.
+     * @dev The user must approve the contract to transfer their tokens before calling this function.
+     * @param amount The amount of tokens to be staked.
+     */
+    function depositTokens(uint256 amount) external {
+        require(amount > 0, "Amount must be greater than 0");
+        
+        // Transfer tokens from user to contract
+        _token.transferFrom(msg.sender, address(this), amount);
+        
+        // Update user's stake and total staked amount
+        _stakes[msg.sender] = _stakes[msg.sender].add(amount);
+        _totalStaked = _totalStaked.add(amount);
+        
+        emit TokenDeposited(msg.sender, amount);
+    }
+    
+    /**
+     * @notice Withdraws tokens from the staking contract.
+     * @dev The amount withdrawn is the user's total stake, including their accrued rewards.
+     */
+    function withdrawTokens() external {
+        // Get user's stake and accrued rewards
+        uint256 amount = _stakes[msg.sender].add(_rewards[msg.sender]);
+        
+        // Update user's stake and total staked amount
+        _stakes[msg.sender] = 0;
+        _totalStaked = _totalStaked.sub(amount);
+        
+        // Transfer tokens from contract to user
+        _token.transfer(msg.sender, amount);
+        
+        emit TokenWithdrawn(msg.sender, amount);
+    }
+    
+    /**
+     * @notice Claims rewards for staking.
+     * @dev Rewards are accrued based on the current reward rate and the user's share of the total staked amount.
+     */
+    function claimRewards() external {
+        // Calculate user's rewards based on their share of the total staked amount
+        uint256 currentRewards = _totalStaked.mul(_rewardRate).div(_stakes[msg.sender]);
+        
+        // Update user's accrued rewards
+        _rewards[msg.sender] = _rewards[msg.sender].add(currentRewards);
+        
+        emit RewardClaimed(msg.sender, currentRewards);
+    }
+    
+    /**
+     * @notice Updates the reward rate.
+     * @dev Only the contract owner can update the reward rate.
+     * @param newRate The new reward rate in wei per token staked.
+     */
+    function updateRewardRate(uint256 newRate) external onlyOwner {
+        _rewardRate = newRate;
+    }
+    
+    // Getters
+    function token() external view returns (address) {
+        return address(_token);
+    }
+    
+    function totalStaked() external view returns (uint256) {
+        return _totalStaked;
+    }
+    
+    function stakeOf(address user) external view returns (uint256) {
+        return _stakes[user];
+    }
+    
+    function rewardOf(address user) external view returns (uint256) {
+        return _rewards[user];
+    }
+    
+    function rewardRate() external view returns (uint256) {
+        return _rewardRate;
+    }
+}

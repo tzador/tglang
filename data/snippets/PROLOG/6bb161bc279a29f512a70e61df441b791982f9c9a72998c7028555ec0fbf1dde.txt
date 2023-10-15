@@ -1,0 +1,110 @@
+%%% Sets up the facts and rules for the game of Tic Tac Toe %%%
+
+%%% Categories for the game %%%
+:- dynamic([
+		game/3,		% Defines the current state of the game
+		winner/1,	% Defines the winner of the game
+		player/2	% Defines the current player and their symbol
+	]).
+	
+%%% Game facts and rules %%%
+game(empty, empty, 0).	% Defines the starting state of the game
+winner(empty).			% Defines the winner of the game as empty by default
+player(1, x).			% Defines first player as 'x'
+player(2, o).			% Defines second player as 'o'
+
+%%% Rule for checking if a player has won %%%
+check_win(_) :-
+	player(Player, Symbol),				% Get current player's turn and symbol
+	game(Board, _, Player),				% Get current game state for player
+	win_condition(Symbol),				% Define win condition for player's symbol
+	win(Board, Symbol, 1, 0, X),		% Check for horizontal win
+	X =:= 0,							% If horizontal win is not found, check for vertical win
+	win(Board, Symbol, 0, 1, Y),		% Check for vertical win
+	Y =:= 0,							% If vertical win is not found, check for diagonal win
+	win_diag(Board, Symbol, 0, 1).		% Check for diagonal win starting from top left corner
+win_condition(Symbol):-				% Define win conditions for each player's symbol
+	Symbol = x,
+	player(1, x).
+win(B, S, Xinc, Yinc, 0) :-			% Recursive rule for horizontal win
+	B  = [S,_,_,_,_,_,_,_,_];			% If current row is filled with player's symbol
+	X2 is X1 + Xinc,					% Move to next row
+	win(B, S, Xinc, Yinc, X2).			% Continue recursion
+win(B, S, Xinc, Yinc, 0) :-			% Recursive rule for vertical win
+	B = [_,_,S,_,_,S,_,_,S];			% If current column is filled with player's symbol
+	Y2 is Y1 + Yinc,					% Move to next column
+	win(B, S, Xinc, Yinc, Y2).			% Continue recursion
+win_diag(B, S, Left, Inc) :-			% Recursive rule for diagonal win
+	B = [S,_S1,_,_S2,_,_S3,_,_S4,_],	% If current diagonal is filled with player's symbol
+	win_diag(B, S, Left, Inc).			% Continue recursion
+win_diag(B, S, Right, Inc) :-			% Recursive rule for diagonal win
+	B = [_,_S1,_,S,_,S,_,S,_],			% If current diagonal is filled with player's symbol
+	win_diag(B, S, Right, Inc).			% Continue recursion
+win_diag(B, S, 0, 0) :-					% Base case for diagonal win
+	B = [S,_S1,_S2,_S3,S,_S4,_S5,S].	% If entire diagonal is filled with player's symbol
+win_diag(_, S, Left, Inc) :-			% Recursive rule for diagonal win
+	B = [_,_,_,_,_,S,_],				% If current diagonal does not match player's symbol
+	NewInc is Left + Inc,				% Move to next diagonal
+	win_diag(B, S, NewInc, Inc).		% Continue recursion
+win_diag(_, S, Left, Inc) :-			% Recursive rule for diagonal win
+	B = [_,S,_,_,S,_,_,_,S],			% If current diagonal does not match player's symbol
+	NewLeft is Left - Inc,				% Move to next diagonal
+	win_diag(B, S, NewLeft, Inc).		% Continue recursion
+win_diag(_, _S, Left, Inc) :-			% Recursive rule for diagonal win
+	Left < 0.							% If no more diagonals to check, return false.
+
+%%% Rule for updating game state after a player's move %%%
+update_game(Board, NewBoard, Player) :-
+	player(Player, Symbol),			% Get current player's symbol
+	check_place(Symbol),			% Check if position on board is empty
+	position(Board, NewBoard, Player).	% Update game state
+
+%%% Rules for checking if a position on the board is empty %%%
+check_place(_) :-	% If current position is empty
+	game(Board, _, _),
+	member(empty, Board).
+position(Board, NewBoard, Player) :-
+	game(Board, _, _),
+	member(empty, Board),		% If position is empty
+	sub(X, NewBoard),			% Get updated game state
+	X == Player.				% Check if player's symbol has been placed in position
+	
+%%% Rule for player taking their turn %%%
+take_turn :-
+	player(Player, Symbol),			% Get current player and symbol
+	game(Board, _, Player),			% Get current game state for player
+	display_board(Board),			% Display current board
+	write('It is player '), write(Player), write("'s turn."),
+	nl,
+	write('Enter the number corresponding to your desired move: '),
+	read(Move),						% Get player's move
+	X is Move - 1,
+	check_place_at(X),				% Check if position on board is empty
+	update_game(Board, NewBoard, Player),	% Update game state
+	asserta(game(NewBoard, _, Player)),		% Set new game state
+	retractall(player(_, _)),		% Remove old player fact
+	NewPlayer is abs(Player - 3),	% Change to other player
+	asserta(player(NewPlayer, Symbol)),		% Set new player fact
+	check_win(0),					% Check if player has won
+	take_turn.						% Repeat for next player
+
+%%% Rule for displaying the current board state %%%
+display_board(Board) :-
+	nl,
+	write('   |   |   '), nl,
+	write(' '), write(Board:0:0), write(' | '), write(Board:0:1), write(' | '), write(Board:0:2), nl,
+	write('   |   |   '), nl,
+	write('-----------'), nl,
+	write('   |   |   '), nl,
+	write(' '), write(Board:1:0), write(' | '), write(Board:1:1), write(' | '), write(Board:1:2), nl,
+	write('   |   |   '), nl,
+	write('-----------'), nl,
+	write('   |   |   '), nl,
+	write(' '), write(Board:2:0), write(' | '), write(Board:2:1), write(' | '), write(Board:2:2), nl,
+	write('   |   |   '), nl,
+	nl.	% Extra line for spacing
+	
+%%% Rule for starting the game %%%
+start_game :-
+	display_board([empty,empty,empty,empty,empty,empty,empty,empty,empty]),	% Displays empty game board
+	take_turn.	% Starts the game

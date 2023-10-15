@@ -1,0 +1,91 @@
+// User-defined function to convert a string to all uppercase letters
+def convertToUppercase(String input) {
+    return input.toUpperCase()
+}
+
+// Task to clean build project
+task cleanBuild(type: Exec, description: 'Cleans and rebuilds project') {
+    commandLine 'gradle', 'clean', 'build'
+}
+
+// Plugin to automatically upload project artifacts to a target repository
+plugins {
+    id 'maven-publish'
+}
+
+// Configuration for publishing artifacts
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+
+            // Specifies the target repository for the published artifacts
+            repository {
+                url = "$buildDir/repo"
+            }
+        }
+    }
+}
+
+// Task to publish artifacts to a target repository
+task publishArtifacts(type: PublishToMavenRepository, dependsOn: build) {
+    // Specifies the publication to publish
+    publication = publishing.publications.mavenJava
+
+    // Specifies the target repository to publish to
+    repositoryUrl = "$buildDir/repo"
+}
+
+// Main build script for project
+apply plugin: 'java'
+
+// Dependencies for the project
+dependencies {
+    // External library to include in project
+    compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.9'
+    
+    // Internal module dependency
+    implementation project(':module-name')
+}
+
+// Task to run unit tests and generate coverage report
+task unitTests(type: Test) {
+    // Specifies source directory for tests
+    testClassesDirs = sourceSets.test.output.classesDirs
+
+    // Specifies output directory for test results
+    reports.html.enabled = false
+    reports.junitXml.enabled = true
+}
+
+// Task to run integration tests and generate coverage report
+task integrationTests(type: Test) {
+    // Specifies source directory for tests
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+
+    // Specifies output directory for test results
+    reports.html.enabled = false
+    reports.junitXml.enabled = true
+}
+
+// Task to generate a code coverage report for both unit and integration tests
+task generateCodeCoverageReport(type: JacocoReport, dependsOn: ['unitTests', 'integrationTests']) {
+    // Specifies source directories for code coverage report
+    sourceDirectories = files(['src/main/java'])
+
+    // Specifies class directories for code coverage report
+    classDirectories = files(['build/classes/java', 'build/classes/integrationTest'])
+
+    // Specifies execution data for code coverage
+    executionData = files(['build/jacoco/test.exec'])
+
+    // Specifies report file output directory
+    reports {
+        xml.enabled = true
+        html.enabled = true
+        csv.enabled = true
+    }
+}
+
+// Task to run build and generate code coverage report
+task buildWithCodeCoverageReport(dependsOn: ['build', 'generateCodeCoverageReport']) {}

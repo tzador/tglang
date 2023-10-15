@@ -1,0 +1,39 @@
+@echo off
+
+rem --- Set variables for file paths ---
+set input_path=C:\Users\username\Documents\Input
+set output_path=C:\Users\username\Documents\Output
+
+rem --- Create directories if they don't exist ---
+if not exist %output_path% (
+  mkdir %output_path%
+)
+
+rem --- Loop through all files in input directory ---
+for %%G in ("%input_path%\*") do (
+
+  rem --- Set filename variable ---
+  set filename=%%~nG
+
+  rem --- Copy file from input to output directory ---
+  copy "%%G" "%output_path%\%%~nxG"
+
+  rem --- Run image processing script on file ---
+  python process_image.py "%output_path%\%%~nxG" 
+
+  rem --- Check if script ran successfully ---
+  if %errorlevel% EQU 0 (
+
+    rem --- Get dimensions of processed image ---
+    for /f "usebackq tokens=3" %%I in (`identify -ping -format "%%w %%h" "%output_path%\%%~nxG"`) do (
+
+      rem --- Create new directory with image dimensions ---
+      if not exist "%output_path%\%%Ix%%J" (
+        mkdir "%output_path%\%%Ix%%J"
+      )
+
+      rem --- Move processed image to new directory ---
+      move "%output_path%\%%~nxG" "%output_path%\%%Ix%%J\%%filename%%%~xG"
+    )
+  )
+)

@@ -1,0 +1,59 @@
+# Get-VMReport.ps1
+# This script generates a report of virtual machines in the specified Hyper-V host
+# Author: John Smith
+# Date: 10/20/2021
+
+# Install required module
+Install-Module -Name HyperV
+
+# Set variables
+$ReportPath = "C:\Reports\VMReport.csv"
+$HyperVHost = "HVHOST01"
+
+# Connect to Hyper-V host
+Connect-VMHost -Server $HyperVHost
+
+# Get information about virtual machines
+$VMs = Get-VM
+
+# Create an empty array to store VM report data
+$VMReport = @()
+
+# Loop through each virtual machine and get relevant information
+foreach ($VM in $VMs) {
+    # Get CPU and memory usage
+    $CPUUsage = $VM.CPUUsage
+    $MemoryUsage = $VM.MemoryUsage
+
+    # Get IP address
+    $IPAddress = $VM.Guest.IPAddresses[0]
+
+    # Get network adapters
+    $NetworkAdapters = $VM.VirtualNetworkAdapters | select Name, SwitchName
+
+    # Get attached disks
+    $Disks = $VM.VirtualHardDisks | select Name, ControllerNumber, ControllerLocation
+
+    # Combine all data into a hash table
+    $VMData = @{
+        Name = $VM.Name
+        State = $VM.State
+        CPUUsage = $CPUUsage
+        MemoryUsage = $MemoryUsage
+        IPAddress = $IPAddress
+        NetworkAdapters = $NetworkAdapters
+        Disks = $Disks
+    }
+
+    # Add the hash table to the VM report array
+    $VMReport += New-Object PSObject -Property $VMData
+}
+
+# Export VM report to CSV file
+$VMReport | Export-Csv $ReportPath
+
+# Disconnect from Hyper-V host
+Disconnect-VMHost
+
+# Print message stating report has been generated
+"VM report generated and saved to $($ReportPath)"

@@ -1,0 +1,75 @@
+%% Public API for managing user information
+%% The user record has the following fields:
+%% - name : name of the user
+%% - age : age of the user
+%% - email : email address of the user
+%% - username : username of the user
+%% - password : password of the user
+
+-module(user_manager).
+
+-behaviour(gen_server).
+
+%% Exported functions
+-export([start_link/0, register_user/4, get_user_information/1, update_user_information/2, delete_user/1]).
+
+%% Internal variables
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+
+%% Internal record for user information 
+-record(user,
+    {name :: string(),
+    age :: integer(),
+    email :: string(),
+    username :: string(),
+    password :: string()}).
+
+%% Start the user manager process
+start_link() ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+
+%% Register a new user with the given information
+register_user(Name, Age, Email, Username, Password) ->
+    gen_server:call(?MODULE, {register_user, #user{name = Name, age = Age, email = Email, username = Username, password = Password}}).
+
+%% Get user information for a given username
+get_user_information(Username) ->
+    gen_server:call(?MODULE, {get_user_information, Username}).
+
+%% Update user information for a given username
+update_user_information(Username, NewInfo) ->
+    gen_server:call(?MODULE, {update_user_information, Username, NewInfo}).
+
+%% Delete a user with a given username
+delete_user(Username) ->
+    gen_server:call(?MODULE, {delete_user, Username}).
+
+%% Initialize the gen_server process
+init([]) ->
+    {ok, []}.
+
+%% Handle incoming synchronous requests
+handle_call({register_user, User}, _From, State) ->
+    {reply, {ok, User}, [#user{name = User#user.name, age = User#user.age, email = User#user.email, username = User#user.username, password = User#user.password} | State]};
+handle_call({get_user_information, Username}, _From, State) ->
+    {reply, {ok, lists:keyfind(Username, #user.username, State)}, State};
+handle_call({update_user_information, Username, NewInfo}, _From, State) ->
+    {reply, {ok, NewInfo}, lists:keyreplace(Username, #user.username, State, {Username, NewInfo})};
+handle_call({delete_user, Username}, _From, State) ->
+    {reply, {ok, Username}, lists:keydelete(Username, #user.username, State)}.
+
+%% Handle incoming asynchronous requests
+handle_cast(_, State) ->
+    {noreply, State}.
+
+%% Handle informational messages
+handle_info(_, State) ->
+    {noreply, State}.
+
+%% Handle termination of the gen_server process
+terminate(_, _) ->
+    ok.
+
+%% Handle code changes in a running system
+code_change(_, State, _) ->
+    {ok, State}.

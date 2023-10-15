@@ -1,0 +1,102 @@
+plugins {
+    // Plugin for building Java applications
+    id 'java'
+    // Plugin for managing dependencies
+    id 'java-library-distribution'
+    // Plugin for generating Javadoc documentation
+    id 'org.javamodularity.moduleplugin'
+}
+
+group 'com.example'
+version '1.0-SNAPSHOT'
+project.ext {
+    // Define a variable named 'deploymentDir' with the value 'build/deployment'
+    deploymentDir = 'build/deployment'
+}
+
+apply plugin: 'application'
+
+mainClassName = 'com.example.Main'
+
+repositories {
+    // Add a Maven central repository
+    mavenCentral()
+}
+
+dependencies {
+    // Add a dependency on the SLF4J API
+    implementation 'org.slf4j:slf4j-api:1.7.26'
+    // Add a test dependency on JUnit
+    testImplementation 'junit:junit:4.12'
+}
+
+// Define a task named 'createDeployment' of type 'Zip' that creates a zip archive of the application
+task createDeployment(type: Zip) {
+    // Set the destination file for the zip archive
+    destinationDir file(project.ext.deploymentDir)
+    // Add the application's jar file to the zip archive
+    from jar
+    // Add the application's dependencies to the zip archive
+    from configurations.runtimeClasspath
+    // Add the Javadoc documentation to the zip archive
+    from javadoc
+}
+
+// Create a task named 'deploy' that depends on the 'createDeployment' task and copies the zip archive to a remote server
+task deploy(dependsOn: createDeployment) {
+    // Define a variable that holds the username for the remote server
+    def username = "john"
+    // Define a variable that holds the hostname for the remote server
+    def hostname = "example.com"
+
+    // Use the SFTP plugin to connect to the remote server and upload the zip archive
+    sftp {
+        // Use the username and hostname defined above
+        username = "$username"
+        hostname = "$hostname"
+        // Set the path to the remote directory where the zip archive will be uploaded
+        toDir "$username/$project.name"
+        // Use the credentials stored in the gradle properties file for authentication
+        useKey = true
+        keyPath = file("$System.env.USERPROFILE/.ssh/id_rsa")
+        password = ''
+    }
+}
+
+// Add a custom task that generates a report of the application's dependencies
+task dependencyReport {
+    // Task execution depends on the 'dependencies' task
+    dependsOn configurations.runtimeClasspath
+    doLast {
+        // Get the dependencies in the 'runtimeClasspath' configuration
+        def deps = configurations.runtimeClasspath.resolvedConfiguration.firstLevelModuleDependencies
+        // Sort the dependencies alphabetically
+        deps.sort { it.moduleVersion.id }.each { dep ->
+            // Print the dependency's name and version in the report
+            println "${dep.name} - ${dep.version}"
+        }
+    }
+}
+
+// Add a custom task that runs the application's unit tests
+task runTests(type: Test) {
+    // Set the directory where the test reports will be generated
+    reports.html.destination = file("$buildDir/reports/tests")
+    // Set the classpath to include the application's dependencies
+    classpath = sourceSets.test.runtimeClasspath
+}
+
+// Add a custom task that runs the application and produces a test coverage report
+task testCoverage(type: Test) {
+    // Set the directory where the coverage report will be generated
+    reports.junitXml.destination = file("$buildDir/reports/coverage")
+    // Set the classpath to include the application's dependencies
+    classpath = sourceSets.test.runtimeClasspath
+    // Specify the option to generate a coverage report
+    systemProperty 'jacoco', true
+}
+
+// Configure the 'clean' task to also delete the deployment directory
+clean {
+    delete project.ext.deploymentDir
+}

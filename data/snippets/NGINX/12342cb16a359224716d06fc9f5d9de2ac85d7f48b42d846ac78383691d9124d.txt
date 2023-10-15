@@ -1,0 +1,40 @@
+worker_processes auto; # sets the number of worker processes to the number of available CPU cores
+worker_rlimit_nofile 100000; # sets the maximum number of open file descriptors per worker process
+events { # defines the event queue and connection handling settings
+  worker_connections 1024; # sets the maximum number of connections per worker process
+  use epoll; # specifies the event notification method to use
+}
+http { # start of HTTP server settings
+  sendfile on; # enables sending files directly from disk to client
+  tcp_nopush on; # enables sending the entire response at once without waiting for each response to complete
+  tcp_nodelay on; # disables TCP's Nagle algorithm to reduce latency
+  keepalive_timeout 65; # sets the timeout for keep-alive connections in seconds
+  server { # start of server configuration
+    listen 80 default_server; # sets the port for listening
+    listen [::]:80 default_server; # sets the IPv6 port for listening
+    server_name example.com www.example.com; # sets the server name
+    root /var/www/html; # sets the root path for serving files
+    index index.html index.htm index.php; # sets the default index file names
+    location / { # start of location block for handling requests to the root path
+      try_files $uri $uri/ /index.php; # sets the order in which nginx should try to serve files
+    }
+    location ~ \.php$ { # start of location block for handling requests ending with .php
+      include snippets/fastcgi-php.conf; # includes configuration for handling PHP files
+      fastcgi_pass unix:/run/php/php7.2-fpm.sock; # sets the address and port of the FastCGI server
+    }
+    error_page 404 /404.html; # specifies the error page to serve for 404 errors
+    error_page 500 502 503 504 /50x.html; # specifies the error page to serve for 5XX errors
+    location = /50x.html { # start of location block for serving the error page
+      root /var/www/errors; # sets the root path for serving files
+    }
+    location = /404.html { # start of location block for serving the error page
+      internal; # specifies that the file should not be served directly by nginx
+    }
+    location /myapp/ { # start of location block for handling requests to a specific directory
+      rewrite ^/myapp/(.*)$ /$1 break; # rewrites the request URI to remove the /myapp prefix
+      proxy_pass http://localhost:3000; # sets the address and port of the proxied server
+      proxy_set_header Host $http_host; # sets the Host header for the proxied request
+      proxy_set_header X-Forwarded-Proto $scheme; # passes the protocol used for the original request
+    }
+  }
+}

@@ -1,0 +1,77 @@
+//This code snippet creates a custom weapon in UNREALSCRIPT
+
+class CustomWeapon extends Weapon;
+
+//Defines the weapon specific properties
+var() int Damage;
+var() int AmmoPerClip;
+var() float FireRate;
+
+//Overrides the base fire function from Weapon class
+simulated function Fire()
+{
+    local bool bFired;
+    bFired = Super.Fire(); //calls the base function
+    if(bFired)
+    {
+        //Spawn projectile at the muzzle location
+        local Projectile proj;
+        proj = spawn(class'Projectile', self,, Weapon.FireOffset);
+        if(proj != None)
+        {
+            //Sets projectile properties
+            proj.Init(Weapon.Owner);
+            proj.Damage = Damage;
+        }
+        //Creates a delay for fire rate
+        Weapon.bReadyToFire = false;
+        SetTimer(FireRate, false, 'TimerFireReady');
+    }
+}
+
+//A function to handle the timer event for fire rate
+event TimerFireReady()
+{
+    Weapon.bReadyToFire = true;
+}
+
+//Overrides base reload function from Weapon class
+simulated function Reload()
+{
+    local int NewAmmoInClip;
+
+    //Gets the remaining amount of ammo in the clip
+    NewAmmoInClip = min(MaxAmmoInClip, AmmoCount + AmmoPerClip);
+
+    if(NewAmmoInClip > 0)
+    {
+        //Starts the reloading animation
+        Weapon.ReloadAnimMax = max(Weapon.ReloadAnimMax, 1);
+        Weapon.ReloadTime = 0.5*Weapon.ReloadAnimMax;
+
+        //Informs the HUD of the reload progress
+        Weapon.ReloadHUDSelfPct = Weapon.ReloadTime/max(0.0001, Weapon.ReloadDuration);
+
+        //Creates a delay for the reloading process
+        Weapon.bReadyToFire = false;
+        SetTimer(Weapon.ReloadTime, false, 'TimerReloadFinished');
+    }
+}
+
+//A function to handle the timer event for reloading
+event TimerReloadFinished()
+{
+    //Resets the current ammo count and sets weapon to ready to fire
+    AmmoCount = min(MaxAmmoInClip, AmmoCount + AmmoPerClip);
+    Weapon.bReadyToFire = true;
+}
+
+defaultproperties
+{
+    //Initializes the weapon properties with default values
+    Damage=20;
+    AmmoPerClip=30;
+    FireRate=0.1;
+    MaxAmmoInClip=150;
+    AmmoCount=90;
+}

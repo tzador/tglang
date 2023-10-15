@@ -1,0 +1,93 @@
+##
+# This is a complex code snippet written in Unrealscript.
+# It is a custom UActorComponent that handles animation events in-game.
+##
+
+// Declare a new class called AnimationHandler which inherits from UActorComponent
+class AnimationHandler extends UActorComponent;
+
+// Create variables to store the character's animation state
+var() byte WalkSpeed;
+var() byte RunSpeed;
+var() bool IsIdle;
+
+// Declare a variable to store the character's Skeletal Mesh Component
+var SkeletalMeshComponent MyMesh;
+
+// Initialize the AnimationHandler
+function InitComponent();
+Begin Object Class=AnimNodePlayCustom name=MyAnimationNode
+	// Set the Animation Node's state variables based on the character's animation state
+	Select WalkSpeed;
+		Case 1: Mode='Walk';
+		Case 2: Mode='Crouch';
+		Case 3: Mode='Swim';
+		Case Else: Mode='Idle';
+	End Select
+
+	Select RunSpeed;
+		Case 1: Action='Run';
+		Case 2: Action='Sprint';
+		Case Else: Action='Walk';
+	End Select
+
+	// Bind to the animation events
+	Begin Object Class=KismetCustomEvent name=Footstep;
+		// Play a footstep sound when triggered
+		Begin Event;
+			PlaySound(FootstepSound);
+		End Event;
+	End Object;
+
+	Begin Object Class=KismetCustomEvent name=Jump;
+		// Trigger a jump animation when triggered
+		Begin Event;
+			PlayAnimation(JumpAnimation);
+		End Event;
+	End Object;
+End Object;
+
+// Handle the animation events based on the current state
+function HandleAnimationEvents();
+// Check if the character is moving
+if (IsIdle == false)
+{
+	local float AnimBlendWeight;
+
+	// Calculate the blend weight based on the character's movement speed
+	if (Action == 'Run')
+	{
+		AnimBlendWeight = WalkSpeed / RunSpeed;
+	}
+	else
+	{
+		AnimBlendWeight = WalkSpeed;
+	}
+
+	// Set the animation blend weight based on the calculated value
+	MyAnimationNode.BlendWeight = AnimBlendWeight;
+
+	// Check if the character is jumping or falling
+	if (IsJumping || IsFalling)
+	{
+		MyAnimationNode.PlayEvent('Jump');
+	}
+	// Otherwise, play the appropriate footstep sound
+	else
+	{
+		MyAnimationNode.PlayEvent('Footstep');
+	}
+}
+
+// Override the OnCreate function to set the character's mesh component
+function OnCreate()
+{
+	MyMesh = (Owner as Pawn).Mesh;
+}
+
+// Override the Tick function to handle animation events
+function Tick(const float DeltaTime)
+{
+	Super.Tick(DeltaTime);
+	HandleAnimationEvents();
+}

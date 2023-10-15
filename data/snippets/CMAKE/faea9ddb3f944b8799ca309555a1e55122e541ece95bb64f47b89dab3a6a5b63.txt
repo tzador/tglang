@@ -1,0 +1,67 @@
+# Create a variable for the project name
+set(PROJECT_NAME "My_Project")
+
+# Create a variable for the source files
+set(SOURCE_FILES  "main.cpp" "helper.cpp" "tutorial.cpp")
+
+# Set the project name
+project(${PROJECT_NAME})
+
+# Define the minimum required version of CMAKE
+cmake_minimum_required(VERSION 3.10)
+
+# Add the executable target
+add_executable(${PROJECT_NAME} ${SOURCE_FILES})
+
+# Set the C++ version to c++11
+set(CMAKE_CXX_STANDARD 11)
+
+# Add a compiler flag for optimization
+add_compile_options(-O3)
+
+# Set the include directories for the project
+include_directories(include)
+
+# Add a subdirectory for external libraries
+add_subdirectory(external_lib)
+
+# Set the link libraries for the project
+target_link_libraries(${PROJECT_NAME} external_lib)
+
+# Set the output directory for the project
+set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/bin)
+set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
+
+# Add a command to copy necessary files to output directory
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/data ${CMAKE_BINARY_DIR}/data)
+
+# Add a command to generate documentation
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND doxygen ${CMAKE_SOURCE_DIR}/Doxyfile)
+
+# Create a test executable for unit testing
+add_executable(${PROJECT_NAME}_test "test.cpp")
+
+# Set the C++ version for the test executable
+set_target_properties(${PROJECT_NAME}_test PROPERTIES
+    CXX_STANDARD 11
+    CXX_STANDARD_REQUIRED YES
+    CXX_EXTENSIONS NO)
+
+# Add a compiler flag for coverage testing
+add_compile_options(-coverage)
+
+# Set the link libraries for the test executable
+target_link_libraries(${PROJECT_NAME}_test external_lib)
+
+# Create a coverage target
+add_custom_target(${PROJECT_NAME}_coverage
+    COMMAND gcov -o CMakeFiles/${PROJECT_NAME}_test.dir/src/
+        ${CMAKE_SOURCE_DIR}/src/*.cpp)
+
+# Add a command to run unit tests
+add_custom_command(TARGET ${PROJECT_NAME}_test POST_BUILD
+    COMMAND CTEST -C Debug
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR})

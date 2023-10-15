@@ -1,0 +1,39 @@
+/* Declare a list of invoices */
+DEFINE TEMP-TABLE tt-invoice NO-UNDO
+  FIELD invoice-num AS INTEGER
+  FIELD invoice-date AS DATE
+  FIELD customer-name AS CHARACTER
+  FIELD total-amount AS DECIMAL
+  INDEX indx1 invoice-num.
+    
+/* Create a temp-table buffer */
+DEFINE BUFFER invoice FOR tt-invoice.
+
+/* Prepare a query to retrieve unpaid invoices for a specific date */
+DEFINE QUERY q-invoices FOR tt-invoice
+  WHERE invoice-date > TODAY
+    AND total-amount > 0
+  EACH invoice-num.
+    
+/* Define a dataset to hold the query results */
+DEFINE DATASET ds-invoices FOR q-invoices.
+
+/* Open a cursor to execute the query and populate the dataset */
+OPEN QUERY q-invoices PRESELECT
+  SET-SCAN ON EACH tt-invoice:invoice-num
+  SET-SCAN ON LAST tt-invoice:customer-name
+  SET-BY tt-invoice:invoice-num DESCENDING.
+
+/* Loop through the dataset and print out the invoice information */
+FOR EACH tt-invoice NO-LOCK:
+  DISPLAY "Invoice #" tt-invoice.invoice-num
+    "for customer " tt-invoice.customer-name
+    "is due on" TODAY + (tt-invoice.total-amount / 2) SKIP.
+END. /* End of loop */
+ 
+/* Close the cursor and release resources */
+CLOSE QUERY q-invoices.
+ 
+/* Drop the temp-table and buffer */
+DELETE OBJECT invoice.
+DELETE OBJECT tt-invoice.

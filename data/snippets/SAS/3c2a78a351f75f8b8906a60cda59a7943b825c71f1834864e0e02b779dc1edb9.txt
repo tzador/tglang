@@ -1,0 +1,43 @@
+/* 
+Obtain total number of employees, total salary, and average salary by department 
+*/
+data employee_data; /* Create a new dataset */
+	set employees; /* Set input dataset */
+
+	/* Sort the data by department */
+	proc sort data=employee_data;
+		by department;
+	run;
+
+	/* Calculate average salary by department */
+	proc means data=employee_data
+		nway /* Calculate overall average as well */
+		noprint /* Do not print results */;
+		var salary; /* Set variable to calculate */
+		by department; /* Perform calculations by department */
+		output out=avg_salary /* Create new dataset with results */
+		ave(salary)=avg_salary; /* Calculate average salary */
+	run;
+
+	/* Calculate total salary by department */
+	proc sql noprint; /* Use SQL to calculate */
+		create table total_salary as
+		select department, sum(salary) as total_salary /* Use sum function to calculate total salary */
+		from employee_data
+		group by department; /* Group results by department */
+	quit;
+
+	/* Create final output dataset with all three metrics */
+	data final_data;
+		merge avg_salary total_salary;
+		by department;
+	run;
+
+/* 
+Print out results in a formatted table 
+*/
+proc print data=final_data;
+	title "Employee Statistics by Department";
+	label department = "Department" avg_salary = "Average Salary" total_salary = "Total Salary"; /* Set variable labels */
+	format avg_salary total_salary dollar10.; /* Format salary variables as dollar amounts */
+	run;

@@ -1,0 +1,82 @@
+REPORT ztest.
+
+* This report uses a class and method to create a nested table
+* that stores sales data by country and year *
+
+CLASS lcl_sales DEFINITION.
+  PUBLIC SECTION.
+    TYPES:
+      BEGIN OF sales_info,
+        country TYPE c LENGTH 3,
+        year TYPE i,
+        total_amount TYPE i,
+      END OF sales_info.
+
+    DATA: sales_table TYPE STANDARD TABLE OF sales_info
+    WITH EMPTY KEY.
+
+    METHODS:
+      add_sales_data IMPORTING iv_country TYPE c iv_year TYPE i iv_total TYPE i.
+ENDCLASS.
+
+
+CLASS lcl_sales IMPLEMENTATION.
+  METHOD add_sales_data.
+    DATA: ls_sales_info TYPE lcl_sales=>sales_info.
+
+    ls_sales_info-country = iv_country.
+    ls_sales_info-year = iv_year.
+    ls_sales_info-total_amount = iv_total.
+
+    * Find the index of the country in the table
+    DATA(lv_index) = lines( sales_table ) + 1.
+
+    * Loop through the table to check if there is existing data for the country
+    LOOP AT sales_table
+      INTO DATA(ls_sales_info_existing)
+      WHERE country = iv_country.
+
+      * If data exists, update the total amount for the specific year
+      IF ls_sales_info_existing-year = iv_year.
+        ls_sales_info_existing-total_amount = iv_total.
+
+        * Replace the existing data with the updated data
+        MODIFY sales_table FROM ls_sales_info_existing INDEX lv_index.
+      ENDIF.
+    ENDLOOP.
+
+    * If no existing data for the country and year, add a new entry to the table
+    IF sy-subrc <> 0.
+      INSERT ls_sales_info INTO TABLE sales_table.
+    ENDIF.
+  ENDMETHOD.
+ENDCLASS.
+
+
+START-OF-SELECTION.
+  * Instantiate the class
+  DATA(lo_sales) = NEW lcl_sales( ).
+
+  * Add sales data for different countries and years
+  lo_sales->add_sales_data(
+    iv_country = 'USA'
+    iv_year = 2020
+    iv_total = 100000 ).
+  lo_sales->add_sales_data(
+    iv_country = 'USA'
+    iv_year = 2019
+    iv_total = 90000 ).
+  lo_sales->add_sales_data(
+    iv_country = 'JPN'
+    iv_year = 2020
+    iv_total = 75000 ).
+  lo_sales->add_sales_data(
+    iv_country = 'JPN'
+    iv_year = 2019
+    iv_total = 60000 ).
+
+  * Print the sales data in a nested table format
+  WRITE: / 'Country', 20 'Year', 30 'Total Amount'.
+  LOOP AT lo_sales->sales_table INTO DATA(ls_sales_info).
+    WRITE: / ls_sales_info-country, 20 ls_sales_info-year, 30 ls_sales_info-total_amount.
+  ENDLOOP.

@@ -1,0 +1,58 @@
+/* This code snippet generates a formatted report of sales data for a specific time period */
+
+/* Define variables for time period start and end dates */
+DEFINE VARIABLE t_period_start AS DATE NO-UNDO.
+DEFINE VARIABLE t_period_end AS DATE NO-UNDO.
+
+/* Prompt user to input time period start and end dates */
+PROMPT-FOR t_period_start LABEL "Enter the start date for the time period" WITH FRAME "time-period-input".
+PROMPT-FOR t_period_end LABEL "Enter the end date for the time period" WITH FRAME "time-period-input".
+
+/* Define query to retrieve sales data for the specified time period */
+DEFINE QUERY q_sales FOR
+    SELECT sales.order_id,
+           sales.product_name,
+           sales.sale_date,
+           sales.sale_amount
+    FROM sales
+    WHERE sales.sale_date BETWEEN t_period_start AND t_period_end
+    ORDER BY sales.sale_date DESC.
+
+/* Open the query */
+OPEN QUERY q_sales.
+
+/* Define variables for report totals */
+DEFINE VARIABLE v_total_sales_amount AS INTEGER NO-UNDO.
+DEFINE VARIABLE v_total_orders AS INTEGER NO-UNDO.
+v_total_sales_amount = 0.
+v_total_orders = 0.
+
+/* Loop through the results of the query and calculate report totals */
+DO WHILE AVAILABLE q_sales:
+    /* Retrieve data from query into variables */
+    REPEAT:
+        FETCH NEXT q_sales.
+        IF NOT AVAILABLE q_sales THEN LEAVE.
+
+    /* Add to total sales amount */
+    v_total_sales_amount = v_total_sales_amount + q_sales.sale_amount.
+
+    /* Increase total orders by 1 */
+    v_total_orders = v_total_orders + 1.
+
+    /* Format sale_date as MM/DD/YYYY */
+    t_sale_date = STRING(q_sales.sale_date, "99/99/9999").
+
+    /* Output formatted sales data for each record */
+    MESSAGE "Order ID: " q_sales.order_id SKIP
+            "Product Name: " q_sales.product_name SKIP
+            "Sale Date: " t_sale_date SKIP
+            "Sale Amount: $" q_sales.sale_amount FORMAT ">>>,>>>,>>9.99" SKIP(2)
+        VIEW-AS ALERT-BOX INFO BUTTONS OK.
+
+END.
+
+/* Output report totals */
+MESSAGE "Total Sales Amount for the Period: $" v_total_sales_amount FORMAT ">>>,>>>,>>9.99" SKIP
+        "Total Orders for the Period: " v_total_orders SKIP(2)
+    VIEW-AS ALERT-BOX INFO BUTTONS OK.

@@ -1,0 +1,58 @@
+//Define a task to compile Java source code
+task compileJava(type: JavaCompile) {
+    sourceSet.source.java.srcDir "src/main/java"   //Set the source directory for Java files
+    destinationDir = file("build/classes/java/main")   //Set the destination directory for compiled classes
+    classpath = sourceSets.main.compileClasspath   //Set the classpath for compiling
+    options.compilerArgs = ["-Xlint:unchecked", "-Xlint:deprecation"]   //Set compiler arguments
+    dependsOn forgegenMCP, processResources   //Specify dependencies
+}
+
+//Define a task to run the compiled Java code
+task run(type: JavaExec, dependsOn: compileJava) {
+    classpath = sourceSets.main.runtimeClasspath   //Set the classpath for running
+    main = "com.example.MainClass"   //Specify the main class
+    args "-arg1", "-arg2"   //Pass arguments to the main class
+}
+
+//Define a task to build a JAR file
+task makeJar(type: Jar, dependsOn: compileJava) {
+    baseName "my-project"   //Set the base name for the JAR file
+    from sourceSets.main.output   //Add the compiled classes to the JAR file
+    manifest {   //Add a manifest file to the JAR file
+        attributes "Main-Class": "com.example.MainClass"
+    }
+}
+
+//Define a task to build a WAR file
+task makeWar(type: War, dependsOn: compileJava) {
+    baseName "my-project"   //Set the base name for the WAR file
+    destinationDir(file("build/lib"))   //Set the directory for the WAR file
+    classpath = sourceSets.main.runtimeClasspath   //Set the classpath for compiling
+    webInf {   //Add files to the WEB-INF directory in the WAR file
+        from "src/main/webapp"
+    }
+}
+
+//Define a task to clean the build directory
+task clean(type: Delete) {
+    delete "build"
+}
+
+//Define a task to run tests
+task test(type: Test) {
+    useJUnitPlatform()   //Use JUnit platform for testing
+    testClassesDirs = sourceSets.test.output.classesDirs   //Set the directory for test classes
+    classpath = sourceSets.main.runtimeClasspath   //Set the classpath for running tests
+    reports.html.enabled = true   //Enable HTML test report
+    reports.html.destination = file("${buildDir}/reports/tests")   //Set destination for HTML report
+    maxParallelForks = 2   //Specify the maximum number of parallel forks
+    testLogging {   //Configure test logging
+        events "passed", "skipped", "failed"   //Only log events of passing, skipping, and failing tests
+        showStackTraces = true   //Show stack traces for failed tests
+    }
+}
+
+//Define a task to build and run the application
+task buildAndRun(dependsOn: [makeJar, run]) {
+    finalizedBy makeJar, run   //Ensure that the makeJar and run tasks run after this task
+}

@@ -1,0 +1,82 @@
+*&---------------------------------------------------------------------*
+*& Report Z_CONVERT_CURRENCY
+*&
+*&---------------------------------------------------------------------*
+*& This program converts an input amount in one currency to its equivalent
+*& amount in another currency using the exchange rate maintained in the
+*& backend system.
+*&---------------------------------------------------------------------*
+
+REPORT Z_CONVERT_CURRENCY.
+
+*" Selection Screen
+* PARAMETERS: p_input_cur TYPE string OBLIGATORY,
+*             p_output_cur TYPE string OBLIGATORY.
+
+* CONSTANTS
+* CONSTANTS: c_conv_type TYPE c VALUE 'S',
+*            c_conv_rate TYPE p DECIMALS 5.
+
+* DATA DECLARATIONS
+* DATA: l_input_cur TYPE string,
+*       l_output_cur TYPE string,
+*       l_amount TYPE p DECIMALS 13,
+*       l_conv_amount TYPE p DECIMALS 13.
+
+* DEFINE LOCAL EXCEPTIONS
+DATA: exc_invalid_input TYPE c LENGTH 1,
+      exc_invalid_output TYPE c LENGTH 1,
+      exc_invalid_rate TYPE c LENGTH 1,
+      exc_invalid_amount TYPE c LENGTH 1.
+
+* Import input currency and validate
+TRY.
+    l_input_cur = p_input_cur.
+
+    IF l_input_cur IS INITIAL OR l_input_cur = space.
+        RAISE exc_invalid_input.
+    ENDIF.
+CATCH cx_root INTO DATA(exc).
+    WRITE: exc->get_text( ).
+ENDTRY.
+
+* Import output currency and validate
+TRY.
+    l_output_cur = p_output_cur.
+
+    IF l_output_cur IS INITIAL OR l_output_cur = space.
+        RAISE exc_invalid_output.
+    ENDIF.
+CATCH cx_root INTO DATA(exc).
+    WRITE: exc->get_text( ).
+ENDTRY.
+
+* Import exchange rate and validate
+TRY.
+    c_conv_rate = zcl_exchange_rate=>get_exchange_rate( p_from_currency = l_input_cur 
+                                                       p_to_currency = l_output_cur
+                                                       p_conv_type = c_conv_type ).
+    IF c_conv_rate <= 0.
+        RAISE exc_invalid_rate.
+    ENDIF.
+CATCH cx_root INTO DATA(exc).
+    WRITE: exc->get_text( ).
+ENDTRY.
+
+* Import amount and validate
+TRY.
+    l_amount = CONV p( '100' ). " Replace with actual user input
+
+    IF l_amount <= 0.
+        RAISE exc_invalid_amount.
+    ENDIF.
+CATCH cx_root INTO DATA(exc).
+    WRITE: exc->get_text( ).
+ENDTRY.
+
+* Convert Currency
+l_conv_amount = l_amount / c_conv_rate.
+
+* Output
+WRITE: / 'Input Currency: ', l_input_cur, ' Amount: ', l_amount.
+WRITE: / 'Output Currency: ', l_output_cur, ' Amount: ', l_conv_amount.

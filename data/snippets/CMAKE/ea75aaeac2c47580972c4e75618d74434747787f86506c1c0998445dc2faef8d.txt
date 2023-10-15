@@ -1,0 +1,101 @@
+########################################
+#This CMakeLists.txt file is used to build the project and generate the executable
+########################################
+ 
+cmake_minimum_required(VERSION 3.5) #Specifies the minimum required version of CMake
+ 
+project(my_project) #Declares the project name
+ 
+#Sets the source files for the project
+set(SOURCES
+    src/main.cpp
+    src/utils.cpp
+    src/my_class.cpp
+)
+ 
+#Sets the header files for the project
+set(HEADERS
+    include/utils.h
+    include/my_class.h
+)
+ 
+#Adds an executable target for the project
+add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
+ 
+#Specifies the include directories
+target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+ 
+#Specifies any additional libraries that need to be linked
+target_link_libraries(${PROJECT_NAME} PRIVATE my_library)
+ 
+#Sets any additional compiler options
+target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -pedantic)
+ 
+#Sets any additional linker options
+target_link_options(${PROJECT_NAME} PRIVATE -Wl,--no-undefined)
+ 
+#Copies any necessary files to the build directory
+file(COPY data DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+ 
+#Configures a custom target for documentation generation using Doxygen
+find_package(Doxygen)
+ 
+#Checks if Doxygen was found and if so, generates documentation
+if(DOXYGEN_FOUND)
+    set(DOXYGEN_IN ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in)
+    set(DOXYGEN_OUT ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
+ 
+    #Copies the Doxyfile.in to Doxyfile
+    configure_file(${DOXYGEN_IN} ${DOXYGEN_OUT} @ONLY)
+ 
+    #Executes the doxygen command with the configured Doxyfile
+    add_custom_target(doc ALL
+        COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_OUT}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMENT "Generating API documentation with Doxygen"
+        VERBATIM
+    )
+ 
+    #Adds the doc target as a dependency for the project
+    add_dependencies(${PROJECT_NAME} doc)
+ 
+    #Adds a custom rule for cleaning the documentation
+    add_custom_target(docclean
+        COMMAND ${CMAKE_COMMAND} -E remove_directory ${CMAKE_CURRENT_BINARY_DIR}/html
+        COMMAND ${CMAKE_COMMAND} -E remove ${CMAKE_CURRENT_BINARY_DIR}/latex/*
+        COMMAND ${CMAKE_COMMAND} -E remove ${CMAKE_CURRENT_BINARY_DIR}/rtf/*
+        COMMENT "Cleaning generated documentation"
+        VERBATIM
+    )
+ 
+endif(DOXYGEN_FOUND)
+ 
+ 
+#Configures a custom target for creating a package using CPack
+set(CPACK_PROJECT_NAME ${PROJECT_NAME})
+set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
+ 
+#Checks which operating system is being used and specifies the package generator
+if(WIN32)
+    set(CPACK_GENERATOR "NSIS")
+elseif(APPLE)
+    set(CPACK_GENERATOR "DragNDrop")
+else()
+    set(CPACK_GENERATOR "TGZ")
+endif()
+ 
+#Sets any necessary package dependencies
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "my_dependency")
+ 
+#Includes the CPack module
+include(CPack)
+ 
+#Adds a custom rule for cleaning the package
+add_custom_target(packclean
+    COMMAND ${CMAKE_COMMAND} -E remove_directory ${CMAKE_BINARY_DIR}/packages
+    COMMENT "Cleaning generated package"
+    VERBATIM
+)
+ 
+#Adds the packclean target as a dependency for the project
+add_dependencies(${PROJECT_NAME} packclean)

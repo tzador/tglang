@@ -1,0 +1,123 @@
+unit Main;
+
+interface
+
+uses
+  System.SysUtils, System.Classes, System.Types;
+
+type
+  // Define a custom class to store important data
+  TImportantData = class
+  private
+    FData: string;
+    FLastModified: TDateTime;
+  public
+    // Constructor that accepts data and sets the initial time
+    constructor Create(const AData: string);
+    // Property to get and set the data
+    property Data: string read FData write FData;
+    // Property to get and set the last modified time
+    property LastModified: TDateTime read FLastModified write FLastModified;
+  end;
+
+  // Define a custom exception for when data is not found
+  EDataNotFoundException = class(Exception);
+
+  // Define a custom interface for a data manager
+  IDataManager = interface
+    // Function to get data by key
+    function GetData(const AKey: string): TImportantData;
+    // Procedure to save data by key
+    procedure SaveData(const AKey: string; const AData: TImportantData);
+    // Procedure to delete data by key
+    procedure DeleteData(const AKey: string);
+  end;
+
+  // Define a concrete class that implements the IDataManager interface
+  TDataManager = class(TInterfacedObject, IDataManager)
+  private
+    // Use a dictionary to store data keyed by string
+    FDataDictionary: TDictionary<string, TImportantData>;
+  public
+    // Constructor that initializes the dictionary
+    constructor Create;
+    // Destructor that frees the dictionary
+    destructor Destroy; override;
+    // Implementation of the IDataManager interface functions
+    function GetData(const AKey: string): TImportantData;
+    procedure SaveData(const AKey: string; const AData: TImportantData);
+    procedure DeleteData(const AKey: string);
+  end;
+
+implementation
+
+{ TImportantData }
+
+constructor TImportantData.Create(const AData: string);
+begin
+  FData := AData;
+  FLastModified := Now;
+end;
+
+{ TDataManager }
+
+constructor TDataManager.Create;
+begin
+  // Create the dictionary
+  FDataDictionary := TDictionary<string, TImportantData>.Create;
+end;
+
+destructor TDataManager.Destroy;
+begin
+  // Free the dictionary
+  FDataDictionary.Free;
+  inherited;
+end;
+
+function TDataManager.GetData(const AKey: string): TImportantData;
+begin
+  // Check if the key exists in the dictionary
+  if FDataDictionary.ContainsKey(AKey) then
+  begin
+    // Return the data associated with the key
+    Result := FDataDictionary.Items[AKey];
+  end
+  else
+  begin
+    // If the key does not exist, raise an exception
+    raise EDataNotFoundException.Create('Data not found for key: ' + AKey);
+  end;
+end;
+
+procedure TDataManager.SaveData(const AKey: string; const AData: TImportantData);
+begin
+  // Check if the key already exists in the dictionary
+  if FDataDictionary.ContainsKey(AKey) then
+  begin
+    // If it does, update the data and last modified time
+    FDataDictionary.Items[AKey].Data := AData.Data;
+    FDataDictionary.Items[AKey].LastModified := Now;
+  end
+  else
+  begin
+    // If the key does not exist, add a new entry to the dictionary
+    FDataDictionary.Add(AKey, AData);
+  end;
+end;
+
+procedure TDataManager.DeleteData(const AKey: string);
+begin
+  // Check if the key exists in the dictionary
+  if FDataDictionary.ContainsKey(AKey) then
+  begin
+    // If it does, remove the entry from the dictionary
+    FDataDictionary.Remove(AKey);
+  end
+  else
+  begin
+    // If the key does not exist, raise an exception
+    raise EDataNotFoundException.Create('Data not found for key: ' + AKey);
+  end;
+end;
+
+end.

@@ -1,0 +1,60 @@
+# Set upstream servers for load balancing
+upstream backend {
+    server 127.0.0.1:8000 weight=3;
+    server 127.0.0.1:8001 max_fails=3 fail_timeout=30s;
+    server 127.0.0.1:8002 backup;
+}
+
+# Basic HTTP server configuration
+server {
+    listen 80;
+    server_name example.com;
+
+    # Location directives for handling requests
+    location / {
+        proxy_pass http://backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_connect_timeout 5s;
+    }
+
+    # Static content configuration
+    location /static/ {
+        # Define root directory for static files
+        root /var/www/static;
+
+        # Tune performance and cache settings
+        gzip on;
+        gzip_types text/plain text/css application/json;
+        gzip_proxied no-cache no-store private expired auth;
+        expires max;
+        add_header Cache-Control "public";
+    }
+
+    # SSL configuration
+    listen 443 ssl;
+    ssl_certificate /etc/nginx/cert.crt;
+    ssl_certificate_key /etc/nginx/cert.key;
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+    ssl_prefer_server_ciphers on;
+    ssl_dhparam /etc/nginx/dhparams.pem;
+    ssl_ciphers 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:
+    ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:
+    ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES128-SHA:
+    ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA:
+    DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA256:DHE-DSS-AES256-SHA:AES128-GCM-SHA256:
+    AES256-GCM-SHA384:ECDHE-ECDSA-RC4-SHA:ECDHE-ECDSA-AES256-SHA:RC4-SHA:HIGH:!aNULL:!eNULL:!LOW:!3DES:!MD5:!EXP:!PSK:!SRP:!DSS';
+    
+    # Enable OCSP stapling to enhance SSL performance
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    resolver <ip_address> valid=300s;
+    resolver_timeout 5s;
+
+    # Enable HSTS and remove insecure protocols
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload";
+    add_header X-Frame-Options SAMEORIGIN;
+    add_header X-Content-Type-Options nosniff;
+}

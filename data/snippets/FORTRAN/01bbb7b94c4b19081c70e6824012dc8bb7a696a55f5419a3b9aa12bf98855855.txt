@@ -1,0 +1,73 @@
+PROGRAM SOLVE_BURGERS
+
+! This program solves the 1D Burgers' equation using the Upwind method
+
+     IMPLICIT NONE
+     INTEGER :: i, N, Iterations, MAX_ITERATIONS
+     REAL :: x, dx, dt, u, c, alpha
+     REAL, DIMENSION(:), ALLOCATABLE :: u_n, u_n1, F
+     LOGICAL :: converged
+
+! Gets user input for the number of grid points, time step and max iterations
+     WRITE(*,*) 'Enter the number of grid points:'
+     READ(*,*) N
+     WRITE(*,*) 'Enter the time step:'
+     READ(*,*) dt
+     WRITE(*,*) 'Enter the maximum number of iterations:'
+     READ(*,*) MAX_ITERATIONS
+
+! Allocates memory for arrays
+     ALLOCATE(u_n(N), u_n1(N), F(N))
+
+! Sets initial condition for u at t=0
+     DO i = 1, N
+          x = (i-1)*dx
+          u_n(i) = 0.5*(SIN(2*PI*x)+1)
+     END DO
+
+! Sets other parameters
+     dx = 1.0/(N-1)
+     c = 1.0
+     alpha = c*dt/dx
+
+! Performs time iterations
+     Iterations = 0
+     converged = .FALSE.
+     DO WHILE ((Iterations < MAX_ITERATIONS) .AND. (.NOT. converged))
+
+          ! Calculates value of F for all grid points
+          DO i = 1, N
+               F(i) = u_n(i)**2
+          END DO
+
+          ! Performs Upwind method for u at time n+1
+          DO i = 2, N-1
+               u_n1(i) = u_n(i) - alpha*(F(i)-F(i-1))
+          END DO
+
+          ! Applies periodic boundary conditions
+          u_n1(1) = u_n(N)
+          u_n1(N) = u_n(1)
+
+          ! Checks if solution has converged
+          IF (MAXVAL(ABS(u_n1-u_n)) < 1e-6) THEN
+               converged = .TRUE.
+               WRITE(*,*) 'Solution converged after ', Iterations, ' iterations'
+          END IF
+
+          ! Updates u_n for next time step
+          u_n = u_n1
+          Iterations = Iterations + 1
+     END DO
+
+! Prints final solution
+     OPEN(unit=10, file='solution.dat', status='unknown')
+     DO i = 1, N
+          WRITE(10,*) u_n(i)
+     END DO
+     CLOSE(10)
+
+! Deallocates memory
+     DEALLOCATE(u_n, u_n1, F)
+     
+     END PROGRAM SOLVE_BURGERS

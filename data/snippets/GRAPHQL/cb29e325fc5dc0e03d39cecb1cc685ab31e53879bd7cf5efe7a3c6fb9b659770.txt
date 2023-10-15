@@ -1,0 +1,57 @@
+// GraphQL Schema Definition
+type User {
+  id: ID!
+  username: String!
+  email: String!
+  posts: [Post]
+}
+
+type Post {
+  id: ID!
+  title: String!
+  body: String!
+  author: User!
+}
+
+type Query {
+  user(id: ID!): User
+  post(id: ID!): Post
+  allUsers: [User]
+  allPosts: [Post]
+}
+
+type Mutation {
+  createUser(username: String!, email: String!): User!
+  createPost(title: String!, body: String!, authorID: ID!): Post!
+  updatePost(id: ID!, title: String, body: String): Post!
+  deletePost(id: ID!): Boolean!
+}
+
+// Resolvers Implementation
+const resolvers = {
+  Query: {
+    user: (root, { id }, context) => context.db.getUser(id),
+    post: (root, { id }, context) => context.db.getPost(id),
+    allUsers: (root, args, context) => context.db.getAllUsers(),
+    allPosts: (root, args, context) => context.db.getAllPosts(),
+  },
+  Mutation: {
+    createUser: (root, { username, email }, context) => context.db.createUser({ username, email }),
+    createPost: (root, { title, body, authorID }, context) => context.db.createPost({ title, body, authorID }),
+    updatePost: (root, { id, title, body}, context) => context.db.updatePost(id, { title, body }),
+    deletePost: (root, { id }, context) => context.db.deletePost(id),
+  },
+  User: {
+    posts: (user, args, context) => context.db.getUserPosts(user.id),
+  },
+  Post: {
+    author: (post, args, context) => context.db.getPostAuthor(post.authorID),
+  }
+};
+
+// Apollo Server setup
+const server = new ApolloServer({
+  typeDefs: fs.readFileSync('schema.graphql', 'utf8'),
+  resolvers,
+  context: { db: myDatabase },
+})

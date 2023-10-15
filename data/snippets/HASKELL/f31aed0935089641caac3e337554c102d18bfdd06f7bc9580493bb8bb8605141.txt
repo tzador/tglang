@@ -1,0 +1,36 @@
+{-# LANGUAGE DataKinds, GADTs, KindSignatures #-}
+
+import Data.Type.Equality (type (:~:)(Refl))
+
+-- Type-level natural numbers
+data Nat :: * where
+  Z :: Nat
+  S :: Nat -> Nat
+  
+-- Addition at the type level
+type family (:+) (m :: Nat) (n :: Nat) :: Nat where
+  Z :+ n = n
+  S m :+ n = S (m :+ n)
+  
+-- Multiplication at the type level
+type family (:*) (m :: Nat) (n :: Nat) :: Nat where
+  Z :* n = Z
+  S m :* n = n :+ (m :* n)
+  
+-- Exponentiation at the type level
+type family (:^) (m :: Nat) (n :: Nat) :: Nat where
+  Z :^ n = S Z
+  S m :^ n = n :* (m :^ n)
+  
+-- Proof that exponentiation is commutative
+comm :: (m :^ n) :~: (n :^ m)
+comm = case (sing :: Sing m, sing :: Sing n) of
+        (SZ, SZ) -> Refl
+        (SZ, SS SN) -> Refl
+        (SS SM, SZ) -> Refl
+        (SS SM, SS SN) -> case comm :: (m :^ SM) :~: (SM :^ m) of
+                            Refl -> trans (n :* (SM :^ m)) (m :* (SM :^ n)) Refl
+                              where
+                                -- Helper function for transitivity
+                                trans :: a :~: b -> b :~: c -> a :~: c
+                                trans Refl Refl = Refl

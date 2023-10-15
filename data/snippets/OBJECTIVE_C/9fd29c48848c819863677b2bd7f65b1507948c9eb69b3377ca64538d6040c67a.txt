@@ -1,0 +1,39 @@
+- (void)checkForUpdates {
+    NSURL *updateURL = [NSURL URLWithString:@"https://example.com/update.json"];//creates NSURL object with an update JSON file URL
+    NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithURL:updateURL completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
+        if(error) {
+            NSLog(@"Error: %@", error.localizedDescription);//logs error if there is an error in data task
+        } else {
+            NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse*)response;//creates NSHTTPURLResponse object for checking HTTP response
+            if(httpResponse.statusCode == 200) {//checks if response status code is `200` indicating a successful response
+                NSError *jsonError = nil;//initializes NSError object for JSON parsing error
+                NSDictionary *updateInfo = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers error:&jsonError];//parses JSON data into NSDictionary object
+                if(jsonError) {
+                    NSLog(@"JSON Error: %@", jsonError.localizedDescription);//logs JSON parsing error if there is one
+                } else {
+                    if(updateInfo[@"available"]) {//checks if there is an `available` key in the JSON data
+                        BOOL updateAvailable = [updateInfo[@"available"] boolValue];//converts the value for `available` key from JSON data (a string) to a boolean value
+                        if(updateAvailable) {//checks if update is available
+                            NSURL *downloadURL = [NSURL URLWithString:updateInfo[@"downloadUrl"]];//creates NSURL object with the download URL for the update
+                            NSURLSessionDownloadTask *downloadTask = [[NSURLSession sharedSession] downloadTaskWithURL:downloadURL completionHandler:^(NSURL * _Nullable location, NSURLResponse * _Nullable response, NSError * _Nullable error) {
+                                if(error) {
+                                    NSLog(@"Error: %@", error.localizedDescription);//logs error if there is an error in download task
+                                } else {
+                                    //code to handle downloaded update
+                                }
+                            }];
+                            [downloadTask resume];//starts the download task
+                        } else {
+                            NSLog(@"No update available");//logs message if update is not available
+                        }
+                    } else {
+                        NSLog(@"Invalid JSON data");//logs message if there is no `available` key in the JSON data
+                    }
+                }
+            } else {
+                NSLog(@"Invalid HTTP response");//logs message if response status code is not `200`
+            }
+        }
+    }];
+    [task resume];//starts the data task
+}

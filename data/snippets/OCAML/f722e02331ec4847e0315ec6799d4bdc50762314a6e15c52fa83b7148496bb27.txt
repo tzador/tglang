@@ -1,0 +1,76 @@
+(* Definition of an AVL tree *)
+type 'a avl_tree = 
+  | Empty
+  | Node of 'a avl_tree * 'a * 'a avl_tree * int
+
+(* Function to get the height of a given AVL tree *)
+let height = function
+  | Empty -> 0
+  | Node (_, _, _, h) -> h
+
+(* Function to calculate the balance factor of a given AVL tree *)
+let balance_factor = function
+  | Empty -> 0
+  | Node (left, _, right, _) -> height left - height right
+
+(* Function to perform a left rotation on a given AVL tree *)
+let rotate_left = function
+  | Node (Node (a, x, b, _), y, c, _) -> Node (a, x, Node (b, y, c, _), 0)
+
+(* Function to perform a right rotation on a given AVL tree *)
+let rotate_right = function
+  | Node (a, x, Node (b, y, c, _), _) -> Node (Node (a, x, b, _), y, c, 0)
+
+(* Function to perform a left-right rotation on a given AVL tree *)
+let rotate_left_right = function
+  | Node (a, x, Node (b, y, c, _), _) -> Node (Node (a, x, b, _), y, rotate_left c, 0) |> rotate_right
+
+(* Function to perform a right-left rotation on a given AVL tree *)
+let rotate_right_left = function
+  | Node (Node (a, x, b, _), y, c, _) -> Node (rotate_right a, x, Node (b, y, c, _), 0) |> rotate_left
+
+(* Function to balance a given AVL tree *)
+let rec balance = function
+  | Empty -> Empty
+  | Node (left, value, right, _) when balance_factor (Node (left, value, right, _)) > 1 ->
+    (match left with
+    | Node (_, _, _, _) when balance_factor left < 0 -> rotate_left_right (Node (left, value, right, 0))
+    | _ -> rotate_right (Node (left, value, right, 0)))
+  | Node (left, value, right, _) when balance_factor (Node (left, value, right, _)) < -1 ->
+    (match right with
+    | Node (_, _, _, _) when balance_factor right > 0 -> rotate_right_left (Node (left, value, right, 0))
+    | _ -> rotate_left (Node (left, value, right, 0)))
+  | x -> x
+
+(* Function to insert a value into an AVL tree *)
+let rec insert value = function
+  | Empty -> Node (Empty, value, Empty, 1)
+  | Node (left, root, right, height) ->
+    if value < root then balance (Node (insert value left, root, right, height))
+    else balance (Node (left, root, insert value right, height))
+
+(* Function to remove the minimum value from an AVL tree *)
+let rec remove_min = function
+  | Empty -> (Empty, Empty)
+  | Node (Empty, value, right, _) -> (right, value)
+  | Node (left, value, right, _) ->
+    let (left', min) = remove_min left in
+    (balance (Node (left', value, right, height left')), min)
+
+(* Function to delete a value from an AVL tree *)
+let rec delete value = function
+  | Empty -> Empty
+  | Node (left, root, right, _) ->
+    if value < root then balance (Node (delete value left, root, right, height left))
+    else if value > root then balance (Node (left, root, delete value right, height right))
+    else match (left, right) with
+      | (Empty, Empty) -> Empty
+      | (Empty, right) -> right
+      | (left, Empty) -> left
+      | (left, right) ->
+        let (right', min) = remove_min right in
+        balance (Node (left, min, right', height left))
+
+(* Sample usage of the AVL tree functions *)
+let tree = insert 5 Empty |> insert 3 |> insert 2 |> insert 4 |> insert 10 |> insert 9 |> insert 11 |> insert 12
+let new_tree = delete 5 tree

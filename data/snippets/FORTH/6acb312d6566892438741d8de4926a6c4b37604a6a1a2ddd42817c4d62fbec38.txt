@@ -1,0 +1,71 @@
+: MERGESORT ( A -- A') \ This function implements mergesort algorithm
+    >R \ Push address of input array onto return stack
+    DEPTH 1 <= IF \ Check if A is an array with 1 element or less
+        DROP R> ; \ If yes, delete address of A from return stack and return
+    THEN \ Endif
+    R@                    ( T -- T ) \ Peek at top data on return stack
+    COUNT                  ( T -- c-addr ) \ Get address and length of array
+    SWAP                   ( c-addr -- count c-addr ) \ Swap top two elements
+    DUP >R                 ( count -- count c-addr ) \ Duplicate count, push onto return stack
+    2 /                    ( count c-addr -- count/2 c-addr ) \ Calculate midpoint of array
+    DUP R> + SWAP SWAP     ( count/2 c-addr -- mid c-addr ) \ Get address of middle element
+    DUP >R                 ( mid -- mid mid c-addr ) \ Duplicate middle element, push onto return stack
+    2 *                    ( mid mid c-addr -- mid mid*2 c-addr ) \ Calculate address of next element
+    >R                     ( mid mid*2 c-addr -- mid*2 ) \ Push address of next element onto return stack
+    DUP @                   ( mid*2 -- x ) \ Get value at next element
+    R@ >R                  ( x -- x x ) \ Duplicate and push onto return stack
+    SWAP >R                ( x -- x x ) \ Push duplicate onto return stack, swap top two elements
+    R>                     ( x x -- x ) \ Pop duplicate from return stack
+    DO                     ( i -- ) \ Loop over all elements in array
+        I R> + C@ I R> + W! \ Get value at current element and store in next element
+        R>                    ( x ) \ Pop value from return stack
+    LOOP                   ( -- ) \ Endloop
+    R>                     ( x ) \ Pop value from return stack
+    MERGESORT              ( A' ) \ Recursive call to sort left half of array
+    >R                     ( A' ) \ Push sorted left half of array onto return stack
+    SWAP >R SWAP >R        ( A' ) \ Move sorted left half of array to top of return stack
+    SWAP                   ( A' ) \ Swap with original array
+    MERGESORT              ( A' ) \ Recursive call to sort right half of array
+    SWAP SWAP >R           ( A' ) \ Move sorted right half of array to top of return stack
+    ( Merge the two sorted halves of array )
+    >R                     ( A' ) \ Push sorted right half of array onto return stack
+    R@                     ( A' -- A' A' ) \ Duplicate sorted halves of array
+    >R                     ( A' A' ) \ Push duplicate onto return stack
+    0 SWAP                 ( A' A' I ) \ Initialize index for left half of array
+    0 SWAP                 ( A' A' J ) \ Initialize index for right half of array
+    BEGIN                  ( A' A' J ) \ Loop until all elements in right half have been added
+        2DUP I @ J @ > IF \ Compare top elements in each half and add smaller one to output
+            J INC SWAP \ Increase index of right half and swap elements
+        ELSE
+            I INC SWAP \ Increase index of left half and swap elements
+        THEN
+        2DUP I @ = J @ = + NOT \ Check if all elements in left half have been added
+        WHILE \ If not, continue looping
+            2DUP I @ J @ > IF
+                J INC SWAP
+            ELSE
+                I INC SWAP
+            THEN
+        REPEAT \ Endwhile
+    2DROP DROP             ( A' A' ) \ Drop duplicate and index values from stack
+    R> DROP                ( A' ) \ Drop sorted right half of array from stack
+    2R>                    ( A' ) \ Move sorted left half of array to top of return stack
+    >R                     ( A' ) \ Push sorted left half of array onto return stack
+    SWAP                   ( A' ) \ Swap with original array
+    0 DO                   ( ) \ Loop through entire array
+        DUP                  ( A[i] -- A[i] ) \ Duplicate current element
+        OVER                 ( A[i] A[i] -- A[i] A[i] ) \ Duplicate top two elements
+        -                    ( A[i] A[i] A[i]-A[i-1] -- A[i] A[i]-A[i-1] ) \ Calculate difference between two elements
+        @                    ( A[i] A[i]-A[i-1] -- A[i] A[i]-A[i-1] A[i]-A[i-1] ) \ Get value at previous element
+        <=                   ( A[i] A[i]-A[i-1] A[i]-A[i-1] -- A[i] A[i]-A[i-1] comparison ) \ Compare difference to value at previous element
+        IF                   ( A[i] A[i]-A[i-1] ) \ If difference is less than or equal to value at previous element, swap elements
+            SWAP                 ( A[i]-A[i-1] A[i] ) \ Swap elements
+        ELSE                 ( A[i] A[i]-A[i-1] ) \ If difference is greater than value at previous element, continue
+            2DROP                ( ) \ Drop comparison from stack
+            BREAK                ( ) \ Break out of loop
+        THEN                 ( A[i] A[i]-A[i-1] ) \ Endif
+    LOOP                   ( ) \ Endloop
+    2DROP                  ( ) \ Drop top element from stack
+    R>                     ( ) \ Get sorted left half of array from return stack
+    R@                     ( A' ) \ Peek at top element of return stack
+    DROP ;                 ( ) \ Drop top element from return stack and return

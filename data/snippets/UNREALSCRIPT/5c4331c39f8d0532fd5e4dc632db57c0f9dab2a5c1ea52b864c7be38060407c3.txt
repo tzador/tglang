@@ -1,0 +1,112 @@
+/** This class defines a player character in the game */
+class PlayerCharacter extends Actor
+	/** The player's name */
+	var const string PlayerName;
+	/** The player's current health */
+	var int Health;
+	/** The player's maximum health */
+	var const int MaxHealth = 100;
+	
+	/** Checks if the player is alive or not */
+	function bool IsAlive()
+	{
+		return (Health > 0);
+	}
+	
+	/** Restores the player's health to maximum */
+	function void RestoreHealth()
+	{
+		Health = MaxHealth;
+	}
+	
+	/** Damages the player's health by the given amount */
+	function void TakeDamage(int DamageAmount)
+	{
+		Health -= DamageAmount;
+		if (Health <= 0)
+		{
+			// If the player's health reaches 0 or below, destroy the player
+			Destroy();
+		}
+	}
+	
+	/** Called when the player picks up a collectible */
+	function void OnCollect(InventoryItem Item)
+	{
+		// Increase the player's health by the collectible's power value
+		Health += Item.Power;
+	}
+	
+	/** Called when the player interacts with an NPC */
+	function void OnInteract(NPCCharacter NPC)
+	{
+		// Print a message with the NPC's name
+		Print("Interacting with NPC " $ NPC.GetNPCName());
+		if (NPC.HasQuest())
+		{
+			// If the NPC has a quest, print the quest details
+			Print("Quest: " $ NPC.GetQuestTitle());
+			Print("Description: " $ NPC.GetQuestDescription());
+		}
+		else if (NPC.IsVendor())
+		{
+			// If the NPC is a vendor, print the available items
+			foreach (Item in NPC.GetVendorItems())
+			{
+				Print("Item: " $ Item.Name);
+				Print("Price: " $ Item.Price);
+			}
+		}
+	}
+	
+	/** Called when the player dies */
+	function void OnDeath()
+	{
+		// Print a message with the player's name
+		Print(PlayerName $ " has died.");
+		// Restart the level
+		Level.RestartLevel();
+	}
+	
+	/** Called when the player touches a trigger */
+	function void Touch(Actor Other)
+	{
+		if (Other.IsA('DeathVolume'))
+		{
+			// If the trigger is a death volume, kill the player
+			TakeDamage(MaxHealth);
+		}
+		else if (Other.IsA('Collectible'))
+		{
+			// If the trigger is a collectible, call OnCollect
+			OnCollect(Other);
+		}
+		else if (Other.IsA('NPCCharacter'))
+		{
+			// If the trigger is an NPC, call OnInteract
+			OnInteract(Other);
+		}
+	}
+	
+	/** Called every frame */
+	function Tick(float DeltaTime)
+	{
+		if (!IsAlive())
+		{
+			// If the player is not alive, call OnDeath
+			OnDeath();
+		}
+	}
+	
+	/** Static helper function for spawning a player character */
+	static function PlayerCharacter SpawnPlayer(string PlayerName)
+	{
+		local PlayerCharacter NewPlayer;
+		// Spawn a player character at the player's current location
+		NewPlayer = Spawn(class'PlayerCharacter', self);
+		// Set the player's name
+		NewPlayer.PlayerName = PlayerName;
+		// Set the player's health to maximum
+		NewPlayer.RestoreHealth();
+		return NewPlayer;
+	}

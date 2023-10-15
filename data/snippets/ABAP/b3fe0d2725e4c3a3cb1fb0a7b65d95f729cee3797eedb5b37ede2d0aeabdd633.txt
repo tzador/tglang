@@ -1,0 +1,53 @@
+*&---------------------------------------------------------------------*
+*& Report ZDEMO_REPORT                                                  *
+*&---------------------------------------------------------------------*
+*& Example of a complex ABAP report with multiple select-options,       *
+*& dynamic SQL queries and internal table usage.                        *
+*&---------------------------------------------------------------------*
+
+REPORT ZDEMO_REPORT.
+
+*--- Internal tables ---------------------------------------------------*
+TABLES: PA0001. " Table with personnel data
+
+*--- Selection-screen and selection-options -----------------------------*
+SELECT-OPTIONS: s_persnr FOR pa0001-pernr,
+                s_plans FOR pa0001-plans,
+                s_assgt FOR pa0001-assgt,
+                s_paydt FOR pa0001-paydt,
+                s_salary FOR pa0001-salary.
+
+*--- Start-of-selection event ------------------------------------------*
+START-OF-SELECTION.
+
+*--- Declaration of local variables -------------------------------------*
+DATA: lv_where_clause TYPE string,
+      lt_pers_data TYPE TABLE OF pa0001.
+
+*--- Building the dynamic where clause based on selection-options -------*
+IF s_persnr[] IS NOT INITIAL.
+  CONDENSE s_persnr[] to lv_where_clause.
+  CONCATENATE 'WHERE pernr IN (' lv_where_clause ')' INTO lv_where_clause.
+ENDIF.
+IF s_plans[] IS NOT INITIAL.
+  CONCATENATE 'AND plans IN (' s_plans[] ')' INTO lv_where_clause.
+ENDIF.
+IF s_assgt[] IS NOT INITIAL.
+  CONCATENATE 'AND assgt IN (' s_assgt[] ')' INTO lv_where_clause.
+ENDIF.
+IF s_paydt[] IS NOT INITIAL.
+  CONCATENATE 'AND paydt IN (' s_paydt[] ')' INTO lv_where_clause.
+ENDIF.
+IF s_salary[] IS NOT INITIAL.
+  CONCATENATE 'AND salary IN (' s_salary[] ')' INTO lv_where_clause.
+ENDIF.
+
+*--- Fetching data from database ----------------------------------------*
+SELECT * FROM pa0001 INTO TABLE lt_pers_data
+  WHERE (lv_where_clause).
+
+*--- Outputting data on the screen --------------------------------------*
+LOOP AT lt_pers_data INTO DATA(ls_pers_data).
+  CONCATENATE ls_pers_data-pernr ',' ls_pers_data-plans ',' ls_pers_data-assgt ',' ls_pers_data-paydt ',' ls_pers_data-salary INTO DATA(lv_data_line) SEPARATED BY space.
+  WRITE: / lv_data_line.
+ENDLOOP.

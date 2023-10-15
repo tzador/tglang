@@ -1,0 +1,51 @@
+%% This is a module that implements a simple server
+-module(simple_server). % Define the module name
+
+%% Export the public functions
+-export([start/0, stop/0, add_client/1, remove_client/1, broadcast/2]). 
+
+%% Import required modules
+-import(logger, [info/1]).
+-import(lists, [foreach/2, member/2]).
+
+%% The server process
+start() ->
+    manage_clients([]). % Call the manage_clients function with an empty list
+
+%% Function to stop the server
+stop() ->
+    gen_server:cast(?MODULE, stop).
+
+%% Function to handle incoming client connections
+manage_clients(Clients) ->
+    receive % Receive a message from the client
+        {add_client, Socket} ->
+             info("Adding client ~p to the server." [Socket]),
+             NewClients = [Socket | Clients], % Add the new client socket to the list of clients
+             manage_clients(NewClients); % Call the manage_clients function again with the updated list
+        {remove_client, Socket} ->
+             info("Removing client ~p from the server.", [Socket]),
+             NewClients = lists:delete(Socket, Clients), % Remove the client socket from the list of clients
+             manage_clients(NewClients); % Call the manage_clients function again with the updated list
+        {broadcast, Msg, Sender} ->
+             info("Broadcasting ~p to all clients.", [Msg]),
+             foreach(fun(Client) -> Client ! {broadcast, Msg, Sender} end, Clients), % Send the message to all clients
+             manage_clients(Clients); % Call the manage_clients function again with the same list
+        stop ->
+    		 info("Stopping the server."),
+    		 % Cleanup and stop the server
+    		 lists:foreach(fun(Client) -> Client ! stop end, Clients), % Send a stop message to all clients
+    		 ok
+    end.
+
+%% Function to add a new client to the server
+add_client(Socket) ->
+    gen_server:cast(?MODULE, {add_client, Socket}).
+
+%% Function to remove a client from the server
+remove_client(Socket) ->
+    gen_server:cast(?MODULE, {remove_client, Socket}).
+
+%% Function to send a message to all clients
+broadcast(Msg, Sender) ->
+    gen_server:cast(?MODULE, {broadcast, Msg, Sender}).

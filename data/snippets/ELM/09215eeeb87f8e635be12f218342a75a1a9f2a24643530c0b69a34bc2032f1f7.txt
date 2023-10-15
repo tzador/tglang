@@ -1,0 +1,65 @@
+-- An API request to retrieve user data
+import Http exposing (..)
+import Json.Decode as Decode
+
+-- Model
+type alias User =
+    { id : Int
+    , name : String
+    , email : String
+    , address : String
+    , website : String
+    }
+
+type alias Model =
+    { loading : Bool
+    , error : Maybe String
+    , user : Maybe User
+    }
+
+init : (Model, Cmd Msg)
+init =
+    ( Model True Nothing Nothing
+    , Http.get { url = "https://api.example.com/user/1", expect = Http.expectJson getUserResponse Decode.succeed }
+    )
+
+-- Msg
+type Msg
+    = GetUserResponse (Result Http.Error User)
+
+-- Update
+update : Msg -> Model -> (Model, Cmd Msg)
+update msg model =
+    case msg of
+        GetUserResponse (Ok user) ->
+            ( { model | loading = False, user = Just user }
+            , Cmd.none
+            )
+
+        GetUserResponse (Err error) ->
+            ( { model | loading = False, error = Just (Http.toString error) }
+            , Cmd.none
+            )
+
+-- View
+view : Model -> Html Msg
+view model =
+    div [] [ if model.loading then text "Loading..."
+    else
+        case model.user of
+            Just user ->
+                div []
+                    [ h1 [] [ text user.name ]
+                    , div [] [ text ("Email: " ++ user.email) ]
+                    , div [] [ text ("Address: " ++ user.address) ]
+                    , div [] [ text ("Website: " ++ user.website) ]
+                    ]
+
+            Nothing ->
+                case model.error of
+                    Just errorMsg ->
+                        p [] [ text errorMsg ]
+
+                    Nothing ->
+                        p [] [ text "No user data found." ]
+    ]

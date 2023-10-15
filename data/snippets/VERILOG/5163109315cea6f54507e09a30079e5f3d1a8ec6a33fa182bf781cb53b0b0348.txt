@@ -1,0 +1,83 @@
+// This code snippet is written in verilog, a hardware description language used for modeling, design and verification of digital circuits.
+module controller (clk, rst, din, dout);
+    // Declare inputs and outputs for the module
+    input clk, rst, din;
+    output dout;
+    
+    // Declare internal variables and wires
+    reg [3:0] state, next_state;
+    wire jump, carry_in, carry_out, shift;
+    
+    // Assign default values to state and next state
+    initial begin
+        state = 0;
+        next_state = 0;
+    end
+    
+    // Define the states of the controller
+    // Each state represents a different control sequence
+    parameter INIT = 0;
+    parameter ADD = 1;
+    parameter SUB = 2;
+    parameter MULT = 3;
+    parameter DIV = 4;
+    parameter SHIFT = 5;
+    
+    // Define the micro-operations for each state
+    always @(*) begin
+        // Default values for wires
+        jump = 0;
+        carry_in = 0;
+        carry_out = 0;
+        shift = 0;
+        
+        // Logic for state transitions and micro-actions
+        case(state)
+            INIT: begin
+                jump = 1; // Jump to the ADD state
+                carry_in = 0; // Reset carry-in to zero
+            end
+            ADD: begin
+                next_state = ADD; // Stay in ADD state
+                carry_out = (din[3] & !rst); // Add bit from input and carry out from previous state
+                if(din[3] | carry_in) carry_in = 1; // Set carry-in if either input or previous carry was 1
+                dout = din + carry_out; // Add input and carry out to get final output
+                shift = 0; // No shifting
+            end
+            SUB: begin
+                next_state = SUB; // Stay in SUB state
+                carry_out = (!din[3] & !rst); // Subtract bit from input and carry out from previous state
+                if(!din[3] | carry_in) carry_in = 1; // Set carry-in if either input or previous carry was 0
+                dout = din - carry_out; // Subtract input and carry out to get final output
+                shift = 0; // No shifting
+            end
+            MULT: begin
+                next_state = MULT; // Stay in MULT state
+                dout = din * din; // Multiply input with itself
+                carry_in = 0; // Reset carry-in to zero
+                carry_out = 0; // Reset carry-out to zero
+                shift = 0; // No shifting
+            end
+            DIV: begin
+                next_state = DIV; // Stay in DIV state
+                dout = din / din; // Divide input by itself
+                carry_in = 0; // Reset carry-in to zero
+                carry_out = 0; // Reset carry-out to zero
+                shift = 0; // No shifting
+            end
+            SHIFT: begin
+                next_state = SHIFT; // Stay in SHIFT state
+                dout = {din[2:0], din[3]}; // Shift input right by one bit
+                carry_in = din[0]; // The first bit that gets shifted becomes the carry-in for next state
+                jump = 0; // Do not jump to another state
+                shift = 1; // Set shifting flag to 1
+            end
+        endcase
+    end
+    
+    // Assign next state to current state at positive edge of the clock
+    always @(posedge clk) begin
+        state <= next_state;
+    end
+    
+endmodule

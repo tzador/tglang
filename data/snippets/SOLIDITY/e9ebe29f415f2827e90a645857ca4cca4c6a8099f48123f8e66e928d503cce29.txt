@@ -1,0 +1,106 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+// Import statements for using SafeMath
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+
+// Contract declaration
+contract Token {
+    // Variables for token name and symbol
+    string public name;
+    string public symbol;
+
+    // Mapping to store balance of each address
+    mapping(address => uint256) public balance;
+
+    // Mapping to store allowed amount to transfer from one address to another
+    mapping(address => mapping(address => uint256)) public allowance;
+
+    // Variable for total supply of token
+    uint256 public totalSupply;
+
+    // Variable for decimal value of token
+    uint8 public decimals;
+
+    // Event to be emitted on transfer of tokens
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
+    // Event to be emitted on approval of token transfer
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+
+    // Using SafeMath library to prevent integer overflow/underflow
+    using SafeMath for uint256;
+
+    // Constructor to initialize the token with name, symbol, total supply and decimal value
+    constructor(string memory _name, string memory _symbol, uint256 _totalSupply, uint8 _decimals) {
+        // Assigning values to name, symbol and decimal variables
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+
+        // Setting total supply of tokens
+        totalSupply = _totalSupply.mul(10 ** decimals);
+
+        // Assigning full total supply to the contract deployer
+        balance[msg.sender] = totalSupply;
+    }
+
+    // Function to get the token balance of a specific address
+    function getBalance(address _address) public view returns (uint256) {
+        return balance[_address];
+    }
+
+    // Function to transfer tokens from sender's address to receiver's address
+    function transfer(address _to, uint256 _value) public returns (bool) {
+        // Checking if sender has enough balance to transfer
+        require(balance[msg.sender] >= _value, "Insufficient balance");
+
+        // Subtracting transfer amount from sender's balance
+        balance[msg.sender] = balance[msg.sender].sub(_value);
+
+        // Adding transferred amount to receiver's balance
+        balance[_to] = balance[_to].add(_value);
+
+        // Emitting transfer event
+        emit Transfer(msg.sender, _to, _value);
+
+        // Returning true to indicate successful transfer
+        return true;
+    }
+
+    // Function to approve a specific amount to be spent by a specific address
+    function approve(address _spender, uint256 _value) public returns (bool) {
+        // Assigning allowance for the spender from the owner's address
+        allowance[msg.sender][_spender] = _value;
+
+        // Emitting approval event
+        emit Approval(msg.sender, _spender, _value);
+
+        // Returning true to indicate successful approval
+        return true;
+    }
+
+    // Function to transfer tokens from one address to another using allowance
+    function transferFrom(address _from, address _to, uint256 _value) public returns (bool) {
+        // Checking if the sender has enough allowance from the owner's address
+        require(allowance[_from][msg.sender] >= _value, "Insufficient allowance");
+
+        // Checking if the sender has enough balance to transfer
+        require(balance[_from] >= _value, "Insufficient balance");
+
+        // Subtracting transfer amount from sender's balance
+        balance[_from] = balance[_from].sub(_value);
+
+        // Adding transferred amount to receiver's balance
+        balance[_to] = balance[_to].add(_value);
+
+        // Subtracting approved amount from owner's allowance
+        allowance[_from][msg.sender] = allowance[_from][msg.sender].sub(_value);
+
+        // Emitting transfer event
+        emit Transfer(_from, _to, _value);
+
+        // Returning true to indicate successful transfer
+        return true;
+    }
+}

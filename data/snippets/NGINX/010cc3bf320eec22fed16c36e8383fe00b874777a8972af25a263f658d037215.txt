@@ -1,0 +1,113 @@
+#NGINX configuration file
+#Set worker processes to number of available CPU cores
+worker_processes auto;
+
+#Define a default error log file path
+#error_log path/to/errorlog.log;
+
+#Define a variable for the server name
+#This allows us to have multiple server blocks using the same configuration
+#and avoids duplicating code
+server_name $host;
+
+#Set default port to listen for HTTP requests
+listen 80;
+
+#Set default port to listen for HTTPS requests and enable SSL
+listen 443 ssl;
+
+#Specify the SSL certificate and private key paths
+ssl_certificate path/to/cert.pem;
+ssl_certificate_key path/to/key.pem;
+
+#Set server root directory for serving files
+root /var/www/html;
+
+#Define location block for handling HTTP requests
+location / {
+    #Enable gzip compression
+    gzip on;
+
+    #Set cache control headers
+    expires 1d;
+    add_header Cache-Control "public";
+
+    #Block certain file types from being served
+    #Insert file extensions in place of the x's
+    location ~* \.(xxx|xxx|xxx)$ {
+        #Return a 403 Forbidden error
+        return 403;
+    }
+}
+
+#Define location block for handling HTTP requests to specific path
+location /api {
+    #Pass requests to a specific upstream server
+    proxy_pass http://127.0.0.1:8080;
+
+    #Set cache control headers
+    expires 1d;
+    add_header Cache-Control "public";
+
+    #Enable caching for specific file types
+    #Insert file extensions in place of the x's
+    location ~* \.(xxx|xxx|xxx)$ {
+        #Set caching time to 7 days
+        expires 7d;
+    }
+
+    #Set HTTP headers to be passed to upstream server
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+}
+
+#Define location block for handling requests to specific file path
+location /files {
+    #Enable caching for specific file types
+    #Insert file extensions in place of the x's
+    location ~* \.(xxx|xxx|xxx)$ {
+        #Set caching time to 7 days
+        expires 7d;
+    }
+
+    #Only allow GET requests from local network
+    allow 10.0.0.0/8;
+    deny all;
+}
+
+#Define server block for handling HTTPS requests
+server {
+    #Set server name and port
+    server_name $host:443;
+
+    #Enable SSL
+    ssl on;
+
+    #Set SSL certificate and private key paths
+    ssl_certificate path/to/cert.pem;
+    ssl_certificate_key path/to/key.pem;
+
+    #Set default root directory for serving files
+    root /var/www/html;
+
+    #Define location block for handling requests to specific path
+    location /secure {
+        #Pass requests to a specific upstream server
+        proxy_pass http://127.0.0.1:8081;
+
+        #Set cache control headers
+        expires 1d;
+        add_header Cache-Control "public";
+
+        #Enable caching for specific file types
+        #Insert file extensions in place of the x's
+        location ~* \.(xxx|xxx|xxx)$ {
+            #Set caching time to 30 days
+            expires 30d;
+        }
+
+        #Set HTTP headers to be passed to upstream server
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}

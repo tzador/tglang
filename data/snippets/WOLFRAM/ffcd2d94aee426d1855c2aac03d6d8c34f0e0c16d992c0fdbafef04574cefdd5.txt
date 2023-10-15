@@ -1,0 +1,76 @@
+(* This function generates a random forest using the BREIMAN algorithm *)
+
+(* Import necessary packages and libraries *)
+Needs["RandomForest`"]
+(* Define some parameters *)
+nTrees = 10; (* number of trees in the forest *)
+mTry = 4; (* number of features to consider at each split *)
+
+(* Define some helper functions *)
+
+(* This function calculates the Gini impurity for a given dataset *)
+GiniImpurity[data_] := Module[{p},
+    p = Counts[data[[All,-1]]]/Length[data]; (* calculate the probability for each class *)
+    1 - Total[p^2] (* calculate the Gini impurity *)
+]
+
+(* This function calculates the information gain for a given split on a given dataset *)
+InformationGain[split_, data_] := Module[{p1, p2},
+    p1 = Counts[split[[All,-1]]]/Length[split]; (* calculate the probability for each class in the left split *)
+    p2 = Counts[data[[All,-1]]]/Length[data]; (* calculate the probability for each class in the right split *)
+    GiniImpurity[data] - Total[(Length[split]/Length[data])*GiniImpurity[split], (Length[data] - Length[split])/Length[data]*GiniImpurity[data - split]] (* calculate the information gain *)
+]
+
+(* This function recursively creates a tree using the BREIMAN algorithm *)
+Tree[data_, depth_, maxDepth_] := Module[{split, bestSplit, bestGain, bestFeat, featList},
+    (* if the data is pure or we have reached the maximum depth, return a leaf node with the majority class *)
+    If[GiniImpurity[data] == 0 || depth == maxDepth,
+        Return[Node[data[[1,-1]], {}, {}]] (* return a leaf node with the majority class *)
+    ];
+    
+    bestGain = 0; (* initialize the best information gain to 0 *)
+    featList = RandomSample[data[[1,1 ;; -2]], mTry]; (* randomly select mTry features to consider *)
+    
+    (* loop through the selected features and find the best split *)
+    Do[
+        split = Partition[data[[All,i ;; i]], 1]; (* create a split based on the current feature *)
+        gain = InformationGain[split, data]; (* calculate the information gain for the current split *)
+        
+        (* if the information gain is better than the current best, update the best split and gain *)
+        If[gain > bestGain,
+            bestGain = gain;
+            bestSplit = split;
+            bestFeat = feat;
+        ],
+        {feat, featList}
+    ];
+    
+    (* if the best information gain is 0, return a leaf node with the majority class *)
+    If[bestGain == 0,
+        Return[Node[data[[1,-1]], {}, {}]] (* return a leaf node with the majority class *)
+    ];
+    
+    (* create a new internal node with the best feature and recursively create children *)
+    Return[Node[bestFeat, Tree[Select[data, #[[bestFeat]] == 0 &], depth + 1, maxDepth], Tree[Select[data, #[[bestFeat]] == 1 &], depth + 1, maxDepth]]];
+]
+
+(* This function creates a random forest using the BREIMAN algorithm *)
+RandomForest[data_, nTrees_, mTry_] := Module[{trees},
+    trees = {}; (* initialize the list of trees *)
+    
+    (* loop through and create nTrees trees *)
+    Do[
+        tree = Tree[data, 0, Round[Log[2, Length[data]]]]; (* create a tree with a maximum depth based on the number of data points *)
+        AppendTo[trees, tree], (* add the tree to the list of trees *)
+        {n, 1, nTrees}
+    ];
+    
+    (* return the list of trees *)
+    trees
+]
+
+(* Run the function on a sample dataset and print the results *)
+(* The dataset contains the height and weight of 100 people, along with a label indicating their gender (0 for male, 1 for female) *)
+data = {{80, 180, 1}, {70, 150, 0}, {65, 120, 0}, {75, 190, 1}, {85, 200, 1}, {75, 170, 0}, {70, 160, 0}, {70, 140, 0}, {80, 220, 1}, {65, 110, 0}, {85, 210, 1}, {90, 230, 1}, {100, 250, 1}, {80, 170, 0}, {85, 190, 1}, {75, 160, 0}, {85, 220, 1}, {80, 190, 1}, {70, 160, 0}, {75, 170, 0}, {70, 140, 0}, {90, 220, 1}, {90, 200, 1}, {90, 180, 1}, {80, 200, 1}, {75, 180, 0}, {60, 120, 0}, {80, 150, 0}, {85, 160, 1}, {80, 190, 1}, {65, 110, 0}, {70, 150, 0}, {85, 180, 1}};
+forest = RandomForest[data, nTrees, mTry];
+forest[[1]]

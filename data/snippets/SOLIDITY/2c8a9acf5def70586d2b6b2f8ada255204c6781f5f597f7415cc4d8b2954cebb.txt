@@ -1,0 +1,363 @@
+pragma solidity 0.8.0;
+
+/**
+ * @title Ownership
+ * @dev The Ownable contract has an owner address, and provides basic authorization control 
+ * functions, this simplifies the implementation of "user permissions". 
+ */
+contract Ownable {
+    address private owner;
+    
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    
+    /**
+    * @dev The Ownable constructor sets the original `owner` of the contract to the sender 
+    * account.
+    */
+    constructor() {
+        owner = msg.sender;
+        emit OwnershipTransferred(address(0), _owner);
+    }
+    
+    /**
+    * @return the address of the owner.
+    */
+    function getOwner() public view returns (address) {
+        return owner;
+    }
+    
+    /**
+    * @dev Throws if called by any account other than the owner.
+    */
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Caller is not the owner");
+        _;
+    }
+    
+    /**
+    * @dev Allows the current owner to transfer control of the contract to a newOwner.
+    * @param _newOwner The address to transfer ownership to.
+    */
+    function transferOwnership(address _newOwner) public onlyOwner {
+        require(_newOwner != address(0), "New owner must not be empty");
+        emit OwnershipTransferred(owner, _newOwner);
+        owner = _newOwner;
+    }
+}
+
+/**
+ * @title SafeMath
+ * @dev Math operations with safety checks that throw on error.
+ * Based on code by OpenZeppelin: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/math/SafeMath.sol
+ */
+library SafeMath {
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        uint256 c = a + b;
+        require(c >= a, "SafeMath: addition overflow");
+        return c;
+    }
+
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b <= a, "SafeMath: subtraction overflow");
+        uint256 c = a - b;
+        return c;
+    }
+
+    function div(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b > 0, "SafeMath: division by zero");
+        uint256 c = a / b;
+        return c;
+    }
+
+    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+        if (a == 0) {
+            return 0;
+        }
+
+        uint256 c = a * b;
+        require(c / a == b, "SafeMath: multiplication overflow");
+        return c;
+    }
+
+    function mod(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b != 0, "SafeMath: modulo by zero");
+        return a % b;
+    }
+}
+
+/**
+ * @title ERC20Basic
+ * @dev Simpler version of ERC20 interface
+ * See https://github.com/ethereum/EIPs/issues/179
+ */
+interface ERC20Basic {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address who) external view returns (uint256);
+    function transfer(address to, uint256 value) external returns (bool);
+    event Transfer(address indexed from, address indexed to, uint256 value);
+}
+
+/**
+ * @title BasicToken
+ * @dev Basic version of StandardToken, with no allowances.
+ */
+contract BasicToken is ERC20Basic {
+    using SafeMath for uint256;
+
+    mapping(address => uint256) balances;
+
+    uint256 totalSupply_;
+    
+    /**
+    * @dev Total number of tokens in existence.
+    */
+    function totalSupply() public override view returns (uint256) {
+        return totalSupply_;
+    }
+    
+    /**
+    * @dev Gets the balance of the specified address.
+    * @param _owner The address to query the balance of.
+    * @return A uint256 representing the amount owned by the passed address.
+    */
+    function balanceOf(address _owner) public override view returns (uint256) {
+        return balances[_owner];
+    }
+
+    /**
+    * @dev Transfer token for a specified address.
+    * @param _to The address to transfer to.
+    * @param _value The amount to be transferred.
+    * @return A boolean that indicates if the operation was successful.
+    */
+    function transfer(address _to, uint256 _value) public override returns (bool) {
+        require(_to != address(0), "Recipient must not be empty");
+        require(_value <= balances[msg.sender], "Insufficient balance");
+        
+        // SafeMath is used to prevent the risk of integer overflow
+        balances[msg.sender] = balances[msg.sender].sub(_value);
+        balances[_to] = balances[_to].add(_value);
+        
+        emit Transfer(msg.sender, _to, _value);
+        return true;
+    }
+}
+
+/**
+ * @title Standard ERC20 token
+ * @dev Implementation of the basic standard token.
+ * Extended version of ERC20 interface where we add:
+ * - the ability for an account to freeze other accounts (only the owner can do it)
+ * See https://github.com/ethereum/EIPs/issues/179
+ */
+contract StandardToken is ERC20Basic, Ownable {
+    using SafeMath for uint256;
+
+    mapping (address => mapping (address => uint256)) allowed;
+    mapping (address => bool) public frozenAccounts;
+    
+    /**
+    * @dev Event for freezing of accounts (only the Owner can do it)
+    * This allows the owner to block transfers from a certain account.
+    * @param account The address of the account to be frozen.
+    */
+    event FrozenAccount(address indexed account);
+    
+    /**
+    * @dev Allows a user with permission to freeze other accounts (only the Owner can do it).
+    * @param _account The address of the account to be frozen.
+    */
+    function freezeAccount(address _account) public onlyOwner {
+        require(_account != address(0), "Account must not be empty");
+        require(!frozenAccounts[_account], "Account must not be already frozen");
+        
+        frozenAccounts[_account] = true;
+        
+        emit FrozenAccount(_account);
+    }
+    
+    /**
+    * @dev Removes the possibility to trade from a certain address (only the Owner can do it).
+    * @param _from The address from which the transfer process must be disallowed.
+    * cannot be the address of the owner.
+    */
+    modifier canTrade(address _from) {
+        require(!frozenAccounts[_from], "Account must not be frozen");
+        require(_from != owner, "Owner's account cannot be used for trading");
+        _;
+    }
+    
+    /**
+    * @dev Increase the amount of tokens that an owner has allowed to a spender.
+    * This approving process is simply to allow a spender to have the right to transfer tokens of others.
+    * @param _spender The address which will spend the funds.
+    * @param _addedValue The amount of tokens to increase the allowance by.
+    * @return A boolean that indicates if the operation was successful.
+    */
+    function increaseAllowance(address _spender, uint256 _addedValue) public returns (bool) {
+        require(_spender != address(0), "Spender must not be empty");
+        require(!frozenAccounts[_spender], "Spender must not be frozen");
+        
+        // SafeMath is used to prevent the risk of integer overflow
+        allowed[msg.sender][_spender] = allowed[msg.sender][_spender].add(_addedValue);
+        
+        // Emit the approval event required by ERC20 interface
+        emit Approval(msg.sender, _spender, allowed[msg.sender][_spender]);
+        return true;
+    }
+
+    /**
+     * @dev Decrease the amount of tokens that an owner has allowed to a spender.
+     * @param _spender The address which will spend the funds.
+     * @param _subtractedValue The amount of tokens to decrease the allowance by.
+     * @return A boolean that indicates if the operation was successful.
+     */
+    function decreaseAllowance(address _spender, uint256 _subtractedValue) public returns (bool) {
+        require(_spender != address(0), "Spender must not be empty");
+        require(!frozenAccounts[_spender], "Spender must not be frozen");
+        
+        // SafeMath is used to prevent the risk of integer overflow
+        allowed[msg.sender][_spender] = allowed[msg.sender][_spender].sub(_subtractedValue);
+        
+        // Emit the approval event required by ERC20 interface
+        emit Approval(msg.sender, _spender, allowed[msg.sender][_spender]);
+        return true;
+    } 
+    
+    /**
+    * @dev Returns the amount of tokens that an owner allowed to a spender.
+    * @param _owner The address which owns the funds.
+    * @param _spender The address which will spend the funds.
+    * @return A uint256 specifying the amount of tokens still available for the spender.
+    */
+    function allowance(address _owner, address _spender) public view override returns (uint256) {
+        require(!frozenAccounts[_spender], "Spender must not be frozen");
+        return allowed[_owner][_spender];
+    }
+
+    /**
+    * @dev Transfer token for a specified address.
+    * @param _to The address to transfer to.
+    * @param _value The amount to be transferred.
+    * @return A boolean that indicates if the operation was successful.
+    */
+    function transfer(address _to, uint256 _value) public override canTrade(msg.sender) returns (bool) {
+        require(_to != address(0), "Recipient must not be empty");
+        require(_value <= balances[msg.sender], "Insufficient balance");
+        
+        // SafeMath is used to prevent the risk of integer overflow
+        balances[msg.sender] = balances[msg.sender].sub(_value);
+        balances[_to] = balances[_to].add(_value);
+        
+        emit Transfer(msg.sender, _to, _value);
+        return true;
+    }
+
+    /**
+    * @dev Transfer tokens from one address to another.
+    * Note that while this function emits an Approval event, this is not required as per the specification,
+    * and other compliant implementations may not emit the event.
+    * @param _from The address which you want to send tokens from.
+    * @param _to The address which you want to transfer to.
+    * @param _value The amount of tokens to be transferred.
+    * @return A boolean that indicates if the operation was successful.
+    */
+    function transferFrom(address _from, address _to, uint256 _value) public override canTrade(_from) returns (bool) {
+        require(_to != address(0), "Recipient must not be empty");
+        require(_value <= balances[_from], "Insufficient balance");
+        require(_value <= allowed[_from][msg.sender], "Insufficient allowance");
+        
+        // The calling address must have already been approved by _from
+        require(!frozenAccounts[msg.sender], "Caller must not be frozen");
+        
+        // Update approvals list and balances
+        allowed[_from][msg.sender] = allowed[_from][msg.sender].sub(_value);
+        balances[_from] = balances[_from].sub(_value);
+        balances[_to] = balances[_to].add(_value);
+        
+        // Emit a transfer event required by the ERC20 interface
+        emit Transfer(_from, _to, _value);
+        return true;
+    }
+}
+
+/**
+ * @title MultiOwned - multi account or acl controlled ownership
+ */
+contract MultiOwned is Ownable {
+
+    mapping (address => bool) private owners;
+    uint256 private requiredSig;
+
+
+    event AddedOwner(address _owner);
+    event RemovedOwner(address _owner);
+    
+    /**
+     * @return the list of owners
+     */
+    function getOwners() public view returns (address[] memory) {
+        address[] memory ownersArray = new address[](_ownersCount());
+
+        for (uint16 i = 0; i < _ownersCount(); i++) {
+            ownersArray[i] = address(owners[i]);
+        }
+
+        return ownersArray;
+    }
+    
+    /**
+     * @return the number of current owners.
+     */
+    function _ownersCount() private view returns (uint8) {
+        return uint8(owners.length);
+    }
+    
+    /**
+     * @dev Throws if called by an account that is not a owner.
+     */
+    modifier onlyOwnerOrAnyOfOwners() {
+        require(owners[msg.sender] || msg.sender == owner, "Caller is not an owner");
+        _;
+    }
+
+    /**
+     * @dev Add a new owner
+     * Good for multisig wallets
+     * @param _owner The address of the new owner
+     */
+    function _addOwner(address _owner) private {
+        require(_owner != address(0), "Owner must not be empty");
+        require(_owner != owner, "Owner cannot be the same as before");
+        require(!owners[_owner], "He's already an owner");
+
+        // Add the owner
+        owners[_owner] = true;
+        requiredSig++;
+
+        emit AddedOwner(_owner);
+    }
+
+    /**
+     * @dev Add multiple owners in one go
+     * Good for multisig wallets.
+     * The only-owner can add new owners.
+     * Each owner in `_owners` must not be the same as the old owner and must not be empty.
+     * We don't check whether `_owners` contains duplicates, as the ownership mapping doesn't will be false.
+     * We don't check if the address was added, as the ownership mapping doesn't will be overwritten
+     * We are using an internal function to avoid stack too deep errors
+     * @param _owners The list of addresses of the new owners
+     */
+    function __addOwners(address[] memory _owners) private onlyOwner {
+        for (uint8 i = 0; i < _owners.length; i++) {
+            _addOwner(_owners[i]);
+        }
+    }
+
+    /**
+     * @dev Remove an owner
+     * Good for multisig wallets
+     * We avoid that you lock yourself out of the contract by removing your account .
+     * In case you need to lock yourself out, but still be able to delete an owner,
+     * you can always define a secondary owner and remove it afterwards.
+     * @param _owner The address of the

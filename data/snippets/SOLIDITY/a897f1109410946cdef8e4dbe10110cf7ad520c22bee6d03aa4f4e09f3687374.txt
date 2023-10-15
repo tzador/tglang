@@ -1,0 +1,74 @@
+// SPDX-License-Identifier: MIT 
+// This contract shows the implementation of the Open Zeppelin Crowdsale contract
+
+// Import required Open Zeppelin contracts 
+import "@openzeppelin/contracts/crowdsale/Crowdsale.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+// Define the crowdsale contract, inheriting from the Open Zeppelin Crowdsale and FinalizableCrowdsale contracts 
+contract MyCrowdsale is Crowdsale, FinalizableCrowdsale {
+
+    // Define variables to set token rate, cap, and opening and closing times 
+    uint256 public rate;
+    uint256 public cap;
+    uint256 public openingTime;
+    uint256 public closingTime;
+
+    // Define constructor function to initialize the contract with the given parameters 
+    constructor(
+        uint256 _rate,
+        address payable _wallet,
+        ERC20 _token,
+        uint256 _cap,
+        uint256 _openingTime,
+        uint256 _closingTime
+        )
+        Crowdsale(_rate, _wallet, _token) 
+        FinalizableCrowdsale() 
+    {
+        require(_cap > 0, "MyCrowdsale: cap must be greater than 0");
+        require(_closingTime > _openingTime, "MyCrowdsale: opening time must be before closing time");
+        
+        cap = _cap;
+        openingTime = _openingTime;
+        closingTime = _closingTime;
+    }
+
+    // Create function to check if crowdsale is still open for purchase
+    function isOpen() public view returns (bool) {
+        // solhint-disable-next-line not-rely-on-time
+        return block.timestamp >= openingTime && block.timestamp <= closingTime;
+    }
+
+    // Create function to calculate the amount of tokens to be purchased based on ether sent 
+    function _getTokenAmount(uint256 weiAmount) internal view returns (uint256) {
+        return weiAmount.mul(rate);
+    }
+
+    // Override _preValidatePurchase function to check if contribution is within cap
+    function _preValidatePurchase(address beneficiary, uint256 weiAmount) internal view {
+        super._preValidatePurchase(beneficiary, weiAmount);
+        require(weiRaised().add(weiAmount) <= cap, "MyCrowdsale: cap exceeded");
+    }
+
+    // Override _updatePurchasingState function to track and update contribution amount
+    function _updatePurchasingState(address beneficiary, uint256 weiAmount) internal {
+        super._updatePurchasingState(beneficiary, weiAmount);
+    }
+
+    // Override _postValidatePurchase function to finalize sale if cap is reached
+    function _postValidatePurchase(address beneficiary, uint256 weiAmount) internal view {
+        super._postValidatePurchase(beneficiary, weiAmount);
+        if (weiRaised() == cap) {
+            finalization();
+        }
+    }
+
+    // Override finalization function to transfer remaining tokens to owner 
+    function finalization() internal {
+        uint256 remainingTokens = cap.sub(weiRaised());
+        if (remainingTokens > 0) {
+            token().transfer(owner(), remainingTokens);
+        }
+    }
+}

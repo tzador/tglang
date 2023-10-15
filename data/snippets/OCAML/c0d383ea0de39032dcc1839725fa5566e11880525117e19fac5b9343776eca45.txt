@@ -1,0 +1,52 @@
+(*Description: This code implements a binary search tree data structure*)
+(*Define a type for a node in the tree*)
+type 'a tree = Leaf | Node of 'a tree * 'a * 'a tree 
+
+(*Function for inserting a new element into the tree*)
+let rec insert x = function
+| Leaf -> Node (Leaf, x, Leaf) (*Insert the element as the root of the tree if it is empty*)
+| Node (left, y, right) -> 
+    if x < y then Node (insert x left, y, right) (*If x is less than the current node, insert it into the left subtree*)
+    else if x > y then Node (left, y, insert x right) (*If x is greater than the current node, insert it into the right subtree*)
+    else Node (left, x, right) (*If x is equal to the current node, do not insert and return the same tree*)
+
+(*Function for checking if an element exists in the tree*)
+let rec contains x = function
+| Leaf -> false (*If the tree is empty, the element does not exist*)
+| Node (left, y, right) ->
+    if x = y then true (*If x is equal to the current node, return true*)
+    else if x < y then contains x left (*If x is less than the current node, check the left subtree*)
+    else contains x right (*If x is greater than the current node, check the right subtree*)
+
+(*Function for deleting an element from the tree*)
+let rec delete x = function
+| Leaf -> Leaf (*If the tree is empty, do nothing*)
+| Node (left, y, right) ->
+    if x = y then 
+        if left = Leaf && right = Leaf then Leaf (*If x is equal to the current node and it has no child nodes, remove it*)
+        else if left = Leaf then right (*If x is equal to the current node and it has a right child node, replace it with the right child node*)
+        else if right = Leaf then left (*If x is equal to the current node and it has a left child node, replace it with the left child node*)
+        else (*If x is equal to the current node and it has both left and right child nodes*)
+            let rec find_min = function (*Function for finding the minimum element in a subtree*)
+            | Leaf -> raise Not_found (*If the subtree is empty, return an exception*)
+            | Node (left, y, _) -> if left = Leaf then y else find_min left (*If the subtree is not empty, recursively find the minimum element*)
+            Node (delete (find_min right) right, find_min right, left) (*Replace the current node with the minimum element in the right subtree and delete the minimum element*)
+    else (*If x is not equal to the current node, check the child nodes recursively to find the element to be deleted*)
+        if x < y then Node (delete x left, y, right) (*If x is less than the current node, check the left subtree*)
+        else Node (left, y, delete x right) (*If x is greater than the current node, check the right subtree*)
+
+(*Function for finding the height of the tree*)
+let height = function
+| Leaf -> 0 (*If the tree is empty, the height is 0*)
+| Node (left, _, right) -> 1 + max (height left) (height right) (*The height is 1 + the maximum height of the left and right subtrees*)
+
+(*Function for sorting a list using a binary search tree*)
+let sort lst =
+    let rec insert_all tree = function (*Function for inserting all elements of a list into a tree*)
+    | [] -> tree (*If the list is empty, return the tree*)
+    | x::xs -> insert_all (insert x tree) xs (*Insert the first element into the tree and recursively insert the remaining elements*)
+    let rec traverse tree acc = function (*Function for traversing the tree in order to retrieve the sorted elements*)
+    | Leaf -> acc (*If the tree is empty, return the accumulator*)
+    | Node (left, y, right) -> traverse left (y::(traverse right acc)) (*Traverse the left subtree, add the current node to the accumulator, and then traverse the right subtree*)
+    let tree = insert_all Leaf lst (*Insert all elements of the list into an empty tree*)
+    traverse tree [] |> List.rev (*Traverse the tree in order and reverse the list to get the sorted list*)

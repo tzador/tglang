@@ -1,0 +1,85 @@
+-- Multiple unresolved wired mappings example --
+
+with Ada.Text_IO; use Ada.Text_IO;
+with Ada.Integer_Text_IO; use Ada.Integer_Text_IO;
+with Ada.Unchecked_Deallocation; use Ada.Unchecked_Deallocation;
+with System.Storage_Pools; use System.Storage_Pools;
+
+procedure Wired_Mappings is
+
+   subtype Number is Integer range 1..5;
+
+   type Entry is record
+      Id : Number;
+   end record;
+
+   type Table is
+     array (Number) of Entry;
+
+   type Table_Access is access Table;
+
+   type Collection is record
+      Length : Number;
+      Data   : Table_Access;
+   end record;
+
+   type Collection_Access is access Collection;
+
+   -- Procedure to allocate a table
+   procedure Allocate (Object : in out Collection) is
+   begin
+      Tasking.Yield;
+      Object.Data := new Table;
+      Object.Length := Object.Length + 1;
+      Object.Data (Object.Length).Id := Object.Length;
+   end Allocate;
+
+   -- Protected type with unresolved wired mappings
+   protected type Prot_Type is
+      entry Connect (Object : in out Collection_Access);
+      entry Next (Object : out Entry);
+   private
+      State : Collection_Access;
+      Size  : Number;
+   end Prot_Type;
+
+   protected body Prot_Type is
+
+      -- Connect entry with unresolved wired mapping
+      entry Connect (Object : in out Collection_Access) when Size < Object.Length is
+      begin
+         Size := Size + 1;
+         State.all := Object.all;
+      end Connect;
+
+      -- Next entry with unresolved wired mapping
+      entry Next (Object : out Entry) when State.Length /= 0 is
+      begin
+         Object := State.Data (State.Length);
+         State.Data := State.Data (1..State.Length - 1) & State.Data (State.Length + 1..State.Data'Last);
+         State.Length := State.Length - 1;
+      end Next;
+   end Prot_Type;
+
+   Coll : Collection;
+   Prot : Prot_Type;
+
+begin
+   for Num in Number loop
+      Allocate (Coll);
+   end loop;
+
+   -- Call the connect entry to wire an instance
+   Prot.Connect (Coll'Access);
+
+   -- Call the next entry to get the next available entry from the wired mapping
+   if Prot.State.Length > 0 then
+      declare
+         Next_Entry : Entry;
+      begin
+         Prot.Next (Next_Entry);
+         Put_Line ("Next entry is: " & Integer'Image (Next_Entry.Id));
+      end;
+   end if;
+
+end Wired_Mappings;

@@ -1,0 +1,142 @@
+/* This program uses a widget class to display a list of customers and their orders */
+
+USING OpenEdge.Core.*.
+
+CLASS Program:
+
+    /* Attributes */
+
+    DEFINE PRIVATE VARIABLE wid AS CHARACTER NO-UNDO.
+    DEFINE PRIVATE VARIABLE lcSelect AS LOGICAL NO-UNDO.
+
+    /* Main Block */
+
+    OUTPUT TO CONSOLE: "Widget Class - Customer Orders".
+    OUTPUT TO CONSOLE: "---------------------------------------------".
+    OUTPUT TO CONSOLE SKIP.
+    
+    /* Create the widget */
+    CREATE wid.
+    
+    /* Set the widget title */
+    wid:TILE = "Customer Orders".
+    
+    /* Set the widget size */
+    wid:WIDTH = 600.
+    wid:HEIGHT = 400.
+    
+    /* Set the widget layout */
+    wid:LAYOUT = "VERTICAL".
+    
+    /* Add a list widget to display customer names */
+    DEFINE VARIABLE lstCustomers AS WIDGET-HANDLE NO-UNDO.
+    CREATE lstCustomers.
+    
+    /* Add a query to retrieve customer names */
+    DEFINE VARIABLE qCust AS HANDLE NO-UNDO.
+    CREATE QUERY qCust.
+    
+    qCust:SET-BUFFERS("customer"). /* Set the query buffer to the customer table */
+    qCust:QUERY-PREPARE("FOR EACH customer").
+    qCust:QUERY-OPEN().
+    
+    /* Bind the list widget to the query results */
+    ASSIGN lstCustomers:ITEM-TEXT = "customer.name"
+           lstCustomers:ITEM-VALUE = "customer.cust_num"
+           lstCustomers:SELECT-EXCLUSIVE = TRUE
+           lstCustomers:QUERY = qCust.
+    
+    /* Add change triggers for the list widget */
+    ON CHOOSE ("lstCustomers") lstCustomers:DISPLAY-SELECTED-VALUE.
+    ON GO   ("lstCustomers") lstCustomers:DISPLAY-SELECTED-VALUE.
+    
+    /* Add a text widget to display selected customer's orders */
+    DEFINE VARIABLE txtOrders AS WIDGET-HANDLE NO-UNDO.
+    CREATE txtOrders.
+    
+    /* Set the widget layout */
+    txtOrders:LAYOUT = "VERTICAL".
+    
+    /* Add a button to refresh the list of orders */
+    DEFINE VARIABLE btnRefresh AS WIDGET-HANDLE NO-UNDO.
+    CREATE BUTTON btnRefresh ASSIGN btnRefresh:LABEL = "Refresh".
+    
+    /* Add a query to retrieve customer orders */
+    DEFINE VARIABLE qOrders AS HANDLE NO-UNDO.
+    CREATE QUERY qOrders.
+    
+    /* Set an initial WHERE clause */
+    ASSIGN qOrders:QUERY-PREPARE("FOR EACH order WHERE order.cust_num = ?").
+    qOrders:QUERY-PARAMETERS(lstCustomers:ITEM-FETCHED-VALUE).
+    qOrders:QUERY-OPEN().
+    
+    /* Add a temp-table to store the query results */
+    DEFINE TEMP-TABLE ttOrders LIKE order.
+    
+    /* Bind the temp-table to the query results */
+    ASSIGN ttOrders:HANDLE = qOrders:GET-HANDLE().
+    
+    /* Add a browse widget to display the orders */
+    DEFINE VARIABLE brwOrders AS WIDGET-HANDLE NO-UNDO.
+    CREATE brwOrders.
+    
+    /* Add columns to the browse widget */
+    brwOrders:ADD-CALCULATED-COLUMN("order_num").
+    brwOrders:ADD-CALCULATED-COLUMN("order_date").
+    brwOrders:ADD-CALCULATED-COLUMN("total_amount").
+    
+    /* Bind the browse widget to the temp-table */
+    ASSIGN brwOrders:QUERY = qOrders:GET-HANDLE() brwOrders:TEMP-TABLE = ttOrders.
+    
+    /* Add a change trigger to refresh the list of orders */
+    ON CHOOSE ("btnRefresh") qOrders:QUERY-OPEN().
+    
+    /* Add the list and text widget to the main widget */
+    wid:ADD-FIRST(lstCustomers).
+    wid:ADD-LAST(txtOrders).
+    
+    /* Show the widget */
+    VIEW wId.
+
+    /* Sub-programs */
+
+    /* A sub-program to display the selected customer's orders */
+    PROCEDURE DISPLAY-SELECTED-VALUE():
+        txtOrders:VALUE = "".
+        DO WHILE qOrders:GET-NEXT():
+            txtOrders:SET-APPEND().
+            txtOrders:APPEND("-Order #":qOrders:GET-RESULT("order_num"), ", Date:":qOrders:GET-RESULT("order_date")).
+
+            /* Add a temp-table to store the order details */
+            DEFINE TEMP-TABLE ttOrderLines
+                FIELD item_num AS CHARACTER
+                FIELD description AS CHARACTER
+                FIELD quantity AS DECIMAL
+                FIELD unit_price AS DECIMAL
+                FIELD total_price AS DECIMAL.
+
+            /* Add a browse widget to display the order details */
+            DEFINE VARIABLE brwOrderLines AS WIDGET-HANDLE NO-UNDO.
+            CREATE brwOrderLines.
+            brwOrderLines:ADD-CALCULATED-COLUMN("item_num").
+            brwOrderLines:ADD-CALCULATED-COLUMN("description").
+            brwOrderLines:ADD-CALCULATED-COLUMN("quantity").
+            brwOrderLines:ADD-CALCULATED-COLUMN("unit_price").
+            brwOrderLines:ADD-CALCULATED-COLUMN("total_price").
+
+            /* Populate temp-table with order details */
+            FOR EACH order-line WHERE order-line.order_num = ?:
+                ASSIGN ttOrderLines:HANDLE = BUFFER order-line:HANDLE.
+                brwOrderLines:ADD-LAST-ROWS(ttOrderLines).
+            END.
+
+            /* Bind the browse widget to the temp-table */
+            brwOrderLines:TEMP-TABLE = ttOrderLines:HANDLE.
+
+            /* Add the browse widget to the text widget */
+            txtOrders:ADD-LAST(brwOrderLines).
+        END.
+        
+    END PROCEDURE.
+    
+END CLASS.

@@ -1,0 +1,85 @@
+: ALLOT   ( n -- )		\ defining compile-only word to allocate n units of memory
+   HERE +			\ adds the current data-space pointer to n, 
+				\ which allocates n units of memory
+;
+
+: SEGMENT-START ( -- n )	\ defining colon word to mark the beginning of a data segment
+   HERE			\ return the current data-space pointer, 
+				\ which marks the start of the segment
+;
+
+: SEGMENT-END ( n -- )		\ defining colon word to end a data segment
+   ALLOT 			\ allocate n units of memory to the segment
+   ROT  			\ rotate the top three items on the stack, 
+				\ bringing the current data-space pointer to the top
+   SWAP			\ swap the top two items on the stack, 
+				\ bringing the segment size (n) to the bottom
+   BEGIN			\ start an indefinite loop
+      OVER 			\ duplicate the segment size (n) 
+      > 0 			\ check if it is greater than 0 
+      WHILE			\ while it is greater than 0, 
+				\ execute the following code
+         DUP 		\ duplicate the current data-space pointer
+         C@ 		\ get the value at the current data-space pointer, 
+				\ which is a character indicating the type of data
+         CASE		\ start a case statement based on the type of data
+            \ 0 = character 	\ if type is 0, meaning it is a character,
+            OF			\ execute the following code
+               DUP 		\ duplicate the current data-space pointer
+               1+			\ increment by 1 to point to the start of the next unit
+               >R			\ move the pointer to the return stack
+               C@ 		\ get the value at the current data-space pointer, 
+                              \ which is the character itself
+               55			\ the ASCII code for the character 7, 
+                              \ used as a base for hexadecimal numbers 
+               -			\ subtract 7 from the ASCII code to get the hexadecimal 
+                              \ character value
+               R>			\ move the pointer back to the data stack
+               C! 		\ store the hexadecimal value at the current data-space 
+                              \ pointer
+            ENDOF			\ end of the case statement
+            \ -1 = integer	\ if type is -1, meaning it is an integer,
+            OF			\ execute the following code
+               DUP 		\ duplicate the current data-space pointer
+               1+			\ increment by 1 to point to the start of the next unit
+               >R			\ move the pointer to the return stack
+               C@ 		\ get the value at the current data-space pointer, 
+                              \ which is the MSBs of the integer
+               0			\ the default base, which is decimal
+               >NUMBER 		\ convert the MSBs to a number using the default base
+               R>			\ move the pointer back to the data stack
+               DUP 		\ duplicate the current data-space pointer
+               C! 		\ store the converted number at the current data-space 
+                              \ pointer
+               1+			\ increment by 1 to point to the LSBs of the integer
+               DUP 		\ duplicate the current data-space pointer
+               C@ 		\ get the value at the current data-space pointer, 
+                              \ which is the LSBs of the integer
+               0			\ the default base, which is decimal
+               >NUMBER 		\ convert the LSBs to a number using the default base
+               R>			\ move the pointer back to the data stack
+               SWAP			\ swap the LSBs and MSBs back to their correct order
+               C! 		\ store the converted number at the current data-space 
+                              \ pointer
+            ENDOF			\ end of the case statement
+         ENDCASE 			\ end of the case statement
+         1- 			\ decrement the segment size (n) by 1
+         OVER			\ duplicate the segment size (n) 
+         >R 			\ move the segment size (n) to the return stack
+         1+			\ increment by 1 to point to the start of the next unit
+         R> 			\ move the segment size (n) back to the data stack
+         ALLOT			\ allocate 1 unit of memory for the next data item
+      REPEAT 			\ end of the loop
+;
+
+: SEGMENT-STRING ( -- addr len )	\ defining colon word to access a string in a data segment
+   SWAP  			\ swap the top two items on the stack, 
+				\ bringing the address (addr) to the top
+   >R 			\ move the address (addr) to the return stack
+   DUP 			\ duplicate the address (addr)
+   C@ 			\ get the value at the address (addr), 
+				\ which is a character indicating the type of data
+   COUNT 		\ get the length of the string starting at the address (addr)
+   R> 			\ move the address (addr) back to the data stack
+   1+			\ increment by 1 to point to the start of the string
+;

@@ -1,0 +1,37 @@
+/* This program retrieves sales data from a database and calculates the total sales for each month. */
+
+DEFINE VARIABLE salesSum AS DECIMAL NO-UNDO INITIAL 0. /* initialize variable to hold total sales */
+DEFINE VARIABLE month AS CHARACTER NO-UNDO. /* initialize variable to hold month */
+DEFINE VARIABLE salesQuery AS HANDLE NO-UNDO. /* initialize variable for database query */
+
+/* Connect to the database */
+CONNECT 'my_database'
+    USER 'username'
+    PASSWORD 'password'.
+    
+/* Create query to retrieve sales data for each month */
+CREATE QUERY salesQuery.
+salesQuery:SET-BUFFERS(BUFFER customer:HANDLE, BUFFER sales:HANDLE).
+salesQuery:QUERY-PREPARE("SELECT
+                            MONTH(sales.date) AS month,
+                            SUM(sales.amount) AS total_sales
+                        FROM sales
+                        WHERE sales.date BETWEEN '2019/01/01' AND '2019/12/31'
+                        GROUP BY MONTH(sales.date)
+                        ORDER BY MONTH(sales.date)").
+
+/* Execute query and retrieve results */
+salesQuery:QUERY-OPEN().
+DO WHILE salesQuery:GET-NEXT():
+    salesSum = salesSum + salesQuery:GET-BUFFER(2):BUFFER-FIELD("total_sales"):BUFFER-VALUE.
+    month = salesQuery:GET-BUFFER(2):BUFFER-FIELD("month"):BUFFER-VALUE.
+    DISPLAY month salesSum. /* print month and total sales for each month */
+END.
+
+/* Disconnect from the database */
+DISCONNECT.
+
+/* Output the results */
+DISPLAY "The total sales for each month in 2019 are: " salesSum. 
+
+/* END PROGRAM */

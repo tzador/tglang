@@ -1,0 +1,52 @@
+//Module declaration
+module LCD (input CLK, input RST, input [7:0] data, output reg [15:0] out);
+
+//Internal wires and registers declaration
+wire busy;
+reg [3:0] busy_count;
+reg [3:0] state;
+
+//Parameter declaration
+parameter [3:0] INIT = 0, WAIT = 1, WRITE = 2, FINISH = 3; //States of the LCD controller
+
+//State machine logic
+always @(posedge CLK) begin
+    if (RST) begin
+        state <= INIT;
+        busy_count <= 0;
+    end else begin
+        case (state)
+            INIT: begin
+                if (busy_count == 16) begin //Wait 16 cycles for the LCD to initialize
+                    state <= WAIT;
+                    busy_count <= 0;
+                end else begin
+                    busy_count <= busy_count + 1;
+                end
+            end
+            WAIT: begin
+                state <= WRITE;
+            end
+            WRITE: begin
+                if (busy) begin //Wait for the busy flag to clear before writing new data
+                    data <= 8'hFF; //Write all ones to the LCD data bus
+                    state <= FINISH;
+                end
+            end
+            FINISH: begin
+                if (out == 16'hFF00) begin //Check if all data has been written successfully
+                    state <= INIT;
+                end
+            end
+        endcase
+    end
+end
+
+//LCD controller output logic
+always @(posedge CLK) begin
+    if (state == WRITE) begin
+        out <= {busy, data}; //Output busy flag and data to LCD
+    end
+end
+
+endmodule

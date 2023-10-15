@@ -1,0 +1,43 @@
+/*This code snippet uses the OPENEDGE_ABL programming language to find the highest sales for each month in a given year*/
+
+DEFINE VARIABLE highest_sales AS DECIMAL NO-UNDO. /*Define a variable to store the highest sales*/
+DEFINE VARIABLE sales AS DECIMAL NO-UNDO.
+DEFINE VARIABLE month AS CHARACTER NO-UNDO.
+DEFINE VARIABLE year AS CHARACTER NO-UNDO.
+DEFINE VARIABLE cursor AS HANDLE NO-UNDO. /*Define a cursor to traverse through the sales data*/
+
+/*Prompt user for input*/
+MESSAGE "Enter the year for which you want to find the highest sales for each month:".
+PROMPT-FOR year.
+MESSAGE "Calculating highest sales for each month in" year...
+
+/*Create a query to retrieve sales data sorted in descending order*/
+CREATE QUERY cursor.
+cursor:SET-BUFFERS(BUFFER customer:HANDLE, BUFFER sales:HANDLE).
+cursor:QUERY-PREPARE("FOR EACH customer, EACH sales WHERE sales.year = " + year + " BY sales.amount DESCENDING").
+cursor:QUERY-OPEN().
+
+/*Loop through the data and find the highest sales for each month*/
+REPEAT:
+    cursor:GET-NEXT().
+    IF cursor:EMPTY() THEN LEAVE. /*Exit the loop if there is no more data*/
+    IF month <> sales.month THEN /*Check if the current month is different from the previous one*/
+        DO:
+            /*Output the highest sales for the previous month*/
+            MESSAGE "The highest sales for " month " was " highest_sales " in " year ".".
+            
+            /*Reset the highest_sales variable for the current month*/
+            highest_sales = 0.
+    END.
+    /*Check if the current sales amount is higher than the previous highest_sales*/
+    IF sales.amount > highest_sales THEN
+        highest_sales = sales.amount.
+    /*Update the month variable for the current sales record*/
+    month = sales.month.
+END.
+
+/*Output the highest sales for the last month*/
+MESSAGE "The highest sales for " month " was " highest_sales " in " year ".".
+
+/*Close the query cursor*/
+cursor:QUERY-CLOSE().

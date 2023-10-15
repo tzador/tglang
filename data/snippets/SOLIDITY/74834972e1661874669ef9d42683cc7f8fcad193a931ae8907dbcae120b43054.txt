@@ -1,0 +1,187 @@
+pragma solidity >=0.4.22 <0.9.0;       // pragma directive to specify the version of Solidity
+
+/**
+ * @title ERC721 Non-Fungible Token Standard
+ * @dev Interface for contracts conforming to ERC721: Non-Fungible Tokens
+ */
+interface IERC721 {
+    
+    // Events
+
+    event Transfer(address indexed _from, address indexed _to, uint256 _tokenId);     // emits when token ownership is transferred
+    event Approval(address indexed _owner, address indexed _approved, uint256 _tokenId);     // emits when token is approved
+    event ApprovalForAll(address indexed _owner, address indexed _operator, bool _approved);     // emits when an operator is approved by the owner
+
+    // Functions
+    
+    function balanceOf(address _owner) external view returns (uint256 balance);     // returns the number of tokens owned by a specific address
+
+    function ownerOf(uint256 _tokenId) external view returns (address owner);      // returns the current owner of a specific token
+
+    function safeTransferFrom(address _from, address _to, uint256 _tokenId) external;      // transfers the ownership of a specific token from one address to another
+
+    function safeTransferFrom(address _from, address _to, uint256 _tokenId, bytes calldata data) external;      // transfers the ownership of a specific token from one address to another and calls the receiving contract if it is ERC721 receiver
+
+    function transferFrom(address _from, address _to, uint256 _tokenId) external;        // transfers the ownership of a specific token from one address to another
+
+    function approve(address _approved, uint256 _tokenId) external;       // sets or unsets the approval of a specific token to be transferred by a specific operator
+
+    function setApprovalForAll(address _operator, bool _approved) external;     // sets or unsets the approval for all of an operator's tokens
+
+    function getApproved(uint256 _tokenId) external view returns (address operator);       // gets the approved address for a specific token
+
+    function isApprovedForAll(address _owner, address _operator) external view returns (bool);     // checks if an operator is approved by a specific owner
+
+}
+
+contract ERC721 is IERC721 {
+
+    // Variables
+
+    mapping (uint256 => address) internal tokenOwner;    // stores the current owner of each token
+    mapping (uint256 => address) internal tokenApprovals;    // stores the address approved to transfer each token
+    mapping (address => uint256) internal ownedTokensCount;    // stores the number of tokens owned by each address
+    mapping (address => mapping (address => bool)) internal operatorApprovals;    // stores the approval status for each operator
+
+    // Public Functions
+
+    function balanceOf(address _owner) external override view returns (uint256 balance) {
+        return ownedTokensCount[_owner];
+    }
+
+    function ownerOf(uint256 _tokenId) external override view returns (address owner) {
+        return tokenOwner[_tokenId];
+    }
+
+    function safeTransferFrom(address _from, address _to, uint256 _tokenId) external override {
+        _safeTransferFrom(_from, _to, _tokenId, "");
+    }
+
+    function safeTransferFrom(address _from, address _to, uint256 _tokenId, bytes memory data) public override {
+        _safeTransferFrom(_from, _to, _tokenId, data);
+    }
+
+    function transferFrom(address _from, address _to, uint256 _tokenId) external override {
+        require(_isApprovedOrOwner(msg.sender, _tokenId), "Transfer caller is not owner nor approved");
+        _transferFrom(_from, _to, _tokenId);
+    }
+
+    function approve(address _approved, uint256 _tokenId) external override {
+        address owner = ownerOf(_tokenId);
+        require(_msgSender() == owner || isApprovedForAll(owner, _msgSender()),
+            "Approve caller is not owner nor approved for all");
+        _approve(_approved, _tokenId);
+    }
+
+    function setApprovalForAll(address _operator, bool _approved) external override {
+        require(_operator != _msgSender(), "Approve to caller");
+        operatorApprovals[_msgSender()][_operator] = _approved;
+        emit ApprovalForAll(_msgSender(), _operator, _approved);
+    }
+
+    function getApproved(uint256 _tokenId) external override view returns (address operator) {
+        require(_exists(_tokenId), "Approved query for nonexistent token");
+        return tokenApprovals[_tokenId];
+    }
+
+    function isApprovedForAll(address _owner, address _operator) public override view returns (bool) {
+        return operatorApprovals[_owner][_operator];
+    }
+
+    // Private functions
+
+    function _safeTransferFrom(address _from, address _to, uint256 _tokenId, bytes memory data) private {
+        _transferFrom(_from, _to, _tokenId);
+        require(_checkOnERC721Received(_from, _to, _tokenId, data), "Transfer to non ERC721Receiver implementer");
+    }
+
+    function _transferFrom(address _from, address _to, uint256 _tokenId) private {
+        require(_isApprovedOrOwner(_msgSender(), _tokenId), "Transfer caller is not owner nor approved for all");
+        _clearApproval(_from, _tokenId);
+        _ownedTokensTransfer(_from, _to, _tokenId);
+        emit Transfer(_from, _to, _tokenId);
+    }
+
+    function _approve(address _approved, uint256 _tokenId) private {
+        tokenApprovals[_tokenId] = _approved;
+        emit Approval(ownerOf(_tokenId), _approved, _tokenId);
+    }
+
+    function _ownedTokensTransfer(address _from, address _to, uint256 _tokenId) internal {
+        _removeTokenFrom(_from, _tokenId);
+        _addTokenTo(_to, _tokenId);
+    }
+
+    function _removeTokenFrom(address _from, uint256 _tokenId) internal {
+        require(ownerOf(_tokenId) == _from);
+        ownedTokensCount[_from] -= 1;
+        tokenOwner[_tokenId] = address(0);
+    }
+
+    function _addTokenTo(address _to, uint256 _tokenId) internal {
+        require(tokenOwner[_tokenId] == address(0));
+        tokenOwner[_tokenId] = _to;
+        ownedTokensCount[_to] += 1;
+    }
+
+    function _checkOnERC721Received(address _from, address _to, uint256 _tokenId, bytes memory _data) internal returns (bool) {
+        if (!_isContract(_to)) {
+            return true;
+        }
+        bytes4 retval = IERC721Receiver(_to).onERC721Received(msg.sender, _from, _tokenId, _data);
+        return (retval == _ERC721_RECEIVED);
+    }
+
+    function _clearApproval(address _owner, uint256 _tokenId) private {
+        require(ownerOf(_tokenId) == _owner);
+        if (tokenApprovals[_tokenId] != address(0)) {
+            tokenApprovals[_tokenId] = address(0);
+        }
+    }
+
+    function _exists(uint256 _tokenId) internal view returns (bool) {
+        return tokenOwner[_tokenId] != address(0);
+    }
+
+    function _isApprovedOrOwner(address _spender, uint256 _tokenId) internal view returns (bool) {
+        require(_exists(_tokenId), "Operator query for nonexistent token");
+        address owner = ownerOf(_tokenId);
+        return (_spender == owner || getApproved(_tokenId) == _spender || isApprovedForAll(owner, _spender));
+    }
+
+    function _msgSender() internal view returns (address) {
+        return msg.sender;
+    }
+
+    // Internal functions
+
+    function _isContract(address _account) view internal returns (bool) {
+        uint length;
+        assembly {
+            length := extcodesize(_account)
+        }
+        return length > 0;
+    }
+}
+
+interface IERC721TokenReceiver {
+    function onERC721Received(address _operator, address _from, uint256 _tokenId, bytes calldata _data) external returns(bytes4);
+}
+
+/// @title ERC721Receiver
+/// @dev An interface for external contracts implementing the onERC721Received method to receive ERC721 tokens
+interface IERC721Receiver {
+    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data) external returns(bytes4);
+}
+
+// Inherit from ERC721 contract
+contract ERC721TokenReceiver is ERC721 {
+    
+    // Functions
+    
+    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data) external view returns (bytes4) {
+        // do something
+        return bytes4();
+    }
+    
+}

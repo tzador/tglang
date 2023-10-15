@@ -1,0 +1,41 @@
+declare
+    v_customers number;
+    cursor c_customers is
+        select * from customers;
+    c_email_error exception;
+    c_phone_error exception;
+    pragma exception_init(c_email_error, -20010);
+    pragma exception_init(c_phone_error, -20020);
+begin
+    open c_customers;
+    loop
+        fetch c_customers into v_customers;
+        exit when c_customers%notfound;
+
+        /* Validate email */
+        if v_customers.email is null
+            or v_customers.email not like '%@%'
+            or v_customers.email not like '%.com%'
+        then
+            raise c_email_error;
+        end if;
+
+        /* Validate phone number */
+        if v_customers.phone_number is null
+            or length(v_customers.phone_number) <> 10
+        then
+            raise c_phone_error;
+        elsif substr(v_customers.phone_number, 1, 2) <> '01'  -- check for area code
+            or v_customers.phone_number not like '[0-9]%'
+        then
+            raise c_phone_error;
+        end if;
+    end loop;
+    close c_customers;
+    dbms_output.put_line('All email and phone number formats are valid');
+exception
+    when c_email_error then
+        dbms_output.put_line('Invalid email format for customer ID: ' || v_customers.customer_id || ' - Email: ' || v_customers.email);
+    when c_phone_error then
+        dbms_output.put_line('Invalid phone number format for customer ID: ' || v_customers.customer_id || ' - Phone Number: ' || v_customers.phone_number);
+end;

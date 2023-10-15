@@ -1,0 +1,137 @@
+/* This is a BISON code snippet that generates a grammar for a simple calculator program. */
+
+/* Use %start to specify the starting symbol of the grammar. In this case, it is CALC. */
+%start CALC
+
+/* Use %left to specify the associativity and precedence level for left-associative operators. */
+%left '+' '-'
+
+/* Use %left to specify the associativity and precedence level for non-associative operators. */
+%nonassoc '='
+
+/* Use %token to declare token names. These tokens are used in the grammar rule definitions. */
+%token NUMBER
+%token ADDOP '-'
+%token SUBOP '-'
+%token EQOP '='
+%token PRINTOP
+
+%%
+
+/* The grammar rules start here. These rules define the structure of the calculator program. */
+
+/* A calculator program consists of one or more statements. */
+CALC: CALC statement
+    | statement
+    ;
+
+/* A statement can either be an assignment, a print statement, or an expression. */
+statement: assignment
+    | PRINTOP expr
+    | expr
+    ;
+
+/* An assignment consists of a variable, an equal sign, and an expression. */
+assignment: NUMBER '=' expr
+    ;
+
+/* An expression can be a number, a unary operation, or a binary operation. */
+expr: NUMBER
+    | ADDOP expr
+    | SUBOP expr
+    | expr ADDOP expr
+    | expr SUBOP expr
+    ;
+
+/* Use %parse-param to specify any additional parameters needed in the parser. In this case, we pass in the symbol table. */
+%parse-param {SymbolTable *symtab}
+
+/* The code section contains any C code that is executed during parsing. Here, we use it to store the value of variables in the symbol table. */
+%{
+void store_val(char* var_name, int val) {
+    symtab_add(symtab, var_name, val);
+}
+%}
+
+/* Use %type to specify the type of the parser's return value. In this case, it is an integer. */
+%type <int> expr
+
+/* The %code section contains any C code that is executed after parser rules are reduced. In this case, we use it to perform arithmetic operations on expressions. */
+%code {
+    $$ = $1;
+    if($2 == '+') {
+        $$ += $3;
+    } else if ($2 == '-') {
+        $$ -= $3;
+    }
+}
+
+/* Use %defines to generate a header file with the token definitions. */
+ %defines
+
+/* Use %lex-param to specify any additional parameters needed in the lexer. In this case, we pass in the input file. */
+%lex-param {FILE *yyin}
+
+/* The lex code section contains the regular expressions for the tokens and C code to handle them. Here, we use it to convert numbers to integers. */
+%{
+#include <ctype.h>
+int yywrap() { return 1; }
+
+int val;
+
+int yylex() {
+    int c;
+    c = ch = getc(yyin);
+    val = 0;
+    if (ch == 'x') return PRINTOP;
+    if (ch == '+') return ADDOP;
+    if (ch == '-') {
+        if ((c = getc(yyin)) == '-') return SUBOP;
+        else {ungetc(c, yyin); return '-'; }
+    }
+    if (isdigit(ch)) {
+        do {
+            val = val*10 + ch - '0';
+        } while (isdigit(ch=getc(yyin)));
+        ungetc(ch, yyin);
+        return NUMBER;
+    }
+    return c;
+}
+%}
+
+/* Use %parse-error to specify any error handling code. Here, we use it to print out an error message and stop parsing. */
+%parse-error {
+    printf("Invalid input, parsing stopped.\n");
+    YYABORT;
+}
+
+/* Use %parse-param and %lex-param to specify the additional parameters needed in the parser and lexer, respectively. */
+%parse-param {int param}
+%lex-param {char *filename}
+
+/* Use %parse-param-init and %lex-param-init to initialize the additional parameters in the parser and lexer, respectively. Here, we use it to pass in the input file to the lexer. */
+%parse-param-init {
+    yyin = fopen(filename, "r");
+}
+%lex-param-init {
+    yyin = param;
+}
+
+/* Use %parse-param-destroy and %lex-param-destroy to destroy the additional parameters in the parser and lexer, respectively. Here, we use it to close the input file in the lexer. */
+%parse-param-destroy {
+    fclose(yyin);
+}
+%lex-param-destroy {
+    if (yyin != param) fclose(yyin);
+}
+
+/* Use %extra-arg to specify an additional parameter that is passed into the parser and lexer by calling yyparse(). Here, we use it to pass in the symbol table and input file. */
+%extra-arg {SymbolTable *symtab, FILE *input_file}
+
+/* Use %extra-arg-init to initialize the additional argument passed into the parser and lexer. Here, we use it to pass in the symbol table and input file. */
+%extra-arg-init {
+    symtab = NULL;
+    input_file = NULL;
+}
+%%

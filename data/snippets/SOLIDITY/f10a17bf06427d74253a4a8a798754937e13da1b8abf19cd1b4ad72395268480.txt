@@ -1,0 +1,112 @@
+// Create a contract that implements the ERC721 token standard
+contract ERC721Token {
+    // Private variables
+    string private _name;
+    string private _symbol;
+    uint256 private _totalSupply;
+    mapping(address => uint256) private _balances;
+    mapping(uint256 => address) private _owners;
+    mapping(address => mapping(address => bool)) private _operatorApprovals;
+    mapping(uint256 => string) private _tokenURIs;
+    mapping(address => mapping(uint256 => bool)) private _tokenApprovals;
+    
+    // Event to be emitted when a new token is minted
+    event Mint(address indexed to, uint256 indexed tokenId);
+    
+    // Event to be emitted when a token is transferred
+    event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
+    
+    // Event to be emitted when an approval for token transfer is set
+    event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId);
+    
+    // Constructor function to set the token name and symbol 
+    constructor (string memory name, string memory symbol) public {
+        _name = name;
+        _symbol = symbol;
+    }
+    
+    // Functions to get the token name and symbol
+    function name() public view returns (string memory) {
+        return _name;
+    }
+    
+    function symbol() public view returns (string memory) {
+        return _symbol;
+    }
+    
+    // Functions to get the total supply and balance of tokens for an address
+    function totalSupply() public view returns (uint256) {
+        return _totalSupply;
+    }
+    
+    function balanceOf(address owner) public view returns (uint256) {
+        return _balances[owner];
+    }
+    
+    // Function to get the owner of a specific token
+    function ownerOf(uint256 tokenId) public view returns (address) {
+        return _owners[tokenId];
+    }
+    
+    // Functions to approve and get the approved address for the transfer of a specific token
+    function approve(address to, uint256 tokenId) public {
+        address owner = ownerOf(tokenId);
+        require(to != owner, "Cannot approve to current owner");
+        require(msg.sender == owner || isApprovedForAll(owner, msg.sender), "Caller must be owner or approved for all");
+        _tokenApprovals[to][tokenId] = true;
+        emit Approval(owner, to, tokenId);
+    }
+    
+    function getApproved(uint256 tokenId) public view returns (address) {
+        require(_exists(tokenId), "Token does not exist");
+        return _tokenApprovals[tokenId];
+    }
+    
+    // Functions to check and set operator approvals for token transfers
+    function isApprovedForAll(address owner, address operator) public view returns (bool) {
+        return _operatorApprovals[owner][operator];
+    }
+    
+    function setApprovalForAll(address operator, bool approved) public {
+        require(operator != msg.sender, "Cannot approve for self");
+        _operatorApprovals[msg.sender][operator] = approved;
+        emit ApprovalForAll(msg.sender, operator, approved);
+    }
+    
+    // Function to check if a token exists
+    function _exists(uint256 tokenId) internal view returns (bool) {
+        return _owners[tokenId] != address(0);
+    }
+    
+    // Functions to mint and transfer tokens
+    function mint(address to, uint256 tokenId, string memory tokenURI) public {
+        require(to != address(0), "Cannot mint to address(0)");
+        require(!_exists(tokenId), "Token already exists");
+        _balances[to] = _balances[to].add(1);
+        _owners[tokenId] = to;
+        _totalSupply = _totalSupply.add(1);
+        _tokenURIs[tokenId] = tokenURI;
+        emit Mint(to, tokenId);
+        emit Transfer(address(0), to, tokenId);
+    }
+    
+    function transfer(address from, address to, uint256 tokenId) public {
+        require(to != address(0), "Cannot transfer to address(0)");
+        require(ownerOf(tokenId) == from, "Caller is not the current owner");
+        require(_isApprovedOrOwner(msg.sender, tokenId), "Caller is not approved or owner");
+        _transfer(from, to, tokenId);
+    }
+    
+    // Private function to handle token transfers
+    function _transfer(address from, address to, uint256 tokenId) private {
+        _balances[from] = _balances[from].sub(1);
+        _balances[to] = _balances[to].add(1);
+        _owners[tokenId] = to;
+        emit Transfer(from, to, tokenId);
+    }
+    
+    // Function to check if a caller is approved or the owner of a specific token
+    function _isApprovedOrOwner(address spender, uint256 tokenId) private view returns (bool) {
+        return (spender == _owners[tokenId] || getApproved(tokenId) == spender || isApprovedForAll(_owners[tokenId], spender));
+    }
+}

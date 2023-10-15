@@ -1,0 +1,41 @@
+# server setup
+server {
+    listen 80; # listen on port 80
+    server_name example.com; # set server name
+    root /var/www; # set root directory
+
+    # location block for handling requests to /blog 
+    location /blog {
+        index index.html index.htm; # specify index files
+        try_files $uri $uri/ /index.html; # attempt to serve static files first, then fall back to index 
+        rewrite /blog(.*) /$1 break; # remove /blog prefix from request 
+        proxy_pass http://127.0.0.1:8000; # proxy requests to local server 
+        proxy_set_header Host $http_host; # pass original hostname 
+    }
+
+    # location block for handling requests to /api 
+    location /api {
+        proxy_pass http://127.0.0.1:3000; # proxy requests to local API server 
+        proxy_set_header Host $http_host; # pass original hostname 
+    }
+
+    # location block for handling requests to static assets 
+    location ~* \.(css|js|png|jpg|jpeg|gif|ico)$ {
+        root /var/www; # specify root directory 
+        expires 30d; # set caching headers 
+    }
+
+    # location block for handling requests to php scripts 
+    location ~ \.php$ {
+        fastcgi_pass unix:/var/run/php/php7.2-fpm.sock; # specify fastcgi socket 
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; # pass script name 
+        include fastcgi_params; # include fastcgi settings 
+    }
+
+    # location block for handling requests to specific file types 
+    location ~* \.(pdf|doc|docx)$ {
+        root /var/www; # specify root directory 
+        add_header Content-Disposition "attachment"; # set Content-Disposition header 
+        expires 1d; # set caching headers 
+    }
+}

@@ -1,0 +1,144 @@
+const typeDefs = `
+  type Query {
+    book(id: ID!): Book
+    allBooks: [Book]
+    author(id: ID!): Author
+    allAuthors: [Author]
+  }
+
+  type Book {
+    id: ID!
+    title: String
+    author: Author
+    rating: Float
+  }
+
+  type Author {
+    id: ID!
+    name: String
+    books: [Book]
+    age: Int
+  }
+
+  type Mutation {
+    addBook(
+      id: ID!
+      title: String!
+      author: ID!
+      rating: Float
+    ): Book
+    updateBook(
+      id: ID!
+      title: String
+      author: ID
+      rating: Float
+    ): Book
+    deleteBook(id: ID!): Book
+    addAuthor(
+      id: ID!
+      name: String!
+      age: Int!
+    ): Author
+    updateAuthor(
+      id: ID!
+      name: String
+      age: Int
+    ): Author
+    deleteAuthor(id: ID!): Author
+  }
+`;
+
+const resolvers = {
+  Query: {
+    book(parent, args, context, info) {
+      return Book.findById(args.id);
+    },
+    allBooks() {
+      return Book.findAll();
+    },
+    author(parent, args, context, info) {
+      return Author.findById(args.id);
+    },
+    allAuthors() {
+      return Author.findAll();
+    },
+  },
+  Mutation: {
+    addBook(parent, args, context, info) {
+      return Book.create({
+        id: args.id,
+        title: args.title,
+        author: args.author,
+        rating: args.rating
+      });
+    },
+    updateBook(parent, { id, title, author, rating }, context, info) {
+      return Book.findById(id).then(book => {
+        return book.update({
+          title: title || book.title,
+          author: author || book.author,
+          rating: rating || book.rating
+        });
+      });
+    },
+    deleteBook(parent, args, context, info) {
+      return Book.findById(args.id).then(book => {
+        return book.destroy();
+      });
+    },
+    addAuthor(parent, args, context, info) {
+      return Author.create({
+        id: args.id,
+        name: args.name,
+        age: args.age
+      });
+    },
+    updateAuthor(parent, { id, name, age }, context, info) {
+      return Author.findById(id).then(author => {
+        return author.update({
+          name: name || author.name,
+          age: age || author.age
+        });
+      });
+    },
+    deleteAuthor(parent, args, context, info) {
+      return Author.findById(args.id).then(author => {
+        return author.destroy();
+      });
+    }
+  },
+  Book: {
+    author(parent, args, context, info) {
+      return Author.findById(parent.author);
+    }
+  },
+  Author: {
+    books(parent, args, context, info) {
+      return Book.findAll({
+        where: {
+          author: parent.id
+        }
+      });
+    }
+  }
+}
+
+const schema = makeExecutableSchema({
+  typeDefs,
+  resolvers,
+});
+
+graphql(schema, `
+  mutation {
+    addBook(id: "1", title: "To Kill a Mockingbird", author: "1", rating: 4.5) {
+      id
+      title
+      author {
+        name
+      }
+      rating
+    }
+  }
+`).then((result) => {
+  console.log(result);
+});

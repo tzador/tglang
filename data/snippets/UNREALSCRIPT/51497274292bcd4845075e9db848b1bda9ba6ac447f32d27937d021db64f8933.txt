@@ -1,0 +1,121 @@
+/*=============================================================================
+// MyCharacter.uc
+// Written by: Unreal Team
+//
+// A character blueprint that can run, jump, and interact with objects
+//=============================================================================*/
+
+class MyCharacter extends Actor;  // Declare custom class MyCharacter that extends from Actor
+ 
+/*
+Defines variables for controlling movement, such as walk speed, jump height, etc.
+*/
+var() float WalkSpeed = 500.0;  // How fast character will walk
+var() float JumpHeight = 400.0; // How high character can jump
+ 
+/*
+// Function for character movement
+Inputs:
+- Direction: the direction to move towards
+*/
+function MoveCharacter(Vector Direction)
+{
+    // Calculate movement based on direction and walk speed
+    local Vector Movement = Direction * WalkSpeed * GetWorldDeltaSeconds();
+ 
+    // Move the character by adding the calculated movement to their current location
+    AddMovementInput(Movement);
+}
+ 
+/*
+// Function for character jump
+Outputs:
+- Returns whether character successfully jumped or not
+*/
+function bool Jump()
+{
+    // Check if character is grounded, if true, can jump
+    if (IsGrounded())
+    {
+        // Set character's vertical velocity to JumpHeight
+        Velocity.Z = JumpHeight;
+        return true;  // Jump successful
+    }
+ 
+    return false;  // Jump unsuccessful
+}
+ 
+/*
+// Function for character interaction
+Inputs:
+- Object: the object to interact with
+Outputs:
+- Returns whether character successfully interacted with the object or not
+*/
+function bool Interact(Actor Object)
+{
+    // Check if object is valid and has an interaction function
+    if (Object != None && Object.HasFunction('Interact'))
+    {
+        // Call object's Interact function and pass in the character as a parameter
+        Object.Interact(self);
+        return true;  // Interaction successful
+    }
+ 
+    return false;  // Interaction unsuccessful
+}
+ 
+// Event called every frame to handle character input and movement
+event Tick(float DeltaTime)
+{
+    local float HorizontalInput;  // Input for horizontal movement (left/right)
+    local float VerticalInput;  // Input for vertical movement (forward/backward)
+ 
+    // Get player's input for horizontal and vertical movement
+    HorizontalInput = InputAxis("MoveRight");
+    VerticalInput = InputAxis("MoveForward");
+ 
+    // Combine horizontal and vertical input to calculate movement direction
+    local Vector Direction = vect(HorizontalInput, VerticalInput, 0);
+    Direction = Normal(Direction);  // Normalize direction vector
+ 
+    // Move character based on input direction
+    MoveCharacter(Direction);
+ 
+    // Call jump function if 'Jump' input is pressed
+    if (InputPressed('Jump'))
+    {
+        Jump();
+    }
+ 
+    // Call interact function if 'Interact' input is pressed while facing an object
+    if (InputPressed('Interact'))
+    {
+        // Trace from character's camera to check if it hits an object
+        local Vector TraceStart = Camera.Location;
+        local Vector TraceEnd = TraceStart + (Camera.Rotation.Vector() * MAX_TOUCH_DISTANCE);
+        local TraceResult Hit;
+        local Object ObjectHit;  // Object that character is facing
+        local Vector HitLocation;  // Location where trace hits an object
+ 
+        // Check if trace hits an object
+        if (Trace(OBJECT_TRACE, TraceStart, TraceEnd, true, , Hit))
+        {
+            // Get the object hit by the trace
+            ObjectHit = Hit.Actor;
+ 
+            // Check if character is facing an object
+            if (ObjectHit != None && ActorFacing(Camera, ObjectHit, HitLocation))
+            {
+                // Call interact function with object as a parameter
+                Interact(ObjectHit);
+            }
+        }
+    }
+}
+ 
+defaultproperties
+{
+    // Attach default mesh to character
+    Mesh = SkeletalMesh'CH_MaleMesh'
+}

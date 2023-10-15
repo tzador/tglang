@@ -1,0 +1,41 @@
+/*This code snippet generates a logistic regression model using a dataset from a CSV file*/
+
+/*Load CSV file into SAS*/
+proc import datafile = "dataset.csv" out = data
+            dbms = csv replace;
+run;
+
+/*Add categorical variable "gender" and create dummy variables*/
+data new;
+    set data;
+    if gender = "Male" then male = 1;
+    else if gender = "Female" then female = 1;
+    else other = 1;
+run;
+
+/*Partition data into training and validation sets*/
+data train;
+    set new;
+    if rand('uniform') < 0.7 then output; /*70% for training set*/
+run;
+
+data validate;
+    set new;
+    if rand('uniform') >= 0.7 then output; /*30% for validation set*/
+run;
+
+/*Perform logistic regression model on training set*/
+proc logistic data = train;
+    model target = age male female other;
+run;
+
+/*Run model on validation set to assess accuracy*/
+proc logistic data = validate;
+    score data = validate out = score;
+    model target = age male female other;
+run;
+
+/*Calculate overall accuracy and confusion matrix*/
+proc freq data = score;
+    tables target * score;
+run;

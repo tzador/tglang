@@ -1,0 +1,77 @@
+*&---------------------------------------------------------------------*
+*& Report Z_DEMO_REPORT
+*&---------------------------------------------------------------------*
+* This is a demo report in ABAP language 
+* The purpose of this report is to demonstrate various functionalities in ABAP
+
+REPORT Z_DEMO_REPORT.
+
+* Declare a global variable for the report
+FIELD-SYMBOLS <lt_table> TYPE ANY TABLE.
+
+* Fetch data from database table using open SQL
+* Only select records where the status field contains 'active'
+SELECT * FROM zdemo_table INTO TABLE <lt_table> WHERE status = 'active'.
+
+* Sort the data based on the date field in descending order
+SORT <lt_table> BY date DESCENDING.
+
+* Loop through the table and perform calculations
+DO num(10) TIMES.
+  * Access a specific record in the table using index
+  DATA(lv_amount) = <lt_table>[ sy-index ]-amount.
+  * Perform a calculation on the amount field
+  DATA(lv_result) = lv_amount * 10.
+ENDDO.
+
+* Create a dynamic ALV grid based on the table data
+cl_salv_table=>factory(
+  IMPORTING
+    r_salv_table = DATA(lr_alv)
+  CHANGING
+    t_table      = <lt_table> ).
+
+* Add a column to the ALV grid to display the calculated result
+DATA(ls_column) = VALUE lvc_s_fcat( fieldname = 'RESULT' ref_fieldname = 'LV_RESULT' ).
+lr_alv->get_columns( )->add( ls_column ).
+
+* Set a filter on the status field to only display 'active' records
+lr_alv->set_filter( name = 'STATUS' value = 'active' ).
+
+* Display the ALV grid
+lr_alv->display( ).
+
+* Send an email with a report attachment
+DATA: lv_attachment TYPE abap_bool,
+      lv_recipient TYPE ad_smtpadr.
+
+CREATE DATA lr_attachment TYPE zcl_demo_report_mimetype.
+lr_attachment->set_report( <lt_table> ).
+lr_attachment->set_filename( 'demo_report.pdf' ).
+lr_recipient = 'john.doe@example.com'.
+cl_bcs=>create_persistent( EXPORTING i_recipient = lv_recipient
+                           IMPORTING eo_document = DATA(lo_document) ).
+ 
+CALL METHOD lo_document->add_attachment
+  EXPORTING
+     i_attachment_type  = 'PDF'
+     i_attachment_subject  = 'Demo Report'
+     i_attachment_name  = lr_attachment->get_filename( ) 
+IMPORTING
+     e_attachment_number = DATA(li_attachment_number).
+ 
+cl_bcs=>send_request( EXPORTING i_request = lo_document ).
+ 
+* Add a custom exception for handling errors
+CLASS zcx_demo_report_exception DEFINITION PUBLIC INHERITING FROM cx_static_check.
+ENDCLASS.
+ 
+* Setup a TRY-CATCH block to handle exceptions
+TRY.
+    DATA(lv_count) = lines( <lt_table> ).
+    IF lv_count = 0.
+        RAISE EXCEPTION TYPE zcx_demo_report_exception.
+    ENDIF.
+  CATCH zcx_demo_report_exception.
+    WRITE: 'Error: No data found.'.
+ENDTRY.

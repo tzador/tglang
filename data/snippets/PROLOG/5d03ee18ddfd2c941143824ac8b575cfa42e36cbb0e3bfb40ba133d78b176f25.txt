@@ -1,0 +1,96 @@
+% This is a Prolog program that simulates a game of tic-tac-toe
+
+% Define the initial state of the board
+initial_board([['-','-','-'],['-','-','-'],['-','-','-']]).
+
+% Define the winning states
+winning_states([
+    % Rows
+    [[X,X,X], _, _],
+    [_, [X,X,X], _],
+    [_, _, [X,X,X]],
+    % Columns
+    [[X,_,_], [X,_,_], [X,_,_]],
+    [_, [X,_,_], [_, [X,_,_], [_, [X,_,_]]],
+    [_,_,[X,X,X]],
+    % Diagonal
+    [[X,_,_], [_,X,_], [_,_,X]],
+    [[_,_,X], [_,X,_], [X,_,_]]
+]).
+% Define the winning player
+winning_player('X').
+
+% Define the player that goes first
+first_player('X').
+
+% Define the player's turn
+player_turn('X', 'O').
+player_turn('O', 'X').
+
+% Define a predicate that checks if a given player has won
+% Rules for a win:
+%   1. A player must have three in a row, column, or diagonal
+%   2. A cell must not be empty
+%   3. The cell values must all be the same
+player_won(Player, Board) :- 
+    winning_player(Player), 
+    player_turn(Player, Opponent), 
+    winning_states(W), 
+    member([BoardCell | T], W), 
+    maplist(=(Player), BoardCell), 
+    % Ensure all cells are filled
+    maplist(\==(Emp), BoardCell), 
+    maplist(\==(Emp), Opponent). 
+
+% Define a predicate that checks for a draw
+% Rules for a draw:
+%   1. All cells must be filled (no empty cells)
+%   2. No player has won
+game_drawn(Board) :- 
+    \+(player_won('X', Board)), 
+    \+(player_won('O', Board)), 
+    % Ensure all cells are filled 
+    maplist(\==(Emp), Board). 
+
+% Define a predicate that simulates a player's move
+% Rules for a move:
+%   1. Player must go in an empty cell
+%   2. The board must be updated with the player's move
+make_move(Player, Board, NewBoard) :- 
+    player_turn(Player, PlayerMove), 
+    % Select a row and column
+    get_move(Row, Column), 
+    % Check if it's a legal move (empty cell)
+    nth0(Row, Board, RowList), 
+    nth0(Column, RowList, Emp), 
+    % Replace the empty cell with the player's move
+    replace(Row, Column, PlayerMove, Board, NewBoard).
+
+% Define a predicate that simulates the game
+% Rules for a game:
+%   1. The game is over when a player wins or the game is drawn
+%   2. Players take turns making moves until the game is over
+%   3. Prints the final game board and the winner (or draw)
+play(Player, Board) :- 
+    player_turn(Player, Opponent), 
+    % Get the player's move
+    make_move(Player, Board, NewBoard), 
+    print_board(NewBoard), 
+    % Check for a win or draw
+    ( player_won(Player, NewBoard), writef("%w wins!\n", [Player]) 
+    ; game_drawn(NewBoard), write("It's a draw!\n")) 
+    ; play(Opponent, NewBoard). 
+
+% Define a predicate that prints the game board
+% Rules for printing:
+%   1. Replace empty cells with spaces for readability
+print_board(Board) :- 
+    maplist(replace(Emp, ' ', BoardRow), Board, TempBoard), 
+    maplist(writeln, TempBoard). 
+
+% Define a predicate that starts the game
+start :- 
+    first_player(Player), 
+    initial_board(Board), 
+    print_board(Board), 
+    play(Player, Board).

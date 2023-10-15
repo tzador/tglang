@@ -1,0 +1,30 @@
+/**
+ * Setup the interrupt handler
+ */
+ldr r0, =interrupt_handler    ; Load the address of the interrupt handler into register r0
+msr cpsr_c, #0x53              ; Switch to IRQ mode
+mov lr, pc                     ; Set the link register to the current program counter
+ldr pc, [r0, #0]               ; Load the address of the interrupt vector table at offset 0
+/**
+ * Interrupt handler
+ */
+irq_handler:
+   push {r0-r12, lr}           ; Save the registers and link register onto the stack
+   mrs r12, spsr                ; Load the saved program status register into r12
+   cmp r12, #0x13               ; Check if the interrupt came from IRQ mode
+   beq to_irq_mode              ; Branch to IRQ mode if it did
+   ldr r12, [irq_save_sp]       ; Otherwise, load the saved stack pointer into r12
+   ldmia r12, {r0-r12, lr}      ; Restore the saved registers and link register from the stack
+   pop {pc}                     ; Return from interrupt handler
+to_irq_mode:
+   sub sp, sp, #4               ; Make space for r12 on the stack
+   str r12, [irq_save_sp]       ; Save the current stack pointer in a global variable
+   sub sp, sp, #9*4             ; Make space for 9 registers and the lr on the stack
+   stmib sp, {r0-r8, lr}        ; Store the registers and link register onto the stack in order
+   ldr pc, [irq_vector+irq_no*4] ; Branch to the address of the interrupt service routine based on the interrupt number
+/**
+ * Data section
+ */
+interrupt_handler: .word 0x0     ; Replace with the address of the interrupt handler in code section
+irq_save_sp: .word 0x0            ; Placeholder for the saved stack pointer
+irq_vector: .word 0x0             ; Replace with addresses of the interrupt service routines

@@ -1,0 +1,60 @@
+# This is the main nginx configuration file.
+# It contains all user-defined configurations.
+# ----------------------------------------
+
+user  nginx; # Set the user who will run the worker processes
+worker_processes  5; # Specify the number of processes that will be ran
+error_log  /var/log/nginx/error.log warn; # Specify the location and level of the error log file
+
+events { # Define the events that nginx will monitor
+  worker_connections  4000; # Specify the maximum number of connections for each worker process
+}
+
+http { # Define the http module
+
+  include       /etc/nginx/mime.types; # Include the mime types file
+  default_type  application/octet-stream; # Set the default mime type
+
+  log_format  main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"'; # Define the log format for HTTP requests
+
+  access_log /var/log/nginx/access.log main; # Specify the location and format of the access log file
+
+  sendfile        on; # Enables sendfile for performance optimization
+  tcp_nopush      on; # Delays sending of data to the client for performance optimization
+  tcp_nodelay     on; # Enables/disables buffering of responses from FastCGI server
+
+  keepalive_timeout  65; # Specify the timeout for keepalive connections
+
+  # Configuration for virtual hosts
+  server { # Define a server block
+    listen       80; # Define the port to listen to
+    server_name  blog.example.com; # Set the server name
+    index  index.html index.htm; # Set the default files to serve
+    root        /usr/share/nginx/html; # Set the root directory
+    location / { # Define a location block
+      try_files $uri $uri/ /index.html; # Define the try_files directive
+    }
+  }
+
+  server { # Define another server block
+    listen       443 ssl; # Enable SSL for secure connections
+    server_name  api.example.com; # Set the server name
+    index  index.php; # Set the default file to serve
+    root        /var/www/api; # Set the root directory
+    charset utf-8; # Set the character encoding
+    ssl_certificate      /etc/nginx/ssl/api.example.com.crt; # Set the path to the SSL certificate
+    ssl_certificate_key  /etc/nginx/ssl/api.example.com.key; # Set the path to the SSL private key
+    location / { # Define a location block
+      try_files $uri $uri/ /index.php?$args; # Define the try_files directive
+    }
+    location ~ \.php$ { # Define a location block that handles PHP files
+      fastcgi_pass  127.0.0.1:9000; # Set the FastCGI server address and port
+      include       fastcgi_params; # Include the fastcgi config file
+      fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; # Set the SCRIPT_FILENAME variable
+    }
+  }
+
+  # Additional configurations can be added here
+}

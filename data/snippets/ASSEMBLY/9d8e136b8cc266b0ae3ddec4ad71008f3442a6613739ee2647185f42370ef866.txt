@@ -1,0 +1,74 @@
+section .data
+  input_string: db "Enter a string: " ; prompting message
+  output_string: db "Your string reversed is: " ; output message
+  string: times 255 db 0 ; reserve space for string input
+
+section .text
+  global _start
+
+_start:
+  ; prompt user for string
+  mov rax, 4 ; system call number for write
+  mov rdi, 1 ; file descriptor (stdout)
+  mov rsi, input_string ; pointer to input_string
+  mov rdx, 16 ; length of input_string
+  syscall
+
+  ; read user input
+  mov rax, 3 ; system call number for read
+  mov rdi, 0 ; file descriptor (stdin)
+  mov rsi, string ; pointer to string
+  mov rdx, 255 ; maximum number of characters to read
+  syscall
+
+  ; find length of string input
+  mov rax, 0 ; initialize length counter
+  mov esi, string ; pointer to string
+  mov al, byte [rsi] ; load first character of string
+  loop_start:
+  cmp al, 0 ; check if end of string
+  je loop_exit ; if yes, exit loop
+  inc rax ; increment length counter
+  inc rsi ; move pointer to next character
+  mov al, byte [rsi] ; load next character
+  jmp loop_start
+
+  ; reverse string
+  mov rbx, rax ; move length counter to rbx register for indexing
+  mov esi, string ; move pointer back to string
+  dec esi ; move pointer to last character of string
+  mov ecx, 0 ; initialize index counter
+  reverse_loop:
+  cmp ecx, rbx ; check if index counter is equal to length counter
+  je reverse_exit ; if yes, exit loop
+  lodsb ; load byte from string into al
+  stosb ; store byte into string backwards
+  inc ecx ; increment index counter
+  dec esi ; move pointer back one character
+  jmp reverse_loop
+
+  ; output reversed string
+  mov rax, 4 ; system call number for write
+  mov rdi, 1 ; file descriptor (stdout)
+  mov rsi, output_string ; pointer to output_string
+  mov rdx, 25 ; length of output_string
+  syscall
+
+  mov rax, 4 ; system call number for write
+  mov rdi, 1 ; file descriptor (stdout)
+  mov rsi, string ; pointer to string (now reversed)
+  mov rdx, 255 ; length of string (but only printing until length counter)
+  syscall
+
+  ; exit program
+  mov rax, 60 ; system call number for exit
+  mov rdi, 0 ; exit code (success)
+  syscall
+
+loop_exit:
+  mov byte [esi], 0 ; add null character at end of string
+  jmp reverse_loop ; jump back to reverse loop to finish last iteration
+
+reverse_exit:
+  mov byte [esi], 0 ; add null character at end of string
+  jmp _start ; jump back to start to restart program

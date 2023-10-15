@@ -1,0 +1,46 @@
+# Importing necessary modules
+Import-Module ActiveDirectory
+Import-Module WebAdministration
+
+# Defining variables
+$domainName = "contoso.com"
+$userName = "johnsmith"
+$homeFolderName = "johnsmith"
+$homeFolderShareName = "JohnsHome"
+
+# Creating a new user account
+New-ADUser -Name $userName -SamAccountName $userName -AccountPassword (ConvertTo-SecureString "Password1234!" -AsPlainText -Force) -Path "OU=Users,DC=$domainName" -Enabled $true
+
+# Creating a home directory and setting permissions
+New-Item -ItemType Directory -Name $homeFolderName -Path "C:\HomeFolders"
+Set-ItemProperty -Path "C:\HomeFolders\$homeFolderName" -Name "IsRootFolder" -Value $true
+Set-Acl -Path "C:\HomeFolders\$homeFolderName" -AclObject (Get-Acl -Path "C:\HomeFolders\DefaultTemplate")
+Set-Acl -Path "C:\HomeFolders\$homeFolderName" -AclObject (Get-Acl -Path "C:\HomeFolders\$homeFolderName")
+Add-ADPermission -User $domainName\$userName -AccessRights "ReadAndExecute, Synchronize" -Path "C:\HomeFolders\$homeFolderName" -InheritanceType "All" -ErrorAction Stop
+
+# Creating a home folder share
+New-SMBShare -Name $homeFolderShareName -Path "C:\HomeFolders\$homeFolderName" -FullAccess "Everyone" -ShareType "All" -ErrorAction Stop
+
+# Setting user's home folder attribute
+Set-ADUser $userName -HomeDirectory "\\$homeFolderShareName"
+
+# Setting user's profile path
+Set-ADUser $userName -ProfilePath "\\$homeFolderShareName\Profile"
+
+# Enabling the user to log in remotely
+Set-RDUserConfiguration -User $userName -RemoteAppMemberOf (Get-RDRemoteApp -CollectionName "Collection 1") -ErrorAction Stop
+
+# Configuring IIS with a new application pool and website
+# Setting the application pool identity to run as the new user
+New-Website -Name "Website1" -PhysicalPath "C:\inetpub\wwwroot\website1" -ApplicationPool "Website1Pool" -Port 80
+Set-ItemProperty "IIS:\AppPools\Website1Pool" -Name "processModel.identityType" -Value 4
+Set-ItemProperty "IIS:\AppPools\Website1Pool" -Name "processModel.userName" -Value $userName
+Set-ItemProperty "IIS:\AppPools\Website1Pool" -Name "processModel.password" -Value "Password1234!" -Password
+
+# Setting up SSL for the website
+New-WebBinding -Name "Website1" -Protocol https -Port 443 -IPAddress "*" -SslFlags 0
+New-Item "Cert:\LocalMachine\My" -DnsName "website1.contoso.com" -CertStoreLocation "Cert:\LocalMachine\My" -FriendlyName "Website1 SSL Certificate" -Exportable $true
+$site = "IIS:\Sites\Website1"
+$cert = Get-ChildItem Cert:\LocalMachine\My | where {$_.FriendlyName -eq "Website1 SSL Certificate"}
+New-ItemProperty -Name "SSLCertHash" -Value $cert.Thumbprint -Path $site -Force
+New-ItemProperty -Name "SSLStoreName" -Value "MY" -Path $site -Force

@@ -1,0 +1,15 @@
+### Define a multi-stage Dockerfile
+
+FROM node:14.15.0 as development  # Define the base image for development stage
+WORKDIR /app                      # Create a working directory inside the container
+COPY package*.json ./             # Copy over package.json and package-lock.json
+RUN npm install                   # Install dependencies for development
+COPY . .                          # Copy over the rest of the project files
+RUN npm run build                 # Build the project for production
+
+FROM nginx:alpine as production   # Define the base image for production stage
+COPY --from=development /app/build /usr/share/nginx/html # Copy built files from development stage
+RUN rm /etc/nginx/conf.d/default.conf # Remove default Nginx config
+COPY nginx/nginx.conf /etc/nginx/conf.d  # Copy custom Nginx config
+EXPOSE 80 # Expose port 80 for web traffic
+CMD ["nginx", "-g", "daemon off;"]  # Start Nginx server in foreground mode

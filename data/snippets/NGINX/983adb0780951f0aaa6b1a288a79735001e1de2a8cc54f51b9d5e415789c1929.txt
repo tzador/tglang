@@ -1,0 +1,64 @@
+server {
+  # Listen on port 80
+  listen 80;
+  
+  # Serve files from the "public" directory
+  root /var/www/public;
+  
+  # Enable gzip compression
+  gzip on;
+  gzip_types text/plain text/css application/json;
+  
+  # Set caching headers
+  expires 1y;
+  add_header Cache-Control "public, max-age=31536000";
+  
+  location / {
+    # Enable caching for static files
+    try_files $uri $uri/ /index.html;
+    expires 1d;
+    add_header Cache-Control "public, max-age=86400";
+  }
+  
+  location /api/ {
+    # Reverse proxy for API requests
+    proxy_pass http://localhost:3000;
+    
+    # Set up CORS header
+    add_header Access-Control-Allow-Origin $http_origin;
+  }
+  
+  location /admin/ {
+    # Password protect the admin directory
+    auth_basic "Restricted";
+    auth_basic_user_file /etc/nginx/.htpasswd;
+  }
+  
+  # Redirect all other requests to HTTPS
+  location / {
+    return 301 https://$host$request_uri;
+  }
+  
+  # Configure HTTPS server
+  server {
+    # Listen on port 443
+    listen 443;
+    
+    # Use SSL certificate and key generated from Certbot
+    ssl_certificate /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+    
+    # Enable HTTP/2 for better performance
+    http2_push_preload on;
+    
+    location / {
+      # Proxy requests to Node.js app
+      proxy_pass http://localhost:5000;
+      
+      # Enable websockets
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+    }
+  }
+}

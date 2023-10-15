@@ -1,0 +1,89 @@
+%% This module defines the functionality of a library management system
+
+-module(library_management).
+
+%% Export the functions to be used by other modules
+-export([add_book/2, search_book/2, loan_book/2, return_book/2]).
+
+%% Define the record for books
+-record(book, {title, author, genre, year}).
+
+%% Define the initial list of books in the library
+-define(BOOKS, [{#book{title = "Harry Potter and the Philosopher's Stone",
+                        author = "J.K. Rowling",
+                        genre = "Fantasy",
+                        year = 1997},
+                 #book{title = "To Kill a Mockingbird",
+                       author = "Harper Lee",
+                       genre = "Fiction",
+                       year = 1960},
+                 #book{title = "1984",
+                       author = "George Orwell",
+                       genre = "Dystopian",
+                       year = 1949}}]).
+
+%% Function to add a new book to the library
+add_book(Title, Author) ->
+    %% Generate a unique ID for the new book using the length of the initial list
+    Id = length(?BOOKS) + 1,
+    %% Create the record for the new book
+    Book = #book{title = Title,
+                 author = Author,
+                 genre = "",
+                 year = 0,
+                 id = Id},
+    %% Append the new book to the existing list of books
+    UpdatedBooks = lists:append(?BOOKS, [Book]),
+    %% Return the updated list of books
+    {ok, UpdatedBooks}.
+
+%% Function to search for a book by title or author
+search_book(TitleOrAuthor, Type) ->
+    %% Use a list comprehension to filter the books based on the given type
+    Results = [Book || Book <- ?BOOKS,
+               case Type of
+                   author -> Book#book.author == TitleOrAuthor;
+                   title -> Book#book.title == TitleOrAuthor
+               end],
+    %% Return either the results or a message if no books were found
+    case Results of
+        [] -> {error, "No books found with given criteria"};
+        _ -> {ok, Results}
+    end.
+
+%% Function to loan a book from the library
+loan_book(BookId, UserName) ->
+    %% Use pattern matching to retrieve the specific book by ID
+    #book{title = Title,
+          author = Author,
+          genre = Genre,
+          year = Year,
+          id = BookId} = lists:nth(BookId, ?BOOKS),
+    %% Create a new record for the loaned book with the updated "loaned by" field
+    LoanedBook = #book{title = Title,
+                       author = Author,
+                       genre = Genre,
+                       year = Year,
+                       loaned_by = UserName},
+    %% Replace the old record with the new one in the list of books
+    UpdatedBooks = lists:replace(?BOOKS, BookId, LoanedBook),
+    %% Return the updated list of books
+    {ok, UpdatedBooks}.
+
+%% Function to return a loaned book to the library
+return_book(BookId) ->
+    %% Use pattern matching to retrieve the specific book by ID
+    #book{title = Title,
+          author = Author,
+          genre = Genre,
+          year = Year,
+          loaned_by = _} = lists:nth(BookId, ?BOOKS),
+    %% Create a new record for the returned book with the "loaned by" field removed
+    ReturnedBook = #book{title = Title,
+                         author = Author,
+                         genre = Genre,
+                         year = Year},
+    %% Replace the old record with the new one in the list of books
+    UpdatedBooks = lists:replace(?BOOKS, BookId, ReturnedBook),
+    %% Return the updated list of books
+    {ok, UpdatedBooks}.

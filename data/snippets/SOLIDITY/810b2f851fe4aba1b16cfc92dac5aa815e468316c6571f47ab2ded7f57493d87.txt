@@ -1,0 +1,57 @@
+// This contract implements a decentralized voting system using Solidity
+
+pragma solidity ^0.8.0; // Specifies Solidity compiler version
+
+// Voting contract
+contract Voting {
+
+    // State Variables
+    uint public electionDate; // Stores the date of the election
+    address public owner; // Stores the address of the contract creator
+    mapping(address => bool) public voters; // Stores the addresses of eligible voters
+    mapping(uint => mapping(address => uint)) public votes; // Stores the number of votes for each candidate from each voter
+    address[] public candidates; // Stores the addresses of candidates
+    mapping(address => uint) public candidateIndex; // Stores the index of each candidate in the candidates array
+
+    // Events
+    event NewVote(address indexed voter, address indexed candidate); // Triggered when a new vote is cast
+    event NewCandidate(address indexed candidate); // Triggered when a new candidate is added
+    event NewElectionDate(uint indexed date); // Triggered when a new election date is set
+
+    // Constructor - Sets the contract creator as the owner and current time as the election date
+    constructor() {
+        owner = msg.sender;
+        electionDate = block.timestamp;
+    }
+
+    // Voter functions
+    function registerVoter(address _voter) public {
+        require(msg.sender == owner, "Only the owner can register voters");
+        voters[_voter] = true; // Adds the voter to the list of eligible voters
+    }
+
+    function castVote(address _candidate, uint _vote) public {
+        require(electionDate > block.timestamp, "Election date must be in the future"); // Ensures voting is only allowed during the election
+        require(voters[msg.sender], "You are not an eligible voter"); // Ensures the voter is eligible
+        require(candidateIndex[_candidate] > 0, "This candidate is not registered"); // Ensures the candidate is registered
+        require(_vote > 0, "Vote must be greater than 0"); // Ensures at least one vote is cast
+        votes[_candidate][msg.sender] = _vote; // Records the number of votes from this voter for this candidate
+        emit NewVote(msg.sender, _candidate); // Triggers the NewVote event
+    }
+
+    // Candidate functions
+    function registerCandidate(address _candidate) public {
+        require(msg.sender == owner, "Only the owner can register candidates");
+        candidates.push(_candidate); // Adds the candidate to the list of candidates
+        candidateIndex[_candidate] = candidates.length - 1; // Sets the index of the candidate in the candidates array
+        emit NewCandidate(_candidate); // Triggers the NewCandidate event
+    }
+
+    // Owner functions
+    function setElectionDate(uint _date) public {
+        require(msg.sender == owner, "Only the owner can set the election date");
+        electionDate = _date; // Sets the new election date
+        emit NewElectionDate(_date); // Triggers the NewElectionDate event
+    }
+
+}

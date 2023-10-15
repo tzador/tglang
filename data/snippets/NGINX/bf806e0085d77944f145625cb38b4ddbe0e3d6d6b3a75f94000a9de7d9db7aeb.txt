@@ -1,0 +1,68 @@
+# Set a variable for the server's root directory
+server {
+    root /var/www/example.com;
+
+    # Set up server to listen on HTTP port 80 and HTTPS port 443
+    listen 80;
+    listen 443 ssl;
+
+    # Set up server name and aliases
+    server_name example.com www.example.com;
+    # Set up root directory for this server, using the previously set variable
+    root $root;
+
+    # Configure SSL parameters
+    ssl_certificate /etc/nginx/ssl/example.crt;
+    ssl_certificate_key /etc/nginx/ssl/example.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers "EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH";
+
+    # Set up location for static assets
+    location /static/ {
+        alias /var/www/example.com/static/;
+    }
+
+    # Set up location for media files
+    location /media/ {
+        alias /var/www/example.com/media/;
+    }
+
+    # Set up reverse proxy to a separate web server running on port 8000
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_ssl_server_name on;
+    }
+
+    # Enable gzip compression for faster page load times
+    gzip on;
+    gzip_types text/css application/javascript image/png;
+    
+    # Set up error pages
+    error_page 403 /403.html;
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+
+    location = /50x.html {
+        root /var/www/example.com/errors;
+    }
+
+    # Set up caching for static assets
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+        expires 7d;
+        add_header Cache-Control "public, no-transform";
+    }
+
+    # Set up redirects from www to non-www and from HTTP to HTTPS
+    server {
+        server_name www.example.com;
+        return 301 https://example.com$request_uri;
+    }
+
+    # Set up redirects for specific pages
+    location /old-page {
+        return 301 https://example.com/new-page;
+    }
+}

@@ -1,0 +1,66 @@
+// Define task for building project
+task buildProject(type: Exec) {
+    commandLine 'gradle', 'build'
+    workingDir 'project'
+    environment 'JAVA_HOME', System.getenv('JAVA_HOME')
+    environment 'PATH', "${System.getenv('PATH')}:${System.getProperty('java.home')}"
+}
+// Define task for running tests
+task runTests(type: Test) {
+    useJUnitPlatform()
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+}
+// Define task for cleaning project
+task cleanProject(type: Delete) {
+    delete 'build'
+}
+// Define dependency between buildTask and testTask
+buildProject.dependsOn(runTests)
+// Define dependency between cleanTask and buildTask
+cleanProject.dependsOn(buildProject)
+
+// Define task for publishing project
+task publishProject(type: Exec) {
+    commandLine 'gradle', 'publish'
+    workingDir 'project'
+    environment 'JAVA_HOME', System.getenv('JAVA_HOME')
+    environment 'PATH', "${System.getenv('PATH')}:${System.getProperty('java.home')}"
+}
+// Define task for generating documentation
+task generateDoc(type: Javadoc) {
+    source = sourceSets.main.allJava
+    classpath += project.files(sourceSets.main.compileClasspath.files)
+    classpath += configurations.compileClasspath
+    destinationDir = file("$buildDir/docs")
+}
+
+// Define dependency between publishTask and docTask
+publishProject.dependsOn(generateDoc)
+// Define task for zipping project
+task zipProject(type: Zip) {
+    from 'src'
+    into 'src'
+    archiveFileName = "project.zip"
+    destinationDirectory = file(buildDir)
+}
+// Define task for generating manifest
+task generateManifest() {
+    doLast {
+        def mainClass = project.findProperty('mainClass')
+        if(mainClass == null) {
+            throw new GradleException('mainClass property not specified')
+        }
+        def manifestContent = "Manifest-Version: 1.0\nMain-Class: ${mainClass}\n"
+        file("$buildDir/META-INF/MANIFEST.MF").withWriter {
+            out -> out.write(manifestContent)
+        }
+    }
+}
+
+// Define dependency between zipTask and cleanTask
+zipProject.dependsOn(cleanProject)
+// Add generateManifest as a dependency for jar task
+tasks.jar.dependsOn(generateManifest)
+// Add jar and zip tasks to build
+build.dependsOn(jar, zipProject)

@@ -1,0 +1,106 @@
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+// This function creates a struct for a book and returns a pointer to it
+// It takes in the book's title, author, and genre as parameters
+// It also initializes a sync.WaitGroup to handle asynchronous updating of the struct
+// It returns the pointer to the newly created book
+func newBook(title string, author string, genre string) *Book {
+	return &Book{
+		Title:   title,
+		Author:  author,
+		Genre:   genre,
+		updates: make(chan Book),
+		wg:      sync.WaitGroup{},
+	}
+}
+
+// This struct represents a book and contains its title, author, genre and a channel for updates
+type Book struct {
+	Title  string
+	Author string
+	Genre  string
+	// Use a channel to handle updates to the book's attributes
+	// This allows for concurrency and prevents race conditions
+	updates chan Book
+	// Use a WaitGroup to ensure that all updates are completed before returning the updated book attributes
+	wg sync.WaitGroup
+}
+
+// This method takes in a new title and updates the book's title
+// It uses a goroutine to concurrently update the book and adds to the WaitGroup
+// Once the update is complete, it removes from the WaitGroup and sends a message to the updates channel
+func (b *Book) UpdateTitle(newTitle string) {
+	b.wg.Add(1)
+	go func() {
+		defer b.wg.Done()
+		b.Title = newTitle
+		b.updates <- *b
+	}()
+}
+
+// This method takes in a new author and updates the book's author
+// It uses a goroutine to concurrently update the book and adds to the WaitGroup
+// Once the update is complete, it removes from the WaitGroup and sends a message to the updates channel
+func (b *Book) UpdateAuthor(newAuthor string) {
+	b.wg.Add(1)
+	go func() {
+		defer b.wg.Done()
+		b.Author = newAuthor
+		b.updates <- *b
+	}()
+}
+
+// This method takes in a new genre and updates the book's genre
+// It uses a goroutine to concurrently update the book and adds to the WaitGroup
+// Once the update is complete, it removes from the WaitGroup and sends a message to the updates channel
+func (b *Book) UpdateGenre(newGenre string) {
+	b.wg.Add(1)
+	go func() {
+		defer b.wg.Done()
+		b.Genre = newGenre
+		b.updates <- *b
+	}()
+}
+
+// This method waits for all updates to be completed before returning the updated book attributes
+// It uses the WaitGroup's Wait() method to block until all updates are completed
+// Once all updates are finished, it closes the updates channel to prevent further updates
+// Finally, it returns the updated book attributes
+func (b *Book) GetUpdatedBook() *Book {
+	b.wg.Wait()
+	close(b.updates)
+	return b
+}
+
+func main() {
+	// Create a new book instance using the newBook() function, passing in the book's information as parameters
+	book := newBook("The Great Gatsby", "F. Scott Fitzgerald", "Classic")
+	// Print the initial book information
+	fmt.Println("Initial Book Information:")
+	fmt.Println(book.Title)
+	fmt.Println(book.Author)
+	fmt.Println(book.Genre)
+
+	// Update the book's title
+	book.UpdateTitle("Fahrenheit 451")
+
+	// Update the book's author
+	book.UpdateAuthor("Ray Bradbury")
+
+	// Update the book's genre
+	book.UpdateGenre("Science Fiction")
+
+	// Get the updated book information using the GetUpdatedBook() method
+	updatedBook := book.GetUpdatedBook()
+
+	// Print the updated book information
+	fmt.Println("Updated Book Information:")
+	fmt.Println(updatedBook.Title)
+	fmt.Println(updatedBook.Author)
+	fmt.Println(updatedBook.Genre)
+}

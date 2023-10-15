@@ -1,0 +1,64 @@
+class ExampleGameState extends GameInfo;
+    // The game's current state
+	my Enum EGameState
+	{
+		Waiting, // Players are waiting to start
+		InProgress, // The game is currently being played
+		Paused, // The game is paused
+		Ended // The game has ended
+	}
+
+	var EGameState CurrentState;
+	var float TimeElapsed; // Tracks how much time has passed in the game
+
+	event void PreBeginPlay()
+	{
+		// Set initial game state
+		CurrentState = EGameState.Waiting;
+		TimeElapsed = 0.0f;
+		
+		// Start game timer
+		SetTimer(1, true); // Sets a timer that fires every second
+	}
+
+	event void Timer()
+	{
+		// Add one second to game time
+		TimeElapsed += 1.0f;
+		
+		// Notify players of current game time
+		foreach(Pawn P in GetALlActorsOfClass(class'Pawn', none))
+		{
+			if(P.Player != none && P.Player.Console != none)
+			{
+				P.Player.Console.playerTalk(class"\n\n"$"Current game time: {TimeElapsed}s");
+			}
+		}
+	}
+
+	// Called by game mode to update game state
+	// Has access protection so only game mode can change game state
+	protected function SetGameState(EGameState NewState)
+	{
+		CurrentState = NewState;
+		
+		// Notify players of new game state
+		foreach(Pawn P in GetALlActorsOfClass(class'Pawn', none))
+		{
+			if(P.Player != none && P.Player.Console != none)
+			{
+				P.Player.Console.playerTalk(class"\n\n"$"Game state changed to: ${NewState}");
+			}
+		}
+	}
+
+	// Called when a player joins the game
+	event void PlayerEnteringState(PlayerController P, byte EPlayerState)
+	{
+		// Check if game is not currently in progress and player has joined
+		if(CurrentState != EGameState.InProgress && EPlayerState == PS_Joined)
+		{
+			SetGameState(EGameState.InProgress); // Set game state to in progress
+		}
+	}
+endclass

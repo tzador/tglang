@@ -1,0 +1,75 @@
+# This is a server block for an NGINX web server that handles traffic for domain.com
+server {
+    listen 80; # Server listens on port 80 for incoming requests
+    server_name domain.com; # Specifies the domain name for this server block
+    client_max_body_size 50M; # Limits the maximum size of the request body that will be accepted
+    error_log /var/log/nginx/domain.com_error.log; # Specifies the location for error logs for this server block
+    access_log /var/log/nginx/domain.com_access.log; # Specifies the location for access logs for this server block
+
+    location / { #Specifies the root directory for this server block
+        root /var/www/domain.com; # Sets the root directory for this server block
+        index index.html; # Sets the default file that will be served if no file name is specified in the request
+    }
+
+    location /images/ { # Sets up a subdirectory for images within the root directory
+        root /var/www/domain.com; # Sets the root directory for this server block
+    }
+
+    location /blog/ { # Sets up a subdirectory for a blog within the root directory
+        index index.php; # Sets the default file to index.php for this subdirectory
+        try_files $uri $uri/ /index.php?$args; # If the requested file doesn't exist, redirect to index.php with the query string
+        fastcgi_pass unix:/var/run/php/php7.2-fpm.sock; # Specifies the location of PHP-FPM to handle PHP files
+        fastcgi_param SCRIPT_FILENAME $request_filename; # Specifies the name and location of the PHP script to be run
+        include fastcgi_params; # Loads the default parameter list for FastCGI
+    }
+
+    # This location block is used to handle requests for favicon.ico
+    location = /favicon.ico {
+        access_log off; # Disables logging for favicon requests
+        log_not_found off; # Disables logging for favicon requests that return a 404 error
+    }
+
+    # This location block is used to block access to sensitive files
+    location ~ /\.ht {
+        deny all; # Denies access to any file or directory that starts with a period, such as .htaccess
+    }
+
+    # This location block is used to handle requests for static files ending in .css
+    location ~* \.css$ {
+        expires 1h; # Sets the expiration time for these files to 1 hour
+        add_header Cache-Control "public"; # Specifies that these files can be cached by any intermediate caches
+    }
+
+    # This location block is used to handle requests for PHP files
+    location ~ \.php$ {
+        try_files $uri =404; # If the requested file doesn't exist, return a 404 error
+        fastcgi_pass unix:/var/run/php/php7.2-fpm.sock; # Specifies the location of PHP-FPM to handle PHP files
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; # Specifies the name and location of the PHP script to be run
+        include fastcgi_params; # Loads the default parameter list for FastCGI
+        fastcgi_read_timeout 300; # Sets the maximum time for FastCGI to wait for a response from PHP
+    }
+
+    # This location block is used to handle requests for URLs containing the word "admin"
+    location ~* admin {
+        deny all; # Denies access to any URLs that contain the word "admin"
+    }
+
+    # This location block is used to redirect trailing slashes in URLs
+    if ($request_uri ~* "(.+)/$") {
+        return 301 $1; # If the URL ends with a slash, redirect to the same URL without the trailing slash
+    }
+
+    # This location block is used to handle all other requests
+    location / {
+        return 404; # If no other location blocks match, return a 404 error
+    }
+}
+
+# This is a configuration snippet for NGINX that specifies the location of the default error pages
+http {
+    error_page 404 /404.html; # Specifies the location of the custom 404 error page
+    error_page 500 502 503 504 /50x.html; # Specifies the location of the custom 50x error page
+    location = /50x.html {
+        root html; # Sets the root directory for the error pages
+    }
+}

@@ -1,0 +1,50 @@
+{-# LANGUAGE RankNTypes, DeriveFunctor #-}
+
+import Prelude hiding (map, foldr)
+import qualified Prelude as P
+import Data.Functor.Const
+
+-- | A data type representing a binary tree
+data Tree a = Empty | Node a (Tree a) (Tree a)
+
+-- | Map a function over a tree
+map :: (a -> b) -> Tree a -> Tree b
+map _ Empty = Empty
+map f (Node x l r) = Node (f x) (map f l) (map f r)
+
+-- | Fold a function over a tree in a bottom-up manner
+foldr :: (a -> b -> b) -> b -> Tree a -> b
+foldr _ acc Empty = acc
+foldr f acc (Node x l r) = foldr f (f x (foldr f acc r)) l
+
+-- | Annotate each node of a tree with the result of a monoidal action
+annotate :: Monoid m => Tree a -> m -> Tree (a, m)
+annotate t acc = snd $ go t acc where
+  go :: Monoid m => Tree a -> m -> (m, Tree (a,m))
+  go Empty acc = (acc, Empty)
+  go (Node x l r) acc =
+    let (lAcc, l') = go l acc
+        (rAcc, r') = go r lAcc in
+      (rAcc, Node (x,lAcc `mappend` rAcc) (l',x`mappend`rAcc) (r',mappend x rAcc))
+
+-- | An example tree
+tree :: Tree Int
+tree =
+  Node 1
+    (Node 2
+      (Node 3 Empty Empty)
+      (Node 4 Empty Empty))
+    (Node 5
+      (Node 6 Empty Empty)
+      (Node 7 Empty Empty))
+
+-- | Print the tree with values and annotations
+main :: IO ()
+main =
+  let annotatedTree = annotate tree mempty
+      values = foldr (\(x,_) acc -> x:acc) [] annotatedTree
+      annotations = foldr (\(_,m) acc -> mappend m acc) mempty annotatedTree
+  in
+    print (values, annotations)
+
+--[([(3,5), (2,3), (1,1), (4,2), (6,2), (0,8), (9,4)], Sum 25)

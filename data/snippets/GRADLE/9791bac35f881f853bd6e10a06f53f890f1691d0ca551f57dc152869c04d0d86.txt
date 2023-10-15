@@ -1,0 +1,70 @@
+/**
+ * This block defines a task that will generate a sources jar
+ * that includes all Java and Kotlin source files.
+ */
+task sourceJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+    includeEmptyDirs = false
+}
+
+/**
+ * This block creates a task that will copy the generated
+ * jar file to a specified directory.
+ */
+task copyJar(type: Copy) {
+    from sourceJar.outputs
+    into project.file("${buildDir}/generated-jars")
+}
+
+
+// This block includes other Gradle tasks to be executed before
+// the copyJar task, such as tests and building the project.
+copyJar.dependsOn(test, build)
+
+
+// This block creates a task that will run a static code analysis
+// tool on the project's source code.
+task lint(type: JavaExec) {
+    classpath = files("$project.projectDir/lib/lint.jar")
+    main = 'com.example.Linter'
+    args "src/main/java"
+}
+
+
+// This block creates a task that will generate a Javadoc
+// for the project's source code.
+task javadoc(type: Javadoc) {
+    source = sourceSets.main.allJava
+    exclude '**/internal/**'
+    destinationDir = file("$buildDir/docs/javadoc")
+}
+
+
+// This block configures the project to generate a JUnit test report
+// whenever the tests are executed.
+test {
+    testLogging {
+        events "passed", "skipped"
+        showStandardStreams = true
+    }
+
+    reports {
+        html.destination = file("$buildDir/test-results/html")
+        junitXml.destination = file("$buildDir/test-results/junit.xml")
+    }
+}
+
+
+// This block includes other Gradle plugins that will be
+// applied to the project.
+apply plugin: 'java'
+apply plugin: 'kotlin'
+apply plugin: 'application'
+apply plugin: 'jacoco'
+apply plugin: 'com.github.ben-manes.versions'
+
+// This block configures the Java source compatibility
+// and specifies the main class for the project.
+sourceCompatibility = '1.8'
+mainClassName = 'com.example.Main'

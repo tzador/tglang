@@ -1,0 +1,103 @@
+// This is a complex class in UNREALSCRIPT that handles weapon functionality
+class Weapon extends Object
+    placeable;
+
+var() int ClipSize; // variable for maximum ammo
+var() int CurrentAmmo; // variable for current ammo
+var() bool bIsEquipped; // variable to check if weapon is equipped
+var() bool bIsFiring; // variable to check if weapon is currently firing
+var() bool bHasScope; // variable to check if weapon has a scope
+
+protected() PlayerController OwningController; // variable to hold the owning controller
+protected() float FireRate; // variable for the weapon's firing rate
+protected() float ZoomLevel; // variable for the zoom level when using a scope
+
+// function to fire the weapon
+// calculates damage and spread based on current zoom level
+// also handles ammo and recoil
+function Fire()
+{
+    if (CurrentAmmo > 0)
+    {
+        // calculate damage and spread based on zoom level
+        float Damage = ZoomLevel * 100;
+        float Spread = 1 - ZoomLevel;
+
+        // decrement current ammo
+        CurrentAmmo--;
+
+        // create a ray trace for shooting
+        local Vector StartTrace = OwningController.GetPawn().GetActorLocation() + OwningController.GetPawn().GetViewRotation() * 150;
+        local Vector EndTrace = StartTrace + OwningController.GetPawn().GetViewRotation().Vector() * 10000;
+
+        // trace to see if the ray hits a target
+        local Vector HitLocation;
+        local Vector HitNormal;
+        local Actor HitActor;
+        local bool bHit;
+
+        bHit = Trace(HitLocation, HitNormal, HitActor, EndTrace, StartTrace);
+
+        if (bHit && HitActor != none)
+        {
+            // apply damage to the hit actor
+            HitActor.TakeDamage(Damage);
+
+            // apply recoil to the player
+            OwningController.GetPawn().SetViewRotation(OwningController.GetPawn().GetViewRotation() + RandRange(0, Spread) * Rotator((RandRange(-180, 180), RandRange(-180, 180), RandRange(-180, 180))));
+        }
+    }
+}
+
+// function to switch to the scope when equipped
+// also changes the weapon's FOV and zoom level
+function ToggleScope()
+{
+    if (bHasScope)
+    {
+        // toggle bIsEquipped to false so that player cannot fire while using the scope
+        bIsEquipped = false;
+
+        // set the FOV to zoom in
+        SetFOV(90);
+
+        // set the zoom level to maximum
+        ZoomLevel = 1;
+    }
+}
+
+// function to reload the weapon
+function Reload()
+{
+    if (CurrentAmmo < ClipSize)
+    {
+        // refill current ammo
+        CurrentAmmo = ClipSize;
+
+        // play a reload animation
+        PlayAnim("Reload");
+
+        // toggle bIsEquipped to true
+        bIsEquipped = true;
+    }
+}
+
+// function to equip the weapon for use
+function Equip()
+{
+    // toggle bIsEquipped to true
+    bIsEquipped = true;
+
+    // set the default FOV
+    SetFOV(120);
+
+    // set the zoom level to minimum
+    ZoomLevel = 0;
+}
+
+// function to unequip the weapon
+function Unequip()
+{
+    // toggle bIsEquipped to flase
+    bIsEquipped = false;
+}

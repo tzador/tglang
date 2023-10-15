@@ -1,0 +1,176 @@
+const { GraphQLObjectType, GraphQLString, GraphQLInt, GraphQLSchema, GraphQLList } = require('graphql');
+
+// Defines the user type which has id, name, age, and address fields
+const UserType = new GraphQLObjectType({
+  name: 'User',
+  description: 'User type',
+  fields: () => ({
+    id: { type: GraphQLInt },
+    name: { type: GraphQLString },
+    age: { type: GraphQLInt },
+    address: { type: GraphQLString }
+  })
+});
+
+// Defines the post type which has id, title, body and author fields
+const PostType = new GraphQLObjectType({
+  name: 'Post',
+  description: 'Post type',
+  fields: () => ({
+    id: { type: GraphQLInt },
+    title: { type: GraphQLString },
+    body: { type: GraphQLString },
+    author: { 
+      type: UserType,
+      resolve(parent, args) {
+        // The parent argument refers to the parent object (post), so we can access its author property
+        return getUserById(parent.authorId);
+      }
+    }
+  })
+});
+
+// Defines the root query type which provides access to the users and posts data
+const RootQuery = new GraphQLObjectType({
+  name: 'RootQueryType',
+  description: 'Root query type',
+  fields: {
+    user: {
+      type: UserType,
+      args: { id: { type: GraphQLInt } },
+      resolve(parent, args) {
+        return getUserById(args.id); // Returns the user with the specified id
+      }
+    },
+    users: {
+      type: new GraphQLList(UserType),
+      resolve(parent, args) {
+        return getAllUsers(); // Returns all users
+      }
+    },
+    post: {
+      type: PostType,
+      args: { id: { type: GraphQLInt } },
+      resolve(parent, args) {
+        return getPostById(args.id); // Returns the post with the specified id
+      }
+    },
+    posts: {
+      type: new GraphQLList(PostType),
+      resolve(parent, args) {
+        return getAllPosts(); // Returns all posts
+      }
+    }
+  }
+});
+
+// Defines the mutation type which allows creating, updating and deleting users and posts
+const Mutation = new GraphQLObjectType({
+  name: 'Mutation',
+  description: 'Mutation type',
+  fields: {
+    addUser: {
+      type: UserType,
+      args: {
+        name: { type: GraphQLString },
+        age: { type: GraphQLInt },
+        address: { type: GraphQLString }
+      },
+      resolve(parent, args) {
+        const { name, age, address } = args;
+        const newUser = {
+          id: Math.floor(Math.random() * 1000), // Generates a random id for the new user
+          name,
+          age,
+          address
+        };
+        // Save the user in the database
+        addUser(newUser);
+        return newUser; // Returns the new user with its generated id
+      }
+    },
+    updateUser: {
+      type: UserType,
+      args: {
+        id: { type: GraphQLInt },
+        name: { type: GraphQLString },
+        age: { type: GraphQLInt },
+        address: { type: GraphQLString }
+      },
+      resolve(parent, args) {
+        const { id, name, age, address } = args;
+        // Update the user with the specified id in the database
+        updateUser(id, name, age, address);
+        // Return the updated user
+        return getUserById(id);
+      }
+    },
+    deleteUser: {
+      type: UserType,
+      args: { id: { type: GraphQLInt } },
+      resolve(parent, args) {
+        const { id } = args;
+        // Delete the user with the specified id from the database
+        deleteUser(id);
+        // Return the deleted user
+        return getUserById(id);
+      }
+    },
+    addPost: {
+      type: PostType,
+      args: {
+        title: { type: GraphQLString },
+        body: { type: GraphQLString },
+        authorId: { type: GraphQLInt }
+      },
+      resolve(parent, args) {
+        const { title, body, authorId } = args;
+        const newPost = {
+          id: Math.floor(Math.random() * 1000), // Generates a random id for the new post
+          title,
+          body,
+          authorId
+        };
+        // Save the post in the database
+        addPost(newPost);
+        return newPost; // Returns the new post with its generated id
+      }
+    },
+    updatePost: {
+      type: PostType,
+      args: {
+        id: { type: GraphQLInt },
+        title: { type: GraphQLString },
+        body: { type: GraphQLString },
+        authorId: { type: GraphQLInt }
+      },
+      resolve(parent, args) {
+        const { id, title, body, authorId } = args;
+        // Update the post with the specified id in the database
+        updatePost(id, title, body, authorId);
+        // Return the updated post
+        return getPostById(id);
+      }
+    },
+    deletePost: {
+      type: PostType,
+      args: { id: { type: GraphQLInt } },
+      resolve(parent, args) {
+        const { id } = args;
+        // Delete the post with the specified id from the database
+        deletePost(id);
+        // Return the deleted post
+        return getPostById(id);
+      }
+    }
+  }
+});
+
+// Defines the GraphQL schema with the root query and mutation types
+const schema = new GraphQLSchema({
+  query: RootQuery,
+  mutation: Mutation
+});
+
+// Export the schema to be used by GraphQL server
+module.exports = schema;

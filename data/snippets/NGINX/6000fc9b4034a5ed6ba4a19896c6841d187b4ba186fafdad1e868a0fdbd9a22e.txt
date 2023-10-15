@@ -1,0 +1,97 @@
+server {
+    # Defines a server block for NGINX to listen to
+    listen 80; 
+    
+    # Defines the server name for the block
+    server_name example.com www.example.com;
+    
+    # Location block for the root directory
+    location / {
+        # Sets the root directory for the website
+        root /var/www/example;
+        
+        # Enables the index file to be served
+        index index.html;
+        
+        # Sets the default page to index.html
+        try_files $uri $uri/ =404;
+    }
+    
+    # Location block for API endpoint
+    location /api/ {
+        # Sets up a proxy pass for the API endpoint
+        proxy_pass http://127.0.0.1:3000/;
+        
+        # Specifies the type of proxy
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        
+        # Specifies the proxy's timeout
+        proxy_connect_timeout 300s;
+    }
+    
+    # Location block for static files
+    location /static/ {
+        # Specifies the location of the static files
+        root /var/www/example/static;
+        
+        # Enables caching of the static files
+        expires 1d;
+        
+        # Specifies the allowed file types
+        include /etc/nginx/mime.types;
+        
+        # Sets the default page for the directory
+        try_files $uri $uri/ =404;
+    }
+    
+    # Error pages for different HTTP status codes
+    error_page 500 502 503 504 /error_pages/5xx.html;
+    error_page 400 401 403 404 /error_pages/4xx.html;
+    
+    # Allows the server to handle PHP files
+    location ~ \.php$ {
+        # Specifies the root directory for PHP files
+        root /var/www/example;
+        
+        # Sets the location of the PHP FastCGI server
+        fastcgi_pass unix:/var/run/php/php7.3-fpm.sock;
+        
+        # Specifies the upstream server for PHP
+        fastcgi_index index.php;
+        
+        # Sets the PHP script processing path
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        
+        # Sets the fastcgi parameters
+        include fastcgi_params;
+    }
+    
+    # SSL configuration
+    listen 443 ssl; # Enables SSL on port 443
+    ssl_certificate /etc/nginx/certs/example.com.crt; # Sets the SSL certificate file
+    ssl_certificate_key /etc/nginx/certs/example.com.key; # Sets the SSL certificate key file
+    ssl_session_timeout 5m; # Specifies the session timeout for SSL
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2; # Specifies the allowed SSL protocols
+    ssl_ciphers HIGH:!aNULL:!MD5; # Specifies the allowed SSL ciphers
+    ssl_prefer_server_ciphers on; # Enables preferred server ciphers
+    
+    # Gzip compression
+    gzip on; # Enables gzip compression
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript; # Specifies the types of files to be compressed
+    gzip_disable "MSIE [1-6]\.(?!.*SV1)"; # Disables gzip for IE6
+    
+    # Restricting access to specific directories
+    location /secret/ {
+        # Denies access to the directory
+        deny all;
+    }
+    
+    # Configuring cache settings
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+        # Enables caching for certain file types for 30 days
+        expires 30d;
+        
+        # Sets the caching headers
+        add_header Cache-Control "public";
+    }
+}

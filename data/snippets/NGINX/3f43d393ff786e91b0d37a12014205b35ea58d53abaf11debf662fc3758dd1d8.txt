@@ -1,0 +1,111 @@
+# This directive sets the number of worker connections
+# with each connection representing a single user
+# Syntax: worker_connections number
+worker_connections 1024;
+
+# These directives allow NGINX to handle large
+# numbers of requests in a more efficient manner
+# by using a separate process for each CPU core.
+# Syntax: worker_processes number
+worker_processes auto;
+multi_accept on;
+use epoll;
+
+# This directive sets the maximum number of
+# simultaneous connections that can be handled
+# by NGINX
+# Syntax: events { connections number 
+events {
+  connections 30000;
+}
+
+http {
+  # This directive enables NGINX to cache frequently
+  # requested files, reducing read operations and
+  # improving performance.
+  # Syntax: open_file_cache max=number inactive=period;
+  open_file_cache max=200000 inactive=20s;
+  open_file_cache_valid 30s;
+  open_file_cache_min_uses 2;
+  open_file_cache_errors on;
+  
+  # This block sets up the server environment
+  server {
+    listen 80 default_server;
+    server_name example.com;
+    
+    # This directive sets the root directory for
+    # serving files for this server
+    # Syntax: root /path/to/directory;
+    root /var/www/example;
+    
+    # These directives allow NGINX to serve
+    # static files and index files
+    index index.html;
+    autoindex on;
+    autoindex_exact_size off;
+    autoindex_localtime on;
+    
+    # This block handles requests for static
+    # files and passes them to NGINX's built-in
+    # file handler for processing
+    location /static/ {
+      expires 1d;
+      sendfile on;
+      tcp_nopush on;
+      tcp_nodelay on;
+      keepalive_timeout 30;
+      client_max_body_size 1024m;
+      types {
+        image/jpeg     jpg;
+        image/gif      gif;
+        text/css       css;
+        text/javascript js;
+        application/json    json;
+        application/xml     xml;
+      }
+      # This directive enables gzip compression
+      # for responses, reducing file size and
+      # improving performance
+      # Syntax: gzip on;
+      gzip on;
+      gzip_proxied any;
+      gzip_vary on;
+      gzip_min_length 1100;
+      gzip_buffers 16 8k;
+      gzip_http_version 1.1;
+      gzip_types text/plain text/css application/json application/javascript;
+    }
+    
+    # This block handles requests for dynamic
+    # content and passes them to a FastCGI
+    # server listening on port 9000
+    location / {
+      fastcgi_pass 127.0.0.1:9000;
+      fastcgi_index index.php;
+      fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+      include fastcgi_params;
+    }
+    
+    # This block handles error pages for
+    # the server    
+    error_page 404 /404.html;
+    location = /404.html {
+      internal;
+    }
+    
+    # This block redirects any requests
+    # for URLs without a trailing slash
+    # to the version with a trailing slash
+    rewrite ^([^.]*[^/])$ $1/ permanent;
+    
+    # This block sets up caching for
+    # requests for certain file types
+    location ~* \.(?:jpg|jpeg|gif|png|ico|css|js)$ {
+      expires 1d;
+      access_log off;
+      add_header Pragma public;
+      add_header Cache-Control "public, must-revalidate, proxy-revalidate";
+    }
+  }
+}

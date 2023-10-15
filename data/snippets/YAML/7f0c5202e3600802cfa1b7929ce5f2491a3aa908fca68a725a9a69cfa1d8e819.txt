@@ -1,0 +1,33 @@
+- name: create new instances
+  hosts: [prod-servers]
+  vars:
+    environment: production
+    instance_type: t2.micro
+    security_group: prod-sg
+    region: us-east-1
+  tasks:
+    - name: launch instances
+      ec2:
+        key_name: prod-key
+        instance_type: "{{ instance_type }}"
+        security_group: "{{ security_group }}"
+        region: "{{ region }}"
+        image: ami-1234567890
+        count: 3
+        vpc_subnet_id: subnet-1234567890
+        assign_public_ip: yes
+        wait: yes
+        instance_tags:
+          Name: "Prod Instance {{ item }}"
+          Environment: "{{ environment }}"
+        with_sequence: count=3
+      register: ec2_result
+    - name: display output
+      debug:
+        msg: "{{ item.instances[0].public_ip }}"
+      with_items: "{{ ec2_result.results }}"
+    - name: add instances to inventory
+      add_host:
+        name: "{{ item.instances[0].public_ip }}"
+        groups: tagged_instances
+      with_items: "{{ ec2_result.results }}"

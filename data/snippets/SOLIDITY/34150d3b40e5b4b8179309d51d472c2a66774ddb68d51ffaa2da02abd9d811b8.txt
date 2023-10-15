@@ -1,0 +1,55 @@
+// This contract represents a decentralized crowdfunding platform using Ethereum blockchain
+// It is based on the concept of a contribution campaign, where contributors can send funds to the contract
+// and receive certain rewards based on the amount contributed
+// The contract also has functionality for managing the campaign, such as setting the funding goal and deadline
+
+pragma solidity ^0.8.0; //Specifies the version of Solidity used for the contract
+
+contract Crowdfunding {
+    address payable public owner; //Public variable storing the address of the contract owner
+    uint public fundingGoal; //Public variable storing the funding goal for the campaign
+    uint public deadline; //Public variable storing the deadline for the campaign
+    uint public currentFunding; //Public variable storing the current amount of funds raised
+    mapping(address => uint) public contributors; //Public mapping that stores the amount contributed by each address
+
+    constructor(uint _fundingGoal, uint _durationInDays) {
+        owner = payable(msg.sender); //Sets the contract owner to the address of the one who deployed the contract
+        fundingGoal = _fundingGoal; //Sets the funding goal
+        deadline = block.timestamp + (_durationInDays * 1 days); //Calculates the deadline based on the current block timestamp
+    }
+
+    //Modifier that restricts a function to only be executed by the contract owner
+    modifier onlyOwner() {
+        require(msg.sender == owner, "You are not authorized to execute this function");
+        _;
+    }
+
+    //Event that will be triggered when a contribution is made
+    event Contribution(address indexed contributor, uint amount);
+
+    //Function for making a contribution to the campaign
+    function contribute() public payable {
+        require(block.timestamp < deadline, "The deadline for contributions has passed");
+        require(msg.value > 0, "You did not send any funds");
+        require(currentFunding + msg.value <= fundingGoal, "Exceeds the funding goal");
+        contributors[msg.sender] += msg.value; //Adds the contributed amount to the contributors mapping
+        currentFunding += msg.value; //Increases the current funding
+        emit Contribution(msg.sender, msg.value); //Triggers the Contribution event
+    }
+
+    //Function for withdrawing the funds raised by the campaign
+    //Can only be executed by the contract owner after the deadline has passed and the funding goal has been reached
+    function withdrawFunds() public onlyOwner {
+        require(block.timestamp >= deadline, "The deadline for contributions has not passed yet");
+        require(currentFunding >= fundingGoal, "The funding goal has not been reached yet");
+        owner.transfer(currentFunding); //Transfers the funds to the contract owner
+    }
+
+    //Function for changing the funding goal and deadline
+    //Can only be executed by the contract owner and before the deadline has passed
+    function updateCampaign(uint _newFundingGoal, uint _newDeadlineInDays) public onlyOwner {
+        require(block.timestamp < deadline, "The deadline for contributions has passed");
+        fundingGoal = _newFundingGoal; //Updates the funding goal
+        deadline = block.timestamp + (_newDeadlineInDays * 1 days); //Calculates the new deadline
+    }
+}

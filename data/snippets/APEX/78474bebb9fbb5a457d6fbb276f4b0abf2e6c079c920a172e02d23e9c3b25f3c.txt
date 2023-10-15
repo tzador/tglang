@@ -1,0 +1,36 @@
+// This code snippet is an example of a complex Apex trigger that performs multiple operations on a record.
+trigger ComplexTrigger on Account (before insert, after update) {
+    
+    // Map to store updated accounts and their corresponding contact records
+    Map<Account, List<Contact>> updatedAccountsToContacts = new Map<Account, List<Contact>>();
+    
+    // Loop through the trigger records and add updated accounts to the map
+    for (Account record : Trigger.new) {
+        if (record.Status == 'Active' && record.Type == 'Business') {
+            updatedAccountsToContacts.put(record, new List<Contact>());
+        }
+    }
+    
+    // Query for contacts related to the updated accounts
+    List<Contact> relatedContacts = [SELECT Id, AccountId FROM Contact WHERE AccountId IN :updatedAccountsToContacts.keySet()];
+    
+    // Loop through contacts and add them to the corresponding account's list in the map
+    for (Contact contact : relatedContacts) {
+        updatedAccountsToContacts.get(contact.AccountId).add(contact);
+    }
+    
+    // Update account phone numbers based on contact phone numbers
+    for (Account account : updatedAccountsToContacts.keySet()) {
+        List<Contact> contacts = updatedAccountsToContacts.get(account);
+        if (contacts.size() > 0) {
+            account.Phone = contacts[0].Phone;
+            if (contacts.size() > 1) {
+                account.Fax = contacts[1].Phone;
+            }
+        }
+    }
+    
+    // Call future method to asynchronously update related opportunities
+    SomeFutureClass.updateOpportunities(updatedAccountsToContacts.keySet());
+    
+}

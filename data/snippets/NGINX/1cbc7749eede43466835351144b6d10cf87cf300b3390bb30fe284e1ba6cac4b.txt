@@ -1,0 +1,121 @@
+# This is a configuration file for NGINX web server
+ 
+# Set the user for running NGINX processes
+user www-data;
+ 
+# Specify the number of worker processes
+worker_processes 4;
+ 
+# Specify the maximum number of connections for each worker process
+events {
+    worker_connections 1024;
+}
+ 
+# Configure the HTTP server
+http {
+    
+    # Set the server's listening port
+    listen 80;
+ 
+    # Define the server's name, which can be a domain or IP address
+    server_name example.com;
+ 
+    # Set the root directory for the server's content
+    root /var/www/html;
+ 
+    # Configure error pages
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+ 
+    # Configure logging
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+ 
+    # Set up gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json;
+ 
+    # Configure server-side caching
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=my_cache:10m inactive=60m;
+    proxy_cache_key "$scheme$request_method$host$request_uri";
+    proxy_cache_valid 200 302 20m;
+    proxy_cache_valid 404 1m;
+ 
+    # Configure load balancing
+    upstream backend_server {
+        server 192.168.1.1 weight=3;
+        server 192.168.1.2;
+        server 192.168.1.3;
+    }
+ 
+    # Configure server block for handling requests
+    server {
+ 
+        # Set the listening port for server block
+        listen 80;
+ 
+        # Set the server's name
+        server_name example.com;
+ 
+        # Define location block for root directory
+        location / {
+            # Define the upstream server(s) for this location block
+            proxy_pass http://backend_server;
+ 
+            # Configure caching for this location block
+            proxy_cache my_cache;
+            proxy_cache_bypass $http_pragma;
+            proxy_cache_revalidate on;
+ 
+            # Set caching headers
+            add_header x-powered-by "NGINX";
+            add_header Cache-Control "public, must-revalidate, proxy-revalidate";
+        }
+ 
+        # Define location block for handling static files
+        location ~* \.(jpg|jpeg|gif|png|ico|css|js)$ {
+            # Set the root directory for these files
+            root /var/www/html;
+ 
+            # Enable server-side caching for these files
+            proxy_cache my_cache;
+            proxy_cache_bypass $http_pragma;
+            proxy_cache_revalidate on;
+ 
+            # Set caching headers
+            add_header x-powered-by "NGINX";
+            add_header Cache-Control "public, must-revalidate, proxy-revalidate";
+ 
+            # Set a default expiration time for these files
+            expires 7d;
+        }
+ 
+        # Define location for handling error pages
+        error_page 404 /404.html;
+        location = /404.html {
+            # Set the root directory for this page
+            root /var/www/html;
+ 
+            # Disable server-side caching for this page
+            proxy_no_cache 1;
+ 
+            # Set caching headers
+            add_header x-powered-by "NGINX";
+            add_header Cache-Control "no-cache, no-store, must-revalidate";
+        }
+ 
+        # Define location for handling server errors
+        error_page 500 502 503 504 /50x.html;
+        location = /50x.html {
+            # Set the root directory for this page
+            root /var/www/html;
+ 
+            # Disable server-side caching for this page
+            proxy_no_cache 1;
+ 
+            # Set caching headers
+            add_header x-powered-by "NGINX";
+            add_header Cache-Control "no-cache, no-store, must-revalidate";
+        }
+    }
+}

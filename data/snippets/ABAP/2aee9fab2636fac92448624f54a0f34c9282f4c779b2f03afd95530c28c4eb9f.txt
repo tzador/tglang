@@ -1,0 +1,41 @@
+METHODS: get_material_info
+    IMPORTING
+        iv_material TYPE matnr
+    RETURNING VALUE(rt_material_info) TYPE zcl_material=>tt_material_info.
+ 
+TYPES: BEGIN OF ty_material_info,
+        material TYPE matnr,
+        description TYPE maktg,
+        weight TYPE decimal20,
+        price TYPE p,
+      END OF ty_material_info.
+ 
+TYPES tt_material_info TYPE STANDARD TABLE OF ty_material_info WITH DEFAULT KEY.
+ 
+DATA(lt_material_info) = VALUE tt_material_info( ).
+ 
+SELECT materialnr
+         description
+         gross_weight
+         net_weight
+  UP TO 100 ROWS
+  FROM mara
+  INTO TABLE @DATA(lt_material_data)
+  WHERE material = @iv_material.
+ 
+LOOP AT lt_material_info ASSIGNING FIELD-SYMBOL(<fs_material>).
+ 
+  DATA(lv_price) = <fs_material>-price * 1.2.
+ 
+  MODIFY lt_material_info FROM <fs_material>
+    TRANSPORTING price TO <fs_material>-price.
+ 
+  IF <fs_material>-price > 5000.
+    INSERT VALUE #(
+      material = <fs_material>-material
+      description = <fs_material>-description
+      weight = <fs_material>-net_weight
+      price = lv_price
+    ) INTO TABLE rt_material_info.
+  ENDIF.
+ENDLOOP.

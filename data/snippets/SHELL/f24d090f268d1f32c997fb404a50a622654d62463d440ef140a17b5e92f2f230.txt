@@ -1,0 +1,78 @@
+#!/bin/bash
+
+# This shell script is used to install and configure a web server
+
+echo "Welcome to the web server installation and configuration script!"
+
+# Update and upgrade packages
+sudo apt-get update
+sudo apt-get upgrade -y
+
+# Install Apache web server
+sudo apt-get install apache2
+
+# Start Apache service
+sudo systemctl start apache2 
+
+# Add firewall rules to allow HTTP and HTTPS traffic
+sudo ufw allow http
+sudo ufw allow https
+
+# Check status of firewall
+sudo ufw status verbose
+
+# Install PHP and its dependencies
+sudo apt-get install php libapache2-mod-php php-mysql
+
+# Create info.php file for testing PHP installation
+echo "<?php phpinfo(); ?>" | sudo tee /var/www/html/info.php
+
+# Install and configure MySQL
+sudo apt-get install mysql-server
+sudo mysql_secure_installation
+
+# Enable MySQL service
+sudo systemctl enable mysql
+
+# Create database and user for web application
+sudo mysql -u root -p -e "CREATE DATABASE myapp;"
+sudo mysql -u root -p -e "CREATE USER 'myuser'@'localhost' IDENTIFIED BY 'mypass';"
+sudo mysql -u root -p -e "GRANT ALL PRIVILEGES ON myapp.* TO 'myuser'@'localhost';"
+sudo mysql -u root -p -e "FLUSH PRIVILEGES;"
+
+# Download and unzip latest version of WordPress
+wget https://wordpress.org/latest.tar.gz
+tar -zxvf latest.tar.gz
+
+# Move files to web server's document root
+sudo rsync -av wordpress/ /var/www/html/
+
+# Set proper permissions for web server to access files
+sudo chown -R www-data:www-data /var/www/html/
+sudo chmod -R 755 /var/www/html/
+
+# Configure Apache virtual host file for WordPress site
+echo "<VirtualHost *:80>
+
+	ServerAdmin admin@example.com
+	DocumentRoot /var/www/html/
+	ServerName example.com
+	ServerAlias www.example.com
+
+	ErrorLog ${APACHE_LOG_DIR}/error.log
+	CustomLog ${APACHE_LOG_DIR}/access.log combined
+
+	<Directory /var/www/html/>
+		AllowOverride All
+	</Directory>
+
+</VirtualHost>
+" | sudo tee /etc/apache2/sites-available/example.com.conf
+
+# Enable the virtual host
+sudo a2ensite example.com
+
+# Reload Apache service
+sudo systemctl reload apache2
+
+echo "Web server installation and configuration complete!"

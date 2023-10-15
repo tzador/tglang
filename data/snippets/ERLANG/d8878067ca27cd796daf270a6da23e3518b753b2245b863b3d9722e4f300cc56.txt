@@ -1,0 +1,36 @@
+-module(pingpong). % define a module
+-export([start/0, loop/1, ping/1, pong/1]). % export functions to be used by other modules
+
+start() -> % function to start the pingpong process
+
+  Ping = spawn(pingpong, loop, [pong]), % create a process for ping
+  Pong = spawn(pingpong, loop, [nil]), % create a process for pong
+  Ping ! Pong, % send a message to the ping process
+  receive % receive a message
+    pong -> ok % if the message is 'pong', print 'ok'
+  end. % end of receive
+
+loop(Target) -> % function that loops forever to handle messages
+  receive % receive a message
+    Message -> % store the message in a variable
+      io:format("Recipient: ~p~n", [self()]), % print the recipient process ID
+      io:format("Message received: ~p~n", [Message]) % print the received message
+  end,
+  Target ! self(), % send a message to the target process
+  loop(Target). % recursively call the loop function with the same target
+
+ping(PongPid) -> % function to send a message to the pong process
+  PongPid ! "ping", % send a ping message to the pong process
+  receive % receive a message
+    pong -> io:format("Ping received pong!~n", []) % if the message is 'pong', print a confirmation message
+  end.
+
+pong(nil) -> % function to handle the first message from the ping process
+  receive % receive a message
+    PingPid -> ping(PingPid) % call the ping function with the ping process ID
+  end;
+pong(PingPid) -> % function to handle subsequent messages
+  receive % receive a message
+    Message -> io:format("Pong received: ~p~n", [Message]), % print the received message
+      PingPid ! "pong" % send a response message to the ping process
+  end.

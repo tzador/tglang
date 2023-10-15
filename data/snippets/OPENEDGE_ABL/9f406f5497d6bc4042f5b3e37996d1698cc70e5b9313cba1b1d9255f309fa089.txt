@@ -1,0 +1,56 @@
+/* This is a complex code snippet in OPENEDGE_ABL */
+DEFINE VARIABLE cCustomer AS CHARACTER NO-UNDO.
+DEFINE VARIABLE iSalesperson AS INTEGER NO-UNDO.
+
+/* Create a procedure to retrieve salesperson ID based on customer ID */
+PROCEDURE GetSalesperson:
+
+    /* Define input and output parameters */
+    INPUT PARAMETER cCustID AS CHARACTER.
+    OUTPUT PARAMETER iSalesperson AS INTEGER.
+
+    /* Query the customer table for the salesperson */
+    FOR EACH Customer WHERE Customer.CustomerID = cCustID:
+        iSalesperson = Customer.SalespersonID.
+    END.
+
+    /* If no matching customer is found, set salesperson to 0 */
+    IF iSalesperson = ? THEN
+        iSalesperson = 0.
+
+    /* Return the salesperson ID */
+    RETURN iSalesperson.
+
+END PROCEDURE.
+
+/* Create a procedure to update a customer's salesperson */
+PROCEDURE UpdateSalesperson:
+
+    /* Define input parameters */
+    INPUT PARAMETER cCustID AS CHARACTER.
+    INPUT PARAMETER iNewSalesperson AS INTEGER.
+
+    /* Retrieve current salesperson for customer */
+    RUN GetSalesperson (INPUT cCustID, OUTPUT iSalesperson).
+
+    /* If the new salesperson is different from the current one,
+       update the customer record */
+    IF iNewSalesperson <> iSalesperson THEN
+        UPDATE Customer SET Customer.SalespersonID = iNewSalesperson
+        WHERE Customer.CustomerID = cCustID.
+
+    /* If the customer does not exist, create a new record */
+    ELSE IF iSalesperson = 0 THEN
+        CREATE Customer.
+        ASSIGN
+            Customer.CustomerID = cCustID
+            Customer.SalespersonID = iNewSalesperson.
+
+    /* Otherwise, do nothing */
+    ELSE
+        MESSAGE "Customer already has specified salesperson." VIEW-AS ALERT-BOX.
+
+    /* Save changes to database */
+    APPLY "REPLACE" TO Customer IN DATABASE.
+
+END PROCEDURE.

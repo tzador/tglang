@@ -1,0 +1,56 @@
+#if WITH_EDITORONLY_DATA
+	/** The current editor mode */
+	EditMode CurrentEditMode;
+
+	/** The new edit mode to change to upon exiting SI mode */
+	EditMode PendingEditMode;
+
+	/** The SI Edit Mode customization */
+	class SISimplifiedModeCustomization* SISimpleCustomization;
+#endif
+
+/**
+ * A custom projectile which can be triggered by an external source.
+ */
+class ExternalTriggeredProjectile extends Projectile
+   placeable_Between (StartLocation, FireLocation)
+    notplaceable_Within (ETAImmediateRadius)
+
+    noteditinline const ScrollingDuration;
+    // Place this Actor between StartLocation and FireLocation and draw
+    // a lineSegment to show the extent of the projectile.
+    simulated function DrawHUD(Canvas Canvas)
+    {
+        local vec StartLoc, FireLoc;
+        local Rotator Rot;
+        Canvas.PushRelativeTransform(BeginRotation);
+        Canvas.DrawColor.R=255;
+        Canvas.( BeginRotation.Translation, StartLoc );
+        Canvas.DrawColor.G=255;
+        CalcTrajectory(StartLoc, Rotation, LocalVelocity.Y , FireLoc, Rot);		
+        Canvas.( FireLoc, (FireLoc+Rot.Vector()*AbsoluteETAImmediateRadius*2.f) ); 
+        local localized String hud= "Projectile Flight Path"
+            $FormattedPrinterF( "%5.2f", ScrollingDuration/sim_Speed * ETAImmediateRadius * 2.f )
+        ;
+        Canvas.SetPos(FireLoc);
+        Canvas.SetDrawColor(0,255,0);
+        Canvas.Print(hud);
+        if (sim_Static)
+        {
+            Canvas.DrawLine(BeginRotation.*BeginOffset, StartLoc, 24.f, 24.f, False);
+        }
+    }
+    // Calculate the trajectory depicted by the Projectile
+    simulated function DrawTrajectory(Canvas Canvas)
+    {
+        local Vector out_FireLoc;
+        local Rotator out_Rot;
+
+        out_FireLoc = EndLocation;
+        out_Rot = EndRotation;
+        DrawProjectileFlightPath(Canvas, EndTime, out_FireLoc, out_Rot, sim_Static, ETAImmediateRadius);
+
+        out_FireLoc = StartLocation;
+        out_Rot = StartRotation;
+        DrawProjectileFlightPath(Canvas, BeginTime, out_FireLoc, out_Rot, False, ETAImmediateRadius);
+    }

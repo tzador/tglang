@@ -1,0 +1,70 @@
+/* This program is a demo of creating a complex data structure in OpenEdge ABL */
+
+/* Define a temp-table for storing customer data with fields for name, address, and phone number */
+DEFINE TEMP-TABLE ttCustomer
+    FIELD cName AS CHARACTER
+    FIELD cAddress AS CHARACTER
+    FIELD cPhone AS CHARACTER
+    INDEX PRIMARY cName.
+
+/* Define a temp-table for storing order data with fields for order number, customer name, and amount */
+DEFINE TEMP-TABLE ttOrder
+    FIELD nOrderNum AS INTEGER
+    FIELD cCustomer AS CHARACTER
+    FIELD nAmount AS DECIMAL
+    INDEX PRIMARY nOrderNum.
+
+/* Define a temp-table for storing line item data with fields for item number, order number, item name, and price */
+DEFINE TEMP-TABLE ttLineItem
+    FIELD nItemNum AS INTEGER
+    FIELD nOrderNum AS INTEGER
+    FIELD cItemName AS CHARACTER
+    FIELD nPrice AS DECIMAL
+    INDEX PRIMARY nItemNum.
+
+/* Define an array of temp-table handles to hold the line item data for each order */
+DEFINE VARIABLE hLineItem AS HANDLE NO-UNDO EXTENT 10.
+
+/* Create a customer record and add it to the customer temp-table */
+CREATE ttCustomer.
+ttCustomer.cName = "John Smith".
+ttCustomer.cAddress = "123 Main Street".
+ttCustomer.cPhone = "555-1234".
+/* Save the record */
+ttCustomer.CREATE.
+
+/* Create an order record and add it to the order temp-table */
+CREATE ttOrder.
+ttOrder.nOrderNum = 1001.
+ttOrder.cCustomer = ttCustomer.cName.
+ttOrder.nAmount = 100.00.
+/* Save the record */
+ttOrder.CREATE.
+
+/* Create 3 line item records and add them to the line item temp-table
+   using the order number to link them to the correct order */
+DO i = 1 TO 3:
+    CREATE ttLineItem.
+    ttLineItem.nItemNum = i.
+    ttLineItem.nOrderNum = ttOrder.nOrderNum.
+    ttLineItem.cItemName = "Item " + STRING(i).
+    ttLineItem.nPrice = 25.00 * i.
+    /* Save the record */
+    ttLineItem.CREATE.
+
+    /* Assign the handle to the corresponding position in the handle array */
+    hLineItem[i] = ttLineItem.
+END.
+
+/* Display the order data with associated line item data */
+DO i = 1 TO 3:
+    DISPLAY ttOrder WITH FRAME fOrder.
+    /* Set the WHERE clause to only display line item data for the current order */
+    hLineItem[i]:QUERY-PREPARE("FOR EACH ttLineItem WHERE ttLineItem.nOrderNum = " + STRING(ttOrder.nOrderNum)).
+    hLineItem[i]:QUERY-OPEN().
+    hLineItem[i]:GET-FIRST().
+    DO WHILE NOT hLineItem[i]:QUERY-OFF-END:
+        DISPLAY hLineItem[i] WITH FRAME fLineItem NO-LABELS.
+        hLineItem[i]:GET-NEXT().
+    END.
+END.

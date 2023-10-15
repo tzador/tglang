@@ -1,0 +1,53 @@
+# Load required packages 
+library(tidyverse) # For data manipulation and visualization
+library(caret) # For building predictive models
+library(randomForest) # For building random forest models
+
+# Import data 
+dataset <- read.csv("data.csv")
+
+# Data preprocessing 
+
+# Check for missing values 
+sum(is.na(dataset)) 
+
+# Remove columns with more than 50% missing data 
+dataset <- dataset[, which(colMeans(is.na(dataset)) < 0.5)]
+
+# Replace missing values with median 
+dataset[is.na(dataset)] <- as.numeric(lapply(dataset[is.na(dataset)], median, na.rm = TRUE))
+
+# Convert categorical variables to factors 
+dataset$gender <- as.factor(dataset$gender)
+dataset$education <- as.factor(dataset$education)
+dataset$income <- as.factor(dataset$income)
+
+# Split data into training and test sets 
+train_idx <- createDataPartition(dataset$target, p = 0.8, list = FALSE)
+train <- dataset[train_idx, ]
+test <- dataset[-train_idx, ]
+
+# Build random forest model 
+rf_model <- train(target ~ ., data = train, method = "rf")
+
+# Make predictions on test set 
+rf_pred <- predict(rf_model, newdata = test)
+
+# Evaluate model performance 
+confusionMatrix(rf_pred, test$target) 
+
+# Visualize model performance 
+roc_curve <- roc(test$target, rf_pred, plot = TRUE, print.auc = TRUE)
+
+# Save model as RDS file 
+saveRDS(rf_model, "random_forest_model.RDS")
+
+# Load model from RDS file 
+loaded_model <- readRDS("random_forest_model.RDS")
+
+# Use loaded model to make predictions on new data 
+new_data <- read.csv("new_data.csv")
+loaded_pred <- predict(loaded_model, newdata = new_data)
+
+# Plot variable importance 
+varImpPlot(loaded_model, main = "Variable Importance Plot")

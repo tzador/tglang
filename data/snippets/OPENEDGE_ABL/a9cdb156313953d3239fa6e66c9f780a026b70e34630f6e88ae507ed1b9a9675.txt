@@ -1,0 +1,42 @@
+BLOCK-LEVEL ON ERROR UNDO, THROW USING myError:
+/* this is a block-level annotation that defines what to do 
+when an error is encountered in the code below */
+DEFINE VARIABLE myTable AS HANDLE NO-UNDO.
+DEFINE TEMP-TABLE tt_myTable
+    FIELD id AS INTEGER
+    FIELD name AS CHARACTER
+    INDEX idx_id IS PRIMARY UNIQUE id.
+/* these lines define a table and a temporary table with an index */
+CREATE tt_myTable.
+/* this line creates the temporary table */
+ASSIGN myTable = tt_myTable:DEFAULT-BUFFER-HANDLE.
+/* this line assigns the default buffer handle of the temporary table 
+to the handle variable */
+FOR EACH tt_myTable:
+    FIND FIRST myTable WHERE myTable.id = tt_myTable.id NO-LOCK NO-ERROR.
+    /* this line searches for a record in the original table 
+    that matches the id of the current record in the temporary table */
+    IF AVAILABLE(myTable) THEN DO:
+        MESSAGE "Duplicate record found!" SKIP VIEW-AS ALERT-BOX.
+        /* if a match is found, an alert message is displayed */
+        UNDO, THROW myError.
+        /* this will rollback any changes made in the block 
+        and throw the previously defined error */
+    END.
+    CREATE myTable.
+    /* if no match is found, a new record is created in the original table */
+    ASSIGN myTable.id = tt_myTable.id
+           myTable.name = tt_myTable.name.
+    /* the values from the temporary table are assigned to the original table */
+    IF ERROR-STATUS:ERROR THEN DO:
+        UNDO, THROW myError.
+        /* if an error occurs during the record creation, 
+        the changes are rolled back and the error is thrown */
+    END.
+END.
+/* end of loop */
+ON ERROR UNDO, THROW:
+/* this is a global annotation that defines what to do 
+when an error is encountered in the entire block of code */
+MESSAGE "Operation completed successfully." VIEW-AS ALERT-BOX.
+/* if no errors occur, a success message is displayed */

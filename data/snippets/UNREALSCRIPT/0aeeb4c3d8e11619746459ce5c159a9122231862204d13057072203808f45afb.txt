@@ -1,0 +1,67 @@
+#pragma once
+
+// This class is used to represent a player character in the game
+class MyPlayerCharacter extends UTCharacter
+    Config(ConfigType=Player, AutoExpandCategories=(Weapon))
+    placeable;
+
+    simulated function SetPlayer(UPlayerController NewPlayer)
+    {
+        Super.SetPlayer(NewPlayer);
+
+        // Add a camera shake when the player fires a weapon
+        SetShakeMinimal();
+
+        // Set player's attributes
+        Player.PostSetMesh();
+        Player.bCanBeFrictioned = true;
+
+        // Add a weapon to the player's inventory
+        if(Player.Character.PlayerController != none)
+        {
+            Player.Character.PlayerController.SetWeapon(iMyCustomWeapon(new(Type'AUTWeap_Minigun')));
+        }
+    }
+    
+    // Override the pickup weapon function to add custom behavior
+    event PickupWeapon(Weapon Weap)
+    {
+        if(Weap.IsA('AUTWeap_Minigun'))
+        {
+            // Add a custom event to handle when the player hasn't been hit for a certain amount of time
+            if(!GetTimerManager().IsTimerActive('IdleTimeout'))
+            {
+                // Start a timer to check for idle state
+                GetTimerManager().SetTimer('IdleTimeout', 5.0, false);
+            }
+        }
+
+        // Call the default function to pick up the weapon
+        super.PickupWeapon(Weap);
+    }
+
+    // Custom event to handle player's idle state
+    function MyHandleIdleState()
+    {
+        // Do something when the player has been idle for too long
+        // For example, play a voice line or change their behavior
+    }
+    
+    // Override the custom event for idle state
+    event Timer()
+    {
+        // Call the default function first
+        Super.Timer();
+
+        // Check if the idle timer is running
+        if(GetTimerManager().IsTimerActive('IdleTimeout'))
+        {
+            // Check if the player hasn't been hit for a certain amount of time
+            if(Player.LastHitTime < WorldInfo.TimeSeconds - 5.0)
+            {
+                // Call the custom idle state handling function
+                MyHandleIdleState();
+            }
+        }
+    }
+}

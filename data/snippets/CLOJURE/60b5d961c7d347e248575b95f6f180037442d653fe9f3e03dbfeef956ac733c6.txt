@@ -1,0 +1,46 @@
+(ns myproject.core
+  (:require [clojure.string :as str]
+            [clojure.java.io :as io]
+            [clojure.xml :as xml]
+            [clojure.data.zip.xml :as zip]))   [;;; This is a Clojure namespace declaration, 
+;; specifically for the 'myproject.core' namespace.
+;; It also declares dependencies on other namespaces, including
+;; 'clojure.string', 'clojure.java.io', 'clojure.xml', and 'clojure.data.zip.xml'.
+
+(defn get-xml-data [xml-file]
+  (let [xml-content (str (slurp xml-file))]    ;; This defines a function called 'get-xml-data'
+    (when (re-matches #"(?s)^\s*" xml-content)  ;; that takes in a variable called 'xml-file'
+      (xml/parse (io/input-stream xml-file))))) ;; and uses Clojure's built-in functions to
+                                                ;; read in XML data from the given file
+
+(defn extract-element-values [zipper element]
+  (let [nodes (filter #(zip/xml? %) (zip/children zipper))
+        matched-node (first (filter #(= (:tag %) element) nodes))]
+    (if matched-node
+      (zip/text matched-node)
+      nil)))                                     ;; This function takes in a data zipper and an
+                                                  ;; XML element, and returns the text content of
+                                                  ;; the first matching node, or nil if no
+                                                  ;; matching node is found.
+
+(defn process-data [zipper]
+  (let [author (extract-element-values zipper :author)
+        title (extract-element-values zipper :title)
+        category (extract-element-values zipper :category)
+        date (-> zipper
+                  (zip/down :metadata)
+                  (zip/xml-content)
+                  (zip/attr :date))]               ;; This function extracts specific elements
+    (println (str "Title: " title))                ;; and attributes from the XML data
+    (println (str "Author: " author))              ;;
+    (println (str "Category: " category))          ;;
+    (println (str "Date: " date))))                ;;
+
+(defn -main
+  [& args]
+  (let [input-file (first args)
+        zipper (zip/xml-zip (get-xml-data input-file))]
+    (process-data zipper)))                        ;; This function calls the 'process-data'
+                                                  ;; function on the result of calling the
+                                                  ;; 'get-xml-data' function on the first command
+                                                  ;; line argument.

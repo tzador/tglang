@@ -1,0 +1,37 @@
+%% Load Data
+data = xlsread('data.xlsx');  %loads data from an Excel spreadsheet
+time = data(:,1);             %separates the first column (time) from the rest of the data
+frequency = data(:,2);        %separates the second column (frequency) from the rest of the data
+
+%% Filtering
+filtered_freq = medfilt1(frequency);       %applies a median filter to the frequency data 
+                                           %to remove any outliers or noise
+LPF = designfilt('lowpassfir','FilterOrder',50,'CutoffFrequency',2e3,'DesignMethod','window');     %designs a lowpass filter with a cutoff frequency of 2kHz using a windowing method
+filtered_freq = filtfilt(LPF, filtered_freq);     %applies the lowpass filter to the filtered frequency data using forward and reverse filtering for zero phase distortion
+
+%% Plotting
+figure;                         %creates a new figure window
+plot(time, frequency, 'b');     %plots the original time and frequency data in blue
+hold on;                        %holds the current plot
+plot(time, filtered_freq, 'r'); %plots the filtered time and frequency data in red
+xlabel('Time (s)');             %labels the x-axis as time in seconds
+ylabel('Frequency (Hz)');       %labels the y-axis as frequency in Hertz
+legend('Raw Data', 'Filtered Data');      %creates a legend for the plot
+title('Frequency vs Time');     %creates a title for the plot
+grid on;                        %adds a grid to the plot
+
+%% Feature Extraction
+[pks, locs] = findpeaks(filtered_freq, 'MinPeakDistance', 10);         %finds the peaks in the filtered frequency data with a minimum peak distance of 10 data points
+peak_amp = pks;                 %assigns the peak amplitudes to a variable
+peak_time = time(locs);         %assigns the corresponding peak times to a variable
+frequency_range = max(filtered_freq) - min(filtered_freq);    %calculates the frequency range of the filtered data
+peak_width = zeros(length(peak_time), 1);        %initializes a vector for the peak widths
+for i = 1:length(peak_time)       %iterates through each peak 
+    [~, start_ind] = min(abs(filtered_freq(1:locs(i)) - (pks(i)/2)));      %finds the index of the data point closest to half of the peak amplitude on the left side of the peak
+    [~, end_ind] = min(abs(filtered_freq(locs(i):end) - (pks(i)/2)));     %finds the index of the data point closest to half of the peak amplitude on the right side of the peak
+    peak_width(i) = time(locs(i) + end_ind - 1) - time(start_ind);        %calculates the peak width by subtracting the two indices from the corresponding peak time vector
+end
+
+%% Data Export
+export_data = [peak_amp, peak_time, peak_width];      %creates a matrix with the extracted peak data
+xlswrite('output_data.xlsx', export_data);            %exports the data to an Excel spreadsheet

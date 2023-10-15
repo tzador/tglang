@@ -1,0 +1,46 @@
+procedure EncryptFile(const AFilename: string, const APassword: string);
+//This procedure encrypts the given file with the provided password
+var
+  InStream, OutStream: TFileStream;
+  Crypto: TDCP_twofish;
+  Buffer: array[0..511] of byte;
+  I, Count: integer;
+begin
+  //Create input and output streams for the file
+  InStream := TFileStream.Create(AFilename, fmOpenRead);
+  OutStream := TFileStream.Create(AFilename + '.enc', fmCreate);
+  
+  //Create an instance of the Twofish encryption algorithm class
+  Crypto := TDCP_twofish.Create(nil);
+  
+  try
+    //Set the password for the encryption algorithm
+    Crypto.InitStr(APassword);
+    
+    //Loop through the file, encrypting blocks of 512 bytes at a time
+    while InStream.Position < InStream.Size do
+    begin
+      //Read 512 bytes from the input stream
+      Count := InStream.Read(Buffer, 512);
+      
+      for I := 0 to Count-1 do
+      begin
+        //Encrypt the byte in the buffer
+        Buffer[I] := Crypto.EncryptByte(Buffer[I]);
+      end;
+      
+      //Write the encrypted data to the output stream
+      OutStream.Write(Buffer, Count);
+    end;
+  finally
+    //Free the memory used by the encryption algorithm
+    Crypto.Free;
+    
+    //Close the input and output streams
+    InStream.Free;
+    OutStream.Free;
+    
+    //Delete the original unencrypted file
+    DeleteFile(AFilename);
+  end;
+end;

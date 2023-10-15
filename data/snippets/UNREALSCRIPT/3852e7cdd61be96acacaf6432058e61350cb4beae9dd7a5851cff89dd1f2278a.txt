@@ -1,0 +1,63 @@
+class MyPlayer extends UTPawn
+    defaultproperties
+    {
+        bCanBeDamagedBySelf = true // set default value for property
+        MaxHealth = 100 // set default value for property
+        Radius = 100.0
+        Height = 100.0
+
+        replication // enable replication for properties
+
+        functions // define functions for the class
+        {
+            PostBeginPlay() // called at the beginning of the player's life
+            {
+                Super.PostBeginPlay(); // call the parent function
+
+                SetCollisionSize(Radius, Height); // set the collision size of the player
+                SetHealth(MaxHealth); // set the player's health to the max value
+            }
+
+            ReceiveDamage(int DamageAmount) // handle damage received by the player
+            {
+                setHealth(Health - DamageAmount); // decrease player's health by the damage amount
+                if (Health <= 0) // check if player has died
+                {
+                    OnDeath(); // call the OnDeath event
+                }
+            }
+
+            OnDeath() // event triggered when player dies
+            {
+                local ControllerBase Killer; // store the player who caused the death
+
+                Killer = ControllerBase(self.Controller); // get the controller of the player
+
+                // check if the killer is a player and log their name
+                if (Killer != none && Killer.PlayerReplicationInfo != none)
+                {
+                    log(Killer.PlayerReplicationInfo.PlayerName @ " has killed " @ self.Name);
+                }
+
+                Destroy(); // destroy the player
+            }
+
+            ScoreKill() // function for player to score a kill
+            {
+                AddScore(1); // increase the player's score by 1
+                BroadcastDeathMessage(self.Controller, self.Name, none);
+            }
+
+            BroadcastDeathMessage(name Killer, string KillerWeapon, optional name KilledEvent, optional string KilledEventName)
+            {
+                // broadcast a death message to all players
+                local UTPawn UTPlayer;
+                UTPlayer = UTPawn(KilledEvent);
+
+                if (UTPlayer != none && UTPlayer.PlayerReplicationInfo != none)
+                {
+                    game.Broadcast(self, Killer @ " killed " @ self.Name @ " with " @ KillerWeapon);
+                }
+            }
+        }
+    }

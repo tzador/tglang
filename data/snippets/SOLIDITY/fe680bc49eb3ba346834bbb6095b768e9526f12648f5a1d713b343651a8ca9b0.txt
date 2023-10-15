@@ -1,0 +1,361 @@
+pragma solidity ^0.8.7;
+
+/**
+ * @title ERC20 Standard Token Interface
+ * @dev see https://github.com/ethereum/EIPs/issues/20
+ */
+interface IERC20 {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address _owner) external view returns (uint256);
+    function transfer(address _to, uint256 _value) external returns (bool);
+    function transferFrom(address _from, address _to, uint256 _value) external returns (bool);
+    function approve(address _spender, uint256 _value) external returns (bool);
+    function allowance(address _owner, address _spender) external view returns (uint256);
+    event Approval(address indexed _owner, address indexed _spender, uint256 _value);
+    event Transfer(address indexed _from, address indexed _to, uint256 _value);
+}
+
+/**
+ * @title SafeMath
+ * @dev Math operations with safety checks that throw on error
+ */
+library SafeMath {
+    function add(uint256 _a, uint256 _b) internal pure returns (uint256) {
+        uint256 c = _a + _b;
+        require(c >= _a, "SafeMath: addition overflow");
+
+        return c;
+    }
+
+    function sub(uint256 _a, uint256 _b) internal pure returns (uint256) {
+        require(_b <= _a, "SafeMath: subtraction overflow");
+        uint256 c = _a - _b;
+
+        return c;
+    }
+
+    function mul(uint256 _a, uint256 _b) internal pure returns (uint256) {
+        if (_a == 0) {
+            return 0;
+        }
+
+        uint256 c = _a * _b;
+        require(c / _a == _b, "SafeMath: multiplication overflow");
+
+        return c;
+    }
+
+    function div(uint256 _a, uint256 _b) internal pure returns (uint256) {
+        // Solidity only automatically asserts when dividing by 0
+        require(_b > 0, "SafeMath: division by zero");
+        uint256 c = _a / _b;
+
+        return c;
+    }
+
+    function mod(uint256 _a, uint256 _b) internal pure returns (uint256) {
+        require(_b != 0, "SafeMath: modulo by zero");
+        return _a % _b;
+    }
+}
+
+/**
+ * @title Standard ERC20 token
+ *
+ * @dev Implementation of the basic standard token.
+ * @dev https://github.com/ethereum/EIPs/blob/master/EIPS/eip-20.md
+ */
+contract StandardToken is IERC20 {
+
+    using SafeMath for uint256;
+
+    mapping(address => uint256) balances;
+
+    mapping(address => mapping(address => uint256)) allowed;
+
+    uint256 totalSupply_;
+
+    /**
+     * @dev Total number of tokens in existence
+     */
+    function totalSupply() public override view returns (uint256) {
+        return totalSupply_;
+    }
+
+    /**
+     * @dev Gets the balance of the specified address.
+     * @param _owner The address to query the balance of.
+     * @return An uint256 representing the amount owned by the passed address.
+     */
+    function balanceOf(address _owner) public override view returns (uint256) {
+        return balances[_owner];
+    }
+
+    /**
+     * @dev Function to check the amount of tokens that an owner allowed to a spender.
+     * @param _owner address The address which owns the funds.
+     * @param _spender address The address which will spend the funds.
+     * @return A uint256 specifying the amount of tokens still available for the spender.
+     */
+    function allowance(address _owner, address _spender) public override view returns (uint256) {
+        return allowed[_owner][_spender];
+    }
+
+    /**
+     * @dev Transfer token for a specified address
+     * @param _to The address to transfer to.
+     * @param _value The amount to be transferred.
+     */
+    function transfer(address _to, uint256 _value) public override returns (bool) {
+        require(_value <= balances[msg.sender], "Sender does not have enough tokens");
+        require(_to != address(0), "Cannot transfer to the zero address");
+
+        // SafeMath.sub will throw if there is not enough balance.
+        balances[msg.sender] = balances[msg.sender].sub(_value);
+        balances[_to] = balances[_to].add(_value);
+        emit Transfer(msg.sender, _to, _value);
+        return true;
+    }
+
+    /**
+     * @dev Transfer tokens from one address to another.
+     * Note that while this function emits an Approval event, this is not required as per the specification,
+     * and other compliant implementations may not emit the event.
+     * @param _from address The address which you want to send tokens from
+     * @param _to address The address which you want to transfer to
+     * @param _value uint256 the amount of tokens to be transferred
+     */
+    function transferFrom(address _from, address _to, uint256 _value) public override returns (bool) {
+        require(_value <= balances[_from], "From address does not have enough tokens");
+        require(_value <= allowed[_from][msg.sender], "Sender does not have enough allowance");
+        require(_to != address(0), "Cannot transfer to the zero address");
+
+        balances[_from] = balances[_from].sub(_value);
+        balances[_to] = balances[_to].add(_value);
+        allowed[_from][msg.sender] = allowed[_from][msg.sender].sub(_value);
+        emit Transfer(_from, _to, _value);
+        return true;
+    }
+
+    /**
+     * @dev Approve the passed address to spend the specified amount of tokens on behalf of msg.sender.
+     * Beware that changing an allowance with this method brings the risk that someone may use both the old
+     * and the new allowance by unfortunate transaction ordering. One possible solution to mitigate this
+     * race condition is to first reduce the spender's allowance to 0 and set the desired value afterwards:
+     * @param _spender The address which will spend the funds.
+     * @param _value The amount of tokens to be spent.
+     */
+    function approve(address _spender, uint256 _value) public override returns (bool) {
+        require(_spender != address(0), "Cannot approve to the zero address");
+
+        allowed[msg.sender][_spender] = _value;
+        emit Approval(msg.sender, _spender, _value);
+        return true;
+    }
+}
+
+/**
+ * @title Burnable Token
+ * @dev Token that can be irreversibly burned (destroyed).
+ */
+contract BurnableToken is StandardToken {
+
+    using SafeMath for uint256;
+
+    /**
+     * @dev Burns a specific amount of tokens.
+     * @param _value The amount of token to be burned.
+     */
+    function burn(uint256 _value) public {
+        require(_value <= balances[msg.sender], "Must have enough tokens to burn");
+
+        // SafeMath.sub will throw if there is not enough balance.
+        balances[msg.sender] = balances[msg.sender].sub(_value);
+        totalSupply_ = totalSupply_.sub(_value);
+        emit Transfer(msg.sender, address(0), _value);
+    }
+
+    /**
+     * @dev Burns a specific amount of tokens from the target address and decrements allowance
+     * @param _from address The address which you want to send tokens from
+     * @param _value uint256 The amount of token to be burned.
+     */
+    function burnFrom(address _from, uint256 _value) public {
+        require(_value <= balances[_from], "Must have enough tokens to burn");
+        require(_value <= allowed[_from][msg.sender], "Must have enough allowance to burn");
+
+        // SafeMath.sub will throw if there is not enough balance.
+        balances[_from] = balances[_from].sub(_value);
+        // SafeMath.sub will throw if there is not enough allowance.
+        allowed[_from][msg.sender] = allowed[_from][msg.sender].sub(_value);
+        totalSupply_ = totalSupply_.sub(_value);
+        emit Transfer(_from, address(0), _value);
+    }
+}
+
+/**
+ * @title Burnable Token
+ * @dev Token that can be minted (created).
+ */
+contract MintableToken is StandardToken {
+
+    using SafeMath for uint256;
+
+    /**
+     * @dev Mints a specific amount of tokens.
+     * @param _to The address that will receive the minted tokens.
+     * @param _value The amount of tokens to mint.
+     */
+    function mint(address _to, uint256 _value) public {
+        require(_to != address(0), "Cannot mint to the zero address");
+
+        totalSupply_ = totalSupply_.add(_value);
+        balances[_to] = balances[_to].add(_value);
+        emit Transfer(address(0), _to, _value);
+    }
+}
+
+/**
+ * @title Pausable token
+ * @dev StandardToken modified with pausable transfers.
+ **/
+contract PausableToken is StandardToken {
+
+    /**
+     * @dev Allows execution of a function only if contract is not paused.
+     */
+    modifier whenNotPaused() {
+        require(!paused, "Contract is paused");
+        _;
+    }
+
+    /**
+     * @dev Allows execution of a function only when contract is paused.
+     */
+    modifier whenPaused() {
+        require(paused, "Contract is not paused");
+        _;
+    }
+
+    bool public paused = false;
+
+    /**
+     * @dev Pauses all token transfers.
+     */
+    function pause() public whenNotPaused {
+        paused = true;
+    }
+
+    /**
+     * @dev Unpauses all token transfers.
+     */
+    function unpause() public whenPaused {
+        paused = false;
+    }
+
+    /**
+     * @dev Transfer token for a specified address
+     * @param _to The address to transfer to.
+     * @param _value The amount to be transferred.
+     */
+    function transfer(address _to, uint256 _value) public override whenNotPaused returns (bool) {
+        return super.transfer(_to, _value);
+    }
+
+    /**
+     * @dev Transfer tokens from one address to another
+     * @param _from address The address which you want to send tokens from
+     * @param _to address The address which you want to transfer to
+     * @param _value uint256 the amount of tokens to be transferred
+     */
+    function transferFrom(address _from, address _to, uint256 _value) public override whenNotPaused returns (bool) {
+        return super.transferFrom(_from, _to, _value);
+    }
+
+    /**
+     * @dev Approve the passed address to spend the specified amount of tokens on behalf of msg.sender.
+     * Beware that changing an allowance with this method brings the risk that someone may use both the old
+     * and the new allowance by unfortunate transaction ordering. One possible solution to mitigate this
+     * race condition is to first reduce the spender's allowance to 0 and set the desired value afterwards:
+     * @param _spender The address which will spend the funds.
+     * @param _value The amount of tokens to be spent.
+     */
+    function approve(address _spender, uint256 _value) public override whenNotPaused returns (bool) {
+        return super.approve(_spender, _value);
+    }
+}
+
+/**
+ * @title Freezable Token
+ * @dev Token that can be frozen and unfrozen by the owner.
+ */
+contract FreezableToken is StandardToken {
+
+    /**
+     * @dev Allows execution of a function only if the target address is not frozen.
+     * @param _target The address to check.
+     */
+    modifier whenNotFrozen(address _target) {
+        require(!frozen[_target], "Address is frozen");
+        _;
+    }
+
+    /**
+     * @dev Allows execution of a function only if the target address is frozen.
+     * @param _target The address to check.
+     */
+    modifier whenFrozen(address _target) {
+        require(frozen[_target], "Address is not frozen");
+        _;
+    }
+
+    mapping(address => bool) public frozen;
+
+    /**
+     * @dev Freezes a specific address.
+     * @param _target The address to be frozen.
+     */
+    function freeze(address _target) public onlyOwner {
+        require(_target != address(0), "Cannot freeze the zero address");
+
+        frozen[_target] = true;
+    }
+
+    /**
+     * @dev Unfreezes a specific address.
+     * @param _target The address to be unfrozen.
+     */
+    function unfreeze(address _target) public onlyOwner {
+        require(_target != address(0), "Cannot unfreeze the zero address");
+
+        frozen[_target] = false;
+    }
+
+    /**
+     * @dev Transfer token for a specified address
+     * @param _to The address to transfer to.
+     * @param _value The amount to be transferred.
+     */
+    function transfer(address _to, uint256 _value) public override whenNotFrozen(msg.sender) returns (bool) {
+        return super.transfer(_to, _value);
+    }
+
+    /**
+     * @dev Transfer tokens from one address to another
+     * @param _from address The address which you want to send tokens from
+     * @param _to address The address which you want to transfer to
+     * @param _value uint256 the amount of tokens to be transferred
+     */
+    function transferFrom(address _from, address _to, uint256 _value) public override whenNotFrozen(_from) returns (bool) {
+        return super.transferFrom(_from, _to, _value);
+    }
+
+    /**
+     * @dev Approve the passed address to spend the specified amount of tokens on behalf of msg.sender.
+     * Beware that changing an allowance with this method brings the risk that someone may use both the old
+     * and the new allowance by unfortunate transaction ordering. One possible solution to mitigate this
+     * race condition is to first reduce the spender's allowance to 0 and set the desired value afterwards:
+     * @param _spender The address which will spend the funds.
+     * @param _value The amount of tokens to be spent.
+     */
+    function approve(address _spender, uint256 _value) public override whenNotFrozen(msg.sender

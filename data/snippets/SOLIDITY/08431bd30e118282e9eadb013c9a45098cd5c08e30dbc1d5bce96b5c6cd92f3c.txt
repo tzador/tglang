@@ -1,0 +1,148 @@
+pragma solidity ^0.6.0; 
+
+/* @dev contract demonstrating the use of inheritance in Solidity to create a Marketplace
+ */ 
+
+contract Marketplace {
+    
+    /* @dev Three types of products can be sold in the marketplace: 
+    - physical products that require shipping, 
+    - digital products that can be downloaded, and 
+    - services that require no physical delivery */ 
+    
+    enum ProductType { PHYSICAL, DIGITAL, SERVICE } 
+    
+    /* @dev Struct representing a product to be sold */ 
+    
+    struct Product {
+        uint id; //unique id of the product 
+        string name; //name of the product 
+        uint price; //price of the product 
+        ProductType productType; //type of product 
+    }
+    
+    /* @dev Array of all the products in the marketplace */ 
+    
+    Product[] public products;
+    
+    /* @dev Mappings to store the ownership of products */ 
+    
+    mapping (uint => address) public productToOwner;
+    mapping (address => uint) ownerProductCount;
+    
+    /* @dev Event to be emitted when a new product is added to the marketplace */ 
+    
+    event ProductAdded(string _name, uint _price, ProductType _productType);
+    
+    /* @dev Modifier to restrict certain functions to only the admin of the marketplace */ 
+    
+    modifier onlyAdmin() { 
+        require(msg.sender == admin, "Only the admin can call this function."); 
+        _;
+    }
+    
+    /* @dev Function to add a new product to the marketplace
+     * @param _name: name of the product 
+     * @param _price: price of the product 
+     * @param _productType: type of the product 
+     */ 
+    
+    function addProduct(string memory _name, uint _price, ProductType _productType) public onlyAdmin{
+        //increment product id for unique id 
+        uint id = products.length;
+        
+        //create new Product struct with given parameters 
+        Product memory newProduct = Product(id, _name, _price, _productType);
+        
+        //add newProduct to array of products 
+        products.push(newProduct);
+        
+        //update owner of the product 
+        productToOwner[id] = msg.sender;
+        
+        //increment product count for the owner 
+        ownerProductCount[msg.sender]++;
+        
+        //emit ProductAdded event 
+        emit ProductAdded(_name, _price, _productType);
+    }
+    
+    
+    /* @dev Function to buy a product from the marketplace 
+     * @param _productId: id of the product to be bought
+     */ 
+    
+    function buyProduct(uint _productId) public payable {
+        //require that enough Ether has been sent 
+        require(msg.value >= products[_productId].price, "Not enough Ether sent.");
+        
+        //update product ownership 
+        productToOwner[_productId] = msg.sender;
+        
+        //increment product count for the owner 
+        ownerProductCount[msg.sender]++;
+    }
+}
+
+/* @dev Inheritance example
+ * @title CryptoExchange - a contract for exchanging cryptocurrencies with Ether 
+ */ 
+
+contract CryptoExchange is Marketplace {
+    
+    /* @dev Mappings to store the balances of different cryptocurrencies */ 
+    
+    mapping (address => uint) public btcBalance;
+    mapping (address => uint) public ethBalance;
+    
+    /* @dev Event to be emitted when a user deposits a cryptocurrency to the exchange */ 
+    
+    event Deposit(address _owner, uint _amount, string _currency);
+    
+    /* @dev Function to deposit BTC to the exchange
+     * @param _amount: amount of BTC to be deposited 
+     */ 
+    
+    function depositBTC(uint _amount) public {
+        //transfer BTC from sender to contract 
+        btcBalance[msg.sender] += _amount;
+        
+        //emit Deposit event 
+        emit Deposit(msg.sender, _amount, "BTC");
+    }
+    
+    /* @dev Function to deposit ETH to the exchange
+     * @param _amount: amount of ETH to be deposited 
+     */ 
+    
+    function depositETH(uint _amount) public {
+        //transfer ETH from sender to contract 
+        ethBalance[msg.sender] += _amount;
+        
+        //emit Deposit event 
+        emit Deposit(msg.sender, _amount, "ETH");
+    }
+    
+    /* @dev Function to buy a product using cryptocurrency 
+     * @param _productId: id of the product to be bought 
+     * @param _currency: cryptocurrency to be used for purchase 
+     */ 
+    
+    function buyProductWithCrypto(uint _productId, string memory _currency) public payable {
+        //require that enough cryptocurrency has been deposited 
+        require(_currency == "BTC" ? btcBalance[msg.sender] >= products[_productId].price : ethBalance[msg.sender] >= products[_productId].price, "Not enough cryptocurrency deposited.");
+        
+        //transfer product ownership 
+        productToOwner[_productId] = msg.sender;
+        
+        //increment product count for the owner 
+        ownerProductCount[msg.sender]++;
+        
+        //deduct cryptocurrency from the balance of the user 
+        if(_currency == "BTC") {
+            btcBalance[msg.sender] -= products[_productId].price;
+        } else {
+            ethBalance[msg.sender] -= products[_productId].price;
+        }
+    }
+}

@@ -1,0 +1,66 @@
+PRO fitspec, data, variance, redshift, outfile
+; This code performs spectrum fitting
+; Inputs:
+;   data: 1D array of fluxes
+;   variance: 1D array of flux variances
+;   redshift: redshift of the object
+;   outfile: path to the output file
+;
+; Outputs:
+;   none
+
+; Define a function to calculate the model spectrum
+FUNCTION model_spec, nparam, params, data, redshift, variance
+; Inputs:
+;   nparam: number of parameters in the model
+;   params: array of parameters
+;   data: 1D array of fluxes
+;   redshift: redshift of the object
+;   variance: 1D array of flux variances
+;
+; Outputs:
+;   model: calculated model spectrum
+
+model = FLTARR(SIZE(data)) ; initialize model as an array of 0's
+
+for i=0, nparam-1 do begin ; loop through parameters
+    ; extract current parameter value
+    p_i = params[i]
+    
+    for j=0, N_ELEMENTS(data)-1 do begin ; loop through data points
+        ; calculate wavelength based on redshift
+        lambda = (j + 1) * (1 + redshift)
+        ; calculate model flux at this wavelength
+        model[j] = model[j] + p_i * gaussian(lambda, data[j], variance[j])
+    endfor
+endfor
+return, model
+END ; end of model_spec function
+
+; Define a function to calculate the gaussian function
+FUNCTION gaussian, x, mu, sigma
+; Inputs:
+;   x: wavelength
+;   mu: mean of the gaussian
+;   sigma: standard deviation of the gaussian
+;
+; Outputs:
+;   value of the gaussian function at x
+
+value = 1 / (sigma * SQRT(2 * !PI)) * EXP(-0.5 * ((x - mu) / sigma)^2)
+return, value
+END ; end of gaussian function
+
+; Define initial parameters for the model
+params = [1.0, 10.0, 5.0] ; assume 3 parameters in the model
+nparam = N_ELEMENTS(params) ; get number of parameters
+
+; Calculate model spectrum
+model = model_spec(nparam, params, data, redshift, variance)
+
+; Save model spectrum to output file
+OPENW, unit, outfile ; open output file
+PRINTF, unit, model ; write model to output file
+CLOSE, unit ; close output file
+
+END ; end of fitspec procedure

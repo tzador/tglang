@@ -1,0 +1,107 @@
+/*
+    This program uses BISON to create a parser for a simple arithmetic language. 
+    It includes grammar rules for expressions, statements, and variables. 
+*/
+
+%token ID NUM      // Define tokens
+
+%%
+
+program:
+    statement_list
+    ;
+
+statement_list:
+    statement
+    |
+    statement_list statement
+    ;
+
+statement:
+    variable '=' expression ';'
+    |   'if' '(' expression ')' statement
+        'else' statement
+    |
+    |   'while' '(' expression ')' statement
+    |
+    |   'print' '(' expression ')' ';'
+    ;
+
+variable:
+    ID          // Variables must start with ID token
+
+expression:
+    NUM
+    |   expression '+' expression
+    |   expression '-' expression
+    |   expression '*' expression
+    |   expression '/' expression
+    |   '(' expression ')'         // Parentheses for grouping
+    ;
+
+%%
+
+/*
+    Define functions and variables needed for parsing
+*/
+
+int result;     // Holds result of evaluation
+int pos = 0;    // Current position in input
+
+/*
+    Function to handle syntax error during parsing
+*/
+
+void yyerror(char* s) {
+    printf("Syntax Error: %s\n", s);
+}
+
+/*
+    Function to get next token from input
+*/
+
+int yylex() {
+    int c;
+
+    // Ignore any whitespaces
+    while ((c = getchar()) == ' ' || c == '\t')
+        ;
+
+    // Handle token depending on character
+    switch (c) {
+        case '+': return ADD;
+        case '-': return SUB;
+        case '*': return MUL;
+        case '/': return DIV;
+        case '=': return EQ;
+        case '(': return LPAREN;
+        case ')': return RPAREN;
+        case ';': return SEMICOLON;
+        case '\n': return EOL;
+        default:
+            // Check if character is a number
+            if (c >= '0' && c <= '9') {
+                ungetc(c, stdin);       // Put character back into input stream
+                scanf("%d", &yylval);   // Use scanf to read in number
+                return NUM;
+            } else if (isalpha(c)) {    // Check if character is a letter
+                ungetc(c, stdin);       // Put character back into input stream
+                scanf("%s", yytext);    // Use scanf to read in characters
+                return ID;
+            }
+            
+            // If not a recognized token, print syntax error and exit
+            yyerror("Unrecognized token");
+            exit(1);
+    }
+}
+
+/*
+    Main function for parsing
+*/
+
+int main() {
+    yyparse();      // Calls parser function
+    printf("Result: %d\n", result);     // Print final result
+    return 0;
+}

@@ -1,0 +1,54 @@
+{-# LANGUAGE ExistentialQuantification, FlexibleContexts, GADTs, KindSignatures, LambdaCase #-}
+module Main where
+
+import Data.List (intercalate)
+import Data.Maybe (fromJust)
+import Data.Functor.Identity (Identity)
+import Data.Functor.Contravariant (Contravariant(..),Predicate(..))
+import Data.Functor.Contravariant.Divisible (Divisible(..),Decidable(..),Predicate(..))
+import Data.Functor.Contravariant.Divisible.Unsafe (unsafeConquer)
+
+-- | A simple foldable data structure
+data Foldable f where
+  MkFoldable :: Contravariant f => (a -> Bool) -> (a -> Identity b) -> f a -> Foldable f
+
+-- | Filters out elements from a 'Foldable' using a 'Predicate'
+filterF :: Foldable f -> Predicate a -> f a
+filterF (MkFoldable p f xs) q = f . fromJust . filter (getPredicate q) . filter p $ toList xs
+
+-- | Maps elements in a 'Foldable' using a function
+mapF :: Foldable f -> (a -> b) -> f a -> f b
+mapF (MkFoldable p f xs) g = f . fmap g . filter p $ toList xs
+
+-- | Folds elements in a 'Foldable' into a single value
+foldF :: Foldable f -> Decidable (Predicate b) -> (a -> b) -> b -> f a -> b
+foldF (MkFoldable p f xs) (Decidable g) g0 s0 = foldr (foldOp g g0) s0 . filter p $ toList xs
+ where
+  foldOp g g0 x k s
+    | g (getPredicate <$> g0) x = let b = runIdentity . f $ x in b `k` s
+    | otherwise = k s
+
+-- | Converts a 'Foldable' into a list
+toList :: f a -> [a]
+toList = ($[]) . foldr (:) id
+
+-- | A type class for types that can be converted into a 'Foldable'
+class Convertible f where
+  convert :: Foldable f
+
+-- | A simple data structure for storing a list of integers
+data IntList a where
+  MkIntList :: [a] -> IntList a
+
+-- | Instance of 'Convertible' for 'IntList'
+instance Convertible IntList where
+  convert = MkFoldable (const True) (Identity) . MkIntList
+
+exampleList :: IntList Int
+exampleList = MkIntList [1,2,3,4,5]
+
+-- | Example using the 'filterF', 'mapF', and 'foldF' functions
+result :: Int
+result = toList . filterF (convert :: Foldable IntList) (Predicate (== 2)) . mapF (convert :: Foldable IntList) (+ 1) $ exampleList
+
+-- | Output: `result = [3]`

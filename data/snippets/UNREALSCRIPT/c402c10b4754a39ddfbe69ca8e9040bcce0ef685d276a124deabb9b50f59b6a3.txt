@@ -1,0 +1,205 @@
+/* This is a complex code snippet in UnrealScript, used to generate a randomized maze */
+
+class MazeGenerator extends Actor
+    /* The MazeGenerator class creates a randomized maze using the Prim's algorithm. */
+
+    placeable;
+
+const int WALL = 255;
+const int FLOOR = 0;
+const int GOAL = -1;
+const int START = -2;
+
+var array<int> maze; // the maze array containing the wall, floor, goal and start tiles
+var array<int> walls; // the array containing the index of the walls separating the maze tiles
+var bool initialized; // boolean variable to check if the maze has been initialized
+var int mazeSize; // the size of the maze to be generated
+var bool finished; // boolean variable to check if the maze generation has finished
+var int currentIndex; // the current index being processed in the maze generation
+
+// The defaultproperties block initializes the variables to their default values
+defaultproperties
+{
+    mazeSize = 10;
+    initialized = false;
+    finished = false;
+}
+
+function InitializeMaze()
+    /* This function initializes the maze by setting the wall, floor, goal and start tiles in the maze array. */
+
+    local int i;
+    local int j;
+    local int startX;
+    local int startY;
+    local bool alreadyStart;
+    local bool alreadyGoal;
+    
+    // loop through the maze array and set all tiles to WALL
+    for(i = 0; i < mazeSize; i++)
+    {
+        for(j = 0; j < mazeSize; j++)
+        {
+            maze[i*mazeSize + j] = WALL;
+        }
+    }
+
+    // set the start and goal tiles randomly
+    // ensure that there is only one start and one goal tile
+    for(i = 0; i < mazeSize; i++)
+    {
+        for(j = 0; j < mazeSize; j++)
+        {
+            // randomly set the start tile
+            if (Rand(25) == 0 && !alreadyStart)
+            {
+                maze[i*mazeSize + j] = START;
+                startX = i;
+                startY = j;
+                alreadyStart = true;
+            }
+            // randomly set the goal tile
+            else if (Rand(25) == 0 && !alreadyGoal)
+            {
+                maze[i*mazeSize + j] = GOAL;
+                alreadyGoal = true;
+            }
+        }
+    }
+
+    // set the current index to the start tile
+    currentIndex = startX*mazeSize + startY;
+    
+    // add the walls surrounding the start tile to the walls array
+    AddWalls(currentIndex);
+    
+    initialized = true;
+}
+
+function GenerateMaze()
+    /* This function generates the maze using the Prim's algorithm. */
+
+    local int wallIndex;
+    local int tileIndex;
+    local array<int> neighbors;
+    local int i;
+    
+    // loop through the walls until all walls have been processed
+    while(!finished)
+    {
+        // randomly select a wall from the walls array
+        wallIndex = Rand(walls.Length());
+        // get the tile index on the other side of the wall
+        tileIndex = GetNeighbor(wallIndex, walls[wallIndex]);
+        
+        // check if the tile is a floor tile
+        if (maze[tileIndex] == FLOOR)
+        {
+            // get all neighboring floor tiles
+            neighbors = GetFloorNeighbors(tileIndex);
+            // check if exactly one neighbor is a wall tile
+            if (neighbors.Length() == 1)
+            {
+                // replace the wall tile with a floor tile
+                maze[walls[wallIndex]] = FLOOR;
+                // add the walls surrounding the new floor tile to the walls array
+                AddWalls(tileIndex);
+            }
+        }
+        // remove the processed wall index from the walls array
+        walls.RemoveItem(wallIndex, 1);
+        
+        // check if all walls have been processed
+        if (walls.Length() == 0)
+        {
+            finished = true;
+        }
+        
+        currentIndex = tileIndex;
+    }
+}
+
+function AddWalls(int tileIndex)
+    /* This function adds the walls surrounding the given tile index to the walls array. */
+
+    local int i;
+    
+    // check if the tile to the left is a wall
+    if (maze[tileIndex - 1] == WALL)
+    {
+        walls.AddItem(tileIndex - 1, 1);
+    }
+    // check if the tile to the right is a wall
+    if (maze[tileIndex + 1] == WALL)
+    {
+        walls.AddItem(tileIndex + 1, 1);
+    }
+    // check if the tile above is a wall
+    if (maze[tileIndex - mazeSize] == WALL)
+    {
+        walls.AddItem(tileIndex - mazeSize, 1);
+    }
+    // check if the tile below is a wall
+    if (maze[tileIndex + mazeSize] == WALL)
+    {
+        walls.AddItem(tileIndex + mazeSize, 1);
+    }
+}
+
+function GetNeighbor(int wallIndex, int tileIndex)
+    /* This function returns the tile index on the other side of the given wall index. */
+
+    local int neighborIndex;
+    
+    // check if the wall is on the left side of the tile
+    if (walls[wallIndex] == tileIndex - 1)
+    {
+        neighborIndex = tileIndex - 2;
+    }
+    // check if the wall is on the right side of the tile
+    else if (walls[wallIndex] == tileIndex + 1)
+    {
+        neighborIndex = tileIndex + 2;
+    }
+    // check if the wall is above the tile
+    else if (walls[wallIndex] == tileIndex - mazeSize)
+    {
+        neighborIndex = tileIndex - 2*mazeSize;
+    }
+    // check if the wall is below the tile
+    else if (walls[wallIndex] == tileIndex + mazeSize)
+    {
+        neighborIndex = tileIndex + 2*mazeSize;
+    }
+    
+    return neighborIndex;
+}
+
+function GetFloorNeighbors(int tileIndex)
+    /* This function returns an array containing the floor tile neighbors of the given tile index. */
+
+    local array<int> floorNeighbors;
+    
+    // check if the floor tile to the left is a floor tile
+    if (maze[tileIndex - 1] == FLOOR)
+    {
+        floorNeighbors.AddItem(tileIndex - 1, floorNeighbors.Length());
+    }
+    // check if the floor tile to the right is a floor tile
+    if (maze[tileIndex + 1] == FLOOR)
+    {
+        floorNeighbors.AddItem(tileIndex + 1, floorNeighbors.Length());
+    }
+    // check if the floor tile above is a floor tile
+    if (maze[tileIndex - mazeSize] == FLOOR)
+    {
+        floorNeighbors.AddItem(tileIndex - mazeSize, floorNeighbors.Length());
+    }
+    // check if the floor tile below is a floor tile
+    if (maze[tileIndex + mazeSize] == FLOOR)
+    {
+        floorNeighbors.AddItem(tileIndex + mazeSize, floorNeighbors.Length());
+    }
+    
+    return floorNeighbors;
+}

@@ -1,0 +1,100 @@
+// Contract for a decentralized voting system
+contract VotingSystem {
+
+    // Data structures to store information about voters and candidates
+    // Struct for storing information about a voter
+    struct Voter {
+        uint weight; // weight is accumulated by delegation
+        bool voted;  // if true, that person already voted
+        address delegate; // person delegated to
+        uint vote;   // index of the voted proposal
+    }
+
+    // Struct for storing information about a candidate
+    struct Candidate {
+        string name;   // short name (up to 32 bytes)
+        uint voteCount; // number of accumulated votes
+    }
+
+    // Address of the contract owner, who has the authority to add candidates and close the voting
+    address public owner;
+
+    // Mapping to store the address of each voter and their corresponding voter object 
+    mapping(address => Voter) public voters;
+
+    // Dynamic array to store the list of candidates
+    Candidate[] public candidates;
+
+    // Constructor function to initialize the contract owner
+    constructor() public {
+        owner = msg.sender;
+    }
+
+    // Function to add a candidate to the list of candidates.
+    // Only the contract owner can add candidates
+    function addCandidate(string memory _name) public {
+        require (msg.sender == owner, "Only the owner can add candidates");
+        candidates.push(Candidate(_name, 0));
+    }
+
+    // Function to give a voter the right to vote on this ballot.
+    // May only be called by the voter themselves or the contract owner
+    function giveRightToVote(address _voter) public {
+        require(msg.sender == owner || msg.sender == _voter, "Only the voter or owner can give the right to vote.");
+        require(!voters[_voter].voted, "The voter has already voted.");
+        voters[_voter].weight = 1;
+    }
+
+    // Function for a voter to delegate their vote to another address
+    function delegate(address _to) public {
+        // Get the voter object of the delegating voter
+        Voter storage sender = voters[msg.sender];
+        require(!sender.voted, "You already voted.");
+        require(_to != msg.sender, "Self-delegation is disallowed.");
+        // Loop to check for possible circular delegation
+        while (voters[_to].delegate != address(0)) {
+            _to = voters[_to].delegate;
+            require(_to != msg.sender, "Found circular delegation.");
+        }
+        // Save the new delegate in the voter object
+        sender.voted = true;
+        sender.delegate = _to;
+        // Get the delegate object and update their weight accordingly
+        Voter storage delegate = voters[_to];
+        if (delegate.voted) {
+            candidates[delegate.vote].voteCount += sender.weight;
+        } else {
+            delegate.weight += sender.weight;
+        }
+    }
+
+    // Function for a voter to cast their vote
+    function vote(uint _candidateIndex) public {
+        // Get the voter object of the voter
+        Voter storage sender = voters[msg.sender];
+        require(!sender.voted, "You already voted.");
+        // Set the voted flag to true
+        sender.voted = true;
+        // Update the vote of the voter
+        sender.vote = _candidateIndex;
+        // Update the vote count of the candidate
+        candidates[_candidateIndex].voteCount += sender.weight;
+    }
+
+    // Function to close the voting and find the winner
+    function closeVoting() public {
+        // Only the contract owner can close the voting
+        require(msg.sender == owner, "Only the owner can close the voting.");
+        // Find the winning candidate
+        uint winningVoteCount = 0;
+        uint winningCandidate;
+        for (uint i = 0; i < candidates.length; i++) {
+            if (candidates[i].voteCount > winningVoteCount) {
+                winningVoteCount = candidates[i].voteCount;
+                winningCandidate = i;
+            }
+        }
+        // Declare the winner as the candidate with the most votes
+        string memory winner = candidates[winningCandidate].name;
+    }
+}

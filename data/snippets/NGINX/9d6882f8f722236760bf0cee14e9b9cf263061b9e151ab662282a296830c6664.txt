@@ -1,0 +1,58 @@
+# This is a complex NGINX server configuration for a website
+server {
+  listen 80; # Listen for incoming connections on port 80
+  server_name example.com; # Server name for the website
+
+  location / { # Configuration for the root directory
+    root /var/www/example; # Path to the website's root directory
+    index index.html; # Set index page to index.html
+  }
+
+  error_page 404 /404.html; # Configuration for custom 404 error page
+
+  location /api { # Configuration for API endpoint
+    proxy_pass http://localhost:3000; # Proxy requests to backend server
+    proxy_set_header Host $host; # Set host header for requests
+    proxy_set_header X-Real-IP $remote_addr; # Add client IP address to request header
+  }
+
+  location /assets { # Configuration for serving static assets
+    alias /var/www/example/assets; # Path to assets directory
+    expires 1w; # Set expiration time for assets
+  }
+
+  location ~* \.(jpg|jpeg|png|gif|css|js)$ { # Configuration for serving image and CSS/JS files
+    access_log off; # Disable logging for these file types
+    expires 30d; # Set expiration time for files
+  }
+
+  # Configuration for caching responses based on user agent
+  map $http_user_agent $no_cache {
+    default 0;
+    ~*MSIE 11 -1;
+    ~Trident -1;
+    ~*Firefox|Android -2;
+  }
+
+  location /secret { # Configuration for restricted access endpoint
+    if ($no_cache) { # Check if user agent is in the map for no caching
+      set $no_cache "1"; # Set variable for no caching
+    }
+
+    proxy_no_cache $no_cache; # Set no cache directive based on variable
+    proxy_cache_bypass $no_cache; # Bypass cache based on variable
+    proxy_cache secret_cache; # Use secret_cache as the cache zone
+    proxy_cache_valid 200 1h; # Set caching time for successful responses
+    proxy_pass http://localhost:3000; # Proxy requests to backend server
+    proxy_set_header Host $host; # Set host header for requests
+    proxy_set_header X-Real-IP $remote_addr; # Add client IP address to request header
+  }
+
+  location /admin { # Configuration for admin panel
+    auth_basic "Restricted Access"; # Ask for basic authentication
+    auth_basic_user_file /etc/nginx/.htpasswd; # Path to password file
+    proxy_pass http://localhost:3000; # Proxy requests to backend server
+    proxy_set_header Host $host; # Set host header for requests
+    proxy_set_header X-Real-IP $remote_addr; # Add client IP address to request header
+  }
+}

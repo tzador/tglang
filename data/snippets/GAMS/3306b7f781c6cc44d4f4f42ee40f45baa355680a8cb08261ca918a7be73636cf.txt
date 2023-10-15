@@ -1,0 +1,72 @@
+$Title This is a GAMS code snippet
+
+$Ontext This is a simple model that solves a transportation problem using the transportation network optimization algorithm.
+$Offtext
+* Declare parameters
+parameter
+   i 'Plants'  / plant1, plant2, plant3 /
+   j 'Markets' / market1, market2, market3, market4 /;
+
+* Declare data
+table d(i,j) 'Distance (in miles)' 
+          market1     market2     market3     market4
+   plant1    600          600         200         400
+   plant2    400          800         900         400
+   plant3    700          300         500         300;
+
+table s(i,j) 'Supply (in units)'
+         market1  market2  market3  market4
+   plant1    10       100      80       20
+   plant2    50        60      70       40
+   plant3    150       10       60      100;
+
+table dbar(j) 'Demand (in units)'
+       market1  market2  market3  market4
+          80      100        20       30;
+
+* Declare variables
+variable
+   x(i,j) 'Quantity shipped from plant i to market j'
+   z 'Total cost of transportation';
+
+* Declare equations
+equation
+   obj 'Objective function'
+   supply(i) 'Supply constraint'
+   demand(j) 'Demand constraint';
+
+* Set objective function
+obj.. z =e= sum((i,j), d(i,j)*x(i,j));
+
+* Set supply constraint
+supply(i).. sum(j, x(i,j)) =l= s(i,j);
+
+* Set demand constraint
+demand(j).. sum(i, x(i,j)) =g= dbar(j);
+
+* Declare model
+model transport 'Transportation problem' /all/;
+
+* Solve model
+solve transport using minimize z;
+
+* Display results
+display x.l, d, s, dbar, z;
+
+* Plot results
+$Ontext This section creates a simple graph visualizing the transportation network and the flow of goods.
+$Offtext
+set arc(i,j);
+table arcvalue(i,j);
+arc(i,j) = yes$(ord(i)<ord(j));
+
+table(arcvalue,*)
+                    m1          m2          m3          m4
+plant1  0           x.l(plant1,m1)*d(plant1,m1)   0          x.l(plant1,m4)*d(plant1,m4)
+plant2  x.l(plant2,m1)*d(plant2,m1)   0          x.l(plant2,m3)*d(plant2,m3)   0
+plant3  x.l(plant3,m1)*d(plant3,m1)   0           0          x.l(plant3,m4)*d(plant3,m4);
+
+execute_unload 'transportgraph.gdx',arc,arcvalue;
+lng = new_set('lng',m,m);
+lng(m) = sum(i, arcvalue(i,m));
+execute 'gdxxrw.exe transportgraph.gdx Preview n=j m=lng';

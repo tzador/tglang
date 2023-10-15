@@ -1,0 +1,52 @@
+DATA trained_model;
+    SET input_dataset;
+    BY grouping_variable;
+
+    /* Create dummy variables for categorical variables */
+    IF patient_gender = 'Male' THEN male = 1;
+    ELSE male = 0;
+
+    /* Initialize model parameters */
+    INTERCEPT = 1.2;
+    SLOPE_AGE = 0.8;
+    SLOPE_BMI = 0.5;
+    SLOPE_MALE = -0.1;
+
+    /* Calculate estimated outcome using logistic function */
+    MODEL_RESULT = 1 / (1 + EXP(-(INTERCEPT + SLOPE_AGE * patient_age + SLOPE_BMI * patient_bmi + SLOPE_MALE * male)));
+
+    /* Get actual outcome from input dataset */
+    ACTUAL_RESULT = patient_outcome;
+
+    /* Calculate error as the difference between actual and estimated outcome */
+    ERROR = ACTUAL_RESULT - MODEL_RESULT;
+
+    /* Calculate cost function as the mean squared error of the error values */
+    COST_FUNCTION = MEAN(ERROR ** 2);
+
+    /* Use gradient descent algorithm to minimize cost function and update parameters */
+    DO ITERATE = 1 TO 100; /* Number of iterations can be adjusted */
+
+        /* Update intercept */
+        INTERCEPT = INTERCEPT - 0.1 * MEAN(ERROR);
+
+        /* Update slope for age */
+        SLOPE_AGE = SLOPE_AGE - 0.1 * MEAN(ERROR * patient_age);
+
+        /* Update slope for BMI */
+        SLOPE_BMI = SLOPE_BMI - 0.1 * MEAN(ERROR * patient_bmi);
+
+        /* Update slope for gender */
+        SLOPE_MALE = SLOPE_MALE - 0.1 * MEAN(ERROR * male);
+
+        /* Calculate new estimated outcome and error */
+        MODEL_RESULT = 1 / (1 + EXP(-(INTERCEPT + SLOPE_AGE * patient_age + SLOPE_BMI * patient_bmi + SLOPE_MALE * male)));
+        ACTUAL_RESULT = patient_outcome;
+        ERROR = ACTUAL_RESULT - MODEL_RESULT;
+        COST_FUNCTION = MEAN(ERROR ** 2);
+
+    END;
+
+    /* Save trained model to separate dataset */
+    OUTPUT trained_model;
+RUN;

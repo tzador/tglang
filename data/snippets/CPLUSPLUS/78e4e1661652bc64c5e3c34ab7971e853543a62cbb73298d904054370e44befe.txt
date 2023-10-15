@@ -1,0 +1,237 @@
+//This code implements an AVL tree with insertion, deletion and search operations.
+
+#include <iostream>
+using namespace std;
+
+//Node structure to store keys and pointers to left and right child nodes
+struct Node {
+    int key;
+    Node* left;
+    Node* right;
+    int height;
+};
+
+//Function to calculate the height of a node
+int calculateHeight(Node* node) {
+    if (node == nullptr) {
+        return 0;
+    }
+    else {
+        return node->height;
+    }
+}
+
+//Function to calculate the balance factor between the left and right subtrees of a node
+int balanceFactor(Node* node) {
+    if (node == nullptr) {
+        return 0;
+    }
+    else {
+        return calculateHeight(node->left) - calculateHeight(node->right);
+    }
+}
+
+//Function to rotate the left subtree of a node
+Node* rotateLeft(Node* root) {
+    Node* newRoot = root->right;
+    Node* temp = newRoot->left;
+    newRoot->left = root;
+    root->right = temp;
+    //Update the heights of the affected nodes
+    root->height = max(calculateHeight(root->left), calculateHeight(root->right)) + 1;
+    newRoot->height = max(calculateHeight(newRoot->left), calculateHeight(newRoot->right)) + 1;
+    return newRoot;
+}
+
+//Function to rotate the right subtree of a node
+Node* rotateRight(Node* root) {
+    Node* newRoot = root->left;
+    Node* temp = newRoot->right;
+    newRoot->right = root;
+    root->left = temp;
+    //Update the heights of the affected nodes
+    root->height = max(calculateHeight(root->left), calculateHeight(root->right)) + 1;
+    newRoot->height = max(calculateHeight(newRoot->left), calculateHeight(newRoot->right)) + 1;
+    return newRoot;
+}
+
+//Function to insert a new key into the AVL tree
+Node* insert(Node* root, int key) {
+    //Perform standard BST insertion
+    if (root == nullptr) {
+        Node* newNode = new Node();
+        newNode->key = key;
+        newNode->left = newNode->right = nullptr;
+        newNode->height = 1;
+        return newNode;
+    }
+    else if (key < root->key) {
+        root->left = insert(root->left, key);
+    }
+    else if (key > root->key) {
+        root->right = insert(root->right, key);
+    }
+    else {
+        //Duplicate key
+        return root;
+    }
+    //Update the height of the current node
+    root->height = max(calculateHeight(root->left), calculateHeight(root->right)) + 1;
+    //Check balance factor and perform necessary rotations
+    int bf = balanceFactor(root);
+    //Left left case
+    if (bf > 1 && key < root->left->key) {
+        return rotateRight(root);
+    }
+    //Left right case
+    if (bf > 1 && key > root->left->key) {
+        root->left = rotateLeft(root->left);
+        return rotateRight(root);
+    }
+    //Right right case
+    if (bf < -1 && key > root->right->key) {
+        return rotateLeft(root);
+    }
+    //Right left case
+    if (bf < -1 && key < root->right->key) {
+        root->right = rotateRight(root->right);
+        return rotateLeft(root);
+    }
+    //Return the unchanged node
+    return root;
+}
+
+//Function to find the minimum value in a subtree starting from a given node
+Node* findMin(Node* node) {
+    Node* current = node;
+    //Traverse down the left subtree until the leftmost leaf is reached
+    while (current->left != nullptr) {
+        current = current->left;
+    }
+    return current;
+}
+
+//Function to delete a key from the AVL tree
+Node* deleteNode(Node* root, int key) {
+    //Perform standard BST deletion
+    if (root == nullptr) {
+        return root;
+    }
+    if (key < root->key) {
+        root->left = deleteNode(root->left, key);
+    }
+    else if (key > root->key) {
+        root->right = deleteNode(root->right, key);
+    }
+    else {
+        //Node contains the key to be deleted
+        //If one or both child nodes are null, replace the node with its only child or nullptr
+        if (root->left == nullptr || root->right == nullptr) {
+            Node* temp = root->left ? root->left : root->right;
+            //If the child is nullptr, the node can be deleted without any further changes
+            if (temp == nullptr) {
+                temp = root;
+                root = nullptr;
+            }
+            else {
+                *root = *temp;  //Copy the contents of the non-null child
+            }
+            delete temp;
+        }
+        //If both child nodes are non-null, replace the node with the minimum value in its right subtree
+        else {
+            Node* temp = findMin(root->right); //Find the minimum value in the right subtree
+            root->key = temp->key;  //Copy the key
+            root->right = deleteNode(root->right, temp->key); //Delete the duplicate key in the right subtree
+        }
+    }
+    //If the tree has only one node, return nullptr
+    if (root == nullptr) {
+        return root;
+    }
+    //Update the height of the current node
+    root->height = max(calculateHeight(root->left), calculateHeight(root->right)) + 1;
+    //Check balance factor and perform necessary rotations
+    int bf = balanceFactor(root);
+    //Left left case
+    if (bf > 1 && balanceFactor(root->left) >= 0) {
+        return rotateRight(root);
+    }
+    //Left right case
+    if (bf > 1 && balanceFactor(root->left) < 0) {
+        root->left = rotateLeft(root->left);
+        return rotateRight(root);
+    }
+    //Right right case
+    if (bf < -1 && balanceFactor(root->right) <= 0) {
+        return rotateLeft(root);
+    }
+    //Right left case
+    if (bf < -1 && balanceFactor(root->right) > 0) {
+        root->right = rotateRight(root->right);
+        return rotateLeft(root);
+    }
+    //Return the unchanged node
+    return root;
+}
+
+//Function to search for a key in the AVL tree
+bool search(Node* root, int key) {
+    //Perform standard BST search
+    if (root == nullptr) {
+        return false;
+    }
+    else if (key < root->key) {
+        return search(root->left, key);
+    }
+    else if (key > root->key) {
+        return search(root->right, key);
+    }
+    else {
+        //Key found
+        return true;
+    }
+}
+
+//Function to print the keys in the AVL tree in inorder traversal
+void inorderTraversal(Node* root) {
+    if (root != nullptr) {
+        inorderTraversal(root->left);
+        cout << root->key << " ";
+        inorderTraversal(root->right);
+    }
+}
+
+int main() {
+    Node* root = nullptr;
+
+    //Insertion
+    root = insert(root, 10);
+    root = insert(root, 20);
+    root = insert(root, 30);
+    root = insert(root, 40);
+    root = insert(root, 50);
+    root = insert(root, 25);
+    root = insert(root, 5);
+
+    //Print the inorder traversal of the tree
+    cout << "Inorder traversal: ";
+    inorderTraversal(root);
+
+    //Deletion
+    root = deleteNode(root, 30);
+
+    //Print the inorder traversal of the tree
+    cout << "\nInorder traversal after deletion: ";
+    inorderTraversal(root);
+
+    //Search
+    if (search(root, 25)) {
+        cout << "\nKey 25 found in the AVL tree.";
+    }
+    else {
+        cout << "\nKey 25 not found in the AVL tree.";
+    }
+
+    return 0;
+}

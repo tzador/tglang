@@ -1,0 +1,55 @@
+// Module declaration
+module counter (
+  input [3:0] clk,
+  input reset,
+  output reg [3:0] count,
+  output reg [1:0] state
+  );
+
+// Internal signals
+reg [1:0] next_state; // stores the next state value for state machine
+wire clk_en; // connected to enable port of clock divider
+
+// Clock divider using count
+always @(posedge clk) begin
+  if(reset) clk_en <= 1'b0;
+  else clk_en <= count[3];
+end
+
+// State machine functionality
+always @(posedge clk or posedge reset) begin
+  if(reset) begin
+    state <= 2'b00; // reset to initial state
+    count <= 4'b0000; // reset count value
+  end else begin
+    state <= next_state; // update state value
+    case(state)
+    2'b00: begin // Initial state
+      if(clk_en) next_state <= 2'b01; // transition to state 1
+      else next_state <= 2'b00; // stay in state 0
+    end
+    2'b01: begin // Intermediate state
+      if(clk_en) begin
+        next_state <= 2'b10; // transition to state 2
+        count <= count + 1; // increment count value
+      end else begin
+        next_state <= 2'b00; // transition back to state 0
+      end
+    end
+    2'b10: begin // Final state
+      if(clk_en) begin
+        next_state <= 2'b01; // transition back to state 1
+      end else begin
+        next_state <= 2'b11; // transition to state 3
+        count <= 4'b0000; // reset count value
+      end
+    end
+    2'b11: begin // Reset state
+      if(clk_en) next_state <= 2'b10; // transition back to state 2
+      else next_state <= 2'b11; // stay in state 3
+    end
+    endcase
+  end
+end
+
+endmodule

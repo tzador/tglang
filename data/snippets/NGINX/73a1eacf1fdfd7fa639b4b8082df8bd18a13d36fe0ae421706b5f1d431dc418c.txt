@@ -1,0 +1,43 @@
+# Defines a virtual server for example.com
+server {
+    listen 80; # Port to listen on
+    server_name example.com; # Domain name
+    root /var/www/example.com; # Directory for web files
+
+    # Configures location of error logs
+    error_log /var/log/nginx/error-log;
+
+    # Location block for serving static files
+    location /static/ {
+        alias /var/www/example.com/static/;
+        expires 30d; # Caches files for 30 days
+        add_header Cache-Control "public"; # Adds cache control header
+        access_log off; # Disables access logs for this location
+    }
+
+    # Location block for handling requests to /about
+    location /about {
+        proxy_pass http://127.0.0.1:8000; # Forwards requests to local server
+        proxy_set_header Host $host; # Sets Host header
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # Sets X-Forwarded-For header
+        proxy_set_header X-Forwarded-Proto $scheme; # Sets X-Forwarded-Proto header
+        proxy_next_upstream error timeout invalid_header; # Defines conditions for trying the next server
+    }
+
+    # Location block for handling requests to /api
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080; # Forwards requests to local server on port 8080
+        proxy_set_header Host $host; # Sets Host header
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # Sets X-Forwarded-For header
+        proxy_set_header X-Forwarded-Proto $scheme; # Sets X-Forwarded-Proto header
+        proxy_next_upstream error timeout invalid_header; # Defines conditions for trying the next server
+    }
+
+    # Location block for handling all other requests
+    location / {
+        try_files $uri $uri/ /index.html; # Tries to find requested file or falls back to index.html
+        autoindex on; # Enables directory listing
+        autoindex_exact_size off; # Disables showing exact file sizes in directory listing
+        autoindex_localtime on; # Shows file modification time in local time
+    }
+}

@@ -1,0 +1,138 @@
+//This snippet creates a custom class named 'MyCharacter'
+class Weapon extends Actor
+  within Player;
+
+var () vector AimOffset;
+var weaponState cState;
+var Actor CurrPickup;
+var bool bInProgress;
+var Actor Owner;
+
+//These variables are used to manage the weapon's animations.
+var anim instance BaseMesh;
+var animnode sequence asymmetricAnim;
+var animnode BlendByWeaponMode BlendTimeBlend;
+var animnode OwningAnim;
+
+//This event is called when the weapon is equipped by a player.
+event OnEquip(Pawn Instigator)
+{
+Super.OnEquip(Instigator);
+
+//Get the player controller and set the weapon instance as the owning actor.
+local PlayerController PC;
+local Pawn MyPawn;
+
+PC = PlayerController(Instigator.Controller);
+MyPawn = Pawn(Instigator);
+
+base.Owner = MyPawn;
+base.OwnerController = PC;
+bInProgress = true;
+currWeaponMode = WMODE_Unarmed;
+TransitionFromUnarmed();
+setPhysics(PHYS_Trigger);
+setPhysics(PHYS_RigidBody);
+SetOwner(owner);
+}
+
+//This event is called when the weapon is unequipped by a player.
+event UnEquip()
+{
+//Reset all the variables and unequip the weapon.
+Super.UnEquip();
+bInProgress = false;
+setPhysics(PHYS_None);
+SetOwner(None);
+}
+
+//This function is called to switch to unarmed mode.
+auto state bool TransitionToUnarmed()
+{
+local state bool success;
+
+if (bInProgress && currWeaponMode != WMODE_Unarmed)
+{
+//Play the transition animation for the weapon.
+BlendTimeBlend.BlendTarget = "WeaponBlend";
+BlendTimeBlend.BlendType = BLEND_RemoveNode;
+success = FinishAd(BlendTimeBlend, 0.3);
+
+if (success)
+{
+//Update the weapon's state.
+IW_ReadyToFire.Deactivate();
+IW_Equipping.Fire();
+currWeaponMode = WMODE_Unarmed;
+TransitionToUnarmed();
+}
+}
+
+return success;
+}
+
+//This function is called to switch from unarmed mode to a specific weapon type.
+event state bool TransitionFromUnarmed()
+{
+local state bool success;
+
+if (bInProgress)
+{
+//Play the transition animation for the weapon.
+BlendTimeBlend.BlendTarget = "WeaponBlend";
+BlendTimeBlend.BlendType = BLEND_RemoveNode;
+success = FinishAdd(BlendTimeBlend, 0.3);
+
+if (success)
+{
+//Update the weapon's state and activate the appropriate interface weapon.
+currWeaponMode = WMODE_RPG;
+IW_RPG.Activate();
+IW_UnEquipping.Fire();
+ReturnVal = true;
+}
+}
+
+return success;
+}
+
+//This function is called when the player aims with the weapon.
+auto state BeginAimFire()
+{
+if (currWeaponMode == WMODE_RPG)
+{
+//Play the aiming animation and set the weapon's state to aiming.
+BaseMesh.PlayAnim("AimFire");
+currWeaponState = WSTATE_Aiming;
+IW_Aiming.Fire();
+WorldInfo.Game.Broadcast(self, "AimStarted");
+}
+}
+
+//This function is called when the player stops aiming with the weapon.
+auto state EndAimFire()
+{
+if (currWeaponMode == WMODE_RPG)
+{
+//Stop the aiming animation and set the weapon's state to idle.
+BaseMesh.PlayAnim("Idle");
+currWeaponState = WSTATE_Idle;
+IW_Idle.Fire();
+WorldInfo.Game.Broadcast(self, "AimEnded");
+}
+}
+
+//This function is called when the player fires the weapon.
+auto state BeginFire()
+{
+if (currWeaponMode == WMODE_RPG)
+{
+//Play the firing animation and set the weapon's state to firing.
+BaseMesh.PlayAnim("Fire");
+currWeaponState = WSTATE_Firing;
+IW_Firing.Fire();
+WorldInfo.Game.Broadcast(self, "FireStarted");
+}
+}
+#undef PrimaryFire
+#undef SecondaryFire

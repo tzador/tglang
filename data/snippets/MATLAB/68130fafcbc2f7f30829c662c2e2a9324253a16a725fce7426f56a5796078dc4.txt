@@ -1,0 +1,69 @@
+%% Load data
+data = load('data.mat');
+
+%% Pre-processing
+% Remove outliers
+data = removeOutliers(data);
+
+% Trim data
+trimmed_data = trimData(data);
+
+% Normalize data
+norm_data = normalizeData(trimmed_data);
+
+%% Training
+% Define training parameters
+params.max_epochs = 100;
+params.learning_rate = 0.001;
+params.batch_size = 32;
+
+% Initialize weights
+weights = randn(size(norm_data,2)+1, 1);
+
+% Convert data to matrix form
+X = [ones(size(norm_data,1),1) norm_data(:,1:end-1)];
+y = norm_data(:,end);
+
+% Train using gradient descent
+for epoch = 1:params.max_epochs
+    % Shuffle data
+    idx = randperm(size(y,1));
+    X = X(idx,:);
+    y = y(idx,:);
+    
+    % Mini-batch gradient descent
+    for i = 1:params.batch_size:size(X,1)-params.batch_size+1
+        % Compute predicted values
+        y_hat = X(i:i+params.batch_size-1,:)*weights;
+        
+        % Compute error
+        error = y_hat - y(i:i+params.batch_size-1);
+        
+        % Update weights
+        weights = weights - params.learning_rate * (X(i:i+params.batch_size-1,:)' * error);
+    end
+end
+
+%% Testing
+% Load test data
+test_data = load('test_data.mat');
+
+% Trim test data
+trimmed_test_data = trimData(test_data);
+
+% Normalize test data
+norm_test_data = normalizeData(trimmed_test_data);
+
+% Convert test data to matrix form
+X_test = [ones(size(norm_test_data,1),1) norm_test_data(:,1:end-1)];
+y_test = norm_test_data(:,end);
+
+% Compute predicted values
+y_hat = X_test * weights;
+
+%% Evaluation
+% Compute mean squared error
+mse = mean((y_hat - y_test).^2);
+
+% Print result
+disp(['Mean squared error: ' num2str(mse)]);

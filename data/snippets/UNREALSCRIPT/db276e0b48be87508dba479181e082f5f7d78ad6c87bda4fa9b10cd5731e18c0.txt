@@ -1,0 +1,121 @@
+/**
+ * This class creates a custom weapon that fires explosive projectiles.
+ */
+
+class CustomExplosiveWeapon extends Weapon;
+
+/** 
+ * The fire rate of the weapon.
+ * (higher number = faster rate)
+ */
+var float FireRate;
+
+/**
+ * The amount of damage the projectile deals upon impact.
+ * (higher number = more damage)
+ */
+var float Damage;
+
+/**
+ * The speed at which the projectile travels.
+ * (higher number = faster speed)
+ */
+var float ProjectileSpeed;
+
+/**
+ * The explosion radius of the projectile when it detonates.
+ * (higher number = larger radius)
+ */
+var float ExplosionRadius;
+
+/**
+ * The maximum range at which the weapon can be fired.
+ * (higher number = longer range)
+ */
+var float MaxRange;
+
+/**
+ * The self-damage multiplier for the player who fired the weapon.
+ * (higher number = more self-damage)
+ */
+var float SelfDamageMultiplier;
+
+/**
+ * The class of the projectile spawned by this weapon.
+ */
+var class<Projectile> ProjectileClass;
+
+/**
+ * Fires the weapon, spawning a projectile at the fire location.
+ * @param FireLoc The location from which the projectile will spawn.
+ * @param FireDir The direction in which the projectile will travel.
+ */
+simulated function FireWeapon(vector FireLoc, rotator FireDir)
+{
+    // Check if the weapon can currently be fired.
+    if (!CanFire()) 
+        return;
+
+    // Spawn a projectile at the fire location and rotation.
+    local Projectile newProjectile;
+    newProjectile = spawn(ProjectileClass,,FireLoc,FireDir);
+
+    // Apply damage and self-damage based on settings.
+    local float damageAmount;
+    if (Instigator != None)
+    {
+        damageAmount = Damage;
+        if (Instigator.HeadRegion == true)
+            damageAmount *= Instigator.HeadShotMultiplier;
+
+        if (Instigator == Controller)
+            damageAmount *= SelfDamageMultiplier;
+
+        Instigator.TakeDamage(Projectile.Owner, damageAmount, DefaultGibClass, Projectile.Location,
+            0, class'StrengthAttribute_BulletTime', 0, class'StrengthAttribute_CarPain', 0);
+    }
+
+    // Update the fire timer.
+    SetTimer(FireRate, true);
+}
+
+/**
+ * Checks if the weapon can currently be fired.
+ * @return True if the weapon is ready to be fired, false otherwise.
+ */
+function bool CanFire()
+{
+    return (Timer < 0 && Ammo > 0);
+}
+
+/**
+ * Reloads the weapon.
+ * @param AmmoCount The amount of ammo to reload.
+ */
+simulated function Reload(int AmmoCount)
+{
+    // Check if the weapon can currently be reloaded.
+    if (!CanReload()) 
+        return;
+
+    // Set the ammo count and update the reload timer.
+    Ammo += AmmoCount;
+    SetTimer(ReloadRate, true);
+}
+
+/**
+ * Checks if the weapon can currently be reloaded.
+ * @return True if the weapon is ready to be reloaded, false otherwise.
+ */
+function bool CanReload()
+{
+    return (Timer < 0 && Ammo < MaxAmmo);
+}
+
+/**
+ * Updates the weapon's timer based on the given delta time.
+ */
+function Tick(float DeltaTime)
+{
+    Timer -= DeltaTime;
+}

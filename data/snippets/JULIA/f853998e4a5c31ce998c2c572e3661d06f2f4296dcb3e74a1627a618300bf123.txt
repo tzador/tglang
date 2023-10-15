@@ -1,0 +1,62 @@
+# Find the shortest path between two nodes in a directed graph
+struct Edge{T}
+    src::T
+    dest::T
+end
+
+function dijkstra(edges::Array{Edge{String}}, start::String, target::String)
+    # Initializing distances and previous nodes
+    dist = Dict{String,Int}()
+    prev = Dict{String,String}()
+    for edge in edges
+        dist[edge.src] = typemax(Int)
+        dist[edge.dest] = typemax(Int)
+        prev[edge.src] = ""
+        prev[edge.dest] = ""
+    end
+
+    # Set distance of start node to 0
+    dist[start] = 0
+    
+    # Create a priority queue to store nodes with their associated distances
+    pq = [(node,dist[node]) for node in keys(dist)]
+    PriorityQueue!(pq, by=x->x[2]) # Sort queue by distance
+    
+    # Loop until all nodes have been explored or target node has been found
+    while !isempty(pq)
+        # Get the node with the shortest distance from start
+        current = deletefirst!(pq)[1]
+        
+        # Check if target node has been reached
+        if current == target
+            path = [target]
+            while current != start
+                current = prev[current]
+                pushfirst!(path, current)
+            end
+            return path
+        end
+        
+        # Loop through all outgoing edges of current node
+        for edge in filter(x->x.src==current, edges)
+            # Calculate distance from start to destination of this edge
+            alt = dist[current] + 1
+            # Update distance and previous node if it is smaller than current distance
+            if alt < dist[edge.dest]
+                dist[edge.dest] = alt
+                prev[edge.dest] = current
+                # Update queue with new distance
+                index = findfirst(x->x[1]==edge.dest, pq)
+                pq[index][2] = alt
+                PriorityQueue!(pq, by=x->x[2])
+            end
+        end
+    end
+    # If target node was not found, return an empty array
+    return []
+end
+
+# Example graph and query
+edges = [Edge("A", "B"), Edge("A", "C"), Edge("B", "C"), Edge("B", "D"), Edge("C", "E"), Edge("C", "F"), Edge("D", "E"), Edge("D", "G"), Edge("E", "H"), Edge("F", "G"), Edge("G", "H")]
+path = dijkstra(edges, "A", "H")
+println("The shortest path from A to H is $path") # Output: The shortest path from A to H is ["A", "B", "D", "G", "H"]

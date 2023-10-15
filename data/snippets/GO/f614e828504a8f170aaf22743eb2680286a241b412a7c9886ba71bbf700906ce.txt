@@ -1,0 +1,83 @@
+// This code snippet uses a Goroutine to split a given array and sorts each half concurrently before merging them back together
+package main
+
+import (
+	"fmt"
+	"math/rand"
+	"sync"
+	"time"
+)
+
+func Merge(sliceA []int, sliceB []int) []int {
+	// Function to merge two sorted arrays into one sorted array
+	// We create a new array with the length of the combined slices and a new index
+	result := make([]int, len(sliceA)+len(sliceB))
+	i := 0
+	j := 0
+	// We loop through both slices and compare the elements in them
+	// The element with the lowest value gets inserted into the new array
+	// Once one of the slices has been completely added to the new array, the remaining elements from the other slice are added
+	// This continues until both slices have been fully added to the new array
+	for k := 0; k < len(result); k++ {
+		if i < len(sliceA) && j < len(sliceB) {
+			if sliceA[i] < sliceB[j] {
+				result[k] = sliceA[i]
+				i++
+			} else {
+				result[k] = sliceB[j]
+				j++
+			}
+		} else if i < len(sliceA) {
+			result[k] = sliceA[i]
+			i++
+		} else {
+			result[k] = sliceB[j]
+			j++
+		}
+	}
+	return result
+}
+
+func SplitAndSort(slice []int, c chan []int, wg *sync.WaitGroup) {
+	// Goroutine that splits a given array into two halves and sorts each half
+	// We use channels to send the sorted halves back to the main goroutine
+	// We also use a waitgroup to make sure all goroutines have completed before continuing
+	defer wg.Done()
+	middle := len(slice) / 2 // Find the middle index of the slice
+	if len(slice) <= 1 {
+		c <- slice // If the slice is already sorted, send it back to the main goroutine through the channel
+		return
+	}
+	// Goroutine for the first half of the slice
+	wg.Add(1)
+	go SplitAndSort(slice[:middle], c, wg)
+	// Goroutine for the second half of the slice
+	wg.Add(1)
+	go SplitAndSort(slice[middle:], c, wg)
+	// Wait for both goroutines to complete before sorting and merging the two halves
+	wg.Wait()
+	// Once the goroutines have completed, we can merge the sorted halves back together
+	half1 := <-c
+	half2 := <-c
+	c <- Merge(half1, half2)
+}
+
+func main() {
+	// Generate a random unsorted array of length 20 and print it
+	slice := make([]int, 20)
+	rand.Seed(time.Now().UnixNano())
+	for i := range slice {
+		slice[i] = rand.Intn(100)
+	}
+	fmt.Println("Unsorted array:", slice)
+	// Create a waitgroup and channel for the goroutines
+	var wg sync.WaitGroup
+	c := make(chan []int)
+	// Create the initial goroutine to split and sort the array
+	wg.Add(1)
+	go SplitAndSort(slice, c, &wg)
+	// Wait for the goroutine to complete and receive the sorted array through the channel
+	wg.Wait()
+	sorted := <-c
+	fmt.Println("Sorted array:", sorted)
+}

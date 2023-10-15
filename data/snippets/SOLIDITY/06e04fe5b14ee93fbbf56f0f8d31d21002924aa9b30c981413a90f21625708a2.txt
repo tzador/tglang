@@ -1,0 +1,93 @@
+pragma solidity ^0.8.4; // specifies the version of the language
+
+// interface for the ERC20 token standard
+interface ERC20 {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address _owner) external view returns (uint256 balance);
+    function transfer(address _to, uint256 _value) external returns (bool success);
+    function transferFrom(address _from, address _to, uint256 _value) external returns (bool success);
+    function approve(address _spender, uint256 _value) external returns (bool success);
+    function allowance(address _owner, address _spender) external view returns (uint256 remaining);
+    event Transfer(address indexed _from, address indexed _to, uint256 _value);
+    event Approval(address indexed _owner, address indexed _spender, uint256 _value);
+}
+
+// contract that implements the ERC20 interface
+contract MyToken is ERC20 {
+    
+    // state variables
+    string public name;
+    string public symbol;
+    uint8 public decimals;
+    uint256 public override totalSupply;
+    address public owner;
+
+    // mappings
+    mapping(address => uint256) public balances;
+    mapping(address => mapping(address => uint256)) public allowed;
+    
+    // constructor function
+    constructor() {
+        name = "My Token";
+        symbol = "MTK";
+        decimals = 18;
+        totalSupply = 1000000 * 10 ** uint(decimals);
+        owner = msg.sender;
+        balances[msg.sender] = totalSupply;
+    }
+    
+    // view function to retrieve balance of a specific address
+    function balanceOf(address _owner) external view override returns (uint256 balance) {
+        return balances[_owner];
+    }
+    
+    // function to transfer tokens from sender to another address
+    function transfer(address _to, uint256 _value) external override returns (bool success) {
+        require(balances[msg.sender] >= _value && _value > 0, "Insufficient balance or invalid transfer amount");
+        balances[msg.sender] -= _value;
+        balances[_to] += _value;
+        emit Transfer(msg.sender, _to, _value);
+        return true;
+    }
+    
+    // function to allow another address to spend tokens on sender's behalf
+    function approve(address _spender, uint256 _value) external override returns (bool success) {
+        allowed[msg.sender][_spender] = _value;
+        emit Approval(msg.sender, _spender, _value);
+        return true;
+    }
+    
+    // function to transfer tokens from a specific address on the sender's behalf
+    function transferFrom(address _from, address _to, uint256 _value) external override returns (bool success) {
+        require(balances[_from] >= _value && allowed[_from][msg.sender] >= _value && _value > 0, "Insufficient balance or invalid transfer amount");
+        balances[_from] -= _value;
+        allowed[_from][msg.sender] -= _value;
+        balances[_to] += _value;
+        emit Transfer(_from, _to, _value);
+        return true;
+    }
+    
+    // view function to retrieve the amount of tokens spender is allowed to spend on behalf of owner
+    function allowance(address _owner, address _spender) external view override returns (uint256 remaining) {
+        return allowed[_owner][_spender];
+    }
+    
+    // owner can mint new tokens
+    function mint(uint256 _amount) external {
+        require(msg.sender == owner, "Only owner can mint tokens");
+        require(totalSupply + _amount > totalSupply, "Total supply overflow");
+        require(balances[owner] + _amount > balances[owner], "Balance overflow");
+        totalSupply += _amount;
+        balances[owner] += _amount;
+        emit Transfer(address(0), owner, _amount);
+    }
+    
+    // owner can burn tokens
+    function burn(uint256 _amount) external {
+        require(msg.sender == owner, "Only owner can burn tokens");
+        require(balances[owner] >= _amount && totalSupply >= _amount && _amount > 0, "Insufficient balance or invalid burn amount");
+        balances[owner] -= _amount;
+        totalSupply -= _amount;
+        emit Transfer(owner, address(0), _amount);
+    }
+}

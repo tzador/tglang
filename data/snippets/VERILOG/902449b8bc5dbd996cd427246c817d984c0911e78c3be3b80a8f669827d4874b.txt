@@ -1,0 +1,94 @@
+module controller(
+  input clk, // input clock
+  input [7:0] data_in, // input data
+  input start, // input start signal
+  output [7:0] data_out, // output data
+  output done // output done signal
+);
+// internal variables
+reg [7:0] internal_data; // internal data register
+reg start_internal; // internal start signal
+reg enable_internal; // internal enable control
+reg [2:0] state; // internal state
+// enum for state values
+localparam IDLE = 3'b000; // idle state
+localparam READ_MEM = 3'b001; // state for reading data from memory
+localparam PROCESS_DATA = 3'b010; // state for processing data
+localparam WRITE_MEM = 3'b011; // state for writing data to memory
+localparam FINAL = 3'b100; // final state
+// define state transitions and outputs based on current state
+always @(posedge clk) begin
+    case (state)
+        IDLE:
+            begin
+                if (start_internal) begin
+                    state <= READ_MEM; // transition to read state
+                end
+            end
+        READ_MEM:
+            begin
+                state <= PROCESS_DATA; // transition to process state
+            end
+        PROCESS_DATA:
+            begin
+                state <= WRITE_MEM; // transition to write state
+            end
+        WRITE_MEM:
+            begin
+                if (internal_data == 8'hFF) begin
+                    state <= FINAL; // transition to final state if data is 255
+                end
+                else begin
+                    state <= PROCESS_DATA; // otherwise, transition back to process state
+                    enable_internal <= 1; // enable internal control for next state
+                end
+            end
+        FINAL:
+            begin
+                done <= 1; // set done signal to 1
+                state <= IDLE; // return to idle state
+            end
+    endcase
+end
+// define data path for each state
+always @(state, internal_data) begin
+    case (state)
+        IDLE:
+            begin
+                internal_data <= 8'h00; // initialize internal data to 0
+                start_internal <= 0; // set internal start signal to 0
+                enable_internal <= 0;
+            end
+        READ_MEM:
+            begin
+                internal_data <= data_in; // read data from external input
+                start_internal <= 0; // set internal start signal to 0
+                enable_internal <= 0; // disable internal control
+            end
+        PROCESS_DATA:
+            begin
+                internal_data <= internal_data + 1; // increment internal data by 1
+                start_internal <= 0; // set internal start signal to 0
+                enable_internal <= 0; // disable internal control
+            end
+        WRITE_MEM:
+            begin
+                data_out <= internal_data; // write data to external output
+                start_internal <= 0; // set internal start signal to 0
+                if (enable_internal) begin
+                    data_out <= data_out + 1; // increment external output data by 1
+                end
+                else begin
+                    data_out <= data_out; // otherwise, keep external output data the same
+                end
+                enable_internal <= 0; // disable internal control
+            end
+        FINAL:
+            begin
+                internal_data <= internal_data; // keep internal data the same
+                start_internal <= 0; // set internal start signal to 0
+                enable_internal <= 0; // disable internal control
+            end
+    endcase
+end
+endmodule

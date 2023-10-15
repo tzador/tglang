@@ -1,0 +1,74 @@
+/* This program generates a report of customer orders */
+DEFINE VARIABLE cust-name AS CHARACTER NO-UNDO.
+DEFINE VARIABLE cust-address AS CHARACTER NO-UNDO.
+DEFINE VARIABLE order-date AS DATE NO-UNDO.
+DEFINE VARIABLE order-num AS INTEGER NO-UNDO.
+DEFINE VARIABLE item-num AS INTEGER NO-UNDO.
+DEFINE VARIABLE item-desc AS CHARACTER NO-UNDO.
+DEFINE VARIABLE item-qty AS INTEGER NO-UNDO.
+DEFINE VARIABLE item-price AS DECIMAL NO-UNDO.
+
+DEFINE TEMP-TABLE tt-cust
+   FIELD cust-name AS CHARACTER
+   FIELD cust-address AS CHARACTER.
+
+DEFINE TEMP-TABLE tt-orders
+   FIELD order-date AS DATE
+   FIELD order-num AS INTEGER
+   FIELD cust-name AS CHARACTER
+   INDEX order-num.
+
+DEFINE TEMP-TABLE tt-items
+   FIELD item-num AS INTEGER
+   FIELD item-desc AS CHARACTER
+   FIELD item-qty AS INTEGER
+   FIELD item-price AS DECIMAL
+   INDEX item-num.
+
+/* Get customer information from database */
+FOR EACH customer NO-LOCK:
+   CREATE tt-cust.
+   ASSIGN
+      tt-cust.cust-name = customer.cust-name
+      tt-cust.cust-address = customer.cust-address.
+END.
+
+/* Get order information from database */
+FOR EACH order NO-LOCK,
+   EACH customer WHERE order.cust-num = customer.cust-num:
+   CREATE tt-orders.
+   ASSIGN
+      tt-orders.order-date = order.date
+      tt-orders.order-num = order.order-num
+      tt-orders.cust-name = customer.cust-name.
+END.
+
+/* Get item information from database */
+FOR EACH order-item NO-LOCK,
+   EACH item WHERE order-item.item-num = item.item-num:
+   CREATE tt-items.
+   ASSIGN
+      tt-items.item-num = item.item-num
+      tt-items.item-desc = item.item-desc
+      tt-items.item-qty = order-item.item-qty
+      tt-items.item-price = order-item.item-price.
+END.
+
+/* Generate report */
+OUTPUT TO VALUE("customer_orders.txt").
+FOR EACH tt-cust:
+   DISP tt-cust.cust-name tt-cust.cust-address.
+   DO:
+      DISP CHR(9) "Order Date" CHR(9) "Order Number".
+      FOR EACH tt-orders WHERE tt-orders.cust-name = tt-cust.cust-name:
+         DISP CHR(9) tt-orders.order-date CHR(9) tt-orders.order-num.
+         DO:
+            DISP CHR(9) CHR(9) "Item Number" CHR(9) "Item Description" CHR(9) "Quantity" CHR(9) "Price" CHR(9) "Total Price".
+            FOR EACH tt-items WHERE tt-items.item-num = tt-orders.order-num:
+               DISP CHR(9) CHR(9) tt-items.item-num CHR(9) tt-items.item-desc CHR(9) tt-items.item-qty CHR(9) tt-items.item-price CHR(9) (tt-items.item-qty * tt-items.item-price).
+            DOWN 1 EXCEPT LAST.
+         END.
+      DOWN 1 EXCEPT LAST.
+   END.
+END.
+OUTPUT CLOSE.

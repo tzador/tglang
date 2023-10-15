@@ -1,0 +1,99 @@
+// This code snippet creates a new class called "PlayerCharacter" that inherits from the base class "Actor"
+class PlayerCharacter extends Actor
+  native
+    placeable;
+
+  // Variables that control the player's movement and speed
+  var() const float WalkSpeed;
+  var() const float RunSpeed;
+  var() const float JumpSpeed;
+  var() const float Gravity;
+
+  // Variables that keep track of the player's health and inventory
+  var() int Health;
+  var() array<Pickup> Inventory;
+
+  // Function that is called when the player takes damage
+  function takeDamage(int damage)
+  {
+    Health -= damage;
+
+    // If the player's health reaches 0, call the die() function
+    if (Health <= 0)
+    {
+      die();
+    }
+  }
+
+  // Function that is called when the player dies
+  function die()
+  {
+    // Destroy the player's actor and display a game over message
+    Destroy();
+    GameState.DisplayGameOver();
+  }
+
+  // Function that is called when the player presses the jump button
+  function jump()
+  {
+    // Set the player's velocity to the jump speed
+    Velocity.Z = JumpSpeed;
+
+    // Play a jump animation
+    PlayAnimation(jumpAnim);
+  }
+
+  // Main code block that is executed every frame
+  simulated function Tick(float DeltaTime)
+  {
+    // Calculate the player's movement vector based on input from the keyboard and gamepad
+    local Vector moveVector;
+
+    moveVector.X = Input.GetAxis("MoveForward");
+    moveVector.Y = Input.GetAxis("MoveRight"); // Note: In the Unreal Engine, the Y axis represents left-to-right movement.
+
+    // If the player is not moving, reset their velocity and animation
+    if (moveVector == vect(0, 0, 0))
+    {
+      Velocity = vect(0, 0, 0);
+      PlayAnimation(idleAnim);
+    }
+    // Otherwise, update their velocity and play a running animation
+    else
+    {
+      Velocity = Normal(moveVector) * RunSpeed;
+      PlayAnimation(runAnim);
+    }
+
+    // Apply gravity to the player's movement
+    Velocity += vect(0, 0, Gravity) * DeltaTime;
+
+    // Move the player based on their velocity
+    Move(Velocity * DeltaTime);
+
+    // Check for collisions with pickable objects and add them to the player's inventory if they collide
+    foreach (Pickup pickable in TouchingActors(class 'Pickup'))
+    {
+      Inventory.AddItem(pickable);
+      pickable.GiveToPlayer(this);
+    }
+
+    // Update the player's health based on input from the keyboard and gamepad
+    if (Input.GetKeyDown(KeyCode.H))
+    {
+      Health++;
+    }
+    else if (Input.GetKeyDown(KeyCode.J))
+    {
+      Health--;
+    }
+  }
+
+  defaultproperties
+  {
+    WalkSpeed=300
+    RunSpeed=600
+    JumpSpeed=500
+    Gravity=-1000
+    Health=100
+  }

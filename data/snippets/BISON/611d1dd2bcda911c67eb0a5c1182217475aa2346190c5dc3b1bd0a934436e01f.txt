@@ -1,0 +1,68 @@
+// This is a BISON code snippet for a calculator grammar
+%{
+    // This section includes libraries and defines global variables
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <math.h>
+    double result; // Stores the final result of calculations
+%}
+
+// This section defines the tokens
+%token <number> NUMBER // Matches numbers
+%token <operator> OPERATOR // Matches operators (+, -, *, /)
+%token <string> ERROR // Matches any invalid inputs
+
+%left '+' '-' // Defines precedence and associativity of operators
+%left '*' '/' // * and / have higher precedence than + and -
+
+// This section defines the grammar rules
+%%
+input: // Defines the starting non-terminal
+    /* Empty */
+    | input line // Defines recursive input
+line:
+    '\n' // Handles new lines
+    | expr '\n' // Matches an expression followed by a new line
+    | error '\n'{printf("Invalid input\n");} // Matches an invalid input followed by a new line
+expr: // Matches an expression
+    NUMBER // Matches a number
+    | expr OPERATOR expr // Matches an expression with an operator and another expression
+    | '(' expr ')'%prec ')' // Handles parentheses and sets their precedence higher than other operators
+    | '-' expr %prec UMINUS // Handles unary minus and sets its precedence higher than other operators
+error: // Matches any invalid inputs and stores them as a string
+    . {printf("Invalid input: %s\n", $1);}
+%%
+
+int main() {
+    // Initializes the parser and sets the input from stdin
+    yyparse();
+    // Prints the final result
+    printf("The final result is %g\n", result);
+    return 0;
+}
+
+// This section includes the lexer for tokenization
+int yylex(void) {
+    int c; // Stores character from stdin
+    while ((c = getchar()) == ' ') // Ignores whitespace characters
+        ;
+    // Checks for valid input and assigns token type
+    if (c == EOF) // Handles end of file
+        return 0;
+    else if (isdigit(c) || c == '.') { // Matches numbers
+        ungetc(c, stdin); // Puts character back into stdin
+        scanf("%lf", &result); // Converts input to double and stores in result
+        return NUMBER;
+    } else if (c == '+' || c == '-' || c == '*' || c == '/') // Matches operators
+        return OPERATOR;
+    else { // Matches any invalid inputs
+        ungetc(c, stdin);
+        scanf("%s", yylval);
+        return ERROR;
+    }
+}
+
+// This section handles any parsing errors
+void yyerror(char* msg) {
+    printf("Parsing error: %s\n", msg);
+}

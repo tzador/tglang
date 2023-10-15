@@ -1,0 +1,70 @@
+# This is a YAML code snippet for a cloud formation template
+# It will create a VPC with three subnets and a bastion host
+# using nested stacks for organization and reuse
+
+---
+
+Parameters:
+  VpcCidr:
+    Description: CIDR block for VPC
+    Type: String
+    Default: 10.0.0.0/16
+
+Resources:
+  MainVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: True
+      EnableDnsHostnames: True
+      Tags:
+        - Key: Name
+          Value: MainVPC
+  PublicSubnet1:
+    Type: Stack
+    Properties:
+      TemplateURL: https://s3.amazonaws.com/nested-stack-templates/public-subnet.yaml
+      Parameters:
+        SubnetCidr: 10.0.0.0/24
+        VpcId: !Ref MainVPC
+  PublicSubnet2:
+    Type: Stack
+    Properties:
+      TemplateURL: https://s3.amazonaws.com/nested-stack-templates/public-subnet.yaml
+      Parameters:
+        SubnetCidr: 10.0.1.0/24
+        VpcId: !Ref MainVPC
+  PrivateSubnet:
+    Type: Stack
+    Properties:
+      TemplateURL: https://s3.amazonaws.com/nested-stack-templates/private-subnet.yaml
+      Parameters:
+        SubnetCidr: 10.0.2.0/24
+        VpcId: !Ref MainVPC
+  BastionHost:
+    Type: Stack
+    Properties:
+      TemplateURL: https://s3.amazonaws.com/nested-stack-templates/bastion-host.yaml
+      Parameters:
+        VpcId: !Ref MainVPC
+        PublicSubnets:
+          - !GetAtt PublicSubnet1.Outputs.SubnetId
+          - !GetAtt PublicSubnet2.Outputs.SubnetId
+        PrivateSubnet: !GetAtt PrivateSubnet.Outputs.SubnetId
+
+Outputs:
+  VpcId:
+    Description: ID of the VPC
+    Value: !Ref MainVPC
+  BastionHostId:
+    Description: ID of the bastion host
+    Value: !GetAtt BastionHost.Outputs.InstanceId
+  PublicSubnet1Id:
+    Description: ID of the first public subnet
+    Value: !GetAtt PublicSubnet1.Outputs.SubnetId
+  PublicSubnet2Id:
+    Description: ID of the second public subnet
+    Value: !GetAtt PublicSubnet2.Outputs.SubnetId
+  PrivateSubnetId:
+    Description: ID of the private subnet
+    Value: !GetAtt PrivateSubnet.Outputs.SubnetId

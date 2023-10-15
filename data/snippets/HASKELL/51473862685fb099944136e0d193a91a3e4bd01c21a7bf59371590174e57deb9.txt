@@ -1,0 +1,38 @@
+{-# OPTIONS_GHC -Wall #-}
+module Main where
+
+import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
+import Control.Monad (forever, unless)
+import System.Random (randomRIO)
+
+-- | Main function that creates and uses the MVar
+main :: IO ()
+main = do
+  -- create an empty MVar for storing the result
+  result <- newEmptyMVar
+  -- fork a new thread to perform an expensive task
+  _ <- forkIO $ expensiveTask result
+  -- print waiting message on main thread
+  putStrLn "Waiting for expensive task to finish..."
+  -- delay main thread for 2 seconds
+  threadDelay 2000000
+  -- try to take the result from MVar
+  -- if the result is not available, print error message
+  -- and try again after 1 second delay
+  -- if the result is available, print it out
+  mResult <- takeMVar result
+  unless (mResult == -1) $ do
+    putStrLn ("Expensive task completed with result: " ++ show mResult)
+
+-- | An expensive task that takes a long time to complete
+expensiveTask :: MVar Int -> IO ()
+expensiveTask result = do
+  -- generate a random number between 0 and 10
+  num <- randomRIO (0,10) :: IO Int
+  -- perform some expensive calculations using the random number
+  let result = num * num + 10
+  -- put the result in the MVar
+  putMVar result result
+  -- print completion message
+  putStrLn "Expensive task complete!"

@@ -1,0 +1,42 @@
+// Function to calculate the nth Fibonacci number using memoization
+#[derive(Copy, Clone)]
+struct Memoized<F, T> {
+    memo: T,
+    f: F,
+}
+
+impl<F: Fn(usize) -> T, T> FnOnce<(usize,)> for Memoized<F, T> {
+    type Output = T;
+
+    extern "rust-call" fn call_once(self, (x,): (usize,)) -> T {
+        self.memo.with(|memo| {
+            if let Some(&y) = memo.borrow().get(&x) {
+                y
+            } else {
+                let value = (self.f)(x);
+                memo.borrow_mut().insert(x, value);
+                value
+            }
+        })
+    }
+}
+
+fn memoize<F: Fn(usize) -> T, T>(f: F) -> Memoized<F, T> {
+    Memoized {
+        memo: Default::default(),
+        f,
+    }
+}
+
+fn main() {
+    let fib = memoize(|n| {
+        if n <= 1 {
+            n
+        } else {
+            fib(n - 1) + fib(n - 2)
+        }
+    });
+
+    let result = fib(10);
+    println!("{}", result);
+}

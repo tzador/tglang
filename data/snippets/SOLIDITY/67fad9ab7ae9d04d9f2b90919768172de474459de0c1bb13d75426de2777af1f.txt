@@ -1,0 +1,108 @@
+pragma solidity ^0.8.0;
+
+// Create a contract for a decentralized marketplace
+contract Marketplace {
+
+    // Define storage variables for the marketplace
+    address public owner;
+    uint256 public listingFee;
+    uint256 public totalListings;
+    uint256 public totalSales;
+    mapping(address => bool) public sellers;
+    mapping(uint256 => Listing) public listings;
+    mapping(address => mapping(uint256 => bool)) public sellerListings;
+
+    // Define structs for listings and sales
+    struct Listing {
+        address seller;
+        string productName;
+        uint256 price;
+        string description;
+        bool sold;
+    }
+    struct Sale {
+        address buyer;
+        uint256 price;
+        bool paid;
+        bool shipped;
+        bool delivered;
+    }
+
+    // Event triggered when new listing is created
+    event ListingCreated(uint256 indexed id, address indexed seller, string indexed productName, uint256 price);
+
+    // Event triggered when a sale is made
+    event SaleMade(uint256 indexed id, address indexed buyer, address indexed seller, uint256 price);
+
+    // Constructor function to set the owner and listing fee
+    constructor() {
+        owner = msg.sender;
+        listingFee = 0.01 ether;
+    }
+
+    // Function to create a new listing
+    function createListing(string memory _name, uint256 _price, string memory _description) external payable {
+        // Check if listing fee is paid
+        require(msg.value >= listingFee, "Listing fee not paid");
+
+        // Update total number of listings
+        totalListings++;
+
+        // Create new listing
+        listings[totalListings] = Listing(msg.sender, _name, _price, _description, false);
+
+        // Add seller to list of sellers
+        sellers[msg.sender] = true;
+
+        // Add listing to list of seller's listings
+        sellerListings[msg.sender][totalListings] = true;
+
+        // Trigger event
+        emit ListingCreated(totalListings, msg.sender, _name, _price);
+    }
+
+    // Function to buy a listing
+    function buyListing(uint256 _id) external payable {
+        // Check if listing exists
+        require(_id > 0 && _id <= totalListings, "Listing does not exist");
+
+        // Get listing
+        Listing storage listing = listings[_id];
+
+        // Check if listing is not sold
+        require(!listing.sold, "Listing has already been sold");
+
+        // Check if enough ether is sent
+        require(msg.value >= listing.price, "Insufficient funds");
+
+        // Mark listing as sold
+        listing.sold = true;
+
+        // Update total sales
+        totalSales++;
+
+        // Get seller
+        address seller = listing.seller;
+
+        // Calculate listing fee
+        uint256 fee = uint256(listing.price * listingFee / 100);
+
+        // Calculate total amount to transfer to seller
+        uint256 totalToSeller = listing.price - fee;
+
+        // Transfer fee to owner
+        payable(owner).transfer(fee);
+
+        // Transfer remaining amount to seller
+        payable(seller).transfer(totalToSeller);
+
+        // Trigger event
+        emit SaleMade(_id, msg.sender, seller, listing.price);
+    }
+
+    // Fallback function to handle any eth sent to the contract
+    fallback() external payable {
+        // Revert transaction
+        revert("Function does not exist");
+    }
+}

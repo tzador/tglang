@@ -1,0 +1,63 @@
+pragma solidity ^0.8.0;
+
+// Creating a contract that implements the ERC20 token standard
+contract MyToken is ERC20 {
+    // State variables
+    string public name;
+    string public symbol;
+    uint8 public decimals;
+    uint256 public totalSupply;
+    // Balances mapping to store the balances of each address
+    mapping (address => uint256) public balances;
+    // Allowances mapping to store the approved amount for each address to spend tokens on behalf
+    mapping (address => mapping (address => uint256)) public allowances;
+    
+    // Constructor function to initialize the token with a name, symbol and decimal value
+    constructor(string memory _name, string memory _symbol, uint8 _decimals) {
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+        totalSupply = 1000000 * (10 ** uint256(decimals)); // Setting the total supply to 1 million tokens with 18 decimals
+        balances[msg.sender] = totalSupply; // Setting the total supply as initial balance for the contract creator
+    }
+    
+    // Function to get the total supply of the token
+    function getTotalSupply() public view returns(uint256) {
+        return totalSupply;
+    }
+    
+    // Function to get the balance of a specific address
+    function getBalance(address _address) public view returns(uint256) {
+        return balances[_address];
+    }
+    
+    // Function to transfer tokens to a specific address
+    function transfer(address _to, uint256 _amount) public returns(bool) {
+        require(balances[msg.sender] >= _amount, "Insufficient balance."); // Checking if the sender has enough balance to perform the transfer
+        require(_to != address(0), "Invalid address."); // Checking if the receiver address is valid
+        balances[msg.sender] -= _amount; // Deducting the transferred amount from sender's balance
+        balances[_to] += _amount; // Adding the transferred amount to receiver's balance
+        emit Transfer(msg.sender, _to, _amount); // Emitting the transfer event
+        return true;
+    }
+    
+    // Function to approve a specific amount for a specific address to spend tokens on behalf
+    function approve(address _spender, uint256 _amount) public returns(bool) {
+        require(_amount > 0, "Approved amount must be greater than 0."); // Making sure the approved amount is greater than 0
+        allowances[msg.sender][_spender] = _amount; // Updating the approved amount in allowances mapping
+        emit Approval(msg.sender, _spender, _amount); // Emitting the approval event
+        return true;
+    }
+    
+    // Function to transfer approved tokens from a specified address to another address
+    function transferFrom(address _from, address _to, uint256 _amount) public returns(bool) {
+        require(balances[_from] >= _amount, "Insufficient balance."); // Checking if the sender has enough balance to perform the transfer
+        require(allowances[_from][msg.sender] >= _amount, "Not enough allowance."); // Checking if the approved amount is enough to perform the transfer
+        require(_to != address(0), "Invalid address."); // Checking if the receiver address is valid
+        balances[_from] -= _amount; // Deducting the transferred amount from sender's balance
+        balances[_to] += _amount; // Adding the transferred amount to receiver's balance
+        allowances[_from][msg.sender] -= _amount; // Deducting the transferred amount from approved amount
+        emit Transfer(_from, _to, _amount); // Emitting the transfer event
+        return true;
+    }
+}

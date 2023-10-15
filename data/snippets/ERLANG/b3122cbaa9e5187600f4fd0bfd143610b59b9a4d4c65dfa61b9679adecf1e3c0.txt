@@ -1,0 +1,58 @@
+%% This module defines a process that maintains a list of user-submitted messages and responds to specific commands.
+
+-module(chat_server).
+
+-export([start/0, stop/0, send_message/1, get_messages/0]).
+
+-include("user_messages.hrl").
+
+%% The state for our chat server process.
+-record(chat_state, {
+    messages = [],
+    users = [],
+    current_user = "",
+    nickname = ""
+}).
+
+%% Start the chat server process and set the initial state.
+start() ->
+    spawn(fun() -> loop(#chat_state{}) end).
+
+%% Stop the chat server process.
+stop() ->
+    chat_server ! stop.
+
+%% Send a message to the chat server process.
+%% The message must be a tuple {command, argument}.
+%% The possible commands are "add_message", "join", and "change_nickname".
+send_message({add_message, Message}) ->
+    chat_server ! {add_message, Message};
+send_message({join, User}) ->
+    chat_server ! {join, User};
+send_message({change_nickname, NewNickname}) ->
+    chat_server ! {change_nickname, NewNickname}.
+
+%% Get the current list of messages from the chat server process.
+get_messages() ->
+    chat_server ! {get_messages, self()},
+    receive
+        {messages, Messages} -> Messages
+    end.
+
+%% The main loop of the chat server.
+loop(State) ->
+    receive
+        {add_message, Message} ->
+            NewMessages = State#chat_state.messages ++ [Message],
+            loop(State#chat_state{messages = NewMessages});
+        {join, User} ->
+            NewUsers = State#chat_state.users ++ [User],
+            loop(State#chat_state{users = NewUsers});
+        {change_nickname, NewNickname} ->
+            loop(State#chat_state{nickname = NewNickname});
+        {get_messages, Client} ->
+            Client ! {messages, State#chat_state.messages},
+            loop(State);
+        stop ->
+            ok
+    end.

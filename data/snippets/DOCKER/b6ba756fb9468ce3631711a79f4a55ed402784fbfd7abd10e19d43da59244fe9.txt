@@ -1,0 +1,56 @@
+FROM ubuntu:18.04
+# Sets the base image to Ubuntu 18.04
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        wget \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
+# Downloads and runs installation script for nvm
+
+RUN mkdir /root/.nvm
+# Creates a directory for nvm configuration
+
+ENV NVM_DIR="/root/.nvm" \
+    NVM_VERSION=0.34.0 \
+    NODE_VERSION=10.16.0
+# Sets environment variables for nvm and node versions
+
+RUN chmod +x /root/.nvm/nvm.sh
+# Gives executable permissions to nvm.sh
+
+RUN . "$NVM_DIR/nvm.sh" && nvm install "$NODE_VERSION" && nvm alias default "$NODE_VERSION" && nvm use default
+# Installs specified version of Node.js and sets it as the default version
+
+ENV NODE_PATH=$NVM_DIR/versions/node/v$NODE_VERSION/lib/node_modules \
+    PATH=$NVM_DIR/versions/node/v$NODE_VERSION/bin:/root/.npm-global/bin:$PATH
+# Sets environment variables for Node.js and npm 
+
+RUN npm install -g npm@6.9.0
+# Installs specified version of npm globally
+
+RUN apt-get update && apt-get install -y \
+	build-essential \
+	git \
+	libssl-dev
+# Installs necessary packages for building Node.js native addons
+
+WORKDIR /usr/src/app
+# Sets working directory for application
+
+COPY package*.json ./
+# Copies package.json and package-lock.json to working directory
+
+RUN npm install
+# Installs dependencies listed in package.json
+
+COPY . .
+# Copies rest of application files to working directory
+
+EXPOSE 3000
+# Exposes port 3000 for application
+
+CMD ["npm", "start"]
+# Sets default command to run npm start upon container startup

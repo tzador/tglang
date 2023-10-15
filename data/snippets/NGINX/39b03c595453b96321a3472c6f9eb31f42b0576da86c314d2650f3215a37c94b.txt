@@ -1,0 +1,116 @@
+# This is a complex NGINX configuration file.
+# It includes several server blocks and various directives.
+
+# The 'user' directive specifies which user will run NGINX.
+user www-data;
+
+# The 'worker_processes' directive sets the number of NGINX worker processes.
+# It is typically set to the number of CPU cores on the server.
+worker_processes auto;
+
+# The 'pid' directive specifies the location of the NGINX process ID file.
+# This file is used to send signals to the NGINX master process.
+pid /var/run/nginx.pid;
+
+# The 'events' block specifies the low-level system settings for NGINX.
+events {
+    # The 'worker_connections' directive sets the maximum number of connections
+    # that each worker process can handle simultaneously.
+    worker_connections 1024;
+
+    # The 'multi_accept' directive enables multiple connections to be accepted
+    # at a time, which can improve performance.
+    multi_accept on;
+}
+
+# The 'http' block contains all the HTTP related settings for NGINX.
+http {
+    # The 'server' block is used to define the settings for a particular
+    # server or virtual host.
+    server {
+        # The 'listen' directive specifies the IP address and port that the server
+        # will listen on for incoming connections.
+        listen 80;
+        
+        # The 'server_name' directive sets the server's hostname.
+        server_name example.com;
+
+        # The 'root' directive specifies the root directory for the server.
+        root /var/www/example.com;
+
+        # The 'index' directive sets the default page for a directory.
+        # If a user requests a directory without specifying a file name,
+        # NGINX will serve the page listed first in the 'index' directive.
+        index index.html index.htm;
+
+        # The 'location' block is used to define configuration for a specific
+        # URL location or path.
+        location / {
+            # The 'try_files' directive sets the file to be served if it exists.
+            # If it doesn't exist, NGINX will fallback to the next directive
+            # in the list.
+            try_files $uri $uri/ /index.html;
+
+            # The 'proxy_pass' directive instructs NGINX to pass requests
+            # to a backend server or service.
+            proxy_pass http://localhost:3000;
+
+            # The 'proxy_set_header' directive sets custom HTTP headers to be
+            # passed to the backend server.
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+
+        # The 'location' block for handling error pages.
+        location /error {
+            # The 'internal' directive instructs NGINX to only serve this location
+            # to internal requests, blocking external access.
+            internal;
+
+            # The 'proxy_intercept_errors' directive controls whether NGINX
+            # intercepts and processes backend errors or returns them to the client.
+            proxy_intercept_errors on;
+
+            # The 'error_page' directive sets the custom error pages to be served.
+            error_page 404 /error/404.html;
+            error_page 500 /error/500.html;
+        }
+
+        # The 'location' block for handling static files.
+        # This is used to serve files directly from NGINX without
+        # passing them to a backend server.
+        location ~* \.(jpg|jpeg|gif|png|css|js|ico|pdf)$ {
+            # The 'expires' directive sets the cache expiry time for files.
+            expires max;
+
+            # The 'log_not_found' directive controls whether NGINX logs 
+            # requests for files not found on the server.
+            log_not_found off;
+        }
+    }
+
+    # The 'server' block for the HTTPS server.
+    server {
+        # Enable HTTPS by listening on port 443.
+        listen 443 ssl;
+        
+        # The 'ssl_certificate' directive specifies the path to the SSL certificate file.
+        ssl_certificate /etc/ssl/example.com.crt;
+        
+        # The 'ssl_certificate_key' directive specifies the path to the SSL private key file.
+        ssl_certificate_key /etc/ssl/example.com.key;
+
+        # Enable SSL session caching to improve performance.
+        ssl_session_cache shared:SSL:10m;
+        
+        # Set a secure TLS protocol.
+        ssl_protocols TLSv1.2;
+
+        # Set stronger SSL ciphers.
+        ssl_ciphers "EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH";
+
+        # Enable HTTP Strict Transport Security (HSTS).
+        add_header Strict-Transport-Security "max-age=31536000" always;
+    }
+}

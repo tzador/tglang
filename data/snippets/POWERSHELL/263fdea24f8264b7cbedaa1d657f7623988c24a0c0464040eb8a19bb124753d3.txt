@@ -1,0 +1,95 @@
+# Define function to get file permissions
+Function Get-FilePermissions {
+    <#
+    .SYNOPSIS
+        Retrieves file permissions for specified file.
+    .DESCRIPTION
+        This function retrieves file permissions for a specified file 
+        and outputs the results as an object with properties for 
+        user/group names, access rights, and inheritance settings.
+    .PARAMETER Path
+        The path to the file to retrieve permissions for. 
+    .PARAMETER Recursive
+        A switch specifying whether to include subdirectories when retrieving permissions.
+    .EXAMPLE
+        Get-FilePermissions -Path C:\Users\User1\Documents\test.txt -Recursive
+    .EXAMPLE
+        Get-FilePermissions -Path "C:\Users\User2\Desktop\My Folder" -Recursive
+    #>
+    
+    # Define parameters
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Path,
+        [switch]$Recursive
+    )
+    
+    # Define output object
+    $output = @()
+    
+    # Get basic information about the file
+    $info = Get-Item $Path
+    
+    # Get permissions for the file
+    $acl = $info.GetAccessControl()
+    
+    # Loop through each access rule for the file
+    foreach ($rule in $acl.GetAccessRules($true, $true, [System.Security.Principal.NTAccount]))
+    {
+        # Get properties of the access rule
+        $user = $rule.IdentityReference.Value
+        $rights = $rule.FileSystemRights
+        $type = $rule.AccessControlType
+        $inheritance = $rule.IsInherited
+        
+        # Create custom object with properties for user, rights, and inheritance
+        $obj = New-Object -TypeName PSObject
+        $obj | Add-Member -MemberType NoteProperty -Name "User/Group" -Value $user
+        $obj | Add-Member -MemberType NoteProperty -Name "Access Rights" -Value $rights
+        $obj | Add-Member -MemberType NoteProperty -Name "Type" -Value $type
+        $obj | Add-Member -MemberType NoteProperty -Name "Inheritance" -Value $inheritance
+        
+        # Add custom object to output array
+        $output += $obj
+    }
+    
+    # If recursive switch is specified, also retrieve permissions for subdirectories
+    if ($Recursive)
+    {
+        # Get list of subdirectories
+        $directories = Get-ChildItem $Path -Recurse -Directory
+        
+        # Loop through each subdirectory
+        foreach ($directory in $directories)
+        {
+            # Get basic information about the subdirectory
+            $info = Get-Item $directory.FullName
+            
+            # Get permissions for the subdirectory
+            $acl = $info.GetAccessControl()
+            
+            # Loop through each access rule for the subdirectory
+            foreach ($rule in $acl.GetAccessRules($true, $true, [System.Security.Principal.NTAccount]))
+            {
+                # Get properties of the access rule
+                $user = $rule.IdentityReference.Value
+                $rights = $rule.FileSystemRights
+                $type = $rule.AccessControlType
+                $inheritance = $rule.IsInherited
+                
+                # Create custom object with properties for user, rights, and inheritance
+                $obj = New-Object -TypeName PSObject
+                $obj | Add-Member -MemberType NoteProperty -Name "User/Group" -Value $user
+                $obj | Add-Member -MemberType NoteProperty -Name "Access Rights" -Value $rights
+                $obj | Add-Member -MemberType NoteProperty -Name "Type" -Value $type
+                $obj | Add-Member -MemberType NoteProperty -Name "Inheritance" -Value $inheritance
+                
+                # Add custom object to output array
+                $output += $obj
+            }
+        }
+    }
+    
+    # Output final array of objects
+    $output
+}

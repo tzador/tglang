@@ -1,0 +1,122 @@
+pragma solidity 0.8.7;
+
+// Example contract that implements an ERC-20 token with additional features using the Solidity programming language.
+
+// Imported libraries
+import "./IERC20.sol";
+import "./SafeMath.sol";
+import "./Ownable.sol";
+
+// Contract definition
+contract MyToken is IERC20, Ownable {
+
+    using SafeMath for uint256; // Using SafeMath library to prevent integer overflow
+
+    // Variables
+    mapping(address => uint256) private _balances;
+    mapping(address => mapping(address => uint256)) private _allowances;
+    uint256 private immutable _totalSupply;
+    string private _name;
+    string private _symbol;
+    uint8 private _decimals;
+    uint256 private constant MAX_UINT256 = 2**256 - 1; // Maximum allowed uint256 value
+
+    // Events
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    event Mint(address indexed to, uint256 value);
+    event Burn(address indexed from, uint256 value);
+
+    // Constructor function
+    constructor (string memory name_, string memory symbol_, uint8 decimals_, uint256 initialSupply_) {
+        _name = name_;
+        _symbol = symbol_;
+        _decimals = decimals_;
+        _totalSupply = initialSupply_;
+        _balances[msg.sender] = initialSupply_;
+    }
+
+    // Public functions
+
+    // Standard ERC-20 functions
+    function name() public view returns (string memory) {
+        return _name;
+    }
+
+    function symbol() public view returns (string memory) {
+        return _symbol;
+    }
+
+    function decimals() public view returns (uint8) {
+        return _decimals;
+    }
+
+    function totalSupply() public view override returns (uint256) {
+        return _totalSupply;
+    }
+
+    function balanceOf(address account) public view override returns (uint256) {
+        return _balances[account];
+    }
+
+    function transfer(address recipient, uint256 amount) public override returns (bool) {
+        _transfer(msg.sender, recipient, amount);
+        return true;
+    }
+
+    function allowance(address owner, address spender) public view override returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    function approve(address spender, uint256 amount) public override returns (bool) {
+        _approve(msg.sender, spender, amount);
+        return true;
+    }
+
+    function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
+        _transfer(sender, recipient, amount);
+        _approve(sender, msg.sender, _allowances[sender][msg.sender].sub(amount));
+        return true;
+    }
+
+    // Additional features
+
+    // Function to mint new tokens
+    function mint(address account, uint256 amount) public onlyOwner {
+        require(account != address(0), "Cannot mint to zero address");
+        require(amount <= MAX_UINT256 - _totalSupply, "Minting amount exceeds maximum supply");
+        _totalSupply = _totalSupply.add(amount);
+        _balances[account] = _balances[account].add(amount);
+        emit Mint(account, amount);
+    }
+
+    // Function to burn tokens
+    function burn(address account, uint256 amount) public onlyOwner {
+        require(account != address(0), "Cannot burn from zero address");
+        require(amount <= _balances[account], "Burn amount exceeds balance");
+        _totalSupply = _totalSupply.sub(amount);
+        _balances[account] = _balances[account].sub(amount);
+        emit Burn(account, amount);
+    }
+
+    // Private functions
+
+    // Function to transfer tokens
+    function _transfer(address sender, address recipient, uint256 amount) private {
+        require(sender != address(0), "Cannot transfer from zero address");
+        require(recipient != address(0), "Cannot transfer to zero address");
+        require(amount <= _balances[sender], "Transfer amount exceeds balance");
+        _balances[sender] = _balances[sender].sub(amount);
+        _balances[recipient] = _balances[recipient].add(amount);
+        emit Transfer(sender, recipient, amount);
+    }
+
+    // Function to approve spending allowance
+    function _approve(address owner, address spender, uint256 amount) private {
+        require(owner != address(0), "Cannot approve from zero address");
+        require(spender != address(0), "Cannot approve to zero address");
+        _allowances[owner][spender] = amount;
+        emit Approval(owner, spender, amount);
+    }
+
+}

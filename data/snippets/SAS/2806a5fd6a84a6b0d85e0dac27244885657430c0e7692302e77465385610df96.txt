@@ -1,0 +1,33 @@
+/*
+This code snippet performs logistic regression on a dataset to predict customer churn
+*/
+
+/* Importing necessary libraries and setting options */
+%let lib = "C:\Users\MyData";
+options center nodate pageno=1 formdlim='|' orientation=portrait;
+
+/* Creating a SAS dataset from a CSV file */
+data work.churn_data;
+    infile "&lib\customer_data.csv" dlm=',' dsd lrecl=32767 firstobs=2;
+    input cust_id:$9. gender:$1. age range u_age_group:$18. tenure days last_trans_dt:datetime20. churn:$1.;
+run;
+
+/* Creating a logistic model */
+proc logistic data=work.churn_data;
+    model churn(event='1') = gender age range u_age_group;
+    run;
+
+/* Assigning prediction probabilities to each observation */
+data work.predictions;
+    set work.churn_data;
+    score_gender = put(gender,$1.);
+    score_age = put(age,rb8.);
+    score_range = put(range,$1.);
+    score_u_age_group = put(u_age_group,$18.);
+    /* Generating probability of churn for each set of predictor values */
+    P_Churn = 1/(1+exp(-(intercept + score_gender + score_age + score_range + score_u_age_group)));
+run;
+
+/* Exporting predicted churn probabilities to a CSV file */
+proc export data=work.predictions outfile="&lib\predicted_churn.csv" dbms=CSV replace;
+    run;

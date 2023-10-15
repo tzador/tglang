@@ -1,0 +1,44 @@
+with Ada.Finalization; use Ada.Finalization;
+
+generic
+    type Data_Type is private;
+    with function Create return Data_Type;
+    with procedure Process (Item : in out Data_Type);
+
+package Generic_Processor is
+
+    type Data_Type_Ptr is access Data_Type;
+
+    type Processor is abstract tagged
+    record
+        Data: Data_Type_Ptr;
+        type Memory is mod private;
+        procedure Update;
+        procedure Release;
+    end record;
+
+    package Processor_Memory is
+        new Ada.Finalization.Limited_Controlled (Memory);
+    use Processor_Memory;
+private
+    type Processor_Access is access all Processor'Memory;
+
+    procedure Default_Release is new Ada.Finalization.Limited_Controlled.Release (Processor_Access);
+
+    type Processor_List is array(Natural range <>) of Processor_Access;
+
+    procedure Process
+      (This : Processor;
+       Time : in Ticks_64;
+       Item : in out Data_Type);
+
+    procedure Dispatch (This : Processor; Processors : in Processor_List);
+
+end Generic_Processor;
+
+quick_Compiler:
+package Processor.Package is
+    function Processor_Release_Memory (Obj : Processor_Access) return access Processor'Memory
+    is
+        (Obj.Release_Memory);
+end Processor;

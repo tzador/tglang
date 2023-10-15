@@ -1,0 +1,109 @@
+# NGINX Virtual Server Configuration
+
+# Set up server block for example.com
+server {
+    listen 80; # Listen on port 80 for HTTP requests
+    server_name example.com; # Define server name
+    access_log /var/log/nginx/example.com-access.log; # Define location for access log
+
+    # Set up location block for root directory
+    location / {
+        root /var/www/example.com; # Define root directory
+        index index.html index.php; # Define default files to serve
+    }
+
+    # Set up location block for PHP files
+    location ~ \.php$ {
+        fastcgi_pass unix:/run/php/php7.4-fpm.sock; # Define location of PHP-FPM socket
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; # Define PHP script file path
+        include fastcgi_params; # Include default FastCGI parameters
+    }
+
+    # Set up location block for static assets
+    location ~* \.(jpg|jpeg|gif|png|css|js|ico|xml)$ {
+        access_log off; # Disable access logging for static assets
+        expires 30d; # Set caching time for assets
+        add_header Pragma public; # Set cache control options
+        add_header Cache-Control "public, must-revalidate, proxy-revalidate"; # Set cache control options
+        try_files $uri $uri/ /404.html; # Define file lookup order
+    }
+
+    # Redirect all requests to HTTPS using a 301 permanent redirect
+    return 301 https://example.com$request_uri;
+}
+
+# Set up server block for www.example.com, redirect to non-www version
+server {
+    listen 80;
+    server_name www.example.com; # Define server name
+    return 301 https://example.com$request_uri;
+}
+
+# Set up server block for HTTPS requests on example.com
+server {
+    listen 443 ssl http2; # Listen on port 443 for HTTPS requests
+    server_name example.com; # Define server name
+    access_log /var/log/nginx/example.com-ssl-access.log; # Define location for access log
+    ssl_certificate /etc/letsencrypt/live/example.com/fullchain.pem; # Define SSL certificate location
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem; # Define SSL certificate key location
+
+    # Set up location block for root directory
+    location / {
+        root /var/www/example.com; # Define root directory
+        index index.html index.php; # Define default files to serve
+    }
+
+    # Set up location block for PHP files
+    location ~ \.php$ {
+        fastcgi_pass unix:/run/php/php7.4-fpm.sock; # Define location of PHP-FPM socket
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; # Define PHP script file path
+        include fastcgi_params; # Include default FastCGI parameters
+    }
+
+    # Set up location block for static assets
+    location ~* \.(jpg|jpeg|gif|png|css|js|ico|xml)$ {
+        access_log off; # Disable access logging for static assets
+        expires 30d; # Set caching time for assets
+        add_header Pragma public; # Set cache control options
+        add_header Cache-Control "public, must-revalidate, proxy-revalidate"; # Set cache control options
+        try_files $uri $uri/ /404.html; # Define file lookup order
+    }
+
+    # Enable SSL and set recommended security options
+    ssl on;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:10m;
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+    ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:HIGH:!aNULL:!MD5:!RC4:!DHE;
+    ssl_prefer_server_ciphers on;
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    resolver 8.8.8.8 8.8.4.4 valid=300s;
+    resolver_timeout 5s;
+
+    # Enable HTTP/2 protocol
+    http2_push_preload on;
+    add_header Strict-Transport-Security "max-age=31536000" always;
+}
+
+# Set up server block for www.example.com HTTPS requests, redirect to non-www version
+server {
+    listen 443 ssl http2;
+    server_name www.example.com; # Define server name
+    ssl_certificate /etc/letsencrypt/live/example.com/fullchain.pem; # Define SSL certificate location
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem; # Define SSL certificate key location
+
+    # Set up location block to handle all requests
+    location / {
+        return 301 https://example.com$request_uri; # Redirect to non-www version
+    }
+}
+
+# Set up server block for secure requests to example.com
+server {
+    listen 80;
+    server_name example.com;
+
+    # Redirect to HTTPS using a 301 permanent redirect
+    return 301 https://example.com$request_uri;
+}

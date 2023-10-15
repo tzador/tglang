@@ -1,0 +1,50 @@
+# The following code is a complex NGINX configuration that 
+# implements caching for faster website performance.
+
+http {
+    # Set an appropriate cache path location
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=my_cache:10m inactive=60m;
+    # Specify how long to keep the cached content
+    proxy_cache_valid 200 302 10m;
+    proxy_cache_valid 404 1m;
+
+    # Define a list of cacheable content types
+    proxy_cache_bypass $http_pragma;
+    proxy_cache_revalidate on;
+    proxy_cache_min_uses 5;
+    proxy_cache_lock on;
+
+    server {
+        listen 80;
+        server_name www.example.com
+
+        # Specify the cache control settings for responses
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+            expires 10d;
+            add_header Pragma public;
+            add_header Cache-Control "public";
+            # Enable caching for these content types
+            proxy_cache my_cache;
+            proxy_ignore_headers Set-Cookie;
+            # Set the key to use for caching
+            proxy_cache_key "$scheme$request_method$host$request_uri";
+        }
+        # Serve cached content if available, else proxy to the origin server
+        location / {
+            proxy_cache my_cache;
+            proxy_pass http://origin_server;
+            # Set the cache key to use for the response
+            proxy_cache_key "$scheme$request_method$host$request_uri";
+            # Only cache GET and HEAD requests
+            proxy_cache_methods GET HEAD;
+            # Do not cache responses with a status code of 404
+            proxy_cache_bypass $http_cache_control;
+            # Do not cache responses with a status code of 500 or above
+            proxy_cache_bypass $http_secret_header;
+            # Do not cache responses with a status code of 200 if they contain "nocache" in the URL
+            proxy_cache_bypass $http_nocache_param;
+            # Do not cache responses with a status code of 301 if they contain "redirect" in the URL
+            proxy_cache_bypass $http_redirect_param;
+        }
+    }
+}

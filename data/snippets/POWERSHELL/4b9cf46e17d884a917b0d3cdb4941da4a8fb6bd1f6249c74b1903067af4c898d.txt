@@ -1,0 +1,35 @@
+& lt;# This is a PowerShell script to automate a server installation process app1
+
+# Set variables for server details
+$serverName = "server1"
+$serverIP = "192.168.1.100"
+$userName = "admin"
+$password = "password"
+
+# Create new remote session to the server
+$session = New-PSSession -ComputerName $serverIP -Credential (Get-Credential -Credential $username)
+
+# Copy app1 installation files to the server
+Copy-Item -Path "C:\install\app1" -Destination "\\$serverName\C$\Temp" -ToSession $session
+
+# Create folder for app1 installation and set permissions
+Invoke-Command -ScriptBlock {New-Item -ItemType Directory -Path "C:\app1" -Force} -Session $session
+Invoke-Command -ScriptBlock {Set-Acl -Path "C:\app1" -AclObject (Get-Acl -Path "C:\Temp\app1" -Audit)} -Session $session
+
+# Install app1 on the server
+Invoke-Command -ScriptBlock {C:\Temp\app1\setup.exe /silent /install} -Session $session
+
+# Verify app1 installation
+$installed = Invoke-Command -ScriptBlock {Test-Path "C:\Program Files\app1"} -Session $session
+if($installed) {
+    Write-Host "app1 has been successfully installed on $serverName."
+} else {
+    Write-Host "app1 installation failed on $serverName."
+}
+
+# Cleanup temporary installation files
+Invoke-Command -ScriptBlock {Remove-Item -Path "C:\Temp\app1" -Recurse -Force} -Session $session
+
+# Close remote session
+Remove-PSSession $session
+#&gt;

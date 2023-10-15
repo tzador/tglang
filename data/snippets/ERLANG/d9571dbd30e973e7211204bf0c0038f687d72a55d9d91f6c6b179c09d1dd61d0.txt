@@ -1,0 +1,83 @@
+%% This module creates a gen_server that keeps track of the state of a bank account
+
+-module(bank_server).
+-behaviour(gen_server).
+
+%% External API
+
+-export([start/0, deposit/1, withdraw/1, check_balance/0]).
+
+%% Server callbacks
+
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+
+%% Server state record
+
+-record(state, {
+    account_num,
+    balance = 0
+}).
+
+
+%% ==============================================================================
+%% API Functions
+%% ==============================================================================
+
+%% Starts the server and sets the initial state
+start() ->
+    gen_server:start({local, ?MODULE}, ?MODULE, [], []).
+
+%% Deposits the given amount into the account
+deposit(Amount) ->
+    gen_server:call(?MODULE, {deposit, Amount}).
+
+%% Withdraws the given amount from the account
+withdraw(Amount) ->
+    gen_server:call(?MODULE, {withdraw, Amount}).
+
+%% Retrieves the current balance of the account
+check_balance() ->
+    gen_server:call(?MODULE, check_balance).
+
+%% ==============================================================================
+%% Server Callback Functions
+%% ==============================================================================
+
+%% Initializes the server state
+init([]) ->
+    {ok, #state{account_num = account_num()}}.
+
+%% Handles incoming calls from the API
+handle_call({deposit, Amount}, _From, State) ->
+    {reply, ok, State#state{balance = State#state.balance + Amount}};
+
+handle_call({withdraw, Amount}, _From, State) ->
+    {reply, ok, State#state{balance = State#state.balance - Amount}};
+
+handle_call(check_balance, _From, State) ->
+    {reply, State#state.balance, State}.
+
+%% Handles incoming asynchronous events
+handle_cast(_Msg, State) ->
+    {noreply, State}.
+
+%% Handles non-specific system messages
+handle_info(_Info, State) ->
+    {noreply, State}.
+
+%% Handles server termination
+terminate(_Reason, _State) ->
+    ok.
+
+%% Handles code updates
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
+
+
+%% ==============================================================================
+%% Utility Functions
+%% ==============================================================================
+
+%% Generates a random 8-digit account number
+account_num() ->
+    lists:foldl(fun(Digit, Acc) -> Acc*10 + Digit end, 0, lists:map(fun(_) -> random:uniform(9) end, lists:seq(1,8))).

@@ -1,0 +1,63 @@
+<?php
+
+/**
+ * This function fetches data from an API and inserts it into a database.
+ *
+ * @param $url The URL of the API endpoint
+ * @param $username The username to access the API
+ * @param $password The password to access the API
+ * @param $database The name of the database to insert the data into
+ * @return bool True if successful, False if not
+ */
+function fetchAndInsert($url, $username, $password, $database) {
+
+    // Initialize cURL session
+    $curl = curl_init();
+
+    // Set cURL options
+    curl_setopt($curl, CURLOPT_URL, $url); // API endpoint
+    curl_setopt($curl, CURLOPT_RETURNTRANSFER, true); // Return the response as a string
+    curl_setopt($curl, CURLOPT_HTTPHEADER, [
+        'Accept-Language: EN', // Set preferred language
+        'Authorization: Basic ' . base64_encode($username . ':' . $password) // Set basic authentication headers
+    ]);
+
+    // Execute cURL request
+    $response = curl_exec($curl);
+
+    // Check for errors
+    if (!$response || curl_getinfo($curl, CURLINFO_RESPONSE_CODE) !== 200) {
+        // Close cURL session
+        curl_close($curl);
+        return false; // Return false if error occurred
+    }
+
+    // Convert response from JSON to array
+    $data = json_decode($response, true);
+
+    // Connect to database
+    $connection = new mysqli('localhost', 'username', 'password', $database);
+
+    // Check for errors
+    if ($connection->connect_error) {
+        return false; // Return false if connection error occurred
+    }
+
+    // Prepare statement to insert data
+    $stmt = $connection->prepare('INSERT INTO data (id, name, age) VALUES (?, ?, ?)');
+
+    // Bind parameters and execute insert statement for each data item
+    foreach ($data as $item) {
+        $stmt->bind_param('iss', $item['id'], $item['name'], $item['age']);
+        $stmt->execute();
+    }
+
+    // Close statement and connection
+    $stmt->close();
+    $connection->close();
+
+    // Close cURL session
+    curl_close($curl);
+
+    return true; // Return true if successful
+}

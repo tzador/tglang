@@ -1,0 +1,48 @@
+%%% Module to define a cache data structure %%%
+-module(cache).
+-export([new/1,put/3,get/2,remove/2,size/1]).
+% The function `new/1` creates a new cache data structure
+% Argument `MaxSize` specifies the maximum size of the cache
+new(MaxSize) -> 
+    % Create an empty ets table to store key-value pairs
+    Table = ets:new(cache, [named_table, set, protected]),
+    % Store the maximum size of the cache
+    OK = ets:insert(Table, max_size, MaxSize),
+    % Return the created table
+    {ok, Table}.
+% The function `put/3` inserts a key-value pair into the cache
+% Argument `Cache` specifies the cache table
+% Argument `Key` specifies the key of the pair
+% Argument `Value` specifies the value of the pair
+put(Cache, Key, Value) ->
+    % Check if the cache is full
+    case size(Cache) of
+        MaxSize when MaxSize == ets:lookup(Cache, max_size) ->
+            % If full, remove the oldest key-value pair
+            {_, OldestKey} = ets:first(Cache),
+            remove(Cache, OldestKey),
+            % Insert the new pair
+            ets:insert(Cache, {Key, Value});
+        _ ->
+            % If not full, simply insert the new pair
+            ets:insert(Cache, {Key, Value})
+    end.
+% The function `get/2` retrieves the value of a given key from the cache
+% Argument `Cache` specifies the cache table
+% Argument `Key` specifies the key of the pair
+get(Cache, Key) ->
+    % Return the value corresponding to the given key
+    ets:lookup(Cache, Key).
+% The function `remove/2` removes a key-value pair from the cache
+% Argument `Cache` specifies the cache table
+% Argument `Key` specifies the key of the pair
+remove(Cache, Key) ->
+    % Delete the pair from the cache
+    ets:delete(Cache, Key).
+% The function `size/1` calculates the current size of the cache
+% Argument `Cache` specifies the cache table
+size(Cache) ->
+    % Retrieve the number of key-value pairs in the cache
+    Size = ets:info(Cache, size),
+    % Return the size
+    Size.

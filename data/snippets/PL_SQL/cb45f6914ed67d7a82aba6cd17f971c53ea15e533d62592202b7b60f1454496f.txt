@@ -1,0 +1,69 @@
+CREATE TABLE employees (
+    employee_id NUMBER NOT NULL,
+    first_name VARCHAR2(50) NOT NULL,
+    last_name VARCHAR2(50) NOT NULL,
+    email VARCHAR2(100) NOT NULL,
+    hire_date DATE,
+    salary NUMBER,
+    CONSTRAINT emp_pk PRIMARY KEY (employee_id)
+);
+
+COMMENT ON TABLE employees
+    IS 'This table stores employee information';
+
+CREATE OR REPLACE TRIGGER salary_check
+BEFORE INSERT OR UPDATE ON employees
+FOR EACH ROW
+DECLARE
+    min_salary NUMBER;
+    max_salary NUMBER;
+BEGIN
+    SELECT MIN_SALARY, MAX_SALARY
+    INTO min_salary, max_salary
+    FROM job_titles
+    WHERE job_title_id = :NEW.job_title_id;
+    
+    IF :NEW.salary < min_salary OR :NEW.salary > max_salary THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Salary must be within the range of '||min_salary||' and '||max_salary);
+    END IF;
+END;
+
+CREATE OR REPLACE PROCEDURE hire_employee(
+    p_employee_id IN NUMBER,
+    p_first_name IN VARCHAR2,
+    p_last_name IN VARCHAR2,
+    p_email IN VARCHAR2,
+    p_hire_date IN DATE,
+    p_salary IN NUMBER,
+    p_job_title_id IN NUMBER
+)
+AS
+    l_count NUMBER;
+BEGIN
+    SELECT COUNT(*) INTO l_count FROM employees WHERE employee_id = p_employee_id;
+    
+    IF l_count = 0 THEN
+        INSERT INTO employees(employee_id, first_name, last_name, email, hire_date, salary, job_title_id)
+        VALUES(p_employee_id, p_first_name, p_last_name, p_email, p_hire_date, p_salary, p_job_title_id);
+    ELSE
+        UPDATE employees SET
+        first_name = p_first_name,
+        last_name = p_last_name,
+        email = p_email,
+        hire_date = p_hire_date,
+        salary = p_salary,
+        job_title_id = p_job_title_id
+        WHERE employee_id = p_employee_id;
+    END IF;
+END;
+/
+ 
+CREATE OR REPLACE FUNCTION get_employee_salary(p_employee_id IN NUMBER)
+RETURN NUMBER
+AS
+    l_salary employees.salary%TYPE;
+BEGIN
+    SELECT salary INTO l_salary FROM employees WHERE employee_id = p_employee_id;
+    RETURN l_salary;
+END;
+/

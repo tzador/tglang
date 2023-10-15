@@ -1,0 +1,59 @@
+function Get-ProcessTree {
+PARAM(
+    [Parameter(Mandatory=$true, Position=0)]
+    [String]$ProcessId
+)
+BEGIN {
+    # Checking if the process id is an actual number
+    $Pattern = "^\d+$"
+    if($ProcessId -match $Pattern) {
+        Write-Host "Process Id is valid"
+        # Getting the process with the given id
+        try {
+            $Process = Get-Process -Id $ProcessId -ErrorAction Stop
+        } catch {
+            Write-Error "Failed to get process with id $($ProcessId): $_"
+        }
+    } else {
+        # If the process id is not a number, checking if it is a process name
+        try {
+            $Process = Get-Process -Name $ProcessId -ErrorAction Stop
+        } catch {
+            Write-Error "Failed to get process with name $($ProcessId): $_"
+        }
+    }
+}
+PROCESS {
+    # Storing the process details in a variable
+    $ProcessName = $Process.ProcessName
+    $ProcessId = $Process.Id
+
+    if($ProcessId -lt 10) {
+        # If process id is less than 10, getting the first 10 child processes
+        $ChildProcesses = Get-Process -Id $ProcessId | Select-Object -ExpandProperty ChildProcesses -First 10
+    } else {
+        # If process id is greater than 10, getting the first 5 child processes
+        $ChildProcesses = Get-Process -Id $ProcessId | Select-Object -ExpandProperty ChildProcesses -First 5
+    }
+
+    # Creating a hashtable to store process tree
+    [hashtable]$ProcessTree = @{}
+
+    # Adding current process as the root of the tree
+    $ProcessTree.Add($ProcessName, $null)
+
+    # Iterating through child processes to add them to the tree
+    foreach($Child in $ChildProcesses) {
+        $ProcessTree.Add($Child.ProcessName, $ProcessName)
+    }
+
+    # Printing the process tree in a formatted manner
+    Write-Host "Process Tree for process $($ProcessName):"
+
+    foreach($Entry in $ProcessTree.GetEnumerator() | Sort-Object Value) {
+        Write-Host "- $($Entry.Key) (Parent: $($Entry.Value))"
+    }
+}
+END {
+
+}

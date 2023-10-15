@@ -1,0 +1,51 @@
+/* An example of a complicated data transformation using SAS */
+
+/* Create a macro variable for the categorical variable of interest */
+%let var = Product_Type;
+
+/* Create a macro variable to store the desired output variable names */
+%let output = Sales&var. Profit&var.;
+
+/* Create a macro variable to store the desired input dataset name */
+%let data = Products;
+
+/* Create a macro to generate an SQL query for the data transformation */
+%macro transform(var,data,output);
+PROC SQL;
+/* Select the original categorical variable and the numeric variables of interest */
+SELECT &var, Price, Cost
+/* Calculate the total sales and profits for each category */
+, SUM(Price) AS Sales&var.
+, SUM(Price-Cost) AS Profit&var.
+/* Specify the input dataset */
+FROM &data
+/* Group by the categorical variable */
+GROUP BY &var
+;QUIT;
+%mend;
+
+/* Call the macro to execute the data transformation */
+%transform(&var, &data, &output);
+
+/* Create a macro to generate a dataset of the transformed data */
+%macro create_dataset(var,output);
+/* Specify the input dataset */
+data &var._summary;
+/* Set the format for the newly created sales and profit variables */
+format Sales&var. dollar12.2 Profit&var. dollar12.2;
+/* Set the label for the new variables */
+label Sales&var. = "Total Sales for &var."
+Profit&var. = "Total Profit for &var.";
+/* Set the keep statement to only include the desired output variables */
+keep &var Sales&var. Profit&var.;
+/* Set the rename statement to rename the output variables */
+rename Sales&var. = Total_Sales Profit&var. = Total_Profit;
+/* Merge the transformed data with the original dataset */
+merge &output &data;
+/* Specify the sort order for the data */
+by &var;
+run;
+%mend;
+
+/* Call the macro to create the new dataset of transformed data */
+%create_dataset(&var,&output);

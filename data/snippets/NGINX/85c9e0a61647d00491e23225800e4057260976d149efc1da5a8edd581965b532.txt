@@ -1,0 +1,33 @@
+server {
+    listen 80; #listen on port 80
+    server_name example.com; #set server name
+    location / {
+        proxy_pass http://127.0.0.1:8080; #forward requests to specified address and port
+        proxy_set_header Host $host; #set request header
+        proxy_set_header X-Real-IP $remote_addr; #set client's real IP address as request header
+    }
+    location /images/ {
+        root /data/images/; #specify root directory for images
+        internal; #only respond to internal requests
+    }
+    location /api/ {
+        if ($args ~* "key=12345") { #check if request has "key=12345" in query string
+            proxy_pass http://api_server/; #forward requests to specified upstream server
+            break; #stop further processing
+        }
+        return 401; #return HTTP 401 Unauthorized error
+    }
+    location ~* \.(gif|jpg|jpeg|png)$ {
+        expires 30d; #expires after 30 days
+        add_header Pragma public; #set response header
+        add_header Cache-Control "public"; #set caching instruction for private caches
+    }
+    error_page 404 /404.html; #define custom error page for 404 errors
+    location = /404.html {
+        internal; #only respond to internal requests
+    }
+    error_page 500 502 503 504 /50x.html; #define custom error page for 50x errors
+    location = /50x.html {
+        internal; #only respond to internal requests
+    }
+}

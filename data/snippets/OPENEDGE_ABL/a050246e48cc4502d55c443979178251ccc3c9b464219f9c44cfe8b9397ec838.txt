@@ -1,0 +1,87 @@
+/* This is a complex code snippet in the OPENEDGE_ABL programming language */
+
+/* Declare a temp-table to store data */
+DEFINE TEMP-TABLE ttEmployee
+    FIELD EmpID AS INTEGER
+    FIELD FirstName AS CHARACTER
+    FIELD LastName AS CHARACTER
+    FIELD Salary AS DECIMAL
+    FIELD Department AS CHARACTER
+    INDEX IDX_EmpID IS UNIQUE PRIMARY EmpID
+    INDEX IDX_LName IS UNIQUE LastName.
+
+/* Define a data procedure to populate the temp-table */
+DEFINE DATA-PREPARE dpPopulateEmployee.
+    DATA-INTO ttEmployee (EmpID, FirstName, LastName, Salary, Department)
+        /* Select data from the EMPLOYEE table */
+        SELECT EmployeeID, FirstName, LastName, Salary, Department
+        FROM EMPLOYEE
+        WHERE Salary > 50000.
+    END.
+END.
+
+/* Create a browse widget to display the data from the temp-table */
+DEFINE BROWSE brEmployee
+    QUERY ttEmployee NO-LOCK DISPLAY
+        /* Display the EmpID and FirstName fields */
+        EmpID FirstName
+        /* Format the display of the LastName and Salary fields */
+        (MIN(30) UPPER(LastName) WITH WIDTH 25)
+        Salary DECIMAL "99,999.99"
+        /* Add a column for the Department field */
+        Department.
+
+/* Create a temp-table to store selected data from the browse */
+DEFINE TEMP-TABLE ttSelectedEmp
+    FIELD EmpID AS INTEGER
+    FIELD FirstName AS CHARACTER
+    FIELD LastName AS CHARACTER
+    FIELD Department AS CHARACTER.
+
+/* Define a trigger to populate the temp-table with selected data */
+ON CHOOSE OF brEmployee DO:
+    /* Get the EmpID and Department values from the selected row */
+    ttSelectedEmp.EmpID = EmpID.
+    ttSelectedEmp.FirstName = FirstName.
+    ttSelectedEmp.LastName = LastName.
+    ttSelectedEmp.Department = Department.
+    /* Display a message with the selected employee's information */
+    MESSAGE "You selected employee " + ttSelectedEmp.FirstName + " " + ttSelectedEmp.LastName
+        + " from the " + ttSelectedEmp.Department + " department"
+        VIEW-AS ALERT-BOX INFO BUTTONS OK.
+
+/* Create a query to filter the browse by Department */
+DEFINE QUERY qrDepartment FOR ttEmployee
+    /* Set the default WHERE clause to filter by Department */
+    WHERE Department = "Sales"
+    /* Allow the user to change the filter dynamically */
+    BEFORE-EACH-BROWSE:
+        /* Prompt the user to enter a department to filter by */
+        /* Use the CHOOSE function to populate a temp-table with department names */
+        INPUT FROM CHOOSE("Sales", "Marketing", "Human Resources", "Finance") brDepartment
+            COL 1 WITH TITLE "Select Department"
+            WITH FRAME "Department" WITH ROW-TITLE "Departments"
+        /* Set the WHERE clause to filter by the selected department */
+        ttEmployee.Department = brDepartment.COL 1.
+    AFTER-EACH-BROWSE:
+        /* Set the WHERE clause back to the default value */
+        ttEmployee.Department = "Sales".
+    /* Display the department name in the query title */
+    ASSIGN TITLE = "Sales Employees".
+    DEFAULT-SELECTION First-Emp.
+    DEFAULT-ABLE PS-EmpName.
+    ENABLE WITH FRAME qrEmpName WITH TRIGGER-ONLY.
+
+/* Update the temp-table if the Salary field is edited */
+ON VALUE-CHANGED OF brEmployee.Salary IN QUERY qrDepartment
+    /* Prompt the user to confirm the salary change */
+    DO WITH FRAME ttEmployee:
+        IF CHOOSE(MESSAGE "Are you sure you want to change the salary for this employee?"
+            VIEW-AS ALERT-BOX QUESTION BUTTONS YES-NO) = 1 THEN DO:
+            /* Get the updated salary value */
+            ttEmployee.Salary = brEmployee.Salary.
+        END.
+    END. 
+
+/* Show the browse and query */
+DISPLAY brEmployee qrDepartment WITH CENTERED ROWS 30 COLUMNS 120 GRID 7 DOWN DEFAULT unless qrDepartment:BUFFER-EMPTY.

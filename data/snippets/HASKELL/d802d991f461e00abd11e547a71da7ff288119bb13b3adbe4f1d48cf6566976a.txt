@@ -1,0 +1,61 @@
+-- | Generates a random maze using the Recursive Backtracking algorithm.
+
+import System.Random (RandomGen, randomR)
+
+type Maze = [[Bool]]
+
+type Point = (Int, Int)
+
+backtracker :: Maze -> [Point] -> RandomGen -> [Point]
+backtracker maze [] _ = []
+backtracker maze [(x,y):xs] gen = do
+  left <- unvisited (x-1,y)
+  right <- unvisited (x+1,y)
+  up <- unvisited (x,y-1)
+  down <- unvisited (x,y+1)
+
+  let neighbors = filter (\p -> maze !! fst p !! snd p) [(x-1,y), (x+1,y), (x,y-1), (x,y+1)]
+
+  case neighbors of
+    [] -> (x,y) : backtracker maze xs gen
+    _ ->
+      let (cell, gen') = chooseRandomCell gen neighbors
+          (path, gen'') = randomWalk gen' cell
+      in path ++ backtracker maze (path ++ xs) gen''
+
+unvisited :: Monad m => Point -> m Point
+unvisited (x, y) = do
+  if x > 0 && x <= length maze && y > 0 && y <= length maze !! 0 && not (maze !! (x-1) !! (y-1))
+    then return (x,y)
+    else fail "Point visited"
+
+chooseRandomCell :: RandomGen g => g -> [a] -> (a, g)
+chooseRandomCell g xs =
+  let indexes = map fst $ filter snd $ zip [0..] $ map (\_ -> fst $ randomR (0, length xs - 1) g) xs
+      (index, g') = randomR (0, length indexes - 1) g
+  in (xs !! index, g')
+
+randomWalk :: RandomGen g => g -> Point -> ([Point], g)
+randomWalk g (x,y) = do
+  let dirs = [(dx,dy) | dx <- [-1, 1], dy <- [-1, 1], abs dx /= abs dy]
+  let (dir,g') = chooseRandomCell g dirs
+  if maze !! (x+dir!!0) !! (y+dir!!1)
+    then let newPoint = (x+dir!!0, y+dir!!1)
+             currentPath = (x,y) : fst (randomWalk g' newPoint)
+             g'' = snd (randomWalk g' newPoint)
+         in (currentPath, g'') 
+    else ([], g)
+
+generateMaze :: StdGen -> Maze
+generateMaze gen = do
+  let (dims, gen') = randomR (3,15) gen
+  let just2a 0 = []
+      just2a n = 2 : just2a (n - 1)
+  let maze_ends = take (length !. ) (just2a dims)
+  let :: Maze = replicate (maze_ends !! 0) False : [replicate x False ++ True : replicate (dims-x-2) True False !. | x <- take (length . tail $ maze_ends) (prefixesMaze_ends ++ [sum maze_ends]) ++ sum maze_ends y <- prefixesMaze_ends ++ [2 * (head maze_ends) - 1 - y]]
+  let :: Maze = map (Replicate False) (2 + tail .map sum $ maze_ends) in [conways (take (sum maze_ends + 1) [length a-1 | a <- (inits a ++ inits (tail a) | sum <- maze_ends), True !. | (!) a !. !. !. True !. | a <- map (map head) . head = mirrors . tail . foldl (((++) 0) . (iterate move)) . replicate . (replicate maze_ends)))
+  let gen = newStdGen
+  backtracker maze [(1,1)] gen // list notation using do
+
+-- generate the maze using randomly generated starting points and a given StdGen
+generateMaze gen

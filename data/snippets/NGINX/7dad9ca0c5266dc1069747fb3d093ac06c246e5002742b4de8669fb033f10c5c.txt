@@ -1,0 +1,79 @@
+#This section specifies which user nginx will run as
+user nginx;
+
+#This section defines the number of processes to run
+worker_processes 1;
+
+#This section sets the error log file and level
+error_log /var/log/nginx/error.log warn;
+
+#This section sets the maximum number of open files for each worker process
+worker_rlimit_nofile 8192;
+
+#This section specifies the events that nginx will handle
+events {
+    #Sets the maximum number of connections allowed per worker process
+    worker_connections 1024;
+    #Sets how nginx handles connections from remote clients
+    use epoll;
+}
+
+#This section configures nginx server
+http {
+    #Sets the IP address and port for incoming connections
+    server {
+        listen 80;
+        server_name example.com;
+    }
+
+    #This section specifies the root directory for the server
+    root /usr/share/nginx/html;
+
+    #This section sets the default document to load when a directory is accessed
+    index index.html;
+
+    #This section specifies how files should be cached
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico)$ {
+        expires max;
+        log_not_found off;
+    }
+
+    #This section sets how nginx handles requests for PHP files
+    location ~ \.php$ {
+        #Specifies the port where PHP-FPM will listen for requests
+        fastcgi_pass unix:/var/run/php-fpm/php-fpm.sock;
+        #Specifies which files should be executed as PHP
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+
+    #This section specifies how nginx handles requests for static files
+    location ~* \.(txt|js|xml|css|jpg|png|jpeg|gif|swf|ico|mp4|mpeg|mp3|avi|mov|wav|zip|tar|tgz|gz|rar|bz2|doc|xls|exe|ppt)$ {
+        #Defines how long nginx will keep cached files
+        expires 30d;
+        log_not_found off;
+        access_log off;
+    }
+
+    #This section specifies how nginx handles requests for location blocks
+    location / {
+        #Enables reverse proxy cache
+        proxy_cache_enabled on;
+        #Sets the maximum size of cached objects
+        proxy_cache_max_size 10g;
+        #Specifies the location of the cache metadata
+        proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=my_cache:10m inactive=60m;
+        #Sets the default time to live for cached objects
+        proxy_cache_valid 200 301 302 404 1m;
+        #Specifies the headers that should be used for caching
+        proxy_cache_use_stale updating;
+        #Specifies the time after which stale cached objects should be cached
+        proxy_cache_lock_age 2;
+        #Enables gzip compression for cached objects
+        gzip on;
+        #Sets the minimum size required for compression to be enabled
+        gzip_min_length 100;
+        #Specifies which file types to compress
+        gzip_types text/plain text/css text/xml application/xml application/xml+rss application/javascript image/svg+xml;
+    }
+}

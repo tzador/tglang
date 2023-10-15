@@ -1,0 +1,52 @@
+# Trial Balance Report
+CREATE OR REPLACE PROCEDURE generate_trial_balance_report
+(auth_code VARCHAR2, report_date DATE)
+IS
+    -- Declaring local variables
+    opening_bal NUMBER;
+    debit_bal NUMBER;
+    credit_bal NUMBER;
+    closing_bal NUMBER;
+    
+BEGIN
+    -- Checking authorization
+    IF auth_code = 'AUTH123'
+        THEN
+            -- Generating report header
+            DBMS_OUTPUT.PUT_LINE('----- Trial Balance Report -----');
+            DBMS_OUTPUT.PUT_LINE('Report Date: ' || TO_CHAR(report_date, 'DD-MON-YYYY'));
+            DBMS_OUTPUT.PUT_LINE('');
+
+            -- Querying opening balance
+            SELECT SUM(debit_amount - credit_amount)
+            INTO opening_bal
+            FROM transaction_table
+            WHERE transaction_date < report_date;
+
+            -- Printing opening balance
+            DBMS_OUTPUT.PUT_LINE('Opening Balance: ' || opening_bal);
+
+            -- Querying and printing current balances of accounts
+            FOR account IN (SELECT account_name, SUM(debit_amount) AS debit_amt, SUM(credit_amount) AS credit_amt
+                            FROM transaction_table
+                            WHERE transaction_date = report_date
+                            GROUP BY account_name) LOOP
+                DBMS_OUTPUT.PUT_LINE(account.account_name || ': ' || account.debit_amt || ', ' || account.credit_amt);
+
+                -- Calculating and updating debit balance
+                debit_bal := debit_bal + account.debit_amt;
+
+                -- Calculating and updating credit balance
+                credit_bal := credit_bal + account.credit_amt;
+            END LOOP;
+
+            -- Calculating closing balance
+            closing_bal := opening_bal + debit_bal - credit_bal;
+
+            -- Printing closing balance
+            DBMS_OUTPUT.PUT_LINE('Closing Balance: ' || closing_bal);
+    ELSE
+        -- If unauthorized, raise an error
+        RAISE_APPLICATION_ERROR(-20001, 'Unauthorized access! Please provide a valid authentication code.');
+    END IF;
+END;

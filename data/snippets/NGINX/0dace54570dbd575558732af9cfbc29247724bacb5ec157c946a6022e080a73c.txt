@@ -1,0 +1,39 @@
+#NGINX configuration for a reverse proxy server
+
+#Define upstream server for load balancing
+upstream backend {
+    server 10.0.0.1; #IP address of first server
+    server 10.0.0.2; #IP address of second server
+    server 10.0.0.3; #IP address of third server
+}
+
+#Creating a server block for the reverse proxy
+server {
+
+    #Listening on port 80
+    listen 80;
+
+    #Defining server name
+    server_name reverseproxy.com;
+
+    #Proxy settings
+    proxy_buffers 8 16k;
+    proxy_buffer_size 32k;
+    proxy_cache_path /tmp/nginx/cache levels=1:2 keys_zone=cache:10m;
+
+    #Proxy pass to upstream server
+    location / {
+        proxy_pass http://backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        #Disable caching for potential sensitive data
+        proxy_cache_bypass $http_pragma;
+        proxy_cache_revalidate on;
+
+        #Optional: Limiting access to specific clients
+        allow 192.168.1.1; #Allowed client IP address
+        deny all;
+    }
+}

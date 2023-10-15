@@ -1,0 +1,189 @@
+# Define a server block listening on port 80
+# There can be multiple server blocks for different domains on the same machine
+# server_name is the domain that this server block will handle requests for
+server {
+  listen       80;
+  server_name  example.com;
+
+  # Define location block for the root path
+  # This block handles requests when the path is '/' (root) for 'example.com'
+  location / {
+    # Specify root directory for the server block. This should be a directory path
+    root   /www/example.com;
+    # Enable directory indexing for the root path
+    autoindex on;
+
+    # Define additional HTTP headers for responses from this location
+    # This header is for optimizing delivery and caching of resources
+    # The format is similar to key-value pairs
+    # Refer to NGINX documentation for more options and their meanings
+    add_header cache-control "public, max-age=86400";
+
+    # Define a list of file types that should be compressed before sending to client
+    # This reduces the size of responses and optimizes delivery
+    # Typical compressible types are already added by NGINX as default
+    # However, you can add additional types or disable compression for certain types
+    # Do not compress images as they are already compressed and further compression
+    # can actually increase their size
+    # You can customize various compression settings in the configuration
+    gzip_types text/plain text/css application/javascript;
+    # Set the compression level to a high value for faster compression
+    gzip_comp_level 6;
+    # You can also modify the minimum required file size for compression
+    # Default is 20 bytes, which is fine for most cases
+    gzip_min_length 100;
+  }
+
+  # Define location block for serving static files
+  # This block handles requests when the path starts with '/static/'
+  location /static/ {
+    # For static file serving, we don't need to define the root path
+    # As the path will be appended to the root path defined above
+    # So for example, '/static/js/' will be served from '/www/example.com/static/js/'
+    # In case of Apache, you would need to define an alias instead
+    # Refer to NGINX documentation for more details
+    # If you do not have a specific directory for static files, you can use the same
+    # root path as defined above for the root location
+    # However, it is recommended to keep static files in a separate directory
+    # for better organization and security
+    # Also, note that the trailing slash after the location block is important
+    # It indicates that all paths after this should be matched under this block
+    # and not with other location blocks
+    autoindex on;
+    # Set the expires header for these files to a long time
+    # This will enable caching and improve performance
+    # Periodic updating of the files are encouraged for changes to reflect
+    # You can also use versioning in the URLs to avoid cache issues
+    # Refer to NGINX documentation for customization options
+    expires 1d;
+  }
+
+  # Define location block for handling PHP scripts
+  # This block uses FastCGI to pass requests to PHP-FPM for processing
+  # You can use other server-side scripting languages or frameworks in a similar manner
+  location ~ \.php$ {
+    # Set the root path to the directory where PHP scripts reside
+    root           /www/example.com;
+
+    # Pass all PHP scripts to PHP-FPM. You can modify this path if needed
+    # You can also use unix sockets instead of network sockets for better performance
+    fastcgi_pass   unix:/var/run/php-fpm/php-fpm.sock;
+    # Define the script filename for passing PHP scripts
+    # '?' indicates the query string after the script name
+    # As FastCGI is used, there is no need to specify the file path
+    fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;
+    # Define other FastCGI parameters, if needed
+    # These will be passed to PHP for processing
+    fastcgi_param  QUERY_STRING     $query_string;
+    fastcgi_param  REQUEST_METHOD   $request_method;
+    fastcgi_param  CONTENT_TYPE     $content_type;
+    fastcgi_param  CONTENT_LENGTH   $content_length;
+
+    # Define paths where PHP can search for additional configuration files
+    # These files generally contain environment variables or security settings
+    # Refer to PHP-FPM documentation for more details
+    # Make sure to exclude paths that can cause security issues
+    # For example, never put '/etc/' in this list
+    fastcgi_param  PATH_INFO         "";
+    fastcgi_param  SCRIPT_NAME       $fastcgi_script_name;
+    fastcgi_param  PATH_TRANSLATED   $document_root$fastcgi_path_info;
+
+    # Define a list of HTTP headers to pass to PHP
+    # This will include all headers from the original client request
+    # You can also set additional headers if needed
+    # Refer to PHP documentation for more details on using these headers
+    # As this part is related to FastCGI and PHP, refer to their
+    # respective documentations for more advanced settings
+    fastcgi_intercept_errors on;
+    fastcgi_index  index.php;
+    fastcgi_buffers  32 32k;
+    fastcgi_buffer_size 32k;
+  }
+
+  # Define location block for handling other server-side scripting languages
+  # This block uses FastCGI to pass requests to the respective handlers
+  # Refer to FastCGI and language/module documentation for more details on settings
+  location ~ \.py$ {
+    # Set the root path to the directory where Python scripts reside
+    root           /www/example.com;
+
+    # Enable caching for these files as well
+    # However, it is advised to put static files in a separate directory for better
+    # organization and caching performance
+    expires 1d;
+
+    # Pass all Python scripts to the handler
+    fastcgi_pass   unix:/var/run/python-fcgi/python-fcgi.sock;
+
+    # Define other FastCGI parameters if needed
+    # Remember to exclude any critical paths from this parameter
+    fastcgi_param  PATH_INFO         "";
+    fastcgi_param  SCRIPT_NAME       $fastcgi_script_name;
+    fastcgi_param  PATH_TRANSLATED   $document_root$fastcgi_path_info;
+  }
+
+  # Define location block for handling server-side includes
+  # This block handles requests for files with .shtml extensions
+  # and includes any content specified in the file, either from other files or from shell scripts
+  # Refer to SSI documentation for more details on syntax and examples
+  location ~ \.shtml$ {
+    # Set the root path to the directory where SSI files reside
+    root           /www/example.com;
+
+    # To enable SSI, these two parameters are needed
+    ssi on;
+    ssi_silent_errors on;
+  }
+
+  # Define location block for gzip_static files
+  # These files are pre-compressed and stored on the server
+  # As such, they require less processing and are sent to clients faster
+  location ~ \.gz$ {
+    # Set the root path to the directory where pre-compressed files reside
+    root           /www/example.com/static;
+    # Define additional HTTP headers for these files
+    add_header Content-Encoding gzip;
+    add_header Vary Accept-Encoding;
+    add_header Cache-Control     "public, max-age=86400";
+    add_header Expires           "Thu, 22 Mar 2029 20:00:00 GMT";
+
+    # Define paths where NGINX can search for compressed files
+    # In this case, we are searching in the same location as the original file,
+    # but with the .gz extension
+    # You can place these files in a separate directory as well, as long as
+    # this path is defined accordingly
+    gzip_static on;
+
+    # Additional compression settings can be defined for better performance
+    gzip_types text/plain text/css application/javascript;
+    gzip_comp_level 6;
+    # Set gzip_disable to a list of file types that should not be compressed
+    # Default is already set to pre-compress all files
+    # However, you can limit the compression to only text files if needed
+    gzip_disable "MSIE [1-6]\.";
+  }
+
+}
+
+# server block for handling requests to the 'www.example.com' subdomain
+# This block can have different settings from the main server block for 'example.com'
+server {
+  listen       80;
+  server_name  www.example.com;
+
+  # Define location block for the root path
+  # This block handles requests when the path is '/' (root) for 'www.example.com'
+  location / {
+    # Specify root directory for the server block.
+    # As this block is for the 'www.example.com' subdomain, the root directory
+    # could be different from the previous 'example.com' server block
+    root   /www/www.example.com;
+
+    # Enable gzip_static and caching settings for static files
+    gzip_static on;
+    # Periodic updates are encouraged for changes to reflect
+    # You can also use versioning in the URLs to avoid cache issues
+    # Refer to NGINX documentation for customization options
+    expires 1d;
+  }
+}

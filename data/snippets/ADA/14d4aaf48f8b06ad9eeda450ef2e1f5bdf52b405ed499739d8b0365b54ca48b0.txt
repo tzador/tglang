@@ -1,0 +1,133 @@
+-- Package declaration
+package Example is
+    -- Access type
+    type Item is access Integer;
+
+    -- Generic package
+    generic
+        -- Size of array
+        Size : Integer;
+    package Array_Example is
+        type Array is array (1 .. Size) of Item;
+    end Array_Example;
+
+    -- Package for heap data structure
+    package Heap is
+        type Container is private;
+
+        -- Procedure to insert an item into heap
+        procedure Insert (Item : in out Container; Value : Integer);
+
+        -- Function to remove the minimum element from the heap
+        function Remove_Min (Item : in out Container) return Integer;
+
+        -- Function to check if heap is empty
+        function Is_Empty (Item : Container) return Boolean;
+
+        -- Private type for heap data structure
+        private
+        type Heap_Array is array (Integer range <>) of Item;
+        type Container is access all Heap_Array;
+    end Heap;
+
+    -- Implementation of package Heap
+    package body Heap is
+        -- Procedure to insert an item into heap, using recursion
+        procedure Insert (Item : in out Container; Value : Integer) is
+            -- Function to compare values and swap if necessary
+            function Swap (Value1, Value2 : Integer) return Integer is
+                begin
+                    if Value1 < Value2 then
+                        return Value1;
+                    else
+                        return Value2;
+                    end if;
+            end Swap;
+            begin
+                if Item.all'Size = 0 then
+                    -- Initialize heap array with value
+                    Item.all := (1 => new Item'(Value));
+
+                else
+                    -- Increment heap size by 1
+                    Item.all'Length := Item.all'Length + 1;
+
+                    -- Add new item to end of array
+                    Item.all(Item.all'Last) := new Item'(Value);
+
+                    -- Compare new item with parent node
+                    if Swap(Value, Item.all((Item.all'Last - 1) / 2).all) = Value then
+                        -- Swap if necessary
+                        Item.all((Item.all'Last - 1) / 2).all := Item.all(Item.all'Last).all;
+                        Item.all(Item.all'Last).all := new Item'(Value);
+
+                        -- Call Insert recursively
+                        Insert(Item, Item.all((Item.all'Last - 1) / 2).all);
+                    end if;
+                end if;
+        end Insert;
+
+        -- Function to remove the minimum element from the heap
+        function Remove_Min (Item : in out Container) return Integer is
+            begin
+                if Is_Empty(Item) then
+                    raise Heap_Empty;
+                else
+                    -- Get minimum element (root node)
+                    declare
+                        Minimum : Integer := Item.all(1).all;
+                    begin
+                        -- Replace root node with last node
+                        Item.all(1) := new Item'(Item.all(Item.all'Length).all);
+
+                        -- Decrement heap size by 1
+                        Item.all'Length := Item.all'Length - 1;
+
+                        -- Call Bubble_Down function to maintain heap property
+                        Bubble_Down(Item, 1);
+
+                        return Minimum;
+                    end;
+                end if;
+        end Remove_Min;
+
+        -- Function to check if heap is empty
+        function Is_Empty (Item : Container) return Boolean is
+            begin
+                return Item.all'Length = 0;
+        end Is_Empty;
+
+        -- Procedure to maintain heap property
+        procedure Bubble_Down (Item : in out Container; Parent : Integer) is
+            Begin
+                if Parent * 2 > Item.all'Length then
+                    -- Parent is a leaf node, no need to bubble down
+                    return;
+                else
+                    -- Get left and right child nodes
+                    Left_Child : Integer := Parent * 2;
+                    Right_Child : Integer := Parent * 2 + 1;
+
+                    -- Initialize variable for index of child node with minimum value
+                    Min_Child : Integer;
+
+                    -- Compare left and right child nodes to find minimum
+                    if Item.all(Left_Child).all < Item.all(Right_Child).all then
+                        Min_Child := Left_Child;
+                    else
+                        Min_Child := Right_Child;
+                    end if;
+
+                    -- Compare minimum child with parent node
+                    if Item.all(Min_Child).all < Item.all(Parent).all then
+                        -- Swap if necessary
+                        Item.all(Parent) := new Item'(Item.all(Min_Child).all);
+                        Item.all(Min_Child) := new Item'(Item.all(Parent).all);
+
+                        -- Call Bubble_Down recursively
+                        Bubble_Down(Item, Min_Child);
+                    end if;
+                end if;
+        end Bubble_Down;
+    end Heap;
+end Example;

@@ -1,0 +1,29 @@
+trigger AccountTrigger on Account (before insert, after update) {
+    // Get all contacts associated with the inserted/updated account
+    List<Contact> contacts = [SELECT Id, Name, Email FROM Contact WHERE AccountId IN :Trigger.newMap.keySet()];
+
+    // Create a map to store the list of contacts per accountId
+    Map<Id, List<Contact>> mapAccountIdToContacts = new Map<Id, List<Contact>>();
+    
+    // Loop through the contacts and add them to the map
+    for(Contact c: contacts) {
+        if(mapAccountIdToContacts.containsKey(c.AccountId)) {
+            mapAccountIdToContacts.get(c.AccountId).add(c);
+        } else {
+            mapAccountIdToContacts.put(c.AccountId, new List<Contact>{c});
+        }
+    }
+
+    // Loop through the inserted/updated accounts
+    for(Account acc: Trigger.new) {
+        // Get the list of associated contacts from the map
+        List<Contact> accContacts = mapAccountIdToContacts.get(acc.Id);
+
+        if(accContacts != null && !accContacts.isEmpty()) {
+            // Loop through the contacts and update their email addresses to match the account's email
+            for(Contact c: accContacts) {
+                c.Email = acc.Email;
+            }
+        }
+    }
+}

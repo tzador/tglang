@@ -1,0 +1,57 @@
+* This is a GAMS code snippet for solving a multi-commodity network flow problem with integer variables.
+
+* Define sets and parameters
+Set i 'source nodes' /i1*i5/;
+Set j 'sink nodes' /j1*j5/;
+Set k 'commodities' /k1*k3/;
+
+Parameter c(i,j,k) 'cost of transporting one unit of commodity k from node i to node j';
+Parameter b(i,j) 'maximum capacity of the edge connecting node i and node j';
+Parameter d(k) 'demand of commodity k at sink nodes';
+
+* Define variables
+Variable x(i,j,k) 'flow of commodity k from node i to node j';
+Variable y(i,j) 'binary variable representing whether or not an edge is used';
+
+* Objective function
+Equation obj 'objective function';
+obj.. sum((i,j,k), c(i,j,k)*x(i,j,k)) =e= sum((i,j), b(i,j)*y(i,j));
+
+* Constraints
+Equation flowCons(i,k) 'flow conservation constraint for each source node and commodity';
+flowCons(i,k).. sum(j, x(i,j,k)) =e= sum(j, x(j,i,k));
+
+Equation capCons(i,j) 'capacity constraint for each edge';
+capCons(i,j).. sum(k, x(i,j,k)) =l= b(i,j)*y(i,j);
+
+Equation demandCons(j,k) 'demand constraint for each sink node and commodity';
+demandCons(j,k).. sum(i, x(i,j,k)) =e= d(k);
+
+* Define integer variables
+Variable intVar binary;
+
+* Define and solve the model
+Model mcnf /all/;
+m.limrow = 0;  * remove upper limit on rows
+m.limcol = 0;  * remove upper limit on columns
+m.solPrint = %solPrint.Iteration%;  * print solution progress during solve
+m.solPrint = %solPrint.Final%;  * print final solution
+
+Solve mcnf max intVar using mip;
+
+* Print solution
+* Uncomment below if you want to see the solution in the GAMS output window.
+*
+* Display x.l;
+
+* Check optimal integer solution
+if (m.solvestat 'sI' or m.solvestat 's1'
+    error  'No feasible solution found';
+
+else
+    execute_unload 'output.gdx' x;
+    abort$[abs(m.objval - 1234) < 0.001] 'Infeasible solution found';
+
+display 'Optimal integer solution found';
+
+* Note: Uncomment and replace the number 1234 with your known optimal value to check feasibility of the solution. You can also use a parameter to store this known optimal value.

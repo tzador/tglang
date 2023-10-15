@@ -1,0 +1,54 @@
+server {
+    listen 443 ssl;
+    server_name example.com;
+
+    # Set a custom log format
+    log_format myformat '$remote_addr - $remote_user [$time_local] '
+                       '"$request_method $scheme://$server_name$request_uri '
+                       'HTTP/$http_version" $status $body_bytes_sent '
+                       '"$http_referer" "$http_user_agent"';
+
+    # Specify the locations of the SSL certificate and key
+    ssl_certificate /path/to/cert.crt;
+    ssl_certificate_key /path/to/key.key;
+
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Scheme $scheme;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+    }
+
+    location /admin {
+        auth_basic "Restricted Access"; # Enable HTTP basic authentication
+        auth_basic_user_file /etc/nginx/.htpasswd; # Specify the location of the password file
+        try_files $uri $uri/ =404; # Return 404 if file does not exist
+    }
+
+    location /static {
+        alias /var/www/static_files; # Serve static files from this directory
+        autoindex on; # Enable directory listing
+    }
+
+    location /blog {
+        limit_req zone=blog burst=5 nodelay; # Limit request rate for this location block to prevent overload
+        proxy_pass http://localhost:8080; # Forward requests to a different port
+        expires 30d; # Set a 30-day cache expiration for assets served under this location
+    }
+
+    error_page 404 /404.html; # Custom error page for 404 errors
+    error_page 500 502 503 504 /50x.html; # Custom error page for server errors
+
+    location = /50x.html {
+        root /var/www/errors; # Serve custom error pages from this directory
+    }
+
+    location ~ /\.ht {
+        deny all; # Deny access to any files starting with .ht (security measure)
+    }
+}

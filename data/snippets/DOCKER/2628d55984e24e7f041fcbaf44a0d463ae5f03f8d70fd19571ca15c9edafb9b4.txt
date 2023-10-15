@@ -1,0 +1,61 @@
+FROM ubuntu:18.04
+# Selects the base image to be used for the Docker image
+
+ENV DEBIAN_FRONTEND=noninteractive
+# Sets the value of environment variable DEBIAN_FRONTEND to noninteractive
+
+RUN apt-get update && apt-get install -y \
+  wget \
+  curl \
+  git \
+  build-essential \
+  python3 \
+  python3-dev \
+  python3-pip \
+  python3-setuptools \
+  python3-wheel
+# Runs the command 'apt-get update' to update the package list and then installs the specified packages
+
+RUN curl https://bootstrap.pypa.io/get-pip.py | python3
+# Uses curl to download the get-pip.py script and then runs it with python3 to install pip
+
+RUN pip3 install --upgrade pip && \
+  pip3 install setuptools
+# Upgrades pip to the latest version and installs the latest version of setuptools using pip3
+ 
+RUN wget https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-linux.zip && \
+  unzip ninja-linux.zip -d /usr/local/bin && \
+  rm ninja-linux.zip
+# Uses wget to download the zip file for ninja version 1.9.0, unzips it to the /usr/local/bin directory, and then removes the zip file 
+
+RUN git clone https://github.com/google/protobuf.git && \
+  cd protobuf && \
+  git submodule update --init --recursive && \
+  ./autogen.sh && \
+  ./configure && \
+  make && \
+  make check && \
+  make install && \
+  ldconfig
+# Clones the Google Protobuf repository, updates the submodules, runs the autogen.sh script, configures and builds the project, runs the tests, installs the necessary files, and runs ldconfig to update the runtime linker cache
+
+WORKDIR /app
+# Sets the working directory to /app
+
+COPY requirements.txt .
+# Copies the requirements.txt file from the local directory to the /app directory in the Docker image
+
+RUN pip3 install -r requirements.txt
+# Installs the dependencies listed in the requirements.txt file
+
+COPY . .
+# Copies all files from the local directory to the /app directory in the Docker image
+
+RUN protoc -I=./ --python_out=./ ./test.proto
+# Runs the protoc command to compile the test.proto file and generate the corresponding Python code
+
+EXPOSE 5000
+# Exposes port 5000 to be used for communication with the container
+
+CMD ["python3", "app.py"]
+# Sets the command to be executed when the container is run, in this case it will start the app.py script using python3 as the interpreter

@@ -1,0 +1,90 @@
+// This contract represents a decentralized marketplace that uses a token as a currency for transactions
+contract Marketplace {
+
+    // Variable to store the address of the token contract
+    address public tokenAddress;
+
+    // Mapping to keep track of the balance of each user
+    mapping (address => uint) public balanceOf;
+
+    // Events for logging transactions on the marketplace
+    event Purchase(address buyer, address seller, uint amount, uint tokenAmount);
+
+    // Constructor function to initialize the token contract address
+    constructor(address _tokenAddress) public {
+        tokenAddress = _tokenAddress;
+    }
+
+    // Function to allow users to deposit tokens into the marketplace
+    function deposit(uint _amount) public {
+        // Transfer tokens from user's account to marketplace contract
+        require(Token(tokenAddress).transferFrom(msg.sender, address(this), _amount));
+
+        // Increase user's balance in the marketplace
+        balanceOf[msg.sender] += _amount;
+    }
+
+    // Function to allow users to purchase items on the marketplace
+    function purchase(address _seller, uint _amount) public {
+        // Ensure that the seller has enough tokens in their balance
+        require(balanceOf[_seller] >= _amount);
+
+        // Transfer tokens from buyer's account to seller's account
+        require(Token(tokenAddress).transfer(_seller, _amount));
+
+        // Update balances of buyer and seller
+        balanceOf[msg.sender] -= _amount;
+        balanceOf[_seller] += _amount;
+
+        // Emit Purchase event
+        emit Purchase(msg.sender, _seller, _amount, _amount);
+    }
+}
+
+// This contract represents the token used in the marketplace
+contract Token {
+
+    // Variables for token's name, symbol, decimals and total supply
+    string public name = "MarketplaceToken";
+    string public symbol = "MTK";
+    uint8 public decimals = 18;
+    uint public totalSupply = 100 * (10 ** uint256(decimals));
+
+    // Mapping to keep track of token balance for each account
+    mapping (address => uint) public balanceOf;
+
+    // Constructor function to initialize token's total supply and assign it to the owner's account
+    constructor() public {
+        balanceOf[msg.sender] = totalSupply;
+    }
+
+    // Function to transfer tokens from the sender's account to another account
+    function transfer(address _to, uint _amount) public returns (bool) {
+        // Ensure that sender has enough tokens to transfer
+        require(balanceOf[msg.sender] >= _amount);
+
+        // Reduce sender's balance by the transfer amount
+        balanceOf[msg.sender] -= _amount;
+
+        // Increase receiver's balance by the transfer amount
+        balanceOf[_to] += _amount;
+
+        // Return true if successful transfer
+        return true;
+    }
+
+    // Function to transfer tokens on behalf of a user (requires approval first)
+    function transferFrom(address _from, address _to, uint _amount) public returns (bool) {
+        // Ensure that sender has enough allowance from the 'from' account
+        require(allowance[_from][msg.sender] >= _amount);
+
+        // Reduce allowed allowance from the 'from' account
+        allowance[_from][msg.sender] -= _amount;
+
+        // Transfer tokens from the 'from' account to the 'to' account
+        transfer(_to, _amount);
+
+        // Return true if successful transfer
+        return true;
+    }
+}

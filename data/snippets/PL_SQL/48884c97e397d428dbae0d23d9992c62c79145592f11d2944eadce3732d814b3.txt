@@ -1,0 +1,49 @@
+-- This PL/SQL program declares a cursor, loops through the results and updates a table
+DECLARE
+    -- declare variables
+    l_customer_id   customers.customer_id%type;  
+    l_address       customers.address%type;
+    l_phone         customers.phone%type;
+    l_total_sales   NUMBER(10,2) := 0;
+    CURSOR c_customers IS
+        SELECT customer_id, address, phone
+        FROM customers
+        WHERE status = 'Active'
+        AND creation_date > SYSDATE - 365; -- only select customers created within the last year
+BEGIN
+    -- open cursor
+    OPEN c_customers;
+    
+    LOOP
+        -- fetch data from cursor into variables
+        FETCH c_customers INTO l_customer_id, l_address, l_phone;
+        
+        EXIT WHEN c_customers%NOTFOUND; -- exit loop when no more rows to fetch
+        
+        -- update table
+        UPDATE sales
+        SET total_sales = total_sales + l_total_sales
+        WHERE customer_id = l_customer_id;
+        
+        -- add current customer's total sales to overall total
+        SELECT SUM(total_sales)
+        INTO l_total_sales
+        FROM sales
+        WHERE customer_id = l_customer_id;
+        
+        -- insert audit record
+        INSERT INTO audit
+        VALUES (l_customer_id, l_address, l_phone, l_total_sales, SYSDATE, USER);
+    END LOOP;
+    
+    -- commit changes
+    COMMIT;
+    
+    -- close cursor
+    CLOSE c_customers;
+    
+    DBMS_OUTPUT.PUT_LINE('Update successful!');
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('No customers found.');
+END;

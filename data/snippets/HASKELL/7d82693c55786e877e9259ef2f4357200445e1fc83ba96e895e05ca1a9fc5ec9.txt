@@ -1,0 +1,93 @@
+{-# LANGUAGE GADTs, DataKinds, PolyKinds #-}
+
+module Main where
+
+import qualified Data.Map.Strict as Map
+import Data.Maybe (fromMaybe)
+
+-- | A data type representing a variable name in a functional language.
+-- It has two constructors, one for a normal variable and one for a
+-- polymorphic variable.
+data Var (type' :: k) where
+    Id :: String -> Var type'
+    Gen :: Int -> Var type'
+
+-- | A type for representing type variables in a type checker.
+-- It is a polymorphic type, so it can be instantiated with any other type.
+data TypeVar = forall type'. TypeVar (Var type')
+
+-- | A function that takes in a type variable and returns its name as a string.
+getVarName :: TypeVar -> String
+getVarName (TypeVar (Gen n)) = "a" ++ show n
+getVarName (TypeVar (Id n)) = n
+
+-- | A type representing a type in a functional language.
+-- It can be a basic type, a function type, or a type variable.
+data Type where
+    PrimType :: String -> Type
+    FuncType :: Type -> Type -> Type
+    VarType :: TypeVar -> Type
+
+-- | The type for a type checker, which takes in an expression and
+-- returns its type.
+type TypeChecker a = Type -> Either String a
+
+-- | A data type representing an expression in a functional language.
+-- It has multiple constructors for different types of expressions.
+data Exp where
+    Lit :: Int -> Exp
+    Var :: Var type' -> Exp
+    App :: Exp -> Exp -> Exp
+    Lam :: Var type' -> Exp -> Exp
+    Let :: Var type' -> Exp -> Exp -> Exp
+
+-- | A function that takes in an expression and checks its type.
+-- It uses pattern matching to handle different constructors of `Exp`.
+-- If there is a type error, it returns an `Left` value with an error message.
+-- Otherwise, it returns a `Right` value with the expression's type.
+checkExp :: TypeChecker Type
+checkExp (Lit _) = Right $ PrimType "Int"
+checkExp (Var v) = Right $ VarType $ TypeVar v
+checkExp (App e1 e2) = do
+    t1 <- checkExp e1
+    t2 <- checkExp e2
+    case t1 of
+        (FuncType t11 t12) -> if t11 == t2
+                                then Right t12
+                                else Left "Type mismatch in application"
+        _ -> Left "Not a function in application"
+checkExp (Lam v e) = do
+    t <- checkExp e
+    return $ FuncType (VarType $ TypeVar v) t
+checkExp (Let v e1 e2) = do
+    t1 <- checkExp e1
+    t2 <- checkExp e2
+    case t1 of
+        (VarType (TypeVar (Gen n))) -> Right t2
+        (VarType (TypeVar _)) -> Left "Can't assign type variable"
+        _ -> if t2 == t1
+                then Right t2
+                else Left "Type mismatch in let binding"
+
+-- | A map representing the type context.
+type Context = Map.Map (Var Type) Type
+
+-- | A function that checks an expression and returns its type in a given
+-- type context.
+-- It uses the `checkExp` function to check the expression's type.
+checkWithContext :: Context -> Exp -> Either String Type
+checkWithContext ctx exp = checkExp exp (fromMaybe (PrimType "Int") (Map.lookup (VarType $ TypeVar (Gen 0)) ctx))
+
+-- | The `main` function, which is the entry point of the program.
+main :: IO ()
+main = do
+    let exp1 = Var (Id "x")
+        exp2 = App (Lam (Id "x") (Lit 2)) (Lit 3)
+        exp3 = Let (Id "x") (Lit 2) (App (Lam (Gen 0) (Lit 2)) (Lit 3))
+        ctx1 = Map.empty
+        ctx2 = Map.fromList [(VarType (TypeVar (Gen 0)), PrimType "Int")]
+        ctx3 = Map.fromList [(VarType (TypeVar (Gen 1)), FuncType (PrimType "Int") (PrimType "Int"))]
+    putStrLn $ show $ checkWithContext ctx1 exp1
+    putStrLn $ show $ checkWithContext ctx2 exp1
+    putStrLn $ show $ checkWithContext ctx2 exp2
+    putStrLn $ show $ checkWithContext ctx3 exp3

@@ -1,0 +1,58 @@
+(* Implementation of a trie data structure *)
+module TrieMap = Map.Make(struct
+  type t = char
+  let compare = compare
+end)
+
+type 'a trie = {
+  value: 'a option;
+  children: 'a trie TrieMap.t;
+}
+
+let empty = {
+  value = None;
+  children = TrieMap.empty;
+}
+
+let find key trie =
+  let rec find_helper key trie =
+    match key with
+    | [] -> trie.value
+    | x :: xs -> 
+      match TrieMap.find_opt x trie.children with
+      | None -> None
+      | Some child -> find_helper xs child
+  in find_helper key trie
+
+let insert key value trie =
+  let rec insert_helper key value trie =
+    match key with
+    | [] -> {trie with value = Some value}
+    | x :: xs ->
+      let child =
+        match TrieMap.find_opt x trie.children with
+        | None -> empty
+        | Some child -> child
+      in {trie with children = TrieMap.add x (insert_helper xs value child) trie.children}
+  in insert_helper key value trie
+
+let size trie =
+  let rec size_helper size trie =
+    match trie.value with
+    | None -> size + TrieMap.fold (fun _ child acc -> size_helper acc child) trie.children 0
+    | Some _ -> size + 1 + TrieMap.fold (fun _ child acc -> size_helper acc child) trie.children 0
+  in size_helper 0 trie
+
+let keys trie =
+  let rec keys_helper current_key trie acc =
+    match trie.value with
+    | None -> TrieMap.fold (fun key child acc -> keys_helper (current_key ^ Char.escaped key) child acc) trie.children acc
+    | Some _ -> (current_key, trie.value) :: TrieMap.fold (fun key child acc -> keys_helper (current_key ^ Char.escaped key) child acc) trie.children acc
+  in keys_helper "" trie []
+
+let to_string trie =
+  let rec to_string_helper current_key trie =
+    match trie.value with
+    | None -> TrieMap.mapi (fun key child -> to_string_helper (current_key ^ Char.escaped key) child) trie.children
+    | Some v -> TrieMap.add (current_key ^ ": " ^ v) (TrieMap.mapi (fun key child -> to_string_helper (current_key ^ Char.escaped key) child) trie.children)
+  in TrieMap.fold (fun key child acc -> acc ^ key ^ "\n" ^ (to_string_helper key child)) "\n" trie

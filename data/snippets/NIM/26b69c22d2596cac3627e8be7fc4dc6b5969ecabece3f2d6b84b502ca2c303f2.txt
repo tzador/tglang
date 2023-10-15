@@ -1,0 +1,111 @@
+# Welcome to the game of NIM!
+
+# Function to take input from user
+proc getInput(): tuple[number, number] =
+  var input1, input2: int
+  echo "Enter the number of rows: "
+  input1 = readLine(stdin).parseInt()
+  echo "Enter the number of objects in starting row: "
+  input2 = readLine(stdin).parseInt()
+  result = (input1, input2)
+
+
+# Function to display current game state
+proc displayState(rows: seq[int], turn: bool) {.noSideEffect.} =
+  echo ""
+  for i in 0..rows.len-1:
+    echo "Row ", i+1, ":", ($ for x in 0..rows[i]-1: " O ", "")
+  if turn: # Player's turn
+    echo "Your turn!"
+  else: # Computer's turn
+    echo "Computer's turn!"
+
+
+# Function to check if game is over
+proc isGameOver(rows: seq[int], turn: bool): bool =
+  for i in 0..rows.len-1:
+    if rows[i] != 0:
+      return false
+  if turn:
+    echo "You win!"
+  else:
+    echo "Computer wins!"
+  return true
+
+
+# Function for computer's turn - uses smart strategy
+proc computerTurn(rows: var seq[int]) {.noSideEffect.} =
+  # Find the binary XOR of all rows
+  var result = rows[0]
+  for i in 1..rows.len-1:
+    result = result xor rows[i]
+
+  # Find the highest power of 2 in the xor result
+  var highest2 = 1
+  while result > highest2:
+    highest2 = highest2 shl 1
+
+  # Find the row to take objects from
+  var takeFrom = -1
+  for i in 0..rows.len-1:
+    if rows[i] and highest2 != 0:
+      takeFrom = i
+      break
+
+  # Find the number of objects to take
+  var takeAmount = rows[takeFrom] - (rows[takeFrom] xor result)
+
+  # Update the row
+  rows[takeFrom] = rows[takeFrom] xor takeAmount
+
+  # Display computer's turn
+  echo ""
+  echo "Computer takes ", takeAmount, " objects from row ", takeFrom+1, "."
+
+
+# Function for player's turn - takes input from user
+proc playerTurn(rows: var seq[int]) {.noSideEffect.} =
+  while true:
+    displayState(rows, true)
+    echo ""
+    echo "Which row do you want to take objects from? "
+    var row = readLine(stdin).parseInt()-1
+    echo "How many objects do you want to take? "
+    var amount = readLine(stdin).parseInt()
+
+    # Check for invalid input
+    if row < 0 or row > rows.len-1 or amount < 1 or amount > rows[row]:
+      echo "Invalid input, try again."
+    else:
+      rows[row] -= amount
+      echo ""
+      echo "You took ", amount, " objects from row ", row+1, "."
+      break
+
+
+# Main function
+when isMainModule:
+  # Initialize variables
+  var rows: seq[int]
+  var input: tuple[number, number]
+  var turn: bool
+
+  # Get input from user
+  input = getInput()
+  rows = @[for i in 0..input[0]-1: input[1]]  # Creates list with specified number of rows, each with specified number of objects
+  turn = true  # True for player's turn, false for computer's turn
+
+  # Game loop
+  while true:
+    if not isGameOver(rows, turn):
+      if turn:  # Player's turn
+        playerTurn(rows)
+        turn = false
+      else:  # Computer's turn
+        computerTurn(rows)
+        turn = true
+    else:
+      break
+
+  # Display final state
+  displayState(rows, false)

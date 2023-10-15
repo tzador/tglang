@@ -1,0 +1,82 @@
+pragma Ada_2012;
+
+with Ada.Containers; use Ada.Containers;
+with Ada.Strings; use Ada.Strings;
+
+generic
+    type Key_Type is private;
+    type Element_Type is private;
+package Example is
+    type Map is tagged private;
+
+    procedure Insert (Map : in out Map; Key : in Key_Type; Value : in Element_Type);
+    -- ^ Inserts the given key-value pair into the map.
+
+    function Find (Map : in Map; Key : in Key_Type) return Element_Type;
+    -- ^ Returns the value associated with the given key.
+
+    procedure Clear (Map : in out Map);
+    -- ^ Clears all elements from the map.
+
+    function Size (Map : in Map) return Natural;
+    -- ^ Returns the number of elements in the map.
+
+private
+    type Node;
+    type Node_Ptr is access Node;
+
+    type Node is tagged record
+        Key : Key_Type;
+        Value : Element_Type;
+        Next : Node_Ptr := Null;
+    end record;
+
+    type Map is tagged record
+        First : Node_Ptr := Null;
+        Count : Natural := 0;
+    end record;
+end Example;
+
+body Example is
+
+    procedure Insert (Map : in out Map; Key : in Key_Type; Value : in Element_Type) is
+        Node : Node_Ptr := new Node'(Key => Key, Value => Value);
+    begin
+        if Map.First = Null then
+            Map.First := Node;
+        else
+            Node.Next := Map.First;
+            Map.First := Node;
+        end if;
+        Map.Count := Map.Count + 1;
+    end Insert;
+
+    function Find (Map : in Map; Key : in Key_Type) return Element_Type is
+        Current : Node_Ptr := Map.First;
+    begin
+        while Current /= Null loop
+            if Current.Key = Key then
+                return Current.Value;
+            end if;
+            Current := Current.Next;
+        end loop;
+        raise Constraint_Error;
+    end Find;
+
+    procedure Clear (Map : in out Map) is
+        Temp : Node_Ptr := Map.First;
+    begin
+        while Temp /= Null loop
+            Map.First := Temp.Next;
+            free(Temp);
+            Temp := Map.First;
+        end loop;
+        Map.Count := 0;
+    end Clear;
+
+    function Size (Map : in Map) return Natural is
+    begin
+        return Map.Count;
+    end Size;
+
+end Example;

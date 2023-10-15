@@ -1,0 +1,47 @@
+/*** This code snippet demonstrates how to build a predictive model using SAS ***/
+
+/*** Load and Clean Data ***/
+/* Load data from CSV file */
+data vehicle_data;
+	infile 'vehicles.csv' delimiter=',' firstobs=2;
+	input age weight price mpg;
+run;
+
+/* Remove missing values */
+data vehicle_data;
+	set vehicle_data;
+	if missing(age) or missing(mpg) or missing(weight) or missing(price) then delete;
+run;
+
+/*** Build Model ***/
+/* Split data into training and testing sets */
+%let train_size = 0.8;
+%let test_size = 0.2;
+proc surveyselect data=vehicle_data out=training
+   method=srs n=&train_size noprint;
+   strata age;
+run;
+data testing;
+   set vehicle_data;
+      where age not in (select age from training);
+run;
+
+/* Use PROC HPREG to build a regression model */
+proc hpreg data=training plots=diagnostics;
+   model price = age weight mpg;
+run;
+
+/*** Evaluate Model Performance ***/
+/* Use PROC SCORE to generate predicted values for testing data */
+proc score data=testing score=regpred;
+   var age weight mpg;
+   model parameters;
+run;
+
+/* Calculate R-squared and Root MSE */
+proc sql;
+   select
+      1-(sum((price-pred)**2)/sum((price-mean(price))**2)) as rsq,
+      sqrt(sum((price-pred)**2)/count()) as rms
+   from testing;
+quit;

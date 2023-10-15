@@ -1,0 +1,41 @@
+&SCOPED-DEFINE ORDER-SIZE 10  /* Defines a constant value of 10 for the ORDER-SIZE variable */
+
+DEFINE VARIABLE order-num AS CHARACTER. /* Defines the order-num variable with CHARACTER data type */
+
+DEF VAR x AS INTEGER NO-UNDO INITIAL 0. /* Defines a temporary variable x with INTEGER data type and initial value of 0 */
+
+FIND FIRST customer WHERE customer.id = 10001 NO-LOCK NO-ERROR. /* Searches for the first customer record with a customer ID of 10001 and sets the NO-LOCK and NO-ERROR options */
+
+IF AVAILABLE customer THEN DO: /* Checks if the customer record was found */
+    DISPLAY "Customer found.".
+    ASSIGN order-num = customer.order-number + 1. /* Increments the order number for the customer */
+END.
+
+FOR EACH order OF customer NO-LOCK WHERE order.status = "Open": /* Loops through each open order for the customer */
+    IF x MOD 2 = 0 THEN DO: /* Checks if x is an even number */
+        ASSIGN order.status = "Processing". /* Changes the status of the order to "Processing" */
+        x = x + 1. /* Increments x by 1 */
+    END.
+    ELSE DO:
+        ASSIGN order.status = "Ready to Ship". /* Changes the status of the order to "Ready to Ship" */
+        x = x + 1. /* Increments x by 1 */
+    END.
+    IF x = &ORDER-SIZE THEN LEAVE. /* Checks if the value of x has reached the defined ORDER-SIZE and exits the loop */
+END.
+
+UPDATE customer SET status = "Fulfilled" WHERE customer.order-number = &ORDER-NUM NO-LOCK. /* Updates the status of the customer to "Fulfilled" for the order just created */
+
+DISPLAY "Order " + order-num + " created and customer updated.".
+
+FUNCTION getOrderTotal RETURNS DECIMAL (INPUT order-num AS CHARACTER): /* Defines a function to calculate the total order cost based on the order number */
+    DEFINE VARIABLE total AS DECIMAL INITIALIZATION 0.
+    
+    FOR EACH order-line WHERE order-line.order-number = order-num NO-LOCK: /* Loops through each order line for the specified order number */
+        ASSIGN total = total + order-line.quantity * order-line.unit-price. /* Calculates the total cost based on the quantity and unit price of each order line */
+    END.
+    
+    RETURN total. /* Returns the total cost */
+    
+END FUNCTION.
+
+DISPLAY "Total cost for Order " + order-num + " is $" + string(getOrderTotal(order-num), "999.99"). /* Displays the total cost for the order, formatted as currency */

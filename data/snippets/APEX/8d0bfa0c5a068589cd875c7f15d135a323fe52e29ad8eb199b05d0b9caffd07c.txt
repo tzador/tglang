@@ -1,0 +1,98 @@
+/*
+This code snippet creates a class called ProductManager that handles product information and pricing
+It includes methods for adding, deleting, and updating products
+*/
+
+public with sharing class ProductManager {
+    
+    //variables
+    private Product__c product;
+    private List<Price__c> prices;
+    
+    //constructor
+    public ProductManager(){
+        product = new Product__c();
+        prices = new List<Price__c>();
+    }
+    
+    //method to add a product
+    public void addProduct(String name, Integer quantity, Date releaseDate, String description) {
+        product = new Product__c(
+            Name = name,
+            Quantity__c = quantity,
+            Release_Date__c = releaseDate,
+            Description__c = description
+        );
+        insert product;
+    }
+    
+    //method to delete a product
+    public void deleteProduct(Id productId) {
+        //check if product exists
+        if(productId == null) throw new ApexPagesException('Product does not exist');
+        
+        //delete product
+        delete productId;
+    }
+    
+    //method to update a product
+    public void updateProduct(Id productId, String name, Integer quantity, Date releaseDate, String description) {
+        //query for product
+        product = [SELECT Name, Quantity__c, Release_Date__c, Description__c FROM Product__c WHERE Id = :productId];
+        
+        //update fields
+        product.Name = name;
+        product.Quantity__c = quantity;
+        product.Release_Date__c = releaseDate;
+        product.Description__c = description;
+        
+        //update product
+        update product;
+    }
+    
+    //method to add a price to a product
+    public void addPrice(Id productId, Decimal price, String currency) {
+        //query for product
+        product = [SELECT Id, Name FROM Product__c WHERE Id = :productId];
+        
+        //create new price
+        Price__c newPrice = new Price__c(
+            Product__c = productId,
+            Price__c = price,
+            Currency__c = currency
+        );
+        
+        //add price to list
+        prices.add(newPrice);
+    }
+    
+    //method to update prices for a product
+    public void updatePrices(Id productId, List<Price__c> updatedPrices) {
+        //query for product
+        product = [SELECT Id, Name FROM Product__c WHERE Id = :productId];
+        
+        //check if product has any prices
+        if(prices.isEmpty()) throw new ApexPagesException('Product has no prices');
+        
+        //update prices
+        prices = updatedPrices;
+        
+        //update product with new prices
+        product.Prices__r = prices;
+        update product;
+    }
+    
+    //method to calculate total price for a product based on quantity
+    public Decimal calculateTotalPrice(Id productId, Integer quantity) {
+        //query for product
+        product = [SELECT Id, Name, (SELECT Price__c FROM Prices__r) FROM Product__c WHERE Id = :productId];
+        
+        //check if product has any prices
+        if(prices.isEmpty()) throw new ApexPagesException('Product has no prices');
+        
+        //calculate total price
+        Decimal totalPrice = product.Prices__r[0].Price__c * quantity;
+        
+        return totalPrice;
+    }
+}

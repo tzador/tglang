@@ -1,0 +1,42 @@
+# Set up server variables
+$Name = "Server1"
+$IPAddress = "192.168.1.100"
+$SubnetMask = "255.255.255.0"
+$Gateway = "192.168.1.1"
+
+# Create and configure server object
+$Server = New-Object -TypeName Microsoft.SqlServer.Management.Smo.Server($IPAddress)
+
+# Set up database variables
+$DatabaseName = "AdventureWorks"
+$DataPath = "C:\Data\AdventureWorks.mdf"
+$logPath = "C:\Data\AdventureWorks_log.ldf"
+$DataFile = New-Object -TypeName Microsoft.SqlServer.Management.Smo.DatabaseFile($Database, $DataPath)
+$LogFile = New-Object -TypeName Microsoft.SqlServer.Management.Smo.DatabaseFile($Database, $logPath)
+
+# Create and configure database object
+$Database = New-Object -TypeName Microsoft.SqlServer.Management.Smo.Database($Server, $DatabaseName)
+$Database.FileGroups.Add("PRIMARY").Files.Add($DataFile)
+$Database.LogFiles.Add($LogFile)
+
+# Set up port and firewall rules
+$Port = 1433
+New-NetFirewallRule -DisplayName "SQL Server" -Direction Inbound -Protocol TCP -Action Allow -LocalPort $Port
+Set-NetFirewallRule -DisplayName "SQL Server" -Enabled True
+
+# Configure SQL Server properties
+$Server.Settings.LoginMode = "Mixed"
+$Server.Settings.MaximumWorkerThreads = 100
+$Database.Server.Configurations["Max Server Memory"].ConfigValue = 4096
+
+# Create and configure database user
+$Username = "JohnDoe"
+$Password = "P@ssw0rd"
+$User = New-Object -TypeName Microsoft.SqlServer.Management.Smo.User($Database, $Username)
+$User.Login = "JohnDoe"
+$User.DefaultSchema = "dbo"
+$User.ChangePassword($Password)
+
+# Save changes and start SQL Server service
+$Database.Alter()
+$Server.Start()

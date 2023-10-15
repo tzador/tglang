@@ -1,0 +1,135 @@
+/**
+* @title Crowdfunding Contract
+* @dev A contract that allows for crowdfunding of a project
+* using the Solidity programming language.
+*/
+
+pragma solidity ^0.8.0;
+
+contract Crowdfunding {
+    // Owner of the contract
+    address public owner;
+
+    // Total amount raised during the crowdfunding
+    uint public totalAmountRaised;
+
+    // Minimum goal amount for the crowdfunding
+    uint public minimumGoal;
+
+    // Maximum goal amount for the crowdfunding
+    uint public maximumGoal;
+
+    // Time period in seconds for the crowdfunding
+    uint public timePeriod;
+
+    // Mapping of contributors and their contributions
+    mapping(address => uint) public contributions;
+
+    // Array of all the contributors
+    address[] public contributors;
+
+    // Event triggered when a contribution is made
+    event ContributionMade(address contributor, uint amount);
+
+    /**
+    * @dev Constructor function that sets the initial values
+    * for the crowdfunding contract.
+    * @param _minimumGoal Minimum goal amount for the project
+    * @param _maximumGoal Maximum goal amount for the project
+    * @param _timePeriod Time period in seconds for the project
+    */
+    constructor(uint _minimumGoal, uint _maximumGoal, uint _timePeriod) {
+        // Set the owner of the contract to the creator
+        owner = msg.sender;
+        // Set the minimum goal
+        minimumGoal = _minimumGoal;
+        // Set the maximum goal
+        maximumGoal = _maximumGoal;
+        // Set the time period
+        timePeriod = _timePeriod;
+    }
+
+    modifier onlyOwner() {
+        // Only allow the owner to call this function
+        require(msg.sender == owner, "Only the owner can call this function");
+        _;
+    }
+
+    modifier timedCrowdfunding() {
+        // Only allow the crowdfunding to occur within the specified time period
+        require(block.timestamp < (timePeriod + block.timestamp), "The crowdfunding time period has already ended");
+        _;
+    }
+
+    /**
+    * @dev Function that allows a contributor to make a contribution
+    */
+    function contribute() public payable timedCrowdfunding {
+        // Check that the contribution is not zero
+        require(msg.value != 0, "Contribution amount cannot be zero");
+
+        // Add the contribution to the total amount raised
+        totalAmountRaised += msg.value;
+
+        // Add the contribution to the mapping of contributions
+        contributions[msg.sender] += msg.value;
+
+        // Check if the contributor is already in the array of contributors
+        // If not, add them to the array
+        if (!isContributor(msg.sender)) {
+            contributors.push(msg.sender);
+        }
+
+        // Trigger the ContributionMade event
+        emit ContributionMade(msg.sender, msg.value);
+    }
+
+    /**
+    * @dev Function that checks if a particular address is a contributor
+    * @param _address Address to check
+    * @return True if the address is a contributor, false if not
+    */
+    function isContributor(address _address) public view returns (bool) {
+        // Loop through the array of contributors to check if the address exists
+        for (uint i = 0; i < contributors.length; i++) {
+            if (contributors[i] == _address) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+    * @dev Function that allows the owner to withdraw funds once the crowdfunding is successful
+    */
+    function withdrawFunds() public onlyOwner {
+        // Check that the funding goal has been met
+        require(totalAmountRaised >= minimumGoal, "Funding goal has not been met");
+
+        // Send the funds to the owner
+        payable(owner).transfer(totalAmountRaised);
+    }
+
+    /**
+    * @dev Function that allows contributors to withdraw their contributions if the crowdfunding is unsuccessful
+    */
+    function refundContributions() public {
+        // Check that the funding goal has not been met
+        require(totalAmountRaised < minimumGoal, "Funding goal has been met");
+
+        // Check that the contributor has made a contribution
+        require(contributions[msg.sender] != 0, "You have not made a contribution");
+
+        // Get the contribution amount of the contributor
+        uint amountToRefund = contributions[msg.sender];
+
+        // Set the contribution amount to zero in the mapping of contributions
+        contributions[msg.sender] = 0;
+
+        // Subtract the contribution amount from the total amount raised
+        totalAmountRaised -= amountToRefund;
+
+        // Send the funds back to the contributor
+        payable(msg.sender).transfer(amountToRefund);
+    }
+}

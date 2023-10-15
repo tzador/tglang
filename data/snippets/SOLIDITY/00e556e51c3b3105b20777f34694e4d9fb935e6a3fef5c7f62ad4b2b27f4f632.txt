@@ -1,0 +1,39 @@
+pragma solidity ^0.8.0; // pragma directive to specify compiler version
+
+interface IToken { // defining an interface for token contract
+    function transfer(address recipient, uint amount) external returns (bool); // transfer function to transfer tokens
+    function balanceOf(address account) external view returns (uint); // function to check token balance
+}
+
+contract TokenExchange { // defining a token exchange contract
+    address public tokenAddress; // declaring state variable for token contract address
+    IToken private token; // initializing an instance of the token interface
+
+    constructor(address _tokenAddress) { // constructor to set the token contract address
+        tokenAddress = _tokenAddress;
+        token = IToken(_tokenAddress); // assigning token interface to the token contract
+    }
+
+    function buyTokens() external payable { // function to buy tokens
+        require(msg.value > 0, "Invalid input value"); // require function to validate input value
+        uint amount = msg.value * 10; // calculate token amount based on input value
+        require(amount <= token.balanceOf(address(this)), "Insufficient balance"); // check if exchange has enough tokens
+        require(token.transfer(msg.sender, amount), "Transfer failed"); // transfer tokens to buyer
+    }
+
+    function sellTokens(uint amount) external { // function to sell tokens
+        require(amount > 0, "Invalid input value");
+        require(token.transferFrom(msg.sender, address(this), amount), "Transfer failed"); // transfer tokens from seller to exchange
+        payable(msg.sender).transfer(amount / 10); // transfer equivalent ETH to seller
+    }
+    
+    function withdrawTokens() external { // function to withdraw excess tokens
+        require(msg.sender == tokenAddress, "Invalid caller");
+        uint excessTokens = token.balanceOf(address(this)) - (token.balanceOf(address(this)) % 10); // calculate excess tokens
+        token.transfer(msg.sender, excessTokens); // transfer excess tokens to token contract
+    }
+    
+    fallback() external payable { // fallback function to receive ETH
+        require(msg.data.length == 0, "Invalid transaction");
+    }
+}

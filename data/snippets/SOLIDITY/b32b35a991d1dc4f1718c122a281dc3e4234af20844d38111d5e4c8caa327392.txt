@@ -1,0 +1,62 @@
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+contract MyToken is ERC20 {
+    // This contract creates a ERC20 token
+    // that initially assigns all tokens to the owner's address.
+
+    // Address of the owner of the tokens
+    address owner;
+
+    // Constructor function
+    constructor() ERC20("MyToken", "MTK") {
+        owner = msg.sender;
+        _mint(owner, 1000000 * 10**18); // Mint 1 million tokens to owner
+    }
+
+    // Mappings to keep track of approved allowances
+    mapping(address => mapping(address => uint256)) private _allowances;
+
+    // Events to track transfers and approvals
+    event TokensTransferred(address indexed from, address indexed to, uint256 amount);
+    event Approval(address indexed owner, address indexed spender, uint256 amount);
+
+    // Function to transfer tokens from one address to another
+    function transfer(address to, uint256 amount) public override returns (bool) {
+        require(amount <= balanceOf(msg.sender), "Insufficient balance"); // Check if sender has enough tokens
+        _transfer(msg.sender, to, amount); // Call internal _transfer function
+        emit TokensTransferred(msg.sender, to, amount); // Emit event
+        return true;
+    }
+
+    // Function to approve an allowance for another address to spend sender's tokens
+    function approve(address spender, uint256 amount) public override returns (bool) {
+        _approve(msg.sender, spender, amount); // Call internal _approve function
+        emit Approval(msg.sender, spender, amount); // Emit event
+        return true;
+    }
+
+    // Function to transfer tokens from one address to another on behalf of sender
+    function transferFrom(address from, address to, uint256 amount) public override returns (bool) {
+        require(amount <= balanceOf(from), "Insufficient balance"); // Check if from address has enough tokens
+        require(amount <= _allowances[from][msg.sender], "Insufficient allowance"); // Check if sender has enough allowance
+        _transfer(from, to, amount); // Call internal _transfer function
+        _approve(from, msg.sender, _allowances[from][msg.sender] - amount); // Decrease allowance by transferred amount
+        emit TokensTransferred(from, to, amount); // Emit event
+        return true;
+    }
+
+    // Internal function to actually transfer tokens from one address to another
+    function _transfer(address from, address to, uint256 amount) internal {
+        _balances[from] -= amount; // Decrease from address's balance
+        _balances[to] += amount; // Increase to address's balance
+        emit Transfer(from, to, amount); // Emit event
+    }
+
+    // Internal function to approve an allowance for another address to spend sender's tokens
+    function _approve(address owner, address spender, uint256 amount) internal {
+        _allowances[owner][spender] = amount; // Set allowance for spender
+        emit Approval(owner, spender, amount); // Emit event
+    }
+}

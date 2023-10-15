@@ -1,0 +1,92 @@
+CLASS zcl_example DEFINITION PUBLIC FINAL CREATE PUBLIC.
+
+  PUBLIC SECTION.
+    METHODS:
+      constructor
+        IMPORTING
+          !iv_user TYPE syuname,
+          !iv_name TYPE ad_name,
+
+  PRIVATE SECTION.
+    DATA:
+      lo_document TYPE REF TO cl_document_bcs,
+      lt_attachments TYPE SDOKCNTBIN,
+      lr_recipient TYPE REF TO if_recipient_bcs.
+
+  PROTECTED SECTION.
+    DATA:
+      lv_message TYPE string,
+      lv_sender TYPE syuname.
+
+  METHODS:
+    send_email
+    IMPORTING
+      !iv_subject TYPE so_obj_des
+    RAISING
+      exception.
+
+  ENDCLASS.
+
+CLASS zcl_example IMPLEMENTATION.
+
+  METHOD constructor.
+    me->lv_sender = iv_user.
+    me->send_email( ).
+  ENDMETHOD.
+
+  METHOD send_email.
+    CREATE OBJECT lo_document
+      EXPORTING
+        type = 'RAW'
+        subject = iv_subject.
+
+    lr_recipient = cl_cam_address_bcs=>create_internet_address( iv_user ).
+    lt_attachments = me->get_attachments( ).
+
+    lo_document->add_attachment(
+      EXPORTING
+        document           = lt_attachments
+        document_type      = 'RAW'
+        document_subject   = 'Attachments' ).
+
+    cl_bcs=>create_persistent( EXPORTING i_obj_type = 'RAW'
+      i_internal_number               = '1'
+      RECEIVING
+        result  = lo_document->document ).
+
+    CALL METHOD lo_document->send(
+      EXPORTING
+        sender                        = lv_sender
+        recipient                     = lr_recipient
+      EXCEPTIONS
+        too_many_recipients           = 1
+        document_not_sent             = 2
+        document_type_not_exist       = 3
+        operation_no_authorization    = 4
+        parameter_error               = 5
+        x_error                       = 6
+        enqueue_error                 = 7
+        OTHERS                        = 8 ).
+
+    IF sy-subrc <> 0.
+      MESSAGE 'Error sending email' TYPE 'E'.
+      RAISE exception.
+    ENDIF.
+
+  ENDMETHOD.
+
+  METHOD get_attachments.
+    FIELD-SYMBOLS: <fs_attachment> TYPE solisti1.
+
+    ASSIGN lt_attachments TO <fs_attachment>.
+    DATA: lv_format TYPE string.
+
+    DO 10 TIMES.
+      lv_format = 'Attachment ' && sy-index && '.txt'.
+      <fs_attachment> = |Example attachment file { sy-index }| && cl_bcs_convert=>newline.
+      APPEND lt_attachments.
+    ENDDO.
+
+  ENDMETHOD.
+
+  ENDCLASS.

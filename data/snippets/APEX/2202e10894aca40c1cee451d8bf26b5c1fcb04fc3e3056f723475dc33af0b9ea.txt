@@ -1,0 +1,40 @@
+/**
+ * This class contains methods for creating and updating records in Salesforce
+ * using the Apex programming language
+ **/
+public class RecordManagement {
+    
+    /**
+     * Method to create a new record for the specified sObject type
+     * @param sObjectType - the API name of the sObject
+     * @param fields - a map of field names and values for the new record
+     * @return the ID of the newly created record
+     **/
+    public static Id createRecord(String sObjectType, Map<String, Object> fields) {
+        sObject newRecord = (sObject)Type.forName(sObjectType).newInstance();
+        for (String field : fields.keySet()) {
+            if (newRecord.get(field).getDescribe().isCreateable()) {
+                newRecord.put(field, fields.get(field));
+            }
+        }
+        insert newRecord;
+        return newRecord.Id;
+    }
+
+    /**
+     * Method to update an existing record with new field values
+     * @param recordId - the ID of the record to be updated
+     * @param fields - a map of field names and values to be updated
+     **/
+    public static void updateRecord(Id recordId, Map<String, Object> fields) {
+        sObject recordToUpdate = Database.query('SELECT ' + String.join(fields.keySet(), ',') +
+                                                 ' FROM ' + recordId.getSObjectType().getDescribe().getName() +
+                                                 ' WHERE Id = :recordId FOR UPDATE');
+        for (String field : fields.keySet()) {
+            if (recordToUpdate.get(field).getDescribe().isUpdateable() && !String.valueOf(fields.get(field)).equalsIgnoreCase(recordToUpdate.get(field))) {
+                recordToUpdate.put(field, fields.get(field));
+            }
+        }
+        update recordToUpdate;
+    }
+}

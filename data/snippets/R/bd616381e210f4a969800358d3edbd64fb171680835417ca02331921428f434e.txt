@@ -1,0 +1,40 @@
+# R code for running a linear regression model with multiple predictors
+
+# load necessary packages
+library(tidyverse)
+library(caret)
+library(e1071)
+
+# read in data and clean
+
+df <- read.csv("data.csv", stringsAsFactors = FALSE)
+df <- df %>%
+      filter(!is.na(target_var) | !is.na(predictor_var1) | !is.na(predictor_var2)) %>%
+      mutate_if(is.character, as.numeric) %>%
+      mutate(target_var = as.factor(target_var))
+
+# specify model formula
+model_formula <- as.formula("target_var ~ predictor_var1 + predictor_var2")
+
+# split data into training and testing
+set.seed(123)
+trainIndex <- createDataPartition(df$target_var, p = .7, list = FALSE)
+train <- df[trainIndex,]
+test <- df[-trainIndex,]
+
+# train the model
+model <- train(train$target_var ~ ., data = train, method = "svmLinear", preProcess = c("center", "scale"))
+
+# make predictions on the testing data
+predictions <- predict(model, newdata = test)
+
+# print out model summary
+model
+
+# print out model accuracy
+sum(model$pred$obs == model$pred$pred) / nrow(test)
+
+# plot actual vs. predicted values
+ggplot(data = test, aes(x = target_var, y = predictions)) +
+      geom_point() +
+      geom_abline(intercept = 0, slope = 1)

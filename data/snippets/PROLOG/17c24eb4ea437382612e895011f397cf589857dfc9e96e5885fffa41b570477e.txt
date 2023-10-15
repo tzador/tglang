@@ -1,0 +1,61 @@
+%This is a program that implements a mark and sweep garbage collector
+
+%Declaring dynamic predicates to be used for tracking memory usage
+:- dynamic 'used_memory'/2.
+:- dynamic 'unmarked'/1.
+
+%Setting initial values for memory usage
+'used_memory'(0, heap).
+'unmarked'(0).
+
+%Defining our main predicate that initiates the garbage collection process
+%Takes in a list of heap pointers
+garbage_collect(HeapPointers) :-
+    %Initializing counters
+    assertz('used_memory'(0, new_heap)),
+    assertz('unmarked'(0)),
+    %Calling the mark phase passing in the list of heap pointers
+    mark(HeapPointers),
+    %Calling the sweep phase
+    sweep.
+
+%Defining the mark phase
+mark(HeapPointers) :-
+    %Retrieving all heap addresses from 'used_memory' predicate
+    findall(Address, 'used_memory'(Address, _), Addresses),
+    %Iterating through each address
+    member(Address, Addresses),
+    %Checking if it is in the heap
+    memberchk(Address, HeapPointers),
+    %Checking if it is already marked
+    not('is_marked'(Address)),
+    %Marking the address by adding it to 'used_memory' predicate with a mark of "marked"
+    assertz('used_memory'(Address, marked)),
+    %Incrementing the unmarked counter
+    retract('unmarked'(Count)),
+    NewCount is Count + 1,
+    assertz('unmarked'(NewCount)),
+    %Recursively calling mark with the updated HeapPointers list
+    mark(HeapPointers).
+
+%Defining the sweep phase
+sweep :-
+    %Retrieving all heap addresses from 'used_memory' predicate
+    findall(Address, 'used_memory'(Address, _), Addresses),
+    %Iterating through each address
+    member(Address, Addresses),
+    %Checking if it is not marked
+    not('is_marked'(Address)),
+    %Removing the address from 'used_memory' and updating memory usage
+    retract('used_memory'(Address, _)),
+    'used_memory'(CurrentUsed, heap),
+    NewUsed is CurrentUsed - 1,
+    retract('used_memory'(CurrentUsed, heap)),
+    assertz('used_memory'(NewUsed, heap)),
+    %Decrementing the unmarked counter
+    retract('unmarked'(Count)),
+    NewCount is Count-1,
+    assertz('unmarked'(NewCount)),
+    %Recursively calling sweep
+    sweep).
+%End of program.

@@ -1,0 +1,61 @@
+-module(maze_solver).
+
+-export([solve_maze/2]).
+
+%% Function to solve a maze given a starting position and maze grid.
+%% Arguments:
+%%       Position - Tuple of the starting position in the maze grid.
+%%       Maze     - A list of lists representing the maze grid.
+%% Output:
+%%       A list of tuples representing the path to solve the maze.
+
+solve_maze({CurrentX,CurrentY}, Maze) ->
+    %% Initialize the stack with the starting position and push it onto the stack.
+    Stack = [{CurrentX,CurrentY}],
+    %% Set the starting position as visited.
+    Visited = [CurrentX],
+    %% Initialize the path list with the starting position.
+    Path = [{CurrentX,CurrentY}],
+    %% Recursively call helper function to solve the maze.
+    solve_maze_helper(Stack, Visited, Path, Maze).
+
+%% Helper function to recursively solve the maze.
+solve_maze_helper(Stack, Visited, Path, Maze) ->
+    %% Check if the stack is empty, if yes then return the path as the solution.
+    case Stack of
+        [] -> Path;
+        _ ->
+            %% Get the current position from the top of the stack.
+            {CurrentX,CurrentY} = hd(Stack),
+            %% Check if we have reached the bottom right corner of the maze.
+            if CurrentX == length(Maze), CurrentY == length(hd(Maze)) -> Path;
+                true ->
+                    %% Get all the valid neighbors of the current position
+                    Neighbors = get_valid_neighbors(CurrentX,CurrentY, Maze),
+                    %% Get the first unvisited neighbor and push it onto the stack.
+                    {NextX,NextY} = lists:nth(1, neighbors_not_visited(Neighbors,Visited)),
+                    NewStack = [{NextX,NextY}|Stack],
+                    %% Set the new position as visited.
+                    NewVisited = [NextX|Visited],
+                    %% Add the new position to the path list.
+                    NewPath = [{NextX,NextY}|Path],
+                    %% Recursively call the helper function with the updated parameters.
+                    solve_maze_helper(NewStack, NewVisited, NewPath, Maze)
+            end
+    end.
+
+%% Returns a list of valid neighbors for a given position in the maze.
+get_valid_neighbors(CurrentX, CurrentY, Maze) ->
+    %% List of possible neighbors with respect to the current position.
+    Neighbors = [{NextX,CurrentY}, {CurrentX,NextY}, {CurrentX-1, CurrentY}, {CurrentX,CurrentY-1}],
+    %% Filter out neighbors that are outside the bounds of the maze or blocked by walls.
+    lists:filter(fun({X,Y}) -> X > 0 andalso X =< length(Maze) andalso
+                                   Y > 0 andalso Y =< length(hd(Maze)) andalso
+                                   lists:nth(X,Maze) =:= [0,0,0,0]
+                    end, Neighbors).
+
+%% Returns a list of neighbors that have not been visited yet.
+neighbors_not_visited(Neighbors, Visited) ->
+    %% Filter out neighbors that are already visited.
+    lists:filter(fun({X,Y}) -> not lists:member(X,Visited)
+                    end, Neighbors).

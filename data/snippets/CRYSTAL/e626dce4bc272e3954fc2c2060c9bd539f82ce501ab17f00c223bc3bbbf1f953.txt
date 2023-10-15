@@ -1,0 +1,339 @@
+class BinaryTree
+  # This class represents a binary tree data structure.
+  # It has methods for insertion, deletion, traversal, searching and balancing
+  
+  # This helper method inserts a new node into the tree
+  # @param [Object] value - the value to be inserted into the tree
+  # @param [TreeNode|Nil] node - the current node being traversed
+  # @return [TreeNode] - the new root of the tree
+  private def _insert(value, node)
+    # if the current node is nil, create a new node with the given value
+    if node == nil
+      return TreeNode.new(value)
+    end
+    
+    # if the given value is less than the current node's value, go left
+    if value < node.value
+      # recursively call _insert on the left child of the current node
+      node.left_child = _insert(value, node.left_child)
+    # if the given value is greater than or equal to the current node's value, go right
+    else
+      # recursively call _insert on the right child of the current node
+      node.right_child = _insert(value, node.right_child)
+    end
+    
+    # return the current node as the root of the subtree
+    return node
+  end
+  
+  # This method inserts a new node into the tree and rebalances it
+  # @param [Object] value - the value to be inserted into the tree
+  def insert(value)
+    # call the helper method to insert the new node
+    @root = _insert(value, @root)
+    
+    # rebalance the tree to maintain its height-balanced property
+    @root = rebalance(@root)
+  end
+  
+  # This helper method deletes a node from the tree
+  # @param [Object] value - the value to be removed from the tree
+  # @param [TreeNode] node - the current node being traversed
+  # @return [TreeNode] - the updated root of the tree
+  private def _delete(value, node)
+    # if the current node is nil, return nil
+    if node == nil
+      return nil
+    end
+    
+    # if the given value is less than the current node's value, go left
+    if value < node.value
+      # recursively call _delete on the left child of the current node
+      node.left_child = _delete(value, node.left_child)
+    # if the given value is greater than the current node's value, go right
+    elsif value > node.value
+      # recursively call _delete on the right child of the current node
+      node.right_child = _delete(value, node.right_child)
+    # otherwise, we have found the node to be deleted
+    else
+      # if the node has no children
+      if node.left_child == nil && node.right_child == nil
+        # set its parent's appropriate child to nil
+        # this effectively removes the node from the tree
+        node.parent.set_child(node, nil)
+      # if the node has only a right child
+      elsif node.left_child == nil
+        # set its parent's appropriate child to the right child
+        node.parent.set_child(node, node.right_child)
+      # if the node has only a left child
+      elsif node.right_child == nil
+        # set its parent's appropriate child to the left child
+        node.parent.set_child(node, node.left_child)
+      # if the node has both a left and right child
+      else
+        # find the leftmost node of the right subtree
+        leftmost = node.right_child.find_leftmost_node
+        # set the current node's value to the leftmost value
+        node.value = leftmost.value
+        # delete the leftmost node
+        node.right_child = _delete(leftmost.value, node.right_child)
+      end
+    end
+    
+    # return the current node as the root of the subtree
+    return node
+  end
+  
+  # This method deletes a node from the tree and rebalances it
+  # @param [Object] value - the value to be removed from the tree
+  def delete(value)
+    # call the helper method to delete the node
+    @root = _delete(value, @root)
+    
+    # rebalance the tree to maintain its height-balanced property
+    @root = rebalance(@root)
+  end
+  
+  # This helper method rebalances the tree
+  # @param [TreeNode] node - the current node being traversed
+  # @return [TreeNode] - the updated node after rebalancing
+  private def rebalance(node)
+    # if the node is nil or the tree is empty, return nil
+    if node == nil
+      return nil
+    end
+    
+    # calculate the balance factor of the current node
+    balance_factor = node.left_child.height - node.right_child.height
+    
+    # if the balance factor is greater than 1, the tree is left-heavy
+    # we need to perform a rotation to balance the tree
+    if balance_factor > 1
+      # if the left subtree is left-heavy or balanced, perform a single right rotation
+      if node.left_child.left_child.height >= node.left_child.right_child.height
+        return right_rotate(node)
+      # if the left subtree is right-heavy, perform a left-right rotation
+      else
+        node.left_child = left_rotate(node.left_child)
+        return right_rotate(node)
+      end
+    # if the balance factor is less than -1, the tree is right-heavy
+    # we need to perform a rotation to balance the tree
+    elsif balance_factor < -1
+      # if the right subtree is right-heavy or balanced, perform a single left rotation
+      if node.right_child.right_child.height >= node.right_child.left_child.height
+        return left_rotate(node)
+      # if the right subtree is left-heavy, perform a right-left rotation
+      else
+        node.right_child = right_rotate(node.right_child)
+        return left_rotate(node)
+      end
+    end
+    
+    # if the tree is already balanced, just return the node
+    return node
+  end
+  
+  # This method performs a right rotation about the given node
+  # @param [TreeNode] node - the node about which the rotation is performed
+  # @return [TreeNode] - the updated node after the rotation
+  private def right_rotate(node)
+    # check if the given node is nil or already the root of the tree
+    if node == nil || node.parent == nil
+      return node
+    end
+    
+    # save references to the current node's parent and left child
+    parent = node.parent
+    left_child = node.left_child
+    
+    # set the left child's parent as the current node's parent
+    left_child.parent = parent
+    
+    # if the current node is the left child of its parent, set the left child
+    # of the parent to be the current node's left child
+    if node.is_left_child?
+      parent.left_child = left_child
+    # if the current node is the right child of its parent, set the right child
+    # of the parent to be the current node's left child
+    else
+      parent.right_child = left_child
+    end
+    
+    # set the current node's left child to be the right child of the left child
+    # this effectively removes the left child from the tree and sets it above the current node
+    node.left_child = left_child.right_child
+    
+    # if the left child's right child is not nil, set its parent to be the current node
+    if left_child.right_child != nil
+      left_child.right_child.parent = node
+    end
+    
+    # set the current node to be the left child's right child
+    left_child.right_child = node
+    
+    # set the parent of the current node to be the left child
+    node.parent = left_child
+    
+    # return the updated node after the rotation
+    return left_child
+  end
+  
+  # This method performs a left rotation about the given node
+  # @param [TreeNode] node - the node about which the rotation is performed
+  # @return [TreeNode] - the updated node after the rotation
+  private def left_rotate(node)
+    # check if the given node is nil or already the root of the tree
+    if node == nil || node.parent == nil
+      return node
+    end
+    
+    # save references to the current node's parent and right child
+    parent = node.parent
+    right_child = node.right_child
+    
+    # set the right child's parent as the current node's parent
+    right_child.parent = parent
+    
+    # if the current node is the left child of its parent, set the left child
+    # of the parent to be the current node's right child
+    if node.is_left_child?
+      parent.left_child = right_child
+    # if the current node is the right child of its parent, set the right child
+    # of the parent to be the current node's right child
+    else
+      parent.right_child = right_child
+    end
+    
+    # set the current node's right child to be the left child of the right child
+    # this effectively removes the right child from the tree and sets it above the current node
+    node.right_child = right_child.left_child
+    
+    # if the right child's left child is not nil, set its parent to be the current node
+    if right_child.left_child != nil
+      right_child.left_child.parent = node
+    end
+    
+    # set the current node to be the right child's left child
+    right_child.left_child = node
+    
+    # set the parent of the current node to be the right child
+    node.parent = right_child
+    
+    # return the updated node after the rotation
+    return right_child
+  end
+  
+  # This helper method finds a node with the given value in the tree
+  # @param [Object] value - the value to be searched for
+  # @param [TreeNode|Nil] node - the current node being traversed
+  # @return [TreeNode|Nil] - the node with the given value or nil if it doesn't exist
+  private def _find(value, node)
+    # if the current node is nil, return nil
+    if node == nil
+      return nil
+    end
+    
+    # if the given value is less than the current node's value, go left
+    if value < node.value
+      # recursively call _find on the left child of the current node
+      return _find(value, node.left_child)
+    # if the given value is greater than the current node's value, go right
+    elsif value > node.value
+      # recursively call _find on the right child of the current node
+      return _find(value, node.right_child)
+    # otherwise, we have found the node with the given value
+    else
+      return node
+    end
+  end
+  
+  # This method searches for a node with the given value in the tree
+  # @param [Object] value - the value to be searched for
+  # @return [TreeNode|Nil] - the node with the given value or nil if it doesn't exist
+  def find(value)
+    # call the helper method to find the node
+    return _find(value, @root)
+  end
+  
+# This helper method traverses the tree in order and
+  # prints the values of the nodes in ascending order
+  # @param [TreeNode] node - the current node being traversed
+  private def _print_in_order(node)
+    # if the current node is nil, return
+    if node == nil
+      return
+    end
+    
+    # recursively call _print_in_order on the left child of the current node
+    _print_in_order(node.left_child)
+    
+    # print the current node's value
+    puts node.value
+    
+    # recursively call _print_in_order on the right child of the current node
+    _print_in_order(node.right_child)
+  end
+  
+  # This method traverses the tree in order
+  # and prints the values of the nodes in ascending order
+  def print_in_order
+    # call the helper method on the root of the tree
+    _print_in_order(@root)
+  end
+  
+  # This helper method traverses the tree pre-order and
+  # prints the values of the nodes
+  # @param [TreeNode] node - the current node being traversed
+  private def _print_pre_order(node)
+    # if the current node is nil, return
+    if node == nil
+      return
+    end
+    
+    # print the current node's value
+    puts node.value
+    
+    # recursively call _print_pre_order on the left child of the current node
+    _print_pre_order(node.left_child)
+    
+    # recursively call _print_pre_order on the right child of the current node
+    _print_pre_order(node.right_child)
+  end
+  
+  # This method traverses the tree pre-order
+  # and prints the values of the nodes
+  def print_pre_order
+    # call the helper method on the root of the tree
+    _print_pre_order(@root)
+  end
+  
+  # This helper method traverses the tree post-order and
+  # prints the values of the nodes
+  # @param [TreeNode] node - the current node being traversed
+  private def _print_post_order(node)
+    # if the current node is nil, return
+    if node == nil
+      return
+    end
+    
+    # recursively call _print_post_order on the left child of the current node
+    _print_post_order(node.left_child)
+    
+    # recursively call _print_post_order on the right child of the current node
+    _print_post_order(node.right_child)
+    
+    # print the current node's value
+    puts node.value
+  end
+  
+  # This method traverses the tree post-order
+  # and prints the values of the nodes
+  def print_post_order
+    # call the helper method on the root of the tree
+    _print_post_order(@root)
+  end
+  
+  # This helper method calculates the height of a given node in the tree
+  # @param [TreeNode|Nil] node - the current node being traversed
+  # @return [Integer] - the height of the given node or -1 if it

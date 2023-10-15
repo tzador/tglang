@@ -1,0 +1,27 @@
+use std::{
+    collections::{HashMap, HashSet},
+    io::{BufRead, Write},
+    process::{Command, Stdio},
+    sync::{Arc, Mutex},
+    thread,
+};
+
+fn main() {
+    let mut map: HashMap<usize, String> = HashMap::new(); // creates a new hashmap with usize keys and string values
+    let set: HashSet<i32> = [1, 3, 5].iter().cloned().collect(); // creates a new hashset with i32 values
+    let arc = Arc::new(Mutex::new(map)); // creates a new atomic reference counted mutex for thread-safe sharing
+    for i in set {
+        // iterates through the set and spawns a new thread with a closure
+        let arc = Arc::clone(&arc); // clones the arc for sharing with the thread
+        thread::spawn(move || {
+            let mut map = arc.lock().unwrap(); // acquires the mutex lock, unwraps the result and stores the map in a mutable variable
+            map.insert(i as usize, i.to_string()); // inserts a new key-value pair into the map, converting i to usize and i to string
+            drop(map); // drops the map variable, releasing the lock
+        });
+    }
+
+    thread::sleep(std::time::Duration::from_millis(100)); // sleeps for 100 milliseconds to allow the threads to finish executing
+
+    let map = Arc::try_unwrap(arc).unwrap().into_inner().unwrap(); // unwraps the arc, retrieving the inner hashmap and unwrapping the mutex
+    println!("{:?}", map); // prints the final hashmap to the console
+}

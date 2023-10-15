@@ -1,0 +1,97 @@
+server {
+    listen 80;
+    server_name example.com;
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+    }
+    
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+    
+    location = /50x.html {
+        root /usr/share/nginx/html;
+    }
+    
+    location /images/ {
+        root /data/images;
+    }
+    
+    location ~ \.css$ {
+        add_header Content-Type text/css;
+    }
+    
+    location /restricted {
+        deny all;
+        return 403;
+    }
+    
+    location ~* \.(gif|jpg|png)$ {
+        expires 30d;
+        add_header Cache-Control public;
+    }
+    
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+    
+    location ~ /config/ {
+        internal;
+        alias /etc/nginx/;
+    }
+    
+    location /upstream {
+        proxy_pass http://backend;
+    }
+    
+    location /api/ {
+        proxy_pass http://api_backend;
+        proxy_http_version 1.1;
+    }
+    
+    location / {
+        proxy_pass http://backend;
+        
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        
+        proxy_buffering off;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+        
+        proxy_redirect off;
+    }
+    
+    location /downloads {
+        root /data/downloads;
+        
+        if ($request_method = GET ) {
+            expires 30d;
+        }
+        
+        if ($request_method = POST ) {
+            add_header Content-Disposition attachment;
+        }
+        
+        if ($request_method ~* "^(OPTIONS|HEAD)$") {
+            add_header Allow "GET, POST, OPTIONS, HEAD";
+            add_header Content-Length 0;
+            return 204;
+        }
+    }
+    
+    # Custom error pages
+    error_page 403 /custom_403.html;
+    location = /custom_403.html {
+        internal;
+        alias /var/www/error_pages/custom_403.html;
+    }
+    
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-XSS-Protection "1; mode=block";
+    add_header X-Content-Type-Options "nosniff";
+    add_header Content-Security-Policy "default-src 'none'; frame-ancestors 'self' example.com; style-src 'self' 'unsafe-inline'";
+}

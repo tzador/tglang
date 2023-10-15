@@ -1,0 +1,65 @@
+# Define our server block
+server {
+    # Listen on port 80
+    listen 80;
+    # Specify the server name as example.com
+    server_name example.com;
+    # Enable gzip compression
+    gzip on;
+    # Set the gzip compression level to 5
+    gzip_comp_level 5;
+    # Set the location of our root directory
+    root /var/www/example;
+    # Define location-specific variables
+    location / {
+        # Set the default file to index.html
+        index index.html;
+    }
+    # Define a location for our static files
+    location /static/ {
+        # Set the gzip static compression level to 9
+        gzip_static on;
+        gzip_comp_level 9;
+        # Set cache settings for static files
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+        # Use HTTP 1.1 chunked transfer encoding for faster delivery
+        chunked_transfer_encoding on;
+    }
+    # Define a location for our API
+    location /api/ {
+        # Pass requests to our upstream server
+        proxy_pass http://127.0.0.1:8000;
+        # Set HTTP headers for caching
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+        proxy_cache_valid 200 302 10m;
+        # Enable caching for our API responses
+        proxy_cache api_cache;
+        proxy_cache_bypass $http_pragma;
+        proxy_cache_revalidate on;
+        # Set buffer settings for large responses
+        proxy_buffering on;
+        proxy_buffer_size 8k;
+        proxy_buffers 256 16k;
+        proxy_busy_buffers_size 16k;
+        # Enable HTTP/2 for faster communication
+        http2_push_preload on;
+    }
+    # Define a location for our admin panel
+    location /admin/ {
+        # Use Basic Authentication for security
+        auth_basic "Restricted Content";
+        auth_basic_user_file /etc/nginx/.htpasswd;
+        # Proxy requests to our upstream server
+        proxy_pass http://127.0.0.1:3000;
+    }
+    # Enable TLS for secure HTTPS connections
+    listen 443 ssl;
+    # Set the TLS certificate and key files
+    ssl_certificate /etc/ssl/certs/example.crt;
+    ssl_certificate_key /etc/ssl/private/example.key;
+    # Enable HTTP Strict Transport Security (HSTS)
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    # Disable TLS session tickets for improved security
+    ssl_session_tickets off;
+}

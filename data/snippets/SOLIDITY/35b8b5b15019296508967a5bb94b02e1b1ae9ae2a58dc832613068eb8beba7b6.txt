@@ -1,0 +1,78 @@
+pragma solidity ^0.8.4;
+
+// This contract is used for managing a bank
+contract Bank {
+    // Variables
+    uint private totalBalance; // Total balance in the bank
+    address private owner; // Owner of the contract
+    mapping (address => uint) private balances; // Mapping of address to balances
+
+    // Events
+    event Deposit(address account, uint amount); // Event fired when deposit is made
+    event Withdrawal(address account, uint amount); // Event fired when withdrawal is made
+    event Transfer(address from, address to, uint amount); // Event fired when transfer is made
+
+    // Constructor - sets the owner of the contract
+    constructor() {
+        owner = msg.sender; // Set owner to the address deploying the contract
+    }
+
+    // Allow owner to deposit funds into the bank
+    function ownerDeposit() public payable {
+        require(msg.sender == owner, "Only owner can deposit funds");
+        require(msg.value > 0, "Deposit amount must be greater than 0");
+        totalBalance += msg.value; // Add the deposited amount to the total balance
+        balances[owner] += msg.value; // Add the deposited amount to the owner's balance
+        emit Deposit(owner, msg.value); // Fire deposit event
+    }
+
+    // Allow anyone to deposit funds into the bank
+    function deposit() public payable {
+        require(msg.value > 0, "Deposit amount must be greater than 0");
+        totalBalance += msg.value; // Add the deposited amount to the total balance
+        balances[msg.sender] += msg.value; // Add the deposited amount to the sender's balance
+        emit Deposit(msg.sender, msg.value); // Fire deposit event
+    }
+
+    // Allow owner to withdraw funds from the bank
+    function ownerWithdraw(uint amount) public {
+        require(msg.sender == owner, "Only owner can withdraw funds");
+        require(amount > 0, "Withdrawal amount must be greater than 0");
+        require(amount <= balances[owner], "Not enough funds in owner's balance");
+        totalBalance -= amount; // Subtract the withdrawn amount from the total balance
+        balances[owner] -= amount; // Subtract the withdrawn amount from the owner's balance
+        payable(owner).transfer(amount); // Transfer the withdrawn amount to the owner
+        emit Withdrawal(owner, amount); // Fire withdrawal event
+    }
+
+    // Allow anyone to withdraw their funds from the bank
+    function withdraw(uint amount) public {
+        require(amount > 0, "Withdrawal amount must be greater than 0");
+        require(amount <= balances[msg.sender], "Not enough funds in sender's balance");
+        totalBalance -= amount; // Subtract the withdrawn amount from the total balance
+        balances[msg.sender] -= amount; // Subtract the withdrawn amount from the sender's balance
+        payable(msg.sender).transfer(amount); // Transfer the withdrawn amount to the sender
+        emit Withdrawal(msg.sender, amount); // Fire withdrawal event
+    }
+
+    // Allow owner to transfer funds from one account to another
+    function ownerTransfer(address from, address to, uint amount) public {
+        require(msg.sender == owner, "Only owner can transfer funds");
+        require(amount > 0, "Transfer amount must be greater than 0");
+        require(amount <= balances[from], "Not enough funds in sender's balance");
+        totalBalance -= amount; // Subtract the transferred amount from the total balance
+        balances[from] -= amount; // Subtract the transferred amount from the sender's balance
+        balances[to] += amount; // Add the transferred amount to the receiver's balance
+        emit Transfer(from, to, amount); // Fire transfer event
+    }
+
+    // Get total balance of the bank
+    function getTotalBalance() public view returns (uint) {
+        return totalBalance;
+    }
+
+    // Get balance of a specific account
+    function getBalance(address account) public view returns (uint) {
+        return balances[account];
+    }
+}

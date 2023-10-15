@@ -1,0 +1,39 @@
+/*
+    This is a SAS code snippet for performing a linear mixed model analysis
+    on a dataset containing information on blood pressure levels of individuals.
+*/
+
+/* Importing the dataset */
+proc import datafile="C:\Users\BP_data.xlsx"
+	out=bp_data
+	dbms=xlsx
+	replace;
+    getnames=yes;
+
+/* Creating a new variable 'mean_bp' */
+data new_bp;
+    set bp_data;
+    mean_bp = (sysbp1 + diasbp1) / 2; /* Calculating mean blood pressure */
+
+/* Creating a variable for the time of measurement */
+if visit eq 1 then time = 'Baseline';
+else if visit eq 2 then time = 'Week 4';
+else if visit eq 3 then time = 'Week 8';
+else if visit eq 4 then time = 'Week 12';
+run;
+
+/* Creating the linear mixed model */
+proc mixed data=new_bp;
+    class id visit;
+    model mean_bp = time / s;
+    repeated visit / subject=id type=un;
+    lsmeans time / diff;
+run;
+
+/* Outputting the results in a table */
+proc print data=new_bp noobs;
+    var id time mean_bp;
+    label id = 'Participant ID'
+    time = 'Measurement Time'
+    mean_bp = 'Mean Blood Pressure';
+run;

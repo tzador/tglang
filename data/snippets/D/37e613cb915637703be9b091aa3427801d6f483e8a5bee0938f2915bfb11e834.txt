@@ -1,0 +1,151 @@
+/* 
+This is a complex code snippet in D Programming Language.
+It generates a random maze and finds the shortest path from start to end using Dijkstra's algorithm.
+*/
+
+import std.random;
+import std.algorithm;
+import std.range;
+
+alias Maze = aliasSeq!(SeqOf!(int[16]), 10);
+alias Node = struct { int x, y; };
+alias Path = Node[];
+
+void main() {
+    Maze maze = generateMaze(10);
+    writeln("Generated Maze:");
+    maze.writeln();
+    
+    auto start = generateRandomNode();
+    auto end = generateRandomNode();
+    Node[] path = findShortestPath(maze, start, end);
+    
+    writeln("\nShortest Path from ", start, " to ", end, ":");
+    path.writeln();
+}
+
+Path findShortestPath(Maze maze, Node start, Node end) {
+    // initialize distances and previous nodes
+    int[] distances = new int[maze.length];
+    Node[] prev = new Node[maze.length];
+    distances.fill(int.max, 1);
+    prev.fill(Node(-1,-1), 1);
+    distances[mazeIndex(start)] = 0;
+    
+    // initialize priority queue implemented as min-heap
+    auto pq = BinaryHeap!((a,b) => distances[mazeIndex(a)] > distances[mazeIndex(b)]);
+    pq.put(start);
+    
+    // Dijkstra's algorithm
+    while (!pq.empty) {
+        Node current = pq.front;
+        pq.pop();
+        
+        // check if reached end node
+        if (current == end) break;
+        
+        // get adjacent nodes of current node
+        Node[] neighbors = getNeighbors(maze, current);
+        
+        // iterate through neighbors
+        foreach (neighbor; neighbors) {
+            // calculate distance from current node to neighbor
+            int dist = distances[mazeIndex(current)] + 1;
+            
+            // update distance and previous node if shorter path is found
+            if (dist < distances[mazeIndex(neighbor)]) {
+                distances[mazeIndex(neighbor)] = dist;
+                prev[mazeIndex(neighbor)] = current;
+                
+                // add updated neighbor to priority queue
+                pq.put(neighbor);
+            }
+        }
+    }
+    
+    // generate path from start to end using previous nodes
+    Path path = [end];
+    Node current = end;
+    while (current != start) {
+        current = prev[mazeIndex(current)];
+        path ~= current;
+    }
+
+    return path.reverse;
+}
+
+Maze generateMaze(int size) {
+    Maze maze = new Maze(size);
+    
+    // create walls on all edges
+    for (int i = 0; i < size; i++) {
+        maze[0][i] = 1;
+        maze[i][0] = 1;
+        maze[size - 1][i] = 1;
+        maze[i][size - 1] = 1;
+    }
+    
+    // generate random maze using depth-first search
+    int x = 2, y = 2;
+    while (x < size - 1 && y < size - 1) {
+        maze[x][y] = 0;
+        int dir = uniform(0, 4);
+        
+        // check if space in chosen direction is not yet visited
+        if (dir == 0 && maze[x + 2][y] == 1) {
+            maze[x + 1][y] = 0;
+            x += 2;
+        }
+        // check if space in chosen direction is not yet visited
+        else if (dir == 1 && maze[x][y + 2] == 1) {
+            maze[x][y + 1] = 0;
+            y += 2;
+        }
+        // check if space in chosen direction is not yet visited
+        else if (dir == 2 && maze[x - 2][y] == 1) {
+            maze[x - 1][y] = 0;
+            x -= 2;
+        }
+        // check if space in chosen direction is not yet visited
+        else if (dir == 3 && maze[x][y - 2] == 1) {
+            maze[x][y - 1] = 0;
+            y -= 2;
+        }
+    }
+    maze[size - 2][size - 2] = 0;
+
+    return maze;
+}
+
+Node generateRandomNode() {
+    Node node;
+    node.x = uniform(1, 8);
+    node.y = uniform(1, 8);
+    return node;
+}
+
+int mazeIndex(Node node) {
+    return node.x * 10 + node.y;
+}
+
+Node[] getNeighbors(Maze maze, Node node) {
+    Node[] neighbors;
+    
+    // check for left neighbor
+    if (node.x > 0 && maze[node.x - 1][node.y] == 0) {
+        neighbors ~= Node(node.x - 1, node.y);
+    }
+    // check for right neighbor
+    if (node.x < 9 && maze[node.x + 1][node.y] == 0) {
+        neighbors ~= Node(node.x + 1, node.y);
+    }
+    // check for bottom neighbor
+    if (node.y > 0 && maze[node.x][node.y - 1] == 0) {
+        neighbors ~= Node(node.x, node.y - 1);
+    }
+    // check for top neighbor
+    if (node.y < 9 && maze[node.x][node.y + 1] == 0) {
+        neighbors ~= Node(node.x, node.y + 1);
+    }
+    return neighbors;
+}

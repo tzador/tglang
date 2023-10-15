@@ -1,0 +1,86 @@
+{-# LANGUAGE OverloadedStrings #-}
+
+module Main exposing (..)
+
+import Http
+import Json.Decode exposing (Decoder, (:=))
+import Json.Encode exposing (Value)
+import String exposing (toUpper)
+
+type alias User =
+    { name : String
+    , age : Int
+    , occupation : String
+    }
+
+type Msg
+    = ReceiveUserResult (Result Http.Error User)
+
+type alias Model =
+    { user : Maybe User
+    , isLoading : Bool
+    , error : Maybe String
+    }
+
+viewLoading : Html Msg
+viewLoading =
+    h3 [] [ text "Loading..." ]
+
+viewError : String -> Html Msg
+viewError errorMsg =
+    h3 [ style "color" "red" ] [ text errorMsg ]
+
+viewUser : User -> Html Msg
+viewUser user =
+    div []
+        [ h3 [] [ text ("Name: " ++ user.name ++ " " ++ (toUpper user.name)) ]
+        , h3 [] [ text ("Age: " ++ (String.fromInt user.age)) ]
+        , h3 [] [ text ("Occupation: " ++ user.occupation) ]
+        ]
+
+view : Model -> Html Msg
+view model =
+    div []
+        [ viewHeader
+        , if model.isLoading
+            then viewLoading
+            else if model.error /= Nothing
+                then viewError (Maybe.withDefault "Oops, something went wrong." model.error)
+                else model.user |> Maybe.map viewUser |> Maybe.withDefault (h3 [] [ text "No user." ])
+        ]
+
+decodeUser : Decoder User
+decodeUser =
+    Json.Decode.map3 User
+        (Json.Decode.field "name" Json.Decode.string)
+        (Json.Decode.field "age" Json.Decode.int)
+        (Json.Decode.field "occupation" Json.Decode.string)
+
+getUser : Html Msg
+getUser =
+    Http.get
+        { url = "https://api.com/user"
+        , expect = Http.expectJson decodeUser ReceiveUserResult
+        }
+
+getInit : Model
+getInit =
+    { user = Nothing
+    , isLoading = True
+    , error = Nothing
+    }
+
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    case msg of
+        ReceiveUserResult result ->
+            case result of
+                Ok user ->
+                    ( { model | user = Just user, isLoading = False, error = Nothing }
+                    , Cmd.none
+                    )
+                Err error ->
+                    ( { model | isLoading = False, error = Just (Http.errorToString error) }
+                    , Cmd.none
+                    )
+        ...

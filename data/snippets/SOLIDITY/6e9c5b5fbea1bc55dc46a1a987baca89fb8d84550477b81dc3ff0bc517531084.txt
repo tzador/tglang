@@ -1,0 +1,98 @@
+// This contract implements a voting system
+// based on the ERC20 token standard
+// and follows the principles of SOLID
+
+// Interface for the ERC20 token standard
+interface IERC20 {
+    // Events
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
+    // Functions
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function transfer(address to, uint256 value) external returns (bool);
+    function approve(address spender, uint256 value) external returns (bool);
+    function transferFrom(address from, address to, uint256 value) external returns (bool);
+}
+
+// Implementation of the voting system contract
+contract VotingSystem is IERC20 {
+    // Variables
+    mapping (address => uint256) private _balances;
+    mapping (address => mapping (address => uint256)) private _allowances;
+    uint256 private _totalSupply;
+
+    // Events
+    event VoteCasted(address indexed voter, address indexed candidate, uint256 votes);
+
+    // Functions
+    // Function to get the total supply of the voting token
+    function totalSupply() external view override returns (uint256) {
+        return _totalSupply;
+    }
+
+    // Function to get the balance of a particular address
+    function balanceOf(address account) external view override returns (uint256) {
+        return _balances[account];
+    }
+
+    // Function to get the allowance of a spender for a particular account
+    function allowance(address owner, address spender) external view override returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    // Function to transfer tokens from the sender's account to a recipient's account
+    function transfer(address recipient, uint256 amount) external override returns (bool) {
+        _transfer(msg.sender, recipient, amount);
+        return true;
+    }
+
+    // Function to approve a spender to spend tokens on behalf of the owner
+    function approve(address spender, uint256 amount) external override returns (bool) {
+        _approve(msg.sender, spender, amount);
+        return true;
+    }
+
+    // Function to transfer tokens from a specific account to another account
+    function transferFrom(address sender, address recipient, uint256 amount) external override returns (bool) {
+        _transfer(sender, recipient, amount);
+        _approve(sender, msg.sender, _allowances[sender][msg.sender] - amount);
+        return true;
+    }
+
+    // Internal function to transfer tokens from one account to another
+    function _transfer(address sender, address recipient, uint256 amount) internal {
+        require(sender != address(0), "Transfer from the zero address is not allowed");
+        require(recipient != address(0), "Transfer to the zero address is not allowed");
+        require(_balances[sender] >= amount, "Insufficient balance for transfer");
+
+        _balances[sender] -= amount;
+        _balances[recipient] += amount;
+
+        emit Transfer(sender, recipient, amount);
+    }
+
+    // Internal function to allow a spender to spend tokens on behalf of an owner
+    function _approve(address owner, address spender, uint256 amount) internal {
+        require(owner != address(0), "Approval from the zero address is not allowed");
+        require(spender != address(0), "Approval to the zero address is not allowed");
+
+        _allowances[owner][spender] = amount;
+
+        emit Approval(owner, spender, amount);
+    }
+
+    // Function for voting for a candidate
+    function vote(address candidate, uint256 votes) external {
+        require(candidate != address(0), "Voting for the zero address is not allowed");
+        require(_balances[msg.sender] >= votes, "Insufficient balance for voting");
+
+        // Transfer the voting tokens from the voter's account to the candidate's account
+        _balances[msg.sender] -= votes;
+        _balances[candidate] += votes;
+
+        emit VoteCasted(msg.sender, candidate, votes);
+    }
+}

@@ -1,0 +1,59 @@
+// Contract to manage a decentralized exchange
+
+pragma solidity >=0.8.0 <0.9.0;
+
+contract Exchange {
+    // State variables
+    address private owner;
+    mapping(address => uint) public balances;
+
+    // Events
+    event Deposit(address indexed depositor, uint amount);
+    event Withdrawal(address indexed withdrawer, uint amount);
+    event Trade(address indexed trader, uint inputAmount, uint outputAmount);
+
+    // Constructor
+    constructor () {
+        owner = msg.sender;
+    }
+
+    // Modifiers
+    modifier onlyOwner {
+        require(msg.sender == owner, "Only owner can access this function.");
+        _;
+    }
+
+    // Functions
+    function deposit() public payable {
+        require(msg.value > 0, "You must deposit a non-zero amount.");
+
+        balances[msg.sender] += msg.value;
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    function withdraw(uint amount) public {
+        require(amount > 0, "You must withdraw a non-zero amount.");
+        require(balances[msg.sender] >= amount, "Insufficient balance.");
+
+        balances[msg.sender] -= amount;
+        payable(msg.sender).transfer(amount);
+        emit Withdrawal(msg.sender, amount);
+    }
+
+    function trade(uint inputTokenAmount, uint outputTokenAmount) public {
+        require(inputTokenAmount > 0 && outputTokenAmount > 0, "Amount must be greater than 0.");
+
+        uint fee = inputTokenAmount * 0.01; // 1% fee
+        uint tradedAmount = inputTokenAmount - fee;
+        require(balances[msg.sender] >= inputTokenAmount, "Insufficient input token balance.");
+
+        balances[msg.sender] -= inputTokenAmount;
+        balances[owner] += fee;
+        balances[msg.sender] += outputTokenAmount;
+        emit Trade(msg.sender, inputTokenAmount, outputTokenAmount);
+    }
+
+    function getBalance() public view returns (uint) {
+        return balances[msg.sender];
+    }
+}

@@ -1,0 +1,51 @@
+# Sets the index for the number of years
+Set time 'time dimension' /2020*2030/;
+
+# Sets the index for the number of products
+Set products 'product dimension' /A, B, C, D, E/;
+
+# Declare scalar variables
+Scalar init_cost 'initial cost';
+Scalar end_cost 'final cost';
+
+# Initialize parameters
+Parameter price(products) 'price for each product';
+Parameter demand(products, time) 'demand for each product over time';
+Parameter supply(time) 'total supply per year';
+Parameter rev(time) 'total revenue per year';
+Parameter prod_cost(products, time) 'production cost for each product over time';
+
+# Declare decision variables
+Variable x(products, time) 'amount of each product produced';
+Variable z 'total production cost';
+
+# Set objective function
+Equation obj 'objective function';
+obj.. z =e= sum((p, t), prod_cost(p, t) * x(p, t));
+
+# Set constraints
+Equation demand_con(products, time) 'demand constraints';
+borrowing_con(p, t).. x(p, t) =l= demand(p, t);
+supply_con(time).. sum(p, x(p, t)) =e= supply(t);
+
+# Set model and solve
+Model m 'production model';
+m.limrow = 0;
+m.limcol = 0;
+
+# Define solver
+Option limrow = 0, limcol = 0, solprint = off;
+$onecho > cplex.opt
+barrier crossover alg = auto
+crossover alg = auto
+feastol = 1e-6
+markowitz tolerance = 0
+lptol = 1e-6
+opttol = 1e-8
+threads = 1
+$offecho
+
+# Solve model
+Solve m using MIP minimizing z;
+Display x.l, z.l;
+Display "Profit: ", sum((p, t), (price(p) - prod_cost(p, t)) * x.l(p, t));

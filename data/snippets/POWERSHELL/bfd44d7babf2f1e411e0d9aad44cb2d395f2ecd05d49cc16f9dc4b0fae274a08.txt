@@ -1,0 +1,80 @@
+#This PowerShell script checks disk space utilization and sends an email report
+
+#Define email variables
+$smtpServer = "smtp.example.com"
+$From = "admin@example.com"
+$To = "report@example.com"
+$Subject = "Disk Space Utilization Report"
+
+#import the module for sending emails
+Import-Module "C:\Windows\System32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1"
+
+#Function to calculate disk space utilization
+Function Get-DiskUsage{
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true,Position=0)]
+        [Alias("vol")]
+        [ValidateNotNull()]
+        [string]$Volume
+    )
+    
+    $disk = Get-WmiObject -Class Win32_LogicalDisk -Filter "DeviceID='$Volume'"
+    
+    #Calculate Percentage Free Space
+    $totalSpace = [math]::Round($disk.Size / 1GB, 2)
+    $freeSpace = [math]::Round($disk.FreeSpace / 1GB, 2)
+    [int]$percentFree = [math]::Round(($freeSpace / $totalSpace * 100), 0)
+    
+    #Use switch to determine email notification based on percentage free space
+    switch($percentFree){
+        {$_ -le 10} {$result = "Critical"}
+        {($_ -gt 10) -and ($_ -le 20)} {$result = "Warning"}
+        {($_ -gt 20) -and ($_ -le 30)} {$result = "Information"}
+        default {$result = "OK"}
+    }
+    
+    #Create a custom object with disk information and percentage free space
+    $diskObject = New-Object -TypeName PSObject -Property @{
+        "Volume" = $disk.DeviceID
+        "TotalSpace(GB)" = $totalSpace
+        "FreeSpace(GB)" = $freeSpace
+        "PercentFree" = $percentFree
+        "Result" = $result
+    }
+    
+    return $diskObject
+    
+}
+
+#Get a list of all logical disks on the system
+$disks = Get-WmiObject -Class Win32_LogicalDisk
+
+#Loop through each disk and call the Get-DiskUsage function
+foreach($disk in $disks){
+    $diskInfo = Get-DiskUsage -Volume $disk.DeviceID
+    
+    #Send email if the disk space utilization is critical or warning
+    if(($diskInfo.PercentFree -le 10) -or ($diskInfo.PercentFree -gt 20)){
+        #Create email body
+        $body = @"
+        Disk Space Utilization Report for: $($diskInfo.Volume)
+        Total Space: $($diskInfo.TotalSpace(GB)) GB
+        Free Space: $($diskInfo.FreeSpace(GB)) GB
+        Percentage Free: $($diskInfo.PercentFree)%
+        Result: $($diskInfo.Result)
+"@
+        
+        #Create email parameters
+        $mailParams = @{
+            "From" = $From
+            "To" = $To
+            "Subject" = $Subject
+            "Body" = $body
+            "SmtpServer" = $smtpServer
+        }
+        
+        #Send email
+        Send-MailMessage @mailParams
+    }
+}

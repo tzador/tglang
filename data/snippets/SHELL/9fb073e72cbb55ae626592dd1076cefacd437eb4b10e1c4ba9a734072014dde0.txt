@@ -1,0 +1,73 @@
+# This script generates a report on system health
+
+# Function to check CPU usage
+function check_cpu {
+    # Use top command to get CPU usage percentage
+    top -bn 1 | grep "^%Cpu" | awk '{printf("CPU Usage: %.2f%", (100-$8))}'
+}
+
+# Function to check memory usage
+function check_memory {
+    # Get total memory and used memory in KB
+    total_mem=$(cat /proc/meminfo | grep "MemTotal" | awk '{print $2}')
+    used_mem=$(cat /proc/meminfo | grep "MemAvailable" | awk '{print $2}')
+    # Calculate memory usage percentage
+    mem_usage=$(echo "scale=2; (($total_mem - $used_mem)/$total_mem)*100" | bc)
+    # Print memory usage in MB
+    echo "Memory Usage: $(echo "scale=2; $total_mem - $used_mem" | bc) KB"
+    # Convert KB to MB
+    mem_usage_mb=$(echo "scale=2; ($total_mem - $used_mem)/1024" | bc)
+    # Print memory usage in percentage
+    echo "Memory Usage: ${mem_usage}%"
+    echo "Memory Usage: ${mem_usage_mb} MB"
+}
+
+# Function to check disk usage
+function check_disk {
+    # Get total and used disk space in KB
+    total_disk=$(df | grep "/dev/sda" | awk '{print $2}')
+    used_disk=$(df | grep "/dev/sda" | awk '{print $3}')
+    # Calculate disk usage percentage
+    disk_usage=$(echo "scale=2; ($used_disk/$total_disk)*100" | bc)
+    # Print disk usage in MB
+    echo "Disk Usage: $(echo "scale=2; $used_disk/1024" | bc) KB"
+    # Convert KB to GB
+    disk_usage_gb=$(echo "scale=2; $used_disk/(1024^3)" | bc)
+    # Print disk usage in percentage
+    echo "Disk Usage: ${disk_usage}%"
+    echo "Disk Usage: ${disk_usage_gb} GB"
+}
+
+# Function to check network connections
+function check_network {
+    # Get number of established TCP connections
+    conn_count=$(netstat -anpt | grep "ESTABLISHED" | wc -l)
+    # Print number of connections
+    echo "Established TCP Connections: ${conn_count}"
+}
+
+# Function to check system uptime
+function check_uptime {
+    # Get system uptime in seconds
+    uptime=$(cat /proc/uptime | awk '{print $1}')
+    # Convert seconds to hours
+    uptime_hours=$(echo "scale=2; $uptime/3600" | bc)
+    # Print time since last boot
+    echo "System Uptime: ${uptime_hours} hours"
+}
+
+# Run functions and store outputs in variables
+cpu_output=$(check_cpu)
+mem_output=$(check_memory)
+disk_output=$(check_disk)
+conn_output=$(check_network)
+uptime_output=$(check_uptime)
+
+# Generate report with all outputs
+echo "### System Health Report ###"
+echo " "
+echo "CPU usage: ${cpu_output}"
+echo "Memory usage: ${mem_output}"
+echo "Disk usage: ${disk_output}"
+echo "Network connections: ${conn_output}"
+echo "System uptime: ${uptime_output}"

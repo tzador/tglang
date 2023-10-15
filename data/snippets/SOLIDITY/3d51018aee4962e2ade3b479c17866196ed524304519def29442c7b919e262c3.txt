@@ -1,0 +1,72 @@
+//This contract implements a simple crowdsale to sell a specific number of tokens at a set price
+
+pragma solidity ^0.8.0;
+
+//Import the necessary libraries to access pre-defined functions and contracts
+import "./IERC20.sol";
+import "./SafeMath.sol";
+
+
+//Define the contract
+contract Crowdsale {
+
+    using SafeMath for uint256; //Use SafeMath library for all mathematical operations on uint256
+
+    //Define state variables
+    address payable public owner; //The address that will receive the raised funds
+    uint256 public tokenPrice; //The price of each token in wei
+    uint256 public tokensLeft; //The number of tokens that are still available for sale
+    IERC20 public tokenContract; //The contract address of the token being sold
+
+    //Define events
+    event TokensPurchased(address indexed buyer, uint256 amount); //Triggered when a buyer purchases tokens
+
+    //Define constructor function
+    constructor(address payable _owner, uint256 _tokenPrice, uint256 _tokensLeft, address _tokenContract) {
+        owner = _owner;
+        tokenPrice = _tokenPrice;
+        tokensLeft = _tokensLeft;
+        tokenContract = IERC20(_tokenContract); //Initialize the token contract
+    }
+
+    //Define the buyTokens function that allows buyers to purchase tokens by sending ether to the contract
+    function buyTokens() public payable {
+        require(msg.value > 0, "You must send at least 1 wei"); //Ensure that the buyer sends at least 1 wei
+        require(tokensLeft > 0, "Sold out"); //Ensure that there are still tokens available for sale
+        uint256 amount = msg.value.div(tokenPrice); //Calculate the number of tokens to be purchased
+        require(amount <= tokensLeft, "Not enough tokens available"); //Ensure that the buyer does not try to purchase more tokens than available
+        require(tokenContract.balanceOf(address(this)) >= amount, "Not enough tokens in contract"); //Ensure that the contract has enough tokens to fulfill the purchase
+        tokenContract.transfer(msg.sender, amount); //Transfer the tokens to the buyer
+        owner.transfer(msg.value); //Transfer the funds to the owner
+        tokensLeft = tokensLeft.sub(amount); //Update the number of tokens left for sale
+        emit TokensPurchased(msg.sender, amount); //Trigger the TokensPurchased event
+    }
+
+    //Define a function to withdraw any unsold tokens after the crowdsale has ended
+    function withdrawUnsoldTokens() public {
+        require(msg.sender == owner, "You must be the owner to withdraw unsold tokens"); //Ensure that only the owner can withdraw unsold tokens
+        require(tokensLeft > 0, "There are no unsold tokens"); //Ensure that there are unsold tokens to withdraw
+        tokenContract.transfer(owner, tokensLeft); //Transfer the unsold tokens to the owner
+        tokensLeft = 0; //Update the number of tokens left for sale to 0
+    }
+
+    //Define a function to transfer ownership of the contract to a new address
+    function transferOwnership(address payable newOwner) public {
+        require(msg.sender == owner, "You must be the owner to transfer ownership"); //Ensure that only the owner can transfer ownership
+        require(newOwner != address(0), "Invalid address"); //Ensure that the new owner address is not the 0 address
+        owner = newOwner; //Set the new owner address
+    }
+
+    //Define a function to update the token price
+    function updateTokenPrice(uint256 newPrice) public {
+        require(msg.sender == owner, "You must be the owner to update the token price"); //Ensure that only the owner can update the token price
+        require(newPrice > 0, "Price must be greater than 0"); //Ensure that the new price is greater than 0
+        tokenPrice = newPrice; //Update the token price
+    }
+
+    //Define a function to retrieve the number of tokens owned by a specific address
+    function getBalance(address account) public view returns(uint256) {
+        return tokenContract.balanceOf(account);
+    }
+
+}

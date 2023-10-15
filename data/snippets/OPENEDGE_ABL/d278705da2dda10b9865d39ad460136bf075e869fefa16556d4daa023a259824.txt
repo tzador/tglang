@@ -1,0 +1,64 @@
+/*This code snippet is a sample program in OPENEDGE_ABL that reads data from a CSV file and inserts it into a database table*/
+
+DEFINE VARIABLE hCSV AS HANDLE NO-UNDO.
+/*Declare a handle variable to CSV file*/
+
+DEFINE VARIABLE csvError AS CHARACTER NO-UNDO.
+/*Declare a character variable to store any errors during CSV file read*/
+
+DEFINE VARIABLE hDB AS HANDLE NO-UNDO.
+/*Declare a handle variable to database table*/
+
+DEFINE VARIABLE dbError AS CHARACTER NO-UNDO.
+/*Declare a character variable to store any errors during database write*/
+
+DEFINE VARIABLE i AS INTEGER NO-UNDO.
+/*Declare an integer variable for use in a loop*/
+
+/*Open the CSV file for reading and assign the handle to hCSV*/
+CREATE CSV-READER hCSV.
+hCSV:SET-FILE("C:\sample.csv").
+
+/*Check for any errors during the CSV file read*/
+IF AVAILABLE hCSV:GET-LAST-ERROR THEN
+DO:
+    csvError = hCSV:GET-LAST-ERROR-TEXT(1).
+    MESSAGE "CSV file read error: " + csvError VIEW-AS ALERT-BOX.
+    RETURN.
+END.
+
+/*Open a database connection and assign the handle to hDB*/
+CREATE BUFFER hDB FOR TABLE "SampleTable".
+hDB:CONNECT("DatabaseServer", "DatabaseName", "Username", "Password").
+
+/*Check for any errors during the database connection*/
+IF AVAILABLE hDB:GET-LAST-ERROR THEN
+DO:
+    dbError = hDB:GET-LAST-ERROR-TEXT(1).
+    MESSAGE "Database connection error: " + dbError VIEW-AS ALERT-BOX.
+    RETURN.
+END.
+
+/*Loop through the CSV file and insert each row into the database table*/
+DO i = 1 TO hCSV:NUM-RECORDS:
+    hDB:CREATE-ROW().
+    hDB:BUFFER-CREATE().
+    hDB:BUFFER-COPY-DATA(hCSV:GET-STRING(i,1), "SampleTable.Field1").
+    hDB:BUFFER-COPY-DATA(hCSV:GET-STRING(i,2), "SampleTable.Field2").
+    /*Repeat for all fields in the CSV file*/
+
+    /*Check for any errors during the database insert*/
+    IF AVAILABLE hDB:GET-LAST-ERROR THEN
+    DO:
+        dbError = hDB:GET-LAST-ERROR-TEXT(1).
+        MESSAGE "Database insert error: " + dbError VIEW-AS ALERT-BOX.
+        RETURN.
+    END.
+    
+    /*If no errors, save the changes to the database table*/
+    hDB:BUFFER-WRITE().
+END.
+
+/*Close the CSV file and database connection*/
+hCSV:DISPOSE().
+hDB:DISCONNECT().

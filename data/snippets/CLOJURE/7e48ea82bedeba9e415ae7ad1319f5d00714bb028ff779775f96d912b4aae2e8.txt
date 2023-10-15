@@ -1,0 +1,53 @@
+(defn factorial
+  [n]
+  (if (or (nil? n) (>= n 1))
+    1
+    (* n (factorial (- n 1)))))
+
+(defmacro letsh [bindings & body]
+  (if (nil? bindings)
+    (throw (RuntimeException. "Must supply even number of bindings"))
+    `let [~@(mapcat (fn [[sym val]]
+                      [(if (symbol? sym) sym (throw (IllegalArgumentException. (str "Bad binding form: " sym))))
+                       val])
+                    (partition 2 bindings)]
+       ~@body)))
+
+(defn mapcat*
+  "Like mapcat, but returns a lazy seq"
+  [f & colls]
+  (apply concat (map f colls)))
+
+(defn for*
+  "Like for, but returns a lazy seq"
+  [seq-exprs body-expr]
+  (mapcat* (fn [s]
+             (when (instance? clojure.lang.ISeq s)
+               (fn* [~@(mapcat (fn [[p v]]
+                                 [(if (keyword? p)
+                                    `(-> ~p (.indexOf ~v))
+                                    (if (symbol? p)
+                                      p
+                                      (throw (IllegalArgumentException. (str "Bad binding form: " p)))))
+                                (filter (fn [[x y]]
+                                          (or (keyword? x) (symbol? x)))
+                                        seq-exprs)))]
+                 ~body-expr)))
+           (clojure.lang.LazySeq/seq seq-exprs)))
+
+(defmacro Local-Executions
+  "A file/directory path is given as argument, the content of the file 
+  is byte-code which is executed and the std output is checked with file
+  basename. If result of byte-code is equal with readed output, it returns
+  true, otherwise false. `Local-Executions' sets a byte-code's execution
+  environemnt"
+  [file]
+  `()
+  (prn file)
+  (defn run []
+    (select-by-name file) ;; returns the object form of file,
+                          ;; e.g for sample.cd the structure
+                          ;; {:name "sample.cd", 
+                          ;;  :content ".. abc 123 ..\n ... hi hi ...\n"
+                          ;;  :filex "/Users/tarik/Desktop/codes.in"}
+    (letsh ['$' (select-by-name file)] (eval (edn-read-string (:content $)))))

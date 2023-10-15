@@ -1,0 +1,29 @@
+DEFINE TEMP-TABLE ttCustomer
+    FIELD CustNum AS INT
+    FIELD CustName AS CHAR
+    FIELD CustAddress AS CHAR.
+
+DEFINE DATASET dsCustomer
+    DATA-TABLE ttCustomer
+    DATA-RELATION RelCust TO CustNum.
+
+COPY-LOB FROM FILE "C:\customers.txt" TO dsCustomer:ttCustomer.CustAddress
+    ERROR gtError
+    USE-ERROR piError
+
+DO TRANSACTION ON ERROR UNDO, LEAVE
+    FOR EACH ttCustomer:
+        FIND FIRST RelCust WHERE RelCust.CustNum = ttCustomer.CustNum NO-LOCK,
+            NO-ERROR,
+            NO-WAIT.
+
+        IF AVAILABLE RelCust THEN
+            UPDATE RelCust.CustName WITH ttCustomer.CustName.
+        ELSE
+            CREATE RelCust
+                RELATE RelCust.CustNum TO ttCustomer.CustNum.
+
+    END.
+END.
+
+DELETE FILE "C:\customers.txt".

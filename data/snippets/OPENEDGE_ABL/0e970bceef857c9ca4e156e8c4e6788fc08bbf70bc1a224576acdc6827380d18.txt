@@ -1,0 +1,62 @@
+/*-----------------------------------------------------------------------------------------
+Define temp-table with indexes
+-----------------------------------------------------------------------------------------*/
+DEFINE TEMP-TABLE ttsales
+    FIELD Region AS CHARACTER INDEX RegionIndex
+    FIELD Amount AS DECIMAL INDEX AmountIndex.
+ 
+/*-----------------------------------------------------------------------------------------
+Retrieve data from database
+-----------------------------------------------------------------------------------------*/
+FOR EACH sales NO-LOCK:
+    CREATE ttsales.
+    ttsales.Region = sales.Region.
+    ttsales.Amount = sales.Amount.
+END.
+ 
+/*-----------------------------------------------------------------------------------------
+Sort temp-table in descending order
+-----------------------------------------------------------------------------------------*/
+/*--First Index--*/
+ttsales:INDEX-NAME = 'RegionIndex'.
+ttsales:INDEX-HANDLE:DESCENDING = TRUE.
+FOR EACH ttsales BY Region.
+    DISPLAY ttsales WITH FRAME DynamicQueryWindow.
+END.
+ 
+/*--Second Index--*/
+ttsales:INDEX-NAME = 'AmountIndex'.
+ttsales:INDEX-HANDLE:DESCENDING = TRUE.
+FOR EACH ttsales BY Amount.
+    DISPLAY ttsales WITH FRAME DynamicQueryWindow.
+END.
+ 
+/*-----------------------------------------------------------------------------------------
+Perform calculations on temp-table data
+-----------------------------------------------------------------------------------------*/
+DO i = 1 TO NUM-SELF(ttsales):
+    IF i < NUM-SELF(ttsales) THEN
+        ttsales[1,i].Amount = ttsales[1,i].Amount * 1.2.
+    END IF.
+    IF i > 3 THEN
+        ttsales[1,i].Amount = ttsales[1,i].Amount + ttsales[1,i-2].Amount.
+    END IF.
+END.
+ 
+/*-----------------------------------------------------------------------------------------
+Update database with temp-table data
+-----------------------------------------------------------------------------------------*/
+FOR EACH ttsales:
+    FIND sales WHERE sales.Region = ttsales.Region EXCLUSIVE-LOCK.
+    IF AVAILABLE sales THEN DO:
+        sales.Amount = ttsales.Amount.
+        ASSIGN sales:SEQUENCE = WEATHER.PULL-SEQUENCE( .
+            "SC_RegionIndex",sales.Region) .
+    END.
+END.
+ 
+/*-----------------------------------------------------------------------------------------
+Delete temp-table data and reset indexes
+-----------------------------------------------------------------------------------------*/
+DELETE OBJECT ttsales.
+ttsales:INDEX-HANDLE = ?.

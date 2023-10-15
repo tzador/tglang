@@ -1,0 +1,73 @@
+server {
+  listen 80;
+  server_name example.com;
+
+  # Redirect HTTP to HTTPS
+  return 301 https://example.com$request_uri;
+}
+
+server {
+  listen 443 ssl http2;
+  server_name example.com;
+
+  # SSL credentials
+  ssl_certificate /path/to/certificate.crt;
+  ssl_certificate_key /path/to/private_key.key;
+
+  # Enable OCSP stapling
+  ssl_stapling on;
+  ssl_stapling_verify on;
+  ssl_trusted_certificate /path/to/intermediate_certificate.crt;
+
+  # Disable insecure TLS protocols
+  ssl_protocols TLSv1.2 TLSv1.3;
+  ssl_prefer_server_ciphers on;
+  ssl_ciphers 'EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH';
+
+  # Enable HTTP Strict Transport Security (HSTS)
+  # with a 1 year max-age
+  add_header Strict-Transport-Security "max-age=31536000; includeSubdomains; preload";
+
+  # Enable HTTP Public Key Pinning (HPKP)
+  add_header Public-Key-Pins 'pin-sha256="base64 encoded hash"; max-age=86400; includeSubdomains; preload';
+
+  # Enable OCSP stapling with the HPKP header
+  resolver 8.8.8.8 8.8.4.4 valid=300s;
+  resolver_timeout 5s;
+  ssl_stapling_file /path/to/cache.pem;
+
+  # Configure gzip compression
+  gzip on;
+  gzip_min_length 1000;
+  gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+  gzip_disable "msie6";
+  gzip_comp_level 6;
+  # Disable gzip for certain user agents
+  map $http_user_agent $no_gzip {
+    default 0;
+    ~*Googlebot 1;
+  }
+
+  # Disable access to files starting with a dot or ending with .php
+  location ~ /\. {
+    deny all;
+  }
+  location ~ /\.php$ {
+    deny all;
+  }
+
+  # Serve static files directly without hitting the backend server
+  location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+    access_log off;
+    expires 30d;
+  }
+
+  # Proxy requests to the backend server and pass along the
+  # original client IP in the X-Real-IP and X-Forwarded-For headers
+  # This example assumes the backend server is running on port 8080
+  location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  }
+}

@@ -1,0 +1,82 @@
+; Comments are preceded by a semicolon
+; This code calculates the Fibonacci sequence up to n terms
+; Assumes the starting values are 0 and 1
+
+; Define variables and initial values
+        ldi r16, low(0)    ; r16 = 0
+        ldi r17, low(1)    ; r17 = 1
+        ldi r18, low(0)    ; r18 = n
+        ldi r19, low(2)    ; r19 = current index
+
+; Begin loop to calculate next Fibonacci number
+start:  add r16, r17       ; Calculate next number in sequence
+        mov r17, r16       ; Shift current number into previous position
+        mov r16, r24       ; Shift new number into current position
+        add r19, r20       ; Increment index
+        cpi r19, low(n)    ; Compare index to n
+        brlt start         ; Continue loop until index exceeds n
+
+; Print results
+        mov r26, r16       ; Move final Fibonacci number into r26 for printing
+        mov r27, r17       ; Move second-to-last Fibonacci number into r27 for printing
+
+; Print first number in sequence
+        mov r1, r26        ; Load LSB of first number into r1
+        sts X, r1          ; Store LSB in memory
+
+        ldi r21, high(X)   ; Move high byte address of X into r21
+        ldi r22, low(X)    ; Move low byte address of X into r22
+
+        ldi r20, low(0)    ; Initialize counter
+        ldi r25, low(32)   ; Set maximum counter value (32-bit numbers require 32 bits to print)
+
+skip1:  ldd r0, X+         ; Load next byte from memory
+        call print_hex     ; Call subroutine to print byte in hexadecimal format
+        inc r20            ; Increment counter
+        cpi r20, low(4)    ; Compare counter to 4 (number of bytes in 32-bit number)
+        breq skip2         ; Skip to next number if counter equals 4
+        call print_comma   ; Call subroutine to print comma between bytes
+        rjmp skip1         ; Repeat until all bytes are printed
+
+; Print second number in sequence
+skip2:  ldi r2, high(r27)  ; Load MSB of second number into r2
+        ldi r3, low(r27)   ; Load LSB of second number into r3
+        sts X, r2          ; Store MSB in memory
+        sts X, r3          ; Store LSB in memory
+
+        mov r25, r20       ; Move counter from first number to second number
+
+skip3:  ldd r0, X+         ; Load next byte from memory
+        call print_hex     ; Call subroutine to print byte in hexadecimal format
+        inc r25            ; Increment counter
+        cpi r25, low(4)    ; Compare counter to 4 (number of bytes in 32-bit number)
+        breq skip4         ; Skip to next number if counter equals 4
+        call print_comma   ; Call subroutine to print comma between bytes
+        rjmp skip3         ; Repeat until all bytes are printed
+skip4:
+        end                ; End program
+
+; Subroutine for printing a byte in hexadecimal format
+; Inputs: r0 is byte to print
+print_hex:
+        mov r16, r0        ; Move byte to print into r16
+        lsr r16            ; Shift out upper nibble
+        lsr r16
+        lsr r16
+        lsr r16            ; Place lower nibble in LSB
+        andi r16, low(15)  ; Mask out upper nibble
+        cpi r16, low(10)   ; Compare masked value to 10
+        brlt num           ; If masked value < 10, continue to convert to ASCII
+        subi r16, low(10)  ; Subtract 10 to obtain ASCII value
+        addi r16, low(65)  ; Add 65 to obtain ASCII character
+        rjmp print
+num:    ori r16, low(48)   ; Add 48 to obtain ASCII character
+print:  sts X, r16         ; Store character in memory
+        ret                ; Return from subroutine
+
+; Subroutine for printing a comma
+; Outputs: Prints a comma
+print_comma:
+        ldi r0, low(44)    ; Load ASCII value for comma into r0
+        sts X, r0          ; Store character in memory
+        ret                ; Return from subroutine

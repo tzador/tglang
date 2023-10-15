@@ -1,0 +1,70 @@
+// Contract for a decentralized insurance platform
+pragma solidity ^0.8.0;
+
+contract InsurancePlatform {
+    // Insurance policy struct
+    struct Policy {
+        uint policyId;
+        address holder;
+        uint256 premium;
+        uint256 payout;
+        uint256 startTime;
+        uint256 endTime;
+        bool active;
+        bool claimed;
+    }
+
+    // Mapping of policy IDs to policies
+    mapping (uint => Policy) public policies;
+
+    // Event for when a new policy is created
+    event PolicyCreated(address indexed holder, uint indexed policyId);
+
+    // Event for when a policy is claimed
+    event PolicyClaimed(uint indexed policyId);
+
+    // Function to create a new policy
+    function createPolicy(address _holder, uint256 _premium, uint256 _payout, uint256 _duration) external returns (uint policyId) {
+        // Generate a unique policy ID
+        uint newPolicyId = uint(keccak256(abi.encodePacked(block.timestamp, block.difficulty, msg.sender)));
+
+        // Set the start and end time for the policy
+        uint256 startTime = block.timestamp;
+        uint256 endTime = startTime + (_duration * 1 days);
+
+        // Create the policy object
+        Policy memory newPolicy = Policy(newPolicyId, _holder, _premium, _payout, startTime, endTime, true, false);
+
+        // Add the policy to the mapping
+        policies[newPolicyId] = newPolicy;
+
+        // Emit the policy creation event
+        emit PolicyCreated(newPolicy.holder, newPolicyId);
+
+        // Return the policy ID
+        return newPolicyId;
+    }
+
+    // Function to claim a policy
+    function claimPolicy(uint _policyId) external {
+        // Check if policy exists
+        require(policies[_policyId].active, "Policy does not exist");
+
+        // Check if policy has not already been claimed
+        require(!policies[_policyId].claimed, "Policy already claimed");
+
+        // Check if it is within the policy's active period
+        require(block.timestamp >= policies[_policyId].startTime && block.timestamp <= policies[_policyId].endTime, "Policy not active");
+
+        // Transfer the payout to the policy holder
+        uint256 payout = policies[_policyId].payout;
+        address holder = policies[_policyId].holder;
+        payable(holder).transfer(payout);
+
+        // Update the policy to claimed
+        policies[_policyId].claimed = true;
+
+        // Emit the policy claimed event
+        emit PolicyClaimed(_policyId);
+    }
+}

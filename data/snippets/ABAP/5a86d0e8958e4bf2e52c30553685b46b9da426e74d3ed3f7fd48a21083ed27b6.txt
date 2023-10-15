@@ -1,0 +1,58 @@
+*&---------------------------------------------------------------------*
+*& Report Z_SAMPLE_REPORT
+*&---------------------------------------------------------------------*
+*&
+*& This report calculates the total sales for each month, based on
+*& different product categories.
+*&
+*&---------------------------------------------------------------------*
+REPORT Z_SAMPLE_REPORT.
+
+TABLES: mara, makt, vbap.
+
+TYPES: BEGIN OF t_sale_data,
+        material TYPE mara-matnr,
+        description TYPE makt-maktx,
+        category TYPE mara-mvgr1,
+        quantity TYPE vbap-wmeng,
+        net_price TYPE vbap-netpr,
+        total TYPE vbap-netwr,
+       END OF t_sale_data.
+
+DATA: sales_data TYPE STANDARD TABLE OF t_sale_data,
+      total TYPE p DECIMALS 2.
+
+START-OF-SELECTION.
+  " Get sales data from VBAP table
+  SELECT material, mvgr1, wmeng, netpr, netwr
+  FROM vbap
+  INTO CORRESPONDING FIELDS OF TABLE sales_data.
+
+  " Get material descriptions from MAKT table
+  SELECT maktx
+  FROM makt
+  FOR ALL ENTRIES IN sales_data
+  WHERE matnr = sales_data-material
+  INTO TABLE @DATA(material_desc).
+
+  " Loop through sales data and calculate total sales
+  LOOP AT sales_data ASSIGNING FIELD-SYMBOL(<fs_sale_data>).
+    READ TABLE material_desc ASSIGNING FIELD-SYMBOL(<fs_material_desc>)
+      WITH KEY matnr = <fs_sale_data>-material.
+    IF sy-subrc = 0.
+      <fs_sale_data>-description = <fs_material_desc>-maktx.
+    ENDIF.
+    <fs_sale_data>-total = <fs_sale_data>-quantity * <fs_sale_data>-net_price.
+    total = total + <fs_sale_data>-total.
+  ENDLOOP.
+
+  " Output results in ALV grid
+  cl_salv_table=>factory(
+    IMPORTING
+      r_salv_table = DATA(alv_grid)
+    CHANGING
+      t_table      = sales_data ).
+  alv_grid->set_screen_status(
+    pfstatus = 'DISPLAY'
+    report   = sy-repid ).
+  alv_grid->display( ).

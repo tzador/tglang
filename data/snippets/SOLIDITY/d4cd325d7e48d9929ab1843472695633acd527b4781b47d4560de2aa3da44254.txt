@@ -1,0 +1,96 @@
+/**
+ * @title SimpleBank
+ * @dev A simple bank contract that allows users to deposit and withdraw ethers.
+ */
+contract SimpleBank {
+  mapping (address => uint) private balances;
+  mapping (address => bool) public enrolled;
+  address public owner;
+  address public authorizedCaller;
+  
+  event LogEnrolled(address accountAddress);
+  event LogDepositMade(address accountAddress, uint amount);
+  event LogWithdrawal(address accountAddress, uint withdrawAmount, uint newBalance);
+  event LogAuthorizedCaller(address callerAddress);
+  
+  constructor() public {
+    owner = msg.sender;
+  }
+  
+  /**
+   * @dev Enrolls a new user by adding them to the 'enrolled' mapping and setting their balance to 0.
+   * @return The new balance of the user.
+   */
+  function enroll() public returns (uint) {
+    require(!enrolled[msg.sender], "User already enrolled.");
+    enrolled[msg.sender] = true;
+    emit LogEnrolled(msg.sender);
+    return balances[msg.sender];
+  }
+  
+  /**
+   * @dev Deposits ether into the user's balance.
+   * @return The new balance of the user.
+   */
+  function deposit() public payable returns (uint) {
+    require(enrolled[msg.sender], "User not enrolled.");
+    balances[msg.sender] += msg.value;
+    emit LogDepositMade(msg.sender, msg.value);
+    return balances[msg.sender];
+  }
+  
+  /**
+   * @dev Withdraws a specified amount of ether from the user's balance.
+   * @param amount The amount to withdraw.
+   * @return The new balance of the user.
+   */
+  function withdraw(uint amount) public returns (uint) {
+    require(enrolled[msg.sender], "User not enrolled.");
+    require(balances[msg.sender] >= amount, "Insufficient balance.");
+    balances[msg.sender] -= amount;
+    msg.sender.transfer(amount);
+    emit LogWithdrawal(msg.sender, amount, balances[msg.sender]);
+    return balances[msg.sender];
+  }
+  
+  /**
+   * @dev Authorizes a caller to perform certain functions on behalf of the contract owner.
+   * @param caller The address of the caller to authorize.
+   * @return true if authorization is successful.
+   */
+  function authorizeCaller(address caller) public returns (bool) {
+    require(msg.sender == owner, "Only contract owner can authorize callers.");
+    authorizedCaller = caller;
+    emit LogAuthorizedCaller(caller);
+    return true;
+  }
+  
+  /**
+   * @dev Performs a deposit on behalf of an authorized caller.
+   * @param user The address of the user to deposit ethers for.
+   * @return The new balance of the user.
+   */
+  function depositFor(address user) public payable returns (uint) {
+    require(msg.sender == authorizedCaller, "Only authorized caller can deposit for users.");
+    require(enrolled[user], "User not enrolled.");
+    balances[user] += msg.value;
+    emit LogDepositMade(user, msg.value);
+    return balances[user];
+  }
+  
+  /**
+   * @dev Performs a withdrawal on behalf of an authorized caller.
+   * @param user The address of the user to withdraw ethers for.
+   * @param amount The amount to withdraw.
+   * @return The new balance of the user.
+   */
+  function withdrawFor(address payable user, uint amount) public returns (uint) {
+    require(msg.sender == authorizedCaller, "Only authorized caller can withdraw for users.");
+    require(enrolled[user], "User not enrolled.");
+    require(balances[user] >= amount, "Insufficient balance.");
+    balances[user] -= amount;
+    user.transfer(amount);
+    emit LogWithdrawal(user, amount, balances[user]);
+    return balances[user];
+  }
+}

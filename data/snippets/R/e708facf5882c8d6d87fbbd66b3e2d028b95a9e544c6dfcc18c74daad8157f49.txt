@@ -1,0 +1,58 @@
+# This code snippet uses the R programming language to create an interactive visualization of a dataset
+# The code imports the necessary libraries
+library(shiny)
+library(highcharter)
+
+# Creates a shiny app with a user interface and server function
+ui <- fluidPage(
+  titlePanel("Interactive Dataset Visualization"),
+  sidebarLayout(
+    sidebarPanel(
+      # Input for user to select dataset from their local directory
+      fileInput("file1", "Choose CSV File",
+                multiple = TRUE,
+                accept = c("text/csv",
+                           "text/comma-separated-values,text/plain",
+                           ".csv")),
+      # User input for selecting dataset columns
+      selectizeInput("columns",
+                     "Choose columns to display:",
+                     choices = c(),
+                     multiple = TRUE,
+                     options = list(`plugins/optgroups` = TRUE))
+    ),
+    # Main panel for displaying the interactive visualization
+    mainPanel(
+      highchartOutput("highchart")
+    )
+  )
+)
+
+server <- function(input, output) {
+  # Reads the uploaded dataset and converts it to a data frame
+  my_data <- reactive({
+    inFile <- input$file1
+    if (is.null(inFile))
+      return(NULL)
+    read.csv(inFile$datapath, header = TRUE, sep = ",")
+  })
+  
+  # Creates an observer that updates the selectizeInput choices based on the uploaded dataset columns
+  observe({
+    cols <- names(my_data())
+    updateSelectizeInput(session, "columns",
+                         choices = setNames(as.list(cols), cols),
+                         options = list(`plugins/optgroups` = TRUE)
+    )
+  })
+  
+  # Generates the highchart visualization based on the user's selected columns
+  output$highchart <- renderHighchart({
+    req(input$columns)
+    highchart() %>%
+      hc_add_series(my_data(), type = "column", hcaes_string(m_c(1, length(input$columns)), x = input$columns))
+  })
+}
+
+# Runs the shiny app
+shinyApp(ui, server)

@@ -1,0 +1,55 @@
+/*
+ Circuit to count number of pulses received from an input signal
+ and display the count on an output display
+*/
+
+module pulseCounter(
+  input clk,
+  input reset,
+  input pulse,
+  output reg [15:0] count,
+  output reg [3:0] display
+);
+
+  reg [3:0] tens, ones; // registers to store the tens and ones digits of count
+  reg [2:0] digSel; // register to select which digit to display on output display
+  reg [15:0] clkCount; // register to keep track of clock cycles for display updates
+
+  always @ (posedge clk) begin
+    if (reset) begin // reset count and display on reset signal
+      count <= 0;
+      display <= 0;
+    end
+    else if (pulse && clkCount == 9999) begin // increment count and update display every 10,000 pulses
+      count <= count + 1;
+      clkCount <= 0;
+
+      // split count into tens and ones digits
+      tens <= count[15:12];
+      ones <= count[11:8];
+
+      // select which digit to display based on clkCount value
+      case(clkCount[3:0])
+        0: digSel = 4'b1110; // display ones digit on first digit
+        1: digSel = 4'b1101; // display tens digit on second digit
+        2: digSel = 4'b1011; // display colon between digits
+        3: digSel = 4'b0111; // display blank on third digit
+      default: digSel = 4'b0000; // all displays off
+      endcase
+    end
+    else if (pulse) begin
+      clkCount <= clkCount + 1; // count clock cycles between pulses
+    end
+  end
+
+  always @ (posedge clk) begin
+    // display digit based on selected digit
+    case(digSel)
+      4'b1110: display <= ones; // display ones digit in first digit
+      4'b1101: display <= tens; // display tens digit in second digit
+      4'b1011: display <= 4'b1000; // display colon between digits
+      4'b0111: display <= 0; // display blank on third digit
+    endcase
+  end
+
+endmodule

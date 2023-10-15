@@ -1,0 +1,72 @@
+/* This code snippet creates a dynamic query that retrieves all customers with an outstanding balance */
+
+/* Declaration section */
+DEFINE VARIABLE hQuery AS HANDLE NO-UNDO.
+DEFINE VARIABLE hRc AS HANDLE NO-UNDO.
+DEFINE VARIABLE cCustNum AS CHARACTER NO-UNDO.
+DEFINE VARIABLE dBalance AS DECIMAL NO-UNDO.
+DEFINE VARIABLE hBuffer AS HANDLE NO-UNDO.
+DEFINE VARIABLE i AS INTEGER NO-UNDO.
+DEFINE VARIABLE dSum AS DECIMAL NO-UNDO.
+    
+/* Initialize the query handle */
+CREATE QUERY hQuery.
+   
+/* Set the query table */
+hQuery:SET-BUFFER(DATASET "Customer").
+    
+/* Add the WHERE clause to filter customers with outstanding balance */
+hQuery:ADD-WHERE("dBalance > 0").
+    
+/* Define the fields to be retrieved */
+hQuery:ADD-BUFFER-FIELD("cCustNum").
+hQuery:ADD-BUFFER-FIELD("dBalance").
+    
+/* Open the query */
+hQuery:QUERY-PREPARE("FOR EACH Customer").
+hQuery:QUERY-OPEN().
+   
+/* Loop through the query results */
+DO WHILE hQuery:GET-NEXT() <> FALSE:
+    /* Get the customer number and balance from the buffer */
+    ASSIGN
+        cCustNum = hQuery:GET-BUFFER-FIELD("cCustNum"):BUFFER-VALUE.
+        dBalance = hQuery:GET-BUFFER-FIELD("dBalance"):BUFFER-VALUE.
+    
+    /* Display the customer number and balance */
+    DISP cCustNum FORMAT "x(10)"
+    DISP dBalance FORMAT ">>>.>>".
+    
+    /* Calculate the total outstanding balance */
+    dSum = dSum + dBalance.
+       
+    /* Update the customer record with the calculated sum */
+    FIND FIRST Customer WHERE Customer.cCustNum = cCustNum NO-LOCK NO-ERROR.
+    ASSIGN
+        Customer.dTotalBalance = dSum.
+    IF AVAILABLE Customer THEN
+        DO:
+            Customer:BUFFER-UPDATE().
+        END.   
+    
+    /* Increase the counter */
+    i = i + 1.
+    
+END.
+
+/* Close the query */
+hQuery:QUERY-CLOSE().
+   
+/* Display the total number of customers with outstanding balance */
+DISP "Total Customers with Outstanding Balance: " i FORMAT "->9".
+   
+/* Destroy the query handle */
+DELETE OBJECT hQuery.
+    
+/* Output:
+Customer    Balance
+=========   =========
+C12345      100.00
+C67890      300.00
+C24680      150.00
+Total Customers with Outstanding Balance:       3 */

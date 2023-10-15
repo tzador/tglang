@@ -1,0 +1,71 @@
+# Set gzip compression
+gzip on;
+gzip_types text/plain text/css application/json;
+gzip_comp_level 5;
+gzip_min_length 1k;
+gzip_proxied any;
+gzip_vary on;
+
+# Enable caching for specific file types
+location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+    expires 30d;
+}
+
+# Redirect HTTP to HTTPS
+server {
+    listen 80;
+    server_name example.com;
+    return 301 https://$host$request_uri;
+}
+
+# Set up HTTPS server
+server {
+    listen 443 ssl http2;
+    server_name example.com;
+
+    # SSL settings
+    ssl_certificate /etc/nginx/ssl/certificate.crt;
+    ssl_certificate_key /etc/nginx/ssl/private.key;
+
+    # Enable HTTP/2
+    http2_push_preload on;
+
+    # Set up SSL session cache and session tickets
+    ssl_session_cache shared:SSL:30m;
+    ssl_session_timeout 1h;
+    ssl_session_tickets off;
+
+    # Enable OCSP stapling
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    resolver 8.8.8.8 8.8.4.4;
+
+    # Enable HTTP Strict Transport Security
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload";
+
+    # Enable server-side compression
+    gzip on;
+    gzip_proxied any;
+    gzip_types text/plain text/css application/json;
+    gzip_comp_level 5;
+    gzip_min_length 1k;
+
+    # Enable caching for specific file types
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js|woff|woff2)$ {
+        expires 30d;
+    }
+
+    # Serve static files from a dedicated directory
+    location /static/ {
+        alias /var/www/example.com/static/;
+        expires 30d;
+    }
+
+    # Serve Django application
+    location / {
+        # Forward all requests to the Django server
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+    }
+}

@@ -1,0 +1,102 @@
+-- Define generic package for a priority queue
+generic
+   type Item_Type is private;
+   with function ">" (Left, Right : Item_Type) return Boolean is <>;
+
+package Priority_Queue is
+
+   type Queue is private;
+
+   procedure Enqueue (Data      : in Item_Type;
+                      Priority  : in Positive;
+                      Q         : in out Queue)
+                      with Pre => not(Is_Full(Q));
+   -- Adds an item to the queue with a specified priority
+
+   function Dequeue (Q : in out Queue) return Item_Type
+                      with Pre => not(Is_Empty(Q));
+   -- Removes and returns the item at the front of the queue
+
+   function Is_Full (Q : in Queue) return Boolean;
+   -- Returns True if the queue is full, False otherwise
+
+   function Is_Empty (Q : in Queue) return Boolean;
+   -- Returns True if the queue is empty, False otherwise
+
+private
+
+   type Item (Priority : Positive; Data : Item_Type) is
+      record
+         Next  : access Item;
+      end record;
+
+   type Queue is
+      record
+         Front : access Item;
+         Rear  : access Item;
+         Size  : Natural := 0;
+      end record;
+
+end Priority_Queue;
+
+-- Define package body
+package body Priority_Queue is
+
+   procedure Enqueue (Data      : in Item_Type;
+                      Priority  : in Positive;
+                      Q         : in out Queue)
+   is
+      New_Node  : access Item;
+      Current   : access Item;
+      Previous  : access Item;
+      Added     : Boolean := False;
+   begin
+      New(New_Node, Priority, Data);
+      if Q.Size = 0 then
+         Q.Rear := New_Node;
+         Q.Front := New_Node;
+      elsif Priority > Q.Front.Priority then
+         New_Node.Next := Q.Front;
+         Q.Front := New_Node;
+      elsif Priority < Q.Rear.Priority then
+         Q.Rear.Next := New_Node;
+         Q.Rear := New_Node;
+      else
+         Current := Q.Front;
+         loop
+            Previous := Current;
+            Current  := Current.Next;
+            exit when Current.Priority > Priority;
+         end loop;
+         Previous.Next := New_Node;
+         New_Node.Next := Current;
+      end if;
+      Q.Size := Q.Size + 1;
+   end Enqueue;
+
+   function Dequeue (Q : in out Queue) return Item_Type
+   is
+      Temp_Node : access Item;
+      Data      : Item_Type;
+   begin
+      Temp_Node := Q.Front;
+      Q.Front := Q.Front.Next;
+      Q.Size := Q.Size - 1;
+      Data := Temp_Node.Data;
+      Free(Temp_Node);
+      return Data;
+   end Dequeue;
+
+   function Is_Full (Q : in Queue) return Boolean
+   is
+   begin
+      return Q.Size = Natural'Last;
+   end Is_Full;
+
+   function Is_Empty (Q : in Queue) return Boolean
+   is
+   begin
+      return Q.Size = 0;
+   end Is_Empty;
+
+end Priority_Queue;

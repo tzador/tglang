@@ -1,0 +1,85 @@
+/*
+This contract allows users to create, manage, and trade crypto assets on the Ethereum blockchain.
+*/
+pragma solidity ^0.8.0;
+
+// Import necessary libraries
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract CryptoAssets is ERC721, Ownable {
+    using SafeMath for uint;
+
+    // Variables for tracking total assets and their prices
+    uint public totalAssets;
+    mapping(uint => uint) public assetPrices;
+
+    // Struct for storing asset information
+    struct Asset {
+        address owner;
+        string name;
+        string description;
+        uint price;
+    }
+
+    // Mappings for storing asset data
+    mapping(uint => Asset) public assets;
+    mapping(string => bool) public assetNames;
+
+    // Events for tracking asset creation, transfer, and price changes
+    event AssetCreated(string name, string description, uint price, uint assetId);
+    event AssetTransferred(address from, address to, uint assetId);
+    event AssetPriceChanged(uint assetId, uint newPrice);
+
+    // Constructor function for initializing contract
+    constructor() public ERC721("CryptoAssets", "CA") {}
+
+    // Function for creating a new crypto asset
+    function createAsset(string memory _name, string memory _description, uint _price) public onlyOwner {
+        require(!assetNames[_name], "Asset name already exists");
+
+        // Increment totalAssets and assign new assetId
+        totalAssets = totalAssets.add(1);
+        uint assetId = totalAssets;
+
+        // Create new asset object and add to assets mapping
+        Asset storage newAsset = assets[assetId];
+        newAsset.owner = msg.sender;
+        newAsset.name = _name;
+        newAsset.description = _description;
+        newAsset.price = _price;
+        assetNames[_name] = true;
+
+        // Mint new asset token to contract owner
+        _mint(msg.sender, assetId);
+
+        // Emit event for asset creation
+        emit AssetCreated(_name, _description, _price, assetId);
+    }
+
+    // Function for transferring ownership of a crypto asset
+    function transferAsset(address _to, uint _assetId) public {
+        require(msg.sender == assets[_assetId].owner, "You do not own this asset");
+
+        // Transfer ownership of asset token
+        _transfer(msg.sender, _to, _assetId);
+
+        // Update owner of asset in assets mapping
+        assets[_assetId].owner = _to;
+
+        // Emit event for asset transfer
+        emit AssetTransferred(msg.sender, _to, _assetId);
+    }
+
+    // Function for updating the price of a crypto asset
+    function changeAssetPrice(uint _assetId, uint _newPrice) public {
+        require(msg.sender == assets[_assetId].owner, "You do not own this asset");
+
+        // Update price in assetPrices mapping
+        assetPrices[_assetId] = _newPrice;
+
+        // Emit event for price change
+        emit AssetPriceChanged(_assetId, _newPrice);
+    }
+}

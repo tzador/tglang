@@ -1,0 +1,65 @@
+server
+{
+    #setting port number and server name
+    listen 80;
+    server_name example.com;
+
+    #enabling gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json;
+    gzip_min_length 1000;
+    gzip_proxied expired no-cache no-store private auth;
+    gzip_disable "MSIE [1-6]\.";
+
+    #setting root directory and index files to use
+    root /usr/share/nginx/html;
+    index index.html index.htm;
+
+    #error handling
+    error_page 404 /404.html;
+    location = /404.html
+    {
+        internal;
+    }
+
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html
+    {
+        internal;
+    }
+
+    #adding caching
+    add_header Cache-Control "public, max-age=604800, immutable";
+
+    #rewriting URLs
+    location /user
+    {
+        rewrite ^/user/([0-9]+) /user.php?id=$1;
+    }
+
+    #handling requests with PHP
+    location ~ \.php$
+    {
+        fastcgi_pass unix:/var/run/php-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $request_filename;
+        include fastcgi_params;
+    }
+
+    #proxying requests to another server
+    location /blogs
+    {
+        proxy_pass https://example.com/blogs/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    #security settings
+    add_header Strict-Transport-Security "max-age=63072000; includeSubdomains; preload";
+    add_header X-Frame-Options "DENY";
+    add_header X-Content-Type-Options "nosniff";
+    add_header X-XSS-Protection "1; mode=block";
+
+    #limiting requests per IP address
+    limit_req zone=one burst=10 nodelay;
+}

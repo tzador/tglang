@@ -1,0 +1,55 @@
+/* Importing the necessary data sets */
+data prod_data;
+set "C:\Users\MyFiles\ProductionData.xlsx"
+access engine=excel;
+range="Sheet1$";
+getnames=yes;
+run;
+
+data sales_data;
+set "C:\Users\MyFiles\SalesData.xlsx"
+access engine=excel;
+range="Sheet1$";
+getnames=yes;
+run;
+
+/* Merging the two data sets based on common variables */
+data merged_data;
+merge prod_data sales_data;
+by product_id order_id;
+run;
+
+/* Creating new variables based on existing ones */
+data final_data;
+set merged_data;
+/* Calculating total revenue */
+total_revenue = quantity * unit_price;
+/* Calculating profit margin */
+profit_margin = (total_revenue - cost) / total_revenue;
+/* Converting units from pounds to kilograms */
+weight_kg = weight * 0.45359237;
+/* Extracting year and month from date */
+year = year(date);
+month = month(date);
+/* Rounding profit margin to two decimal places */
+format profit_margin 5.2;
+run;
+
+/* Generating summary statistics for final data set */
+proc means data=final_data;
+var total_revenue cost profit_margin weight_kg;
+class year month;
+output out=summary_stats mean=;
+run;
+
+/* Creating a bar chart to show monthly profit margin over the years */
+proc sgplot data=summary_stats;
+title "Monthly Profit Margin over the Years";
+vbar month / group=year response=profit_margin;
+run;
+
+/* Exporting final data set and bar chart to PDF */
+ods pdf file="C:\Users\MyFiles\FinalReport.pdf";
+proc print data=final_data;
+run;
+ods pdf close;

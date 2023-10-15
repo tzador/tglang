@@ -1,0 +1,53 @@
+/* Using SAS to create a classification model */
+
+/* Import necessary data */
+OPTIONS VALIDMEMNAME=EXTEND;
+PROC IMPORT OUT=WORK.original_data
+            DATAFILE="/myfiles/data.csv"
+            DBMS=CSV REPLACE;
+  GETNAMES=YES;
+  DATAROW=2;
+RUN;
+
+/* Clean and prepare the data for modeling */
+DATA WORK.data_cleaned;
+    /* Remove missing values */
+    SET WORK.original_data;
+    IF NOT MISSING(var1, var2, var3);
+    /* Convert categorical variables to numeric */
+    LENGTH new_var $8.;
+    IF var4='Male' THEN new_var=1;
+    ELSE IF var4='Female' THEN new_var=2;
+    /* Create new calculated variable */
+    num_var = var5/var6;
+RUN;
+
+/* Split data into training and testing sets */
+PROC SURVEYSELECT DATA=WORK.data_cleaned
+                  OUT=WORK.data_train
+                  OUTALL
+                  METHOD=SRS
+                  SAMPRATE=0.8
+                  SEED=123;
+RUN;
+DATA WORK.data_test;
+    SET WORK.data_cleaned;
+    IF _SELECTED_=0;
+RUN;
+
+/* Build the classification model */
+PROC LOGISTIC DATA=WORK.data_train;
+    CLASS new_var;
+    MODEL var7 (EVENT='1') = num_var new_var / SELECTION=STEPWISE;
+    SEED=123;
+    SCORE DATA=WORK.data_test
+          OUT=WORK.data_scored;
+RUN;
+
+/* Evaluate the model's performance */
+PROC CALIS data=WORK.data_scored PL;
+    class new_var;
+    score data=WORK.data_scored out=WORK.data_eval;
+    predict cip(lasso);
+    noprint ABCAUX=WORK.outroc; /* Output metrics, such as area under ROC curve */
+RUN;

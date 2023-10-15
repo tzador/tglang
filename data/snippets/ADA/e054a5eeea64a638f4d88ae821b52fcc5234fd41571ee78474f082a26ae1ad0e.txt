@@ -1,0 +1,129 @@
+-- This code snippet generates a random maze using Prim's algorithm
+
+with Ada.Integer_Text_IO;             -- import necessary packages
+with Ada.Strings.Unbounded;
+
+procedure Maze_Generator is
+
+   type Maze is array (Integer range <>, Integer range <>) of Boolean;   -- define 2D array type to represent maze
+   subtype Row_Index is Integer range 1 .. Maze'Length (1);
+   subtype Column_Index is Integer range 1 .. Maze'Length (2);
+
+   Rows : Integer := 10;       -- number of rows in the maze
+   Columns : Integer := 10;    -- number of columns in the maze
+   Start_Row : Integer := 1;   -- starting row for generating maze
+   Start_Column : Integer := 1;    -- starting column for generating maze
+
+   Wall : Boolean := False;          -- set flag for wall not existing
+   Cell : Boolean := True;           -- set flag for cell existing
+   
+   -- Define function to check if coordinates are within maze bounds
+   function In_Maze_Bounds (Row : Integer; Column : Integer) return Boolean is
+   begin
+      return Row in Row_Index and Column in Column_Index;
+   end In_Maze_Bounds;
+
+   -- Define function to randomly choose an unvisited neighbor
+   function Random_Unvisited_Neighbor (Cell : Maze; Row : Row_Index; Column : Column_Index) return
+                                       Ada.Strings.Unbounded.Unbounded_String is
+      Unvisited : Ada.Strings.Unbounded.Unbounded_String := Ada.Strings.Unbounded.Null_Unbounded_String;
+   begin
+      if In_Maze_Bounds (Row - 1, Column) and then Cell (Row - 1, Column) = Wall then
+         Unvisited := Unvisited & Ada.Strings.Unbounded.To_Unbounded_String ("N");
+      end if;
+      if In_Maze_Bounds (Row, Column + 1) and then Cell (Row, Column + 1) = Wall then
+         Unvisited := Unvisited & Ada.Strings.Unbounded.To_Unbounded_String ("E");
+      end if;
+      if In_Maze_Bounds (Row + 1, Column) and then Cell (Row + 1, Column) = Wall then
+         Unvisited := Unvisited & Ada.Strings.Unbounded.To_Unbounded_String ("S");
+      end if;
+      if In_Maze_Bounds (Row, Column - 1) and then Cell (Row, Column - 1) = Wall then
+         Unvisited := Unvisited & Ada.Strings.Unbounded.To_Unbounded_String ("W");
+      end if;
+      if Unvisited = Ada.Strings.Unbounded.Null_Unbounded_String then    -- if no unvisited neighbors
+         return Ada.Strings.Unbounded.Null_Unbounded_String;     -- return null
+      else
+         declare
+            Rand : Integer range 1 .. Ada.Strings.Unbounded.Length (Unvisited);    -- define range for random number
+         begin
+            Ada.Integer_Text_IO.Get (Item => Rand);    -- generate random number
+            return Ada.Strings.Unbounded.Element (Unvisited, Rand);    -- return random direction
+         end;
+      end if;
+   end Random_Unvisited_Neighbor;
+
+   -- Define procedure to generate the maze using Prim's algorithm
+   procedure Generate_Maze (Rows : in out Row_Index; Columns : in out Column_Index; Cell : in out Maze) is
+      To_Go : Ada.Strings.Unbounded.Unbounded_String := Ada.Strings.Unbounded.Null_Unbounded_String;
+      To_Visit : Ada.Strings.Unbounded.Unbounded_String := Ada.Strings.Unbounded.Null_Unbounded_String;
+   begin
+      Cell (Start_Row, Start_Column) := Cell;    -- set starting cell as existing
+      To_Visit := To_Visit & "E";     -- add east direction to pending directions
+
+      while To_Visit /= Ada.Strings.Unbounded.Null_Unbounded_String loop     -- loop until all cells have been visited
+         declare
+            Dir : Ada.Strings.Unbounded.Unbounded_String := Random_Unvisited_Neighbor (Cell, Rows, Columns);    -- choose unvisited neighbor
+            Next_Row : Integer := Rows;
+            Next_Column : Integer := Columns;
+         begin
+            if Dir /= Ada.Strings.Unbounded.Null_Unbounded_String then    -- if there is an unvisited neighbor
+               if Dir = "N" then    -- determine coordinates for north neighbor
+                  Cell (Rows - 1, Columns) := Cell;
+                  Next_Row := Rows - 2;
+               elsif Dir = "E" then    -- determine coordinates for east neighbor
+                  Cell (Rows, Columns + 1) := Cell;
+                  Next_Column := Columns + 2;
+               elsif Dir = "S" then    -- determine coordinates for south neighbor
+                  Cell (Rows + 1, Columns) := Cell;
+                  Next_Row := Rows + 2;
+               elsif Dir = "W" then    -- determine coordinates for west neighbor
+                  Cell (Rows, Columns - 1) := Cell;
+                  Next_Column := Columns - 2;
+               end if;
+               To_Visit := To_Visit & Dir;    -- add chosen direction to pending directions
+               Cell (Next_Row, Next_Column) := Cell;
+               To_Go := To_Go & Ada.Strings.Unbounded.To_Unbounded_String (Integer'Image (Next_Row)) &
+                         Ada.Strings.Unbounded.To_Unbounded_String (Integer'Image (Next_Column));    -- add new coordinates to pending coordinates
+            else
+               if To_Go /= Ada.Strings.Unbounded.Null_Unbounded_String then    -- if there are pending coordinates
+                  declare
+                     Rand : Integer range 1 .. Ada.Strings.Unbounded.Length (To_Go) / 2;    -- determine range for random number
+                     Temp : Integer;    -- temporary variables for coordinates
+                  begin
+                     Ada.Integer_Text_IO.Get (Item => Rand);    -- generate random number
+                     Temp := Integer'Value (Ada.Strings.Unbounded.To_String (Ada.Strings.Unbounded.Element (To_Go, Rand * 2 - 1)));    -- get row
+                     Next_Row := Temp;    -- store row
+                     Temp := Integer'Value (Ada.Strings.Unbounded.To_String (Ada.Strings.Unbounded.Element (To_Go, Rand * 2)));    -- get column
+                     Next_Column := Temp;    -- store column
+                     To_Go := Ada.Strings.Unbounded.To_Unbounded_String (Ada.Strings.Unbounded.Element (To_Go, Rand * 2 - 1) & Ada.Strings.Unbounded.Element (To_Go, Rand * 2));     -- remove chosen coordinates from pending coordinates
+                     To_Visit := Ada.Strings.Unbounded.To_Unbounded_String (Ada.Strings.Unbounded.Element (To_Visit, Rand * 2 - 1) & Ada.Strings.Unbounded.Element (To_Visit, Rand * 2));    -- add chosen direction to pending directions
+                  end;
+               end if;
+            end if;
+         end;
+      end loop;
+   end Generate_Maze;
+
+begin
+
+   Rows := 10;    -- set number of rows
+   Columns := 10;    -- set number of columns
+
+   declare
+      Cell : Maze (1 .. Rows * 2 + 1, 1 .. Columns * 2 + 1) := (others => (others => Wall));    -- initialize maze with all walls
+   begin
+      Generate_Maze (Rows, Columns, Cell);    -- generate maze using Prim's algorithm
+   end;
+
+   for I in Row_Index loop    -- loop through rows
+      for J in Column_Index loop    -- loop through columns
+         if Cell (I, J) then    -- if cell exists, print space for path
+            Ada.Text_IO.Put (" ");
+         else    -- if no cell exists, print '#' for wall
+            Ada.Text_IO.Put ("#");
+         end if;
+      end loop;
+      Ada.Text_IO.New_Line;    -- print new line after each row
+   end loop;
+
+end Maze_Generator;

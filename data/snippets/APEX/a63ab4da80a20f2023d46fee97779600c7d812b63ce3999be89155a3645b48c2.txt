@@ -1,0 +1,66 @@
+// Enqueue campaign member update job
+System.enqueueJob(new UpdateCampaignMembers(jobId));
+
+// Class to update campaign members
+public class UpdateCampaignMembers implements Queueable {
+    
+    // Private member variables
+    private Id jobId;
+    
+    // Constructor
+    public UpdateCampaignMembers(Id jobId) {
+        this.jobId = jobId; // Assign job Id
+    }
+    
+    // Implement Queueable interface method
+    public void execute(QueueableContext context) {
+        
+        // Retrieve campaign members to be updated
+        List<CampaignMember> members = [SELECT Id, Name, LeadId, ContactId FROM CampaignMember WHERE Job_Id__c = :jobId];
+        
+        // Loop through members and update contact name
+        for (CampaignMember member : members) {
+            
+            // Get contact Id from campaign member
+            Id contactId = member.ContactId;
+            
+            // Query contact record
+            Contact contact = [SELECT Id, Name FROM Contact WHERE Id = :contactId];
+            
+            // Update contact name
+            contact.Name = 'Updated Name';
+            
+            // Enqueue job to update contact record
+            System.enqueueJob(new UpdateContact(contactId, contact));
+            
+            // Update campaign member status
+            member.Status = 'Updated';
+        }
+        
+        // Update campaign member records
+        if (!members.isEmpty()) {
+            update members;
+        }
+    }
+}
+
+// Class to update contact record
+private class UpdateContact implements Queueable {
+    
+    // Private member variables
+    private Id contactId;
+    private Contact contact;
+    
+    // Constructor
+    public UpdateContact(Id contactId, Contact contact) {
+        this.contactId = contactId; // Assign contact Id
+        this.contact = contact; // Assign contact record
+    }
+    
+    // Implement Queueable interface method
+    public void execute(QueueableContext context) {
+        
+        // Update contact record
+        update contact;
+    }
+}

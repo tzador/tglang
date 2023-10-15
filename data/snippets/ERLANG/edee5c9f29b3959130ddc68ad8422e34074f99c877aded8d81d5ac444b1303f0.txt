@@ -1,0 +1,40 @@
+-module(my_module).
+-export([start/0, init/1, loop/1, handle_message/2]).
+-record(state, {counter, messages}).
+
+%% Start the server
+start() ->
+   spawn_link(?MODULE, init, [[]]).
+
+%% Initialize the state and start the loop
+init(Args) ->
+   State = #state{counter = 0, messages = []},
+   loop(State).
+
+%% The main loop
+loop(State) ->
+   receive
+       %% Message containing data to be stored in state
+       {store, Data} ->
+           NewState = State#state{messages = [Data | State#state.messages]},
+           loop(NewState);
+       %% Message to increment the counter in state
+       increment ->
+           NewState = State#state{counter = State#state.counter + 1},
+           loop(NewState);
+       %% Message to query the current state
+       {get_state, Pid} ->
+           Pid ! State,
+           loop(State)
+   end.
+
+%% Handle incoming messages
+handle_message(Message, State) ->
+   case Message of
+       {store, Data} ->
+           NewState = State#state{messages = [Data | State#state.messages]};
+       increment ->
+           NewState = State#state{counter = State#state.counter + 1}
+   end,
+   %% Call the loop function again with the updated state
+   loop(NewState).

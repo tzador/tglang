@@ -1,0 +1,65 @@
+# These variables will serve as the input for our recipe
+data_dir := data
+input_files := $(wildcard $(data_dir)/*.txt)
+output_dir := output
+
+# Create a target to preprocess the input files
+preprocess: $(input_files)
+	@echo "Starting pre-processing..."
+	# Check if the output directory exists, if not create it
+	if [ ! -d $(output_dir) ]; then \
+		mkdir $(output_dir); \
+	fi
+
+	# Loop through each input file and perform preprocessing
+	for file in $^; do \
+		echo "Preprocessing $${file}"; \
+		sed -i 's/[0-9]//g' $${file}; \
+	done
+	
+	@echo "Pre-processing completed. Output files can be found in $(output_dir)"
+
+# Create a target to train a model
+train: preprocess
+	@echo "Starting model training..."
+	# Check if the output directory exists, if not create it
+	if [ ! -d $(output_dir) ]; then \
+		mkdir $(output_dir); \
+	fi
+
+	# Loop through each input file and perform feature extraction
+	for file in $(input_files); do \
+		echo "Processing $${file}"; \
+		python extract_features.py $${file} $(output_dir)/$$(basename $${file} .txt).features; \
+	done
+	
+	@echo "Model training completed. Model can be found in $(output_dir)"
+
+# Create a target to evaluate the model
+evaluation: train
+	@echo "Starting model evaluation..."
+	# Check if the output directory exists, if not create it
+	if [ ! -d $(output_dir) ]; then \
+		mkdir $(output_dir); \
+	fi
+
+	# Loop through each input file and perform prediction
+	for file in $(input_files); do \
+		echo "Evaluating $${file}"; \
+		python evaluate_model.py $(output_dir)/$$(basename $${file} .txt).features $(output_dir)/$$(basename $${file} .txt).predictions; \
+	done
+	
+	@echo "Model evaluation completed. Evaluation results can be found in $(output_dir)"
+
+# Create a target to clean up the output directory
+clean:
+	@echo "Cleaning up output directory..."
+	# Check if the output directory exists and remove it
+	if [ -d $(output_dir) ]; then \
+		rm -rf $(output_dir); \
+	fi
+	
+	@echo "Clean up completed. Output directory has been removed."
+
+# Specify the order that the targets should be executed in
+.PHONY: preprocess train evaluation clean

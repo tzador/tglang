@@ -1,0 +1,76 @@
+*&---------------------------------------------------------------------*
+*& Report Z_CALCULATE_PRICE
+*&---------------------------------------------------------------------*
+REPORT Z_CALCULATE_PRICE NO STANDARD PAGE HEADING LINE-SIZE 200 LINE-COUNT 65.
+ 
+TABLES: MARA, MAKT, T001W, T001L, EKPO, EKKO, VBPA.
+
+TYPES: BEGIN OF ty_ekpo,
+           matnr TYPE MARA-MATNR,
+           netpr TYPE EKPO-NETPR,
+       END OF ty_ekpo,
+       tt_ekpo TYPE STANDARD TABLE OF ty_ekpo WITH NON-UNIQUE DEFAULT KEY.
+ 
+TYPES: BEGIN OF ty_ekko,
+           ebeln TYPE EKKO-EBELN,
+           waers TYPE EKKO-WAERS,
+       END OF ty_ekko,
+       tt_ekko TYPE STANDARD TABLE OF ty_ekko WITH NON-UNIQUE DEFAULT KEY.
+ 
+TYPES: BEGIN OF ty_goods,
+           material TYPE MARA-MATNR,
+           plant TYPE T001L-WERKS,
+           price TYPE EKPO-NETPR,
+       END OF ty_goods,
+       tt_goods TYPE STANDARD TABLE OF ty_goods WITH NON-UNIQUE DEFAULT KEY.
+ 
+DATA: lt_goods TYPE tt_goods,
+      lv_tax TYPE t001w-mwskz,
+      lt_ekko TYPE tt_ekko,
+      lt_ekpo TYPE tt_ekpo.
+ 
+* Get materials and prices from EKPO table
+SELECT matnr netpr FROM EKPO INTO CORRESPONDING FIELDS OF TABLE lt_ekpo.
+ 
+* Get purchasing document numbers and currency codes from EKKO table
+SELECT ebeln waers FROM EKKO INTO CORRESPONDING FIELDS OF TABLE lt_ekko.
+ 
+* Loop through EKKO table to get currency codes
+LOOP AT lt_ekko INTO DATA(ls_ekko).
+ 
+  * Loop through EKPO table to get materials and prices for each purchasing document
+  LOOP AT lt_ekpo INTO DATA(ls_ekpo) WHERE ebeln = ls_ekko-ebeln.
+ 
+    * Get the tax code for the plant from T001L table
+    SELECT SINGLE mwskz FROM T001W INTO @lv_tax WHERE werks = ls_ekpo-plants.
+ 
+    * Calculate price with tax included
+    ls_goods-material = ls_ekpo-matnr.
+    ls_goods-plant = ls_ekpo-plants.
+    ls_goods-price = ls_ekpo-netpr * ( 1 + lv_tax / 100 ).
+ 
+    * Append the calculated goods to the table
+    APPEND ls_goods TO lt_goods.
+ 
+  ENDLOOP.
+ENDLOOP.
+ 
+* Calculate total price for each purchasing document
+LOOP AT lt_ekko INTO DATA(ls_ekko).
+  LOOP AT lt_goods INTO DATA(ls_goods) WHERE plant = ls_ekko-werks.
+ 
+    * Get the currency code for the purchasing document from EKKO table
+    ls_goods-price = ls_goods-price * COND #( WHEN ls_ekko-waers = 'USD' THEN 1.1 ELSE 1 ).
+ 
+    * Append total price with currency code to the table
+    APPEND ls_goods TO lt_goods.
+ 
+  ENDLOOP.
+ENDLOOP.
+ 
+* Write the result to the screen
+cl_salv_table=>factory( EXPORTING list_display = abap_true )->display( lt_goods ).
+
+*&---------------------------------------------------------------------*
+*& End of report Z_CALCULATE_PRICE
+*&---------------------------------------------------------------------*

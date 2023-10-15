@@ -1,0 +1,98 @@
+%% This module implements a binary search tree data structure
+-module(bst).
+
+%% Exported functions
+-export([insert/2, search/2, delete/2, max/1, min/1, traverse/1, size/1, serialize/1, deserialize/1]).
+
+%% Internal representation of a node
+-record(node, {key, value, left, right}).
+
+%% Inserts a key-value pair into the tree
+%% @spec insert(term(), any()) :: {ok, binary()} | {error, badarg}
+insert(Key, Value) ->
+    case search(Key, Value) of
+        {ok, _} -> 
+            {error, exists};
+        {error, not_found} ->
+            insert_node(?MODULE, {node, Key, Value, undefined, undefined}),
+            {ok, tree}
+    end.
+
+%% Searches for a key in the tree and returns the associated value if found
+%% @spec search(term(), tree()) :: {ok, any()} | {error, not_found} 
+search(Key, Tree) ->
+    search_node(Key, get_node(Tree)).
+
+%% Deletes a key and its associated value from the tree
+%% @spec delete(term(), tree()) :: {ok, binary()} | {error, not_found}
+delete(Key, Tree) ->
+    case search(Key, Tree) of
+        {ok, _} ->
+            delete_node(Key, Tree),
+            {ok, deleted};
+        {error, not_found} ->
+            {error, not_found}
+    end.
+
+%% Traverses the tree in order and applies a function to each node
+%% @spec traverse(function(), tree()) :: ok
+traverse(Fun, Tree) ->
+    case get_node(Tree) of
+        undefined ->
+            ok;
+        {node, Key, Value, Left, Right} ->
+            traverse(Fun, Left),
+            Fun({Key, Value}),
+            traverse(Fun, Right)
+    end.
+
+%% Returns the maximum key in the tree
+%% @spec max(tree()) :: term()
+max(Tree) ->
+    case get_node(Tree) of
+        undefined ->
+            undefined;
+        {node, Key, Value, undefined, Right} ->
+            case get_node(Right) of
+                undefined ->
+                    {Key, Value};
+                {node, Key1, Value1, _, _} ->
+                    max({node, Key1, Value1, Right, undefined})
+            end
+    end.
+
+%% Returns the minimum key in the tree
+%% @spec min(tree()) :: term()
+min(Tree) ->
+    case get_node(Tree) of
+        undefined ->
+            undefined;
+        {node, Key, Value, Left, undefined} ->
+            case get_node(Left) of
+                undefined ->
+                    {Key, Value};
+                {node, Key1, Value1, _, _} ->
+                    min({node, Key1, Value1, undefined, Left})
+            end
+    end.
+
+%% Returns the number of nodes in the tree
+%% @spec size(tree()) :: non_neg_integer()
+size(undefined) ->
+    0;
+size({node, _, _, Left, Right}) ->
+    1 + size(Left) + size(Right).
+
+%% Serializes the tree into a binary representation
+%% @spec serialize(tree()) :: binary()
+serialize(undefined) ->
+    <<>>;
+serialize({node, Key, Value, Left, Right}) ->
+    <<size(bst:serialize(Left))/size, size(bst:serialize(Right))/size, Key/binary, Value/binary, bst:serialize(Left), bst:serialize(Right)>>.
+
+%% Deserializes the binary representation into a tree
+%% @spec deserialize(binary()) :: tree()
+deserialize(<<>>) ->
+    undefined;
+deserialize(Bin) ->
+    {SizeLeft, SizeRight, Key, Value, BinLeft, BinRight} = <<SizeLeft:size(binary), SizeRight:size(binary), Key:binary, Value:binary, BinLeft/binary, BinRight/binary>>.

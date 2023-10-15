@@ -1,0 +1,104 @@
+# Set the worker processes based on the number of cores available
+worker_processes auto;
+
+# Set the error log file location
+error_log /var/log/nginx/error.log;
+
+# Set the pid file location
+pid /var/run/nginx.pid;
+
+# Create a mapping for file extensions to MIME types
+types {
+    # Image file types
+    image/jpeg        jpg;
+    image/png         png;
+    image/svg+xml     svg;
+
+    # Audio file types
+    audio/mpeg        mp3;
+    audio/ogg         ogg;
+
+    # Video file types
+    video/mp4         mp4;
+    video/x-msvideo   avi;
+
+    # Text file types
+    text/css          css;
+    text/xml          xml;
+    text/plain        txt;
+}
+
+# Set the access log format
+log_format combined '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"';
+
+# Configure the default server
+server {
+    # Set the server port and listen on all interfaces
+    listen 80 default_server;
+    listen [::]:80 default_server;
+
+    # Set the server name
+    server_name _;
+
+    # Set the default root directory
+    root /var/www/html;
+
+    # Set the default index file
+    index index.html;
+
+    # Enable gzip compression
+    gzip on;
+
+    # Set the gzip compression level
+    gzip_comp_level 5;
+
+    # Set the types of files that should be compressed
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    # Enable and configure browser caching
+    expires 60m; # Cache time for static resources
+
+    location / {
+        # Set the proxy server for handling requests
+        proxy_pass http://127.0.0.1:8000;
+
+        # Set the proxy headers
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+    }
+}
+
+# Configure a specific server
+server {
+    # Set a specific server name and port
+    server_name example.com;
+    listen 80;
+
+    # Set a custom root directory for this server
+    root /var/www/example;
+
+    # Enable browser caching for this server
+    expires 24h; # Cache time for static resources
+
+    location / {
+        # Set a custom error page for 404 errors
+        error_page  404  /404.html;
+
+        # Enable directory listing
+        autoindex on;
+
+        # Allow only specific IP addresses
+        allow 127.0.0.1;
+        deny all;
+    }
+
+    # Configure SSL for this server
+    listen 443 ssl;
+    ssl_certificate /etc/ssl/certs/example.com.crt;
+    ssl_certificate_key /etc/ssl/private/example.com.key;
+
+    # Enable HTTP/2 for improved performance
+    listen 443 ssl http2;
+}

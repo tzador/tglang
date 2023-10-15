@@ -1,0 +1,73 @@
+class MechCharacter extends AIController
+    native(205)
+    
+    // This is a class that represents a mechanical character in the game
+    
+    const float MAX_HEALTH = 100; // Maximum health for Mech Character
+    
+    var float CurrentHealth; // Current health of Mech Character
+    
+    var bool bIsAlive; // Flag to check if Mech Character is alive or not
+    
+    var SkeletalMeshComponent MechMesh; // Mesh component for Mech Character
+    
+    event PostBeginPlay()
+    {
+        Super.PostBeginPlay(); // Call the parent class's PostBeginPlay event
+        
+        // Set initial values for Mech Character
+        CurrentHealth = MAX_HEALTH;
+        bIsAlive = true;
+        
+        // Create and attach SkeletalMeshComponent to Mech Character
+        MechMesh = new(SkeletalMeshComponent);
+        MechMesh.AttachTo(self);
+        
+        // Set mesh properties
+        MechMesh.SkeletalMesh = Mesh.SkeletalMeshPlaceholder; // Use placeholder mesh
+        MechMesh.Scale = vect(1,1,1); // Set scale to 1
+        MechMesh.SetRelativeLocation(vect(0,0,0)); // Set relative location to (0,0,0)
+        
+        // Play character's animation
+        MechMesh.PlayAnimation('Walk');
+    }
+    
+    simulated function TakeDamage(int DamageAmount, Actor DamageCauser)
+    {        
+        // Reduce health by damage amount
+        CurrentHealth -= DamageAmount;
+        
+        // Check if character is still alive
+        if (CurrentHealth <= 0)
+        {
+            bIsAlive = false;
+            
+            // Stop animation
+            MechMesh.StopAnimation();
+            
+            // Die and destroy character
+            Die();
+            Destroy();
+        }
+    }
+    
+    // Function to make Mech Character perform melee attack
+    simulated function DoAttack()
+    {
+        // Play attack animation
+        MechMesh.PlayAnimation('Attack');
+        
+        // Do damage to nearby actors
+        local Actor[] NearbyActors;
+        NearbyActors = Kismet Spatial Query(GetActorLocation(), 500, class'Actor');
+        
+        foreach (Actor A in NearbyActors)
+        {
+            // Check if actor is within range and is not the Mech Character itself
+            if (VSize(A.Location - GetActorLocation()) <= 500 && A != self)
+            {
+                // Damage actor
+                A.TakeDamage(10, self);
+            }
+        }
+    }

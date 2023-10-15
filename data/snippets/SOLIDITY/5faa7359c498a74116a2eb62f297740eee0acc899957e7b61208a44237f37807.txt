@@ -1,0 +1,74 @@
+// This contract represents a crowdsale for a new cryptocurrency 
+
+pragma solidity ^0.8.0;
+
+interface IERC20 {
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function totalSupply() external view returns (uint256);
+    function decimals() external view returns (uint8);
+    function mint(address account, uint256 amount) external;
+    function burn(uint256 amount) external;
+}
+
+contract Crowdsale {
+    address public wallet; // Address where funds are collected
+    IERC20 public token; // Address of the token being sold
+    uint256 public rate; // Number of tokens to be sold per ether
+    uint256 public weiRaised; // Amount of wei raised
+
+    constructor(address _wallet, IERC20 _token, uint256 _rate) public {
+        require(_wallet != address(0), "Wallet cannot be 0 address");
+        require(_token != address(0), "Token address cannot be 0 address");
+        require(_rate > 0, "Rate must be greater than 0");
+
+        wallet = _wallet;
+        token = _token;
+        rate = _rate;
+    }
+
+    // Event triggered when tokens are purchased
+    event TokensPurchased(address indexed purchaser, address indexed beneficiary, uint256 value, uint256 amount);
+
+    // Function to handle the purchase of tokens
+    function buyTokens(address _beneficiary) public payable {
+        uint256 weiAmount = msg.value;
+        require(_beneficiary != address(0), "Beneficiary address cannot be 0 address");
+        require(weiAmount != 0, "Wei amount cannot be 0");
+
+        // Calculate the amount of tokens to be purchased
+        uint256 tokens = getTokenAmount(weiAmount);
+
+        // Check if there are enough tokens left
+        require(token.balanceOf(address(this)) >= tokens, "Not enough tokens in contract");
+
+        // Transfer tokens from contract to beneficiary
+        token.transfer(_beneficiary, tokens);
+
+        // Update amount of wei raised
+        weiRaised = weiRaised + weiAmount;
+
+        // Trigger purchase event
+        emit TokensPurchased(msg.sender, _beneficiary, weiAmount, tokens);
+
+        // Transfer funds to wallet
+        (bool success, ) = wallet.call{value: msg.value}("");
+        require(success, "Transfer failed");
+    }
+
+    // Function to get the amount of tokens to be purchased based on the rate and wei amount
+    function getTokenAmount(uint256 _weiAmount) internal view returns (uint256) {
+        return _weiAmount * rate;
+    }
+
+    // Function to withdraw any remaining tokens in case of unsuccessful crowdsale
+    function withdrawTokens() public {
+        require(msg.sender == wallet, "Only wallet can call this function");
+        require(token.balanceOf(address(this)) > 0, "No tokens to withdraw");
+
+        // Transfer tokens from contract to wallet
+        token.transfer(msg.sender, token.balanceOf(address(this)));
+    }
+}

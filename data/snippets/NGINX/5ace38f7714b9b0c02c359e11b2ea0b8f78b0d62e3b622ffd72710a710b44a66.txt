@@ -1,0 +1,147 @@
+# This is a complex NGINX configuration for a web server
+# It includes multiple server blocks and directives
+
+# Uncomment and change the values below to your own server name and root folder
+# server {
+#     server_name example.com;
+#     root /var/www/example.com;
+# }
+
+#server block for HTTP requests
+server {
+    # listen to all requests on port 80
+    listen 80;
+
+    # set server name
+    server_name www.example.com;
+
+    # redirect all requests to HTTPS
+    return 301 https://$server_name$request_uri;
+}
+
+#server block for HTTPS requests
+server {
+    # listen to all requests on port 443
+    listen 443 ssl;
+
+    # set server name
+    server_name www.example.com;
+
+    # set SSL certificate and key location
+    ssl_certificate /etc/nginx/certs/example.com.crt;
+    ssl_certificate_key /etc/nginx/certs/example.com.key;
+
+    # set SSL protocol versions to use
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # set session cache
+    ssl_session_cache shared:SSL:10m;
+
+    # enable session resumption
+    ssl_session_tickets on;
+
+    # enable OCSP stapling
+    ssl_stapling on;
+    ssl_stapling_verify on;
+
+    # set DNS resolver for OCSP stapling
+    resolver 8.8.8.8 8.8.4.4 valid=300s;
+
+    # set OCSP response timeout
+    ssl_stapling_timeout 5s;
+
+    # set cipher suites to use
+    ssl_ciphers "ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-CBC-SHA384:ECDHE-RSA-AES256-CBC-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-CBC-SHA256:DHE-RSA-CHACHA20-POLY1305";
+
+    # enable HTTP/2 support
+    http2_push_preload on;
+
+    # set default root folder for all requests
+    root /var/www/example.com;
+
+    # enable gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json;
+    gzip_proxied any;
+
+    # add additional MIME types to gzip compression
+    include /etc/nginx/mime.types;
+
+    # enable caching for static files
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+        expires 1y;
+        add_header Cache-Control public;
+    }
+
+    # enable caching for HTML files
+    location ~* \.(html|htm|txt)$ {
+        expires 1h;
+        add_header Cache-Control public;
+    }
+
+    # set default error pages
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+
+    # redirect all non-www requests to www
+    if ($host !~* ^www\.) {
+        return 301 https://www.$host$request_uri;
+    }
+
+    # set up location blocks for different directories
+    location /images/ {
+        alias /var/www/example.com/images/;
+    }
+
+    location /css/ {
+        alias /var/www/example.com/css/;
+    }
+
+    location /js/ {
+        alias /var/www/example.com/js/;
+    }
+
+    # allow access to hidden files
+    location ~ /\. {
+        deny all;
+    }
+}
+
+#server block for assets subdomain
+server {
+    # listen to all requests on port 443
+    listen 443 ssl;
+
+    # set server name
+    server_name assets.example.com;
+
+    # set SSL certificate and key location
+    ssl_certificate /etc/nginx/certs/assets.crt;
+    ssl_certificate_key /etc/nginx/certs/assets.key;
+
+    # set default root folder for all requests
+    root /var/www/assets.example.com;
+
+    # add additional MIME types to gzip compression
+    include /etc/nginx/mime.types;
+
+    # enable caching for static files
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+        expires 1y;
+        add_header Cache-Control public;
+    }
+
+    # enable caching for fonts
+    location ~* \.(woff|woff2)$ {
+        expires 1y;
+        add_header Cache-Control public;
+    }
+
+    # enable HTTP/2 server push
+    http2_push_preload on;
+
+    # set up location block for specific directory
+    location /icons/ {
+        alias /var/www/assets.example.com/icons/;
+    }
+}

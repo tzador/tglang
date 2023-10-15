@@ -1,0 +1,92 @@
+-module(customer).
+
+%% This is a customer module that contains functions related to customer data
+
+-export([add_customer/3, delete_customer/1, update_customer/2, get_customer/1]).
+
+% Function for adding a customer
+-spec add_customer(FirstName, LastName, PhoneNumber) -> ok | {error, Reason}.
+add_customer(FirstName, LastName, PhoneNumber) ->
+    case valid_customer(FirstName, LastName, PhoneNumber) of
+        true ->
+            % Generate a unique ID for the customer
+            CustomerID = generate_id(),
+            % Create a new customer record with the provided data
+            Customer = #{id => CustomerID, first_name => FirstName, last_name => LastName, phone_number => PhoneNumber},
+            % Add the new customer to the database
+            mnesia:write(customer, Customer),
+            ok;
+        false ->
+            {error, invalid_data}
+    end.
+
+% Function for deleting a customer
+-spec delete_customer(CustomerID) -> ok | {error, Reason}.
+delete_customer(CustomerID) ->
+    % Check if the customer exists in the database
+    case is_customer(CustomerID) of
+        true ->
+            % Delete the customer record from the database
+            mnesia:delete(customer, CustomerID),
+            ok;
+        false ->
+            {error, not_found}
+    end.
+
+% Function for updating a customer's data
+-spec update_customer(CustomerID, NewData) -> ok | {error, Reason}.
+update_customer(CustomerID, NewData) ->
+    % Check if the customer exists in the database
+    case is_customer(CustomerID) of
+        true ->
+            % Get the old customer record
+            OldCustomer = mnesia:read(customer, CustomerID),
+            % Update the record with the new data
+            NewCustomer = maps:merge(OldCustomer, NewData),
+            % Write the updated record to the database
+            mnesia:write(customer, NewCustomer),
+            ok;
+        false ->
+            {error, not_found}
+    end.
+
+% Function for retrieving a customer's data
+-spec get_customer(CustomerID) -> {ok, CustomerRecord} | {error, Reason}.
+get_customer(CustomerID) ->
+    % Get the customer record from the database
+    case is_customer(CustomerID) of
+        true ->
+            {ok, mnesia:read(customer, CustomerID)};
+        false ->
+            {error, not_found}
+    end.
+
+% Helper function to check if a customer exists in the database
+is_customer(CustomerID) ->
+    case mnesia:read(customer, CustomerID) of
+        [Customer] ->
+            true;
+        [] ->
+            false
+    end.
+
+% Helper function to validate customer data
+valid_customer(FirstName, LastName, PhoneNumber) ->
+    % Check if all fields are non-empty and valid
+    case {string:strip(FirstName), string:strip(LastName), PhoneNumber} of
+        {"", _Name, _} ->
+            false;
+        {_Name, "", _} ->
+            false;
+        {_Name, _Name, _} ->
+            false;
+        {_, _, ""} ->
+            false;
+        _ ->
+            true
+    end.
+
+% Helper function to generate a unique ID for a customer
+generate_id() ->
+    {Id, _Count} = mnesia:dirty_update_counter(customer, 1),
+    Id.

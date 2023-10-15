@@ -1,0 +1,99 @@
+// Importing OpenZeppelin libraries for security and ERC721 token standard
+import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
+import "github.com/OpenZeppelin/openzeppelin-contracts/contracts/access/Ownable.sol";
+
+// Defining contract name
+contract DigitalArtAuction is ERC721, Ownable {
+
+    // Global variables
+    uint public auctionDuration = 7 days;
+    uint public startingPrice = 100 finney; // 0.1 ether
+
+    // Struct for individual auctions
+    struct Auction {
+        uint highestBid;
+        address highestBidder;
+        uint endTimestamp;
+    }
+
+    // Mapping from token ID to its respective auction
+    mapping(uint => Auction) public auctions;
+
+    // Events for changes in auction status
+    event AuctionStarted(uint indexed tokenId, uint startingPrice);
+    event AuctionEnded(uint indexed tokenId, address indexed winner, uint highestBid);
+    event HighestBidIncreased(uint indexed tokenId, address indexed bidder, uint newHighestBid);
+
+    // Constructor function
+    constructor() ERC721("DigitalArtAuction", "DAA") public {}
+
+    // A modifier to check if the sender is the owner of the token
+    modifier onlyTokenOwner(uint _tokenId) {
+        require(ownerOf(_tokenId) == msg.sender, "You are not the owner of this token.");
+        _;
+    }
+
+    // A modifier to check if the current auction for the token has ended
+    modifier auctionEnded(uint _tokenId) {
+        require(auctions[_tokenId].endTimestamp <= block.timestamp, "Auction is still ongoing.");
+        _;
+    }
+
+    // Function to start an auction for a specific token
+    function startAuction(uint _tokenId) public onlyTokenOwner(_tokenId) {
+        require(auctions[_tokenId].highestBid == 0, "Auction for this token has already started.");
+
+        auctions[_tokenId].highestBid = startingPrice;
+        auctions[_tokenId].highestBidder = msg.sender;
+        auctions[_tokenId].endTimestamp = block.timestamp + auctionDuration;
+
+        emit AuctionStarted(_tokenId, startingPrice);
+    }
+
+    // Function to increase bid for a specific token
+    function increaseBid(uint _tokenId) public payable auctionEnded(_tokenId) {
+        require(auctions[_tokenId].highestBid < msg.value, "Bid must be higher than current highest bid.");
+
+        auctions[_tokenId].highestBid = msg.value;
+        auctions[_tokenId].highestBidder = msg.sender;
+
+        emit HighestBidIncreased(_tokenId, msg.sender, msg.value);
+    }
+
+    // Function to end the auction and transfer the token to the highest bidder
+    function endAuction(uint _tokenId) public onlyTokenOwner(_tokenId) {
+        require(auctions[_tokenId].endTimestamp <= block.timestamp, "Auction is still ongoing.");
+
+        address winner = auctions[_tokenId].highestBidder;
+        uint highestBid = auctions[_tokenId].highestBid;
+
+        auctions[_tokenId].highestBid = 0;
+        auctions[_tokenId].highestBidder = address(0);
+        auctions[_tokenId].endTimestamp = 0;
+
+        // Transfer token to winner and amount to owner
+        _transfer(msg.sender, winner, _tokenId);
+        msg.sender.transfer(highestBid);
+
+        emit AuctionEnded(_tokenId, winner, highestBid);
+    }
+
+    // Function to cancel auction and return the token to the owner
+    function cancelAuction(uint _tokenId) public onlyTokenOwner(_tokenId) {
+        require(auctions[_tokenId].highestBid == 0, "Auction has already started, cannot be canceled.");
+
+        auctions[_tokenId].highestBid = 0;
+        auctions[_tokenId].highestBidder = address(0);
+        auctions[_tokenId].endTimestamp = 0;
+
+        // Transfer token back to owner
+        _transfer(msg.sender, ownerOf(_tokenId), _tokenId);
+
+        emit AuctionEnded(_tokenId, msg.sender, 0);
+    }
+
+    // Function to get current highest bid for a token
+    function getHighestBid(uint _tokenId) public view returns (uint) {
+        return auctions[_tokenId].highestBid;
+    }
+}

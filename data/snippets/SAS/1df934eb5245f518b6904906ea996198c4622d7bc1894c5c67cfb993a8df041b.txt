@@ -1,0 +1,42 @@
+/* Set up input library and data sets */
+
+LIBNAME insrc 'C:\inputdata'; /* create a library pointing to the input data directory */
+LIBNAME outsrc 'C:\outputdata'; /* create a library pointing to the output data directory */
+
+DATA insrc.dataset1; /* create a SAS data set named "dataset1" in the input library */
+	INFILE 'C:\dataset1.csv' DLM=','; /* specify the data source as a CSV file with comma delimiters */
+	INPUT var1 var2 var3; /* specify the variables and their data types to be imported */
+RUN;
+
+/* Clean and transform data */
+
+DATA outsrc.dataset2; /* create a new SAS data set named "dataset2" in the output library */
+	SET insrc.dataset1; /* set the current data set to "dataset1" in the input library */
+	IF var1 NE '' AND var2 NE '' AND var3 NE ''; /* filter out any rows with missing values */
+	NEW_VAR = var1*var2 + var3; /* create a new variable based on calculations using existing variables */
+RUN;
+
+/* Sort and join data */
+
+PROC SORT DATA=outsrc.dataset2 OUT=sorted; /* sort the data set using the "sort" procedure */
+	BY NEW_VAR; /* sort by the new variable created in the previous step */
+RUN;
+
+DATA outsrc.dataset3; /* create a new SAS data set named "dataset3" in the output library */
+	MERGE sorted sorted; /* join the sorted data set with itself (duplicate to create all possible combinations) */
+	BY NEW_VAR; /* join by the new variable */
+	IF var11 = var12; /* filter out any rows where the joined values do not match */
+RUN;
+
+/* Generate descriptive statistics */
+
+PROC UNIVARIATE DATA=outsrc.dataset3; /* generate descriptive statistics using the "univariate" procedure */
+	VAR var1 var2 var3; /* specify the variables to be analyzed */
+	HISTOGRAM var1 / NORMAL(LABEL='Normal Distribution'); /* create a histogram of var1 and add annotation */
+RUN;
+
+/* Export final data set */
+
+PROC EXPORT DATA=outsrc.dataset3 OUTFILE='C:\dataset3.csv' DBMS=CSV REPLACE; /* export the final data set as a CSV file */
+</> printf "EXPORT COMPLETE"; /* print a message indicating the export is complete */
+RUN;

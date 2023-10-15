@@ -1,0 +1,23 @@
+{-# LANGUAGE RankNTypes, GADTs, TypeFamilies, PolyKinds #-}
+
+import Data.Kind ( Type )
+import Data.Reflection ( Reifies, reify )
+
+type family IntToType (n :: Int) :: Type where
+  IntToType 0 = ()
+  IntToType n = (Char, IntToType (n - 1))
+
+data MyData (a :: Type) where
+  MyNil :: MyData '()
+  MyCons :: a -> MyData b -> MyData '(a,b)
+
+instance (Reifies n Int) => Show (MyData (IntToType n)) where
+  show MyNil = "()"
+  show (MyCons c1 c2) = show c1 ++ ":" ++ drop 1 (show c2)
+
+myFunction :: Int -> MyData (IntToType n)
+myFunction n = reify n (\(_ :: proxy n) -> go n)
+  where
+    go :: Int -> MyData (IntToType n)
+    go 0 = MyNil
+    go n = MyCons (toEnum n) (go (n - 1))

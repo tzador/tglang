@@ -1,0 +1,111 @@
+# This is a complex NGINX configuration snippet that serves as a reverse proxy server
+# and performs load balancing for multiple backend servers.
+
+# Declaring the upstream server group, which includes 3 backend servers
+#
+# Syntax:
+# upstream <group_name> {
+#    server <server_1>;
+#    server <server_2>;
+#    server <server_3>;
+# }
+upstream backend_servers {
+    server 192.168.1.10;
+    server 192.168.1.11;
+    server 192.168.1.15;
+}
+
+# Defining the server block for the reverse proxy server
+# This block contains the configuration for the proxy server that will receive requests
+# from clients and distribute them among the backend servers
+#
+# Syntax:
+# server {
+#    listen <port_number>;
+#    server_name <domain_name>;
+#
+#    location / {
+#        proxy_pass http://<group_name>;
+#        proxy_set_header Host $host;
+#        proxy_set_header X-Real-IP $remote_addr;
+#        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#    }
+# }
+server {
+    listen 80;
+    server_name example.com;
+
+    location / {
+        proxy_pass http://backend_servers;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+
+# Enabling load balancing for the backend servers
+# Here, we use the Least Connections algorithm to distribute the load
+#
+# Syntax:
+# upstream <group_name> {
+#    least_conn;
+# }
+upstream backend_servers {
+    least_conn;
+}
+
+# Configuring the virtual host for HTTPS
+# This block contains the configuration for the HTTPS virtual host
+# which will serve as a secure connection to the proxy server
+#
+# Syntax:
+# server {
+#    listen <port_number> ssl;
+#    server_name <domain_name>;
+#
+#    ssl_certificate <path_to_certificate>;
+#    ssl_certificate_key <path_to_certificate_key>;
+#
+#    location / {
+#        proxy_pass http://<group_name>;
+#        proxy_set_header Host $host;
+#        proxy_set_header X-Real-IP $remote_addr;
+#        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#    }
+# }
+server {
+    listen 443 ssl;
+    server_name example.com;
+
+    ssl_certificate /etc/nginx/ssl/example.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/example.com.key;
+
+    location / {
+        proxy_pass http://backend_servers;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+
+# Configuring caching for the reverse proxy server
+# This block sets up a cache zone and enables caching for certain file extensions
+#
+# Syntax:
+# proxy_cache_path <path_to_cache> <cache_zone_name> levels=<directory_levels> keys_zone=<cache_zone_name>:<cache_size> inactive=<cache_time> max_size=<max_cache_size>;
+# server {
+#     location <file_extensions> {
+#         proxy_cache <cache_zone_name>;
+#         proxy_cache_key "$scheme$request_method$host$request_uri";
+#         proxy_cache_valid <status_code> <cache_time>;
+#     }
+# }
+proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=cache_zone:10m inactive=60m max_size=10g;
+
+server {
+    location ~* \.(jpg|png|gif|mp4)$ {
+        proxy_cache cache_zone;
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+        proxy_cache_valid 200 60m;
+    }
+}

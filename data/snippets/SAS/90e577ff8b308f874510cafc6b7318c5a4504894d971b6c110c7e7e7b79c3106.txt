@@ -1,0 +1,51 @@
+/* This is a SAS code snippet for creating a prediction model using logistic regression */
+
+/* Import data from a CSV file */
+proc import datafile = "path/to/data.csv"
+     out = data
+     dbms = csv;
+     getnames = yes;
+
+/* Set the target variable for the model */
+data data;
+     set data;
+     if target_variable = "Yes" then target = 1;
+     else target = 0;
+run;
+
+/* Split data into training and validation sets */
+data train_data;
+     set data (keep = predictor_variable1-predictor_variable5 target);
+     where ranuni(123) <= 0.8;
+run;
+
+data valid_data;
+     set data (keep = predictor_variable1-predictor_variable5 target);
+     where ranuni(123) > 0.8;
+run;
+
+/* Build the logistic regression model */
+proc logistic data = train_data;
+     model target = predictor_variable1-predictor_variable5;
+run;
+
+/* Use the model to make predictions on the validation set */
+data valid_predictions;
+     set valid_data;
+     predict predicted_target (type = prob);
+run;
+
+/* Evaluate the model performance using a confusion matrix */
+proc logistic data = valid_predictions;
+     model target = predicted_target (event = '1');
+     output out = evaluate_metrics
+          TP = true_positives
+          FP = false_positives
+          FN = false_negatives
+          TN = true_negatives;
+run;
+
+/* Print the metrics for the model performance */
+proc print data = evaluate_metrics;
+     var true_positives false_positives false_negatives true_negatives;
+run;

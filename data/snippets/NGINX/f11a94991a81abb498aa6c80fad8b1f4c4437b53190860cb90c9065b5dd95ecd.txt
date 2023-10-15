@@ -1,0 +1,53 @@
+## Default server block
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+
+    root /var/www/html; #serve files from this directory
+
+    index index.html index.php; #default index files to serve
+
+    server_name _; #matches all server names that do not have a specific server entry
+
+    location / {
+        try_files $uri $uri/ =404; #send 404 error if file or directory not found
+    }
+
+    error_page 404 /404.html; #custom 404 error page
+
+    #redirect all HTTP requests to HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+## HTTPS server block
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+
+    root /var/www/html; #serve files from this directory
+
+    index index.html index.php; #default index files to serve
+
+    server_name mydomain.com; #domain for this server block
+
+    #SSL Certificate
+    ssl_certificate /etc/nginx/ssl/mydomain.com.crt; #path to SSL certificate file
+    ssl_certificate_key /etc/nginx/ssl/mydomain.com.key; #path to SSL certificate key file
+
+    #SSL Security settings
+    ssl_protocols TLSv1.2; #only allow secure TLSv1.2 protocol
+    ssl_prefer_server_ciphers on; #use server-specified cipher suite
+    ssl_ciphers 'ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256'; #list of allowed cipher suites
+    ssl_session_timeout 5m; #expire SSL session after 5 minutes
+    ssl_session_cache shared:SSL:50m; #cache up to 50 MB of SSL sessions
+    ssl_session_tickets on; #enable session tickets (aka session resumption)
+    ssl_stapling on; #enable OCSP Stapling
+    ssl_stapling_verify on; #verify OCSP response from CA
+
+    #disallow HTTP methods that are not safe or idempotent
+    if ($request_method !~ ^(GET|HEAD|POST|PUT|PATCH|DELETE|OPTIONS|CONNECT|TRACE)$ ) {
+        return 444; #return Nginx's 444 no response status
+    }
+}

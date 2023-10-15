@@ -1,0 +1,79 @@
+%% Simplex Algorithm
+
+clear all;
+clc;
+
+% Creating the problem data
+A = [1, 1, 2, 4;
+    3, 2, 1, 5;
+    4, 3, 8, 3];
+b = [10; 15; 35];
+c = [-1; -2; -3; -4];
+
+% Initializing the initial basic variables
+basic_vars = [3, 4, 5];
+basic_matrix = A(:,basic_vars);
+basic_inv = inv(basic_matrix);
+xb = basic_inv * b;
+z = (c(basic_vars))' * xb;
+
+% Initializing the simplex tableau
+tab = [basic_inv, xb;
+    c(basic_vars)' * basic_inv, z];
+
+% Iterating until optimality is reached
+iter = 0;
+while true
+    % Calculating the reduced costs
+    reduced_costs = c' - tab(1:end-1,1:end-1) * tab(1:end-1,end);
+
+    % Checking for optimality
+    if all(reduced_costs >= 0)
+        disp("Optimal solution found!");
+        disp("Basic variables:");
+        disp(basic_vars);
+        disp("Objective function value:");
+        disp(z);
+        break;
+    end
+
+    % Selecting the entering variable
+    entering_index = find(reduced_costs < 0, 1);
+    entering_var = entering_index + length(basic_vars);
+
+    % Calculating the search direction
+    dir = zeros(length(c),1);
+    dir(entering_var) = 1;
+    search_dir = -tab \ dir;
+
+    % Checking for unboundedness
+    if isempty(find(search_dir < 0, 1))
+        disp("Problem is unbounded.");
+        break;
+    end
+
+    % Calculating the step length
+    step_length = min(xb ./ -search_dir(basic_vars));
+
+    % Calculating the leaving variable
+    leaving_index = find(xb ./ -search_dir(basic_vars) == step_length, 1);
+    leaving_var = basic_vars(leaving_index);
+
+    % Updating the basic variables
+    basic_vars(leaving_index) = entering_var;
+
+    % Updating the basic matrix and inverse
+    basic_matrix(:,leaving_index) = A(:,entering_var);
+    basic_inv = inv(basic_matrix);
+
+    % Updating xb and z
+    xb = basic_inv * b;
+    z = (c(basic_vars))' * xb;
+
+    % Updating the simplex tableau
+    tab = [basic_inv, xb;
+        c(basic_vars)' * basic_inv, z];
+
+    % Incrementing the iteration count
+    iter = iter + 1;
+end

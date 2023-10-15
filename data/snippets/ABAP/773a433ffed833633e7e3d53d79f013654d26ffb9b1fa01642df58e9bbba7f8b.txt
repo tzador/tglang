@@ -1,0 +1,92 @@
+*&---------------------------------------------------------------------*
+*& Report Z_EXAMPLE_REPORT
+*&---------------------------------------------------------------------*
+
+REPORT z_example_report.
+
+*&---------------------------------------------------------------------*
+*& TYPE-POOLS
+*&---------------------------------------------------------------------*
+
+TYPE-POOLS: truxs, slis, icon.
+
+*&---------------------------------------------------------------------*
+*& TABLES
+*&---------------------------------------------------------------------*
+
+TABLES: mara. "Material Master Data Table
+TABLES: vbak. "Sales Document Header Table
+TABLES: vbap. "Sales Document Item Table
+
+*&---------------------------------------------------------------------*
+*& DATA DECLARATIONS
+*&---------------------------------------------------------------------*
+
+DATA: gv_material TYPE mara-matnr. "Variable to store material number
+DATA: gt_sales_orders TYPE TABLE OF vbap. "Internal table to store sales order items
+
+*&---------------------------------------------------------------------*
+*& START-OF-SELECTION
+*&---------------------------------------------------------------------*
+
+START-OF-SELECTION.
+
+*&---------------------------------------------------------------------*
+*& SELECT QUERY
+*&---------------------------------------------------------------------*
+
+SELECT matnr
+       erdat
+       werks
+       FROM mara
+       INTO gv_material.
+
+*&---------------------------------------------------------------------*
+*& LOOP THROUGH SALES ORDERS
+*&---------------------------------------------------------------------*
+
+LOOP AT vbap INTO DATA(ls_vbap) WHERE matnr = gv_material.
+
+  *&-------------------------------------------------------------------*
+  *& SUBROUTINE CONVERSIONS
+  *&-------------------------------------------------------------------*
+
+  PERFORM convert_date USING ls_vbap-erdat CHANGING gv_date.
+
+  *&-------------------------------------------------------------------*
+  *& CALL FUNCTION FOR PRICE CALCULATION
+  *&-------------------------------------------------------------------*
+
+  CALL FUNCTION 'SD_CALCULATE_TAX'
+    EXPORTING
+      vbeln = ls_vbap-vbeln
+      posnr = ls_vbap-posnr
+    IMPORTING
+      smm = ls_vbap-smm
+    EXCEPTIONS
+      error_condition = 1
+      OTHERS = 2.
+      
+  *&-------------------------------------------------------------------*
+  *& APPEND SALES ORDER ITEM TO INTERNAL TABLE
+  *&-------------------------------------------------------------------*
+      
+  APPEND ls_vbap TO gt_sales_orders.
+  
+ENDLOOP.
+
+*&---------------------------------------------------------------------*
+*& END-OF-SELECTION
+*&---------------------------------------------------------------------*
+
+END-OF-SELECTION.
+
+*&---------------------------------------------------------------------*
+*& FORM CONVERT_DATE
+*&---------------------------------------------------------------------*
+
+FORM convert_date USING iv_date TYPE datum CHANGING cv_date TYPE dats.
+
+  cv_date = iv_date.
+
+ENDFORM.

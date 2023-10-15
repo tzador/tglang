@@ -1,0 +1,76 @@
+% This code snippet implements the extended Kalman filter algorithm for tracking a moving object in a noisy environment
+
+% Define initial state vector x(k) and its covariance matrix P(k)
+x = [0; 0; 0; 0];    % 4x1 column vector representing position, velocity, acceleration, and bias
+P = [10 0 0 0;       % 4x4 diagonal matrix representing covariance between state variables
+     0 10 0 0;
+     0 0 10 0;
+     0 0 0 0.01];
+
+% Define motion model and process noise covariance matrix Q(k)
+F = [1 0 0.01 0;     % 4x4 matrix representing state transition between time steps, assuming constant acceleration model
+     0 1 0 0.01;
+     0 0 1 0;
+     0 0 0 1];
+u = [0; 0; 0; 0];    % 4x1 column vector representing control input, assumed to be zero
+Q = [0.01 0 0 0;     % 4x4 diagonal matrix representing covariance due to process noise
+     0 0.01 0 0;
+     0 0 0.01 0;
+     0 0 0 0.01];
+
+% Define measurement model and measurement noise covariance matrix R(k)
+H = [1 0 0 0;        % 1x4 matrix representing linear measurement sensitivity, measuring position
+     0 1 0 0];
+R = [1 0;             % 2x2 diagonal matrix representing covariance due to measurement noise
+     0 1];
+
+% Initialize variables for plotting and storing results
+time = 100;           % number of time steps to iterate
+x_history = zeros(4,time);   % initialize matrix to store the history of state vector x
+x_est = zeros(4,time);       % initialize matrix to store the estimated state vector after filter
+z = zeros(2,time);           % initialize matrix to store measurements
+z_history = zeros(2,time);   % initialize matrix to store the history of measurements
+
+% Perform Kalman filter algorithm
+for k = 1:time
+    
+    % Simulate measurements and add noise
+    z(:,k) = H*x(:,k);                         % simulate measurements using true state
+    z(:,k) = z(:,k) + mvnrnd([0; 0], R);       % add zero-mean Gaussian noise to measurements
+    
+    % Measurement update step
+    S = H*P*H' + R;                            % compute innovation covariance matrix
+    K = P*H'/S;                                % compute Kalman gain
+    x_est(:,k) = x(:,k) + K*(z(:,k)-H*x(:,k)); % update estimated state vector
+    P = (eye(4)-K*H)*P;                        % update covariance matrix
+    
+    % Time update step
+    x(:,k+1) = F*x(:,k) + u;                   % propagate state vector
+    P = F*P*F' + Q;                            % propagate covariance matrix
+    
+    % Store results for plotting
+    x_history(:,k) = x(:,k);                   % store true state vector
+    x_est_history(:,k) = x_est(:,k);           % store estimated state vector
+    z_history(:,k) = z(:,k);                   % store measurements
+    
+end
+
+% Plot results
+t = 1:time;              % time vector for plotting
+figure;
+subplot(2,1,1);
+hold on;
+plot(t, x_history(1,:), '--');         % plot true position
+plot(t, z_history(1,:), 'o');          % plot noisy measurements
+plot(t, x_est_history(1,:), 'LineWidth', 2);   % plot estimated position
+xlabel('Time step');
+ylabel('Position');
+legend('True position', 'Measurement', 'Estimated position');
+title('Extended Kalman Filter for Position Tracking');
+subplot(2,1,2);
+hold on;
+plot(t, x_history(2,:), '--');                % plot true velocity
+plot(t, x_est_history(2,:), 'LineWidth', 2);   % plot estimated velocity
+xlabel('Time step');
+ylabel('Velocity');
+legend('True velocity', 'Estimated velocity');

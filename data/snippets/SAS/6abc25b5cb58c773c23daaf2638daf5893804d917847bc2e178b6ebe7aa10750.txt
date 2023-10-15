@@ -1,0 +1,49 @@
+/* Calculate average monthly sales by state and product type */
+
+/* Create a new data set from existing data set */
+data monthly_sales;
+    /* Set input data set */
+    set sales_data;
+    
+    /* Create new variable for average monthly sales */
+    /* First, create a temporary variable to hold each month's sales */
+    /* Then, use the retain statement to carry the value over to the next observation */
+    /* **Note: This is necessary because the lagged variable is not available until the next observation is read */
+    /* Finally, divide the total sales by the number of months to get the average */
+    retain monthly_sales_temp;
+    monthly_sales = monthly_sales_temp / months;
+    
+    /* Sort the data by state and product type */
+    by state product_type;
+    
+    /* Calculate the total sales for each month by state and product type */
+    /* The sum statement will automatically create new variables for each month */
+    /* (e.g. sales_jan, sales_feb, etc.) and set the value to the sum of that month's sales */
+    /* The _numeric_ option tells SAS to only sum variables that are numeric */
+    /* The _all_ option tells SAS to sum all variables, regardless of name or type */
+    /* The _type_ option tells SAS to sum only variables that have the same prefix as the current variable (e.g. sales_jan, sales_feb, etc.)  */
+    /* The _by_ option tells SAS to sum within the by-group (in this case, state and product type) */
+    sum sales_jan-sales_dec / _numeric_ _all_ _type_ _by_;
+    
+    /* Update the value in the temporary variable with the new month's sales */
+    monthly_sales_temp = sales_jan-sales_dec;
+    
+    /* Drop the temporary variable from the final data set */
+    drop monthly_sales_temp;
+    
+    /* Set initial value for number of months */
+    months = 1;
+    
+    /* Update number of months by incrementing for every month with non-missing sales */
+    /* The sum statement will check each month's sales and only increment the value if it is not missing */
+    /* The _numeric_ option tells SAS to check only numeric variables */
+    /* The _all_ option tells SAS to check all variables, regardless of name or type */
+    /* Alternatively, we could use the _type_ option to specify the specific months to check */
+    /* We could also use a conditional if statement to check if the month's sales is greater than 0 */
+    sum (sales_jan-sales_dec * (sales_jan-sales_dec > 0)) / _numeric_ _all_;
+run;
+
+/* Print the final results */
+proc print data=monthly_sales;
+    title 'Average Monthly Sales by State and Product Type';
+run;

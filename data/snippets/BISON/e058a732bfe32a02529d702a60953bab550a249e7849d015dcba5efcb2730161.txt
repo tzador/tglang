@@ -1,0 +1,142 @@
+%{
+#include <stdio.h>
+
+// Bison declarations
+void yyerror(const char *msg);
+int yylex();
+%}
+
+// Bison grammar rules
+%%
+program:
+  declaration_list
+  { printf("Valid program!\n"); }
+  ;
+
+declaration_list:
+  declaration_list declaration
+  |
+  declaration
+  ;
+
+declaration:
+  type ID ;
+  ;
+
+type:
+  INT
+  | FLOAT
+  | CHAR
+  ;
+
+ID:
+  [a-zA-Z]+
+  ;
+
+%%
+// Lexical analyzer
+int main() {
+  yyparse();
+}
+
+void yyerror(const char *msg) {
+  printf("Error: %s\n", msg);
+}
+
+int yylex() {
+  int c;
+  // skip whitespace
+  while ((c = getchar()) == ' ')
+    ;
+  // check for identifiers
+  if (isalpha(c)) {
+    yylval.strval = malloc(MAX_ID_LENGTH + 1);
+    int i = 0;
+    while (isalnum(c) || c == '_') {
+      yylval.strval[i++] = c;
+      c = getchar();
+      if (i >= MAX_ID_LENGTH)
+        yyerror("Identifier too long!");
+    }
+    yylval.strval[i] = '\0';
+    ungetc(c, stdin);
+    return ID;
+  }
+  // check for keywords and types
+  if (strcmp(yytext, "int") == 0)
+    return INT;
+  if (strcmp(yytext, "float") == 0)
+    return FLOAT;
+  if (strcmp(yytext, "char") == 0)
+    return CHAR;
+  // check for integers
+  if (isdigit(c)) {
+    yylval.intval = 0;
+    while (isdigit(c)) {
+      yylval.intval = yylval.intval * 10 + (c - '0');
+      c = getchar();
+    }
+    ungetc(c, stdin);
+    return INTEGER;
+  }
+  // check for floats
+  if (isdigit(c) || c == '.') {
+    int i = 0;
+    yylval.strval = malloc(MAX_FLOAT_LENGTH + 1);
+    while (isdigit(c) || c == '.') {
+      yylval.strval[i++] = c;
+      c = getchar();
+      if (i >= MAX_FLOAT_LENGTH)
+        yyerror("Float too long!");
+    }
+    yylval.strval[i] = '\0';
+    ungetc(c, stdin);
+    return FLOAT;
+  }
+  // check for operators and symbols
+  if (c == '+' || c == '-' || c == '*' || c == '/' || c == '=') {
+    return c;
+  }
+  return c;
+}
+
+// Debug function
+void print_token(int token) {
+  switch (token) {
+    case INT:
+      printf("INT");
+      break;
+    case FLOAT:
+      printf("FLOAT");
+      break;
+    case CHAR:
+      printf("CHAR");
+      break;
+    case ID:
+      printf("ID");
+      break;
+    case INTEGER:
+      printf("INTEGER");
+      break;
+    case FLOAT:
+      printf("FLOAT");
+      break;
+    case '+':
+      printf("+");
+      break;
+    case '-':
+      printf("-");
+      break;
+    case '*':
+      printf("*");
+      break;
+    case '/':
+      printf("/");
+      break;
+    case '=':
+      printf("=");
+      break;
+    default:
+      printf("%c", token);
+  }
+}

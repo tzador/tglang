@@ -1,0 +1,104 @@
+pragma solidity ^0.8.4;
+
+// Define an interface for a token contract
+interface IToken {
+    
+    // Event triggered when tokens are transferred
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
+    // Returns the total supply of tokens
+    function totalSupply() external view returns (uint256);
+    
+    // Returns the balance of a given address
+    function balanceOf(address _owner) external view returns (uint256 balance);
+    
+    // Transfers tokens from sender's account to a given address
+    function transfer(address _to, uint256 _value) external returns (bool success);
+    
+    // Transfers tokens from a given address to another given address
+    function transferFrom(address _from, address _to, uint256 _value) external returns (bool success);
+    
+    // Allows spender to spend up to a given amount of tokens on sender's behalf
+    function approve(address _spender, uint256 _value) external returns (bool success);
+    
+    // Returns the remaining number of tokens that spender is allowed to spend on behalf of owner
+    function allowance(address _owner, address _spender) external view returns (uint256 remaining);
+}
+
+// Define a contract that implements the above token interface
+contract MyToken is IToken {
+    
+    // Mapping of addresses to their token balances 
+    mapping(address => uint256) balances;
+    
+    // Mapping of addresses that are allowed to spend tokens on behalf of other addresses
+    mapping(address => mapping(address => uint256)) allowed;
+    
+    // Total supply of tokens
+    uint256 totalTokens;
+    
+    // Constructor function to initialize total supply of tokens
+    constructor(uint256 _totalTokens) {
+        totalTokens = _totalTokens;
+        
+        // Initially set the entire supply to the contract creator's address
+        balances[msg.sender] = _totalTokens;
+    }
+    
+    // Returns the total supply of tokens
+    function totalSupply() external override view returns (uint256) {
+        return totalTokens;
+    }
+
+    // Returns the balance of a given address
+    function balanceOf(address _owner) external override view returns (uint256 balance) {
+        return balances[_owner];
+    }
+    
+    // Transfers tokens from sender's account to a given address
+    function transfer(address _to, uint256 _value) external override returns (bool success) {
+        // Make sure sender has enough balance
+        require(balances[msg.sender] >= _value);
+        
+        // Update balances
+        balances[msg.sender] -= _value;
+        balances[_to] += _value;
+        
+        // Trigger transfer event
+        emit Transfer(msg.sender, _to, _value);
+        
+        return true;
+    }
+    
+    // Transfers tokens from a given address to another given address
+    function transferFrom(address _from, address _to, uint256 _value) external override returns (bool success) {
+        // Make sure spender is allowed to spend enough tokens
+        require(allowed[_from][msg.sender] >= _value);
+        
+        // Make sure sender has enough balance
+        require(balances[_from] >= _value);
+        
+        // Update balances and allowances
+        allowed[_from][msg.sender] -= _value;
+        balances[_from] -= _value;
+        balances[_to] += _value;
+        
+        // Trigger transfer event
+        emit Transfer(_from, _to, _value);
+        
+        return true;
+    }
+    
+    // Allows spender to spend up to a given amount of tokens on sender's behalf
+    function approve(address _spender, uint256 _value) external override returns (bool success) {
+        // Update the allowance mapping
+        allowed[msg.sender][_spender] = _value;
+        
+        return true;
+    }
+    
+    // Returns the remaining number of tokens that spender is allowed to spend on behalf of owner
+    function allowance(address _owner, address _spender) external override view returns (uint256 remaining) {
+        return allowed[_owner][_spender];
+    }
+}

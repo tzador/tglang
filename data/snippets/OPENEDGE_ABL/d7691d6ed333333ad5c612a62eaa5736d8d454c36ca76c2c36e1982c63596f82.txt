@@ -1,0 +1,28 @@
+DEFINE FRAME frmOrder                         
+    SIZE 80 BY 24                                           /* Define the size of the frame */                                      
+    SCROLLABLE HORIZONTAL VERTICAL                          /* Make the frame scrollable in both directions */                               
+    WITH NO-UNDO                                            /* Disable the undo feature */                        
+    SIDE-LABELS ( "Order #" "Order Date" "Customer " )      /* Define the labels for each column */ 
+
+    INPUT FROM dbOrder                                       /* Read data from the database table */
+    WHERE OrderDate > TODAY - 30                              /* Get orders from the past 30 days */
+    ORDER BY OrderDate DESCENDING, CustomerName              /* Sort the data by order date and customer name */          
+    FIELD OrderNumber, OrderDate, CustomerName               /* Define the fields to display in the frame */          
+    WITH DOWN                         /* Display the records in a downward orientation (rows) */
+
+    ON VALUE-CHANGED OF CustomerName DO:       /* Execute the following code when the value of CustomerName changes */
+        FIND FIRST dbCustomer WHERE CustomerName = CustomerName. /* Search for the customer in the database */
+        IF AVAILABLE dbCustomer THEN                             /* If found, update the customer's credit limit */
+            DO:
+                FIND FIRST dbOrder
+                    WHERE OrderDate > TODAY - 30 
+                    AND OrderDate <= TODAY 
+                    AND CustomerNumber = dbCustomer.CustomerNumber
+                    NO-LOCK.                                      /* Find all orders for the past 30 days for this customer */
+                REPEAT:
+                    ASSIGN dbOrder.CreditLimit = 5000             /* Set the credit limit to $5000 */
+                    WITH FRAME frmOrder                          /* Display the changes in the frame */
+                END.
+        END.
+    END.
+END.

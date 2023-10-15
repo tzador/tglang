@@ -1,0 +1,88 @@
+{-# LANGUAGE DataKinds, TypeOperators #-}
+import Data.Proxy
+
+-- | type-level encodings of numerical natural ordering
+data Z = Zero
+data S n = Successor
+
+-- | 'Compare l r' compares the two numbers 'l' and 'r' and produces the value
+-- of type
+--
+-- @
+--    'LT' if l < r,
+--    'EQ' if l = r,
+--    'GT' if l > r.
+-- @
+type family Compare (l :: a) (r :: b) :: Ordering where
+    Compare a a = EQ
+    Compare a b = GT
+    Compare b a = LT
+
+-- | Type-level version of 'any' function
+type family Any (as :: [Type]) :: Type where
+    Any (a ': as) = a
+
+-- | Variadic version of 'Any'
+type family VAny (as :: [Type]) :: Type where
+    VAny (a ': as) = Any (a ': as)
+    VAny '[] = ()
+
+-- | Returns the first element of a type-level list
+type family Head (as :: [Type]) :: Type where
+    Head (a ': as) = a
+
+-- | Returns the last element of a type-level list
+type family Last (as :: [Type]) :: Type where
+    Last (a ': as) = If (VAny as) (Last as) (Head as)
+
+-- | Applies a type-level function to every element in a type-level list
+type family Map (f :: k -> m) (as :: [k]) :: [m] where
+    Map f '[] = '[]
+    Map f (x ': xs) = f x ': Map f xs
+
+-- | Composes a list of type-level functions
+type family Compose (fs :: [k -> k]) (x :: k) :: k where
+    Compose '[] x = x
+    Compose (f ': fs) x = Compose fs (f x)
+
+-- | Helper function for generating a list of 'Proxy's
+generateProxies :: Proxy a -> Int -> [Proxy a]
+generateProxies p 0 = []
+generateProxies p n = p : generateProxies p (n - 1)
+
+-- | Returns a list of 'Proxy's for a given type
+type family ProxiesFor (a :: Type) (n :: Nat) :: [Proxy a] where
+    ProxiesFor a 0 = '[]
+    ProxiesFor a n = GenerateProxies (Proxy :: Proxy a)
+
+-- | A simple type-level interpreter
+type family EvalExpr (expr :: Expr) :: Number where
+    EvalExpr ('Lit n) = n
+    EvalExpr ('Plus l r) = EvalExpr l + EvalExpr r
+    EvalExpr ('Times l r) = EvalExpr l * EvalExpr r
+
+-- | An example expression
+type TestExpr = 'Plus ('Lit 5) ('Times ('Lit 3) ('Lit 7))
+
+-- | A type-level function that returns the type-level integer result of the
+-- expression
+type TestResult = EvalExpr TestExpr
+
+-- | An example type-level list
+type ExampleList = '[Int, Char, Bool, Maybe Int, Either String (Maybe Double)]
+
+-- | Returns the head of the example list
+type HeadOfExampleList = Head ExampleList
+
+-- | Returns the last element of the example list
+type LastOfExampleList = Last ExampleList
+
+-- | Maps the type-level function 'Maybe' over the example type-level list
+type MappedExampleList = Map Maybe ExampleList
+
+-- | Returns the result of composing the functions '[Not, Or, And, Not]'
+type ComposedFunctions = Compose '[Not, Or, And, Not] True
+
+-- | Helper function for comparing two type-level numbers
+proxyCompare :: Proxy (n :: Number) -> Proxy (m :: Number) -> Ordering
+proxyCompare _ _ = Compare n m

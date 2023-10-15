@@ -1,0 +1,68 @@
+PRO EDGETRACKER_TRACE, img
+ 
+ ;; Declare variables
+ byte, ptr :: inptr  ;; pointer to input image
+ float, ptr :: outptr ;; pointer to output image
+ uint, ptr :: maskptr ;; pointer to mask image
+ int :: x, y ;; loop counters
+ int :: nTrace, nEdges ;; number of traced edges and edges found
+ float :: strength, contrast, median ;; edge tracing parameters
+ double, dimension(5) :: convolve, trace ;; convolution and edge tracing kernels
+  
+ ;; Define convolution and tracing kernels
+  convolve = [1.0, 2.0, 
+              3.0, 2.0, 
+              1.0]
+  trace = [1.0, 0.0, -1.0]
+  
+  ;; Set initial values for edge tracing parameters
+  strength = 0.5
+  contrast = 1.0
+  median = 0.5
+  
+ ;; Get dimensions of input image
+ dim = size(img, /dimensions)
+
+;; Allocate memory for input and output images
+inptr = bytarr(dim[0], dim[1])
+outptr = fltarr(dim[0], dim[1])
+
+;; Create mask image (optional)
+maskptr = uindgen(dim[0], dim[1])
+
+;; Loop through pixels and perform edge tracing
+for x=1, dim[0]-1 do begin
+  for y=1, dim[1]-1 do begin
+    ;; Calculate convolution value
+    convValue = (img[x-1, y-1] * convolve[0]) + (img[x, y-1] * convolve[1]) + $
+    (img[x+1, y-1] * convolve[2]) + (img[x-1, y] * convolve[3]) + $
+    (img[x, y] * convolve[4]) + (img[x+1, y] * convolve[5]) + $
+    (img[x-1, y+1] * convolve[6]) + (img[x, y+1] * convolve[7]) + $
+    (img[x+1, y+1] * convolve[8])
+    
+    ;; Perform edge tracing
+    if convValue > median then begin
+      traceValue = img[x-1, y] * trace[0] + img[x, y]*trace[1] + img[x+1, y]*trace[2] 
+    
+      ;; Check edge strength and contrast
+      if traceValue > strength and contrast > 1.0 then begin
+        ;; Add edge to output image and mask
+        outptr[x, y] = img[x, y]
+        maskptr[x, y] = 255
+        
+        ;; Increment number of traced edges
+        nTrace = nTrace + 1
+      endif
+    endif
+
+    ;; Increment number of edges found
+    nEdges = nEdges + 1
+  endfor
+endfor
+
+;; Output results
+print, 'Number of traced edges: ', nTrace
+print, 'Number of edges found: ', nEdges
+print, 'Total edge strength: ', total(outptr)/dim[0]/dim[1]
+
+RETURN

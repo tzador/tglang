@@ -1,0 +1,127 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.7;
+
+// Import necessary libraries
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+/**
+ * @title NFT contract
+ * @dev This contract allows for the creation and ownership of unique ERC721 tokens
+ */
+contract NFT is ERC721, Ownable {
+    using Counters for Counters.Counter;
+    Counters.Counter private _tokenIds;
+
+    // Mapping to store the tokenURI for each token id
+    mapping(uint256 => string) private _tokenURIs;
+
+    // Events
+    event TokenMinted(address indexed recipient, uint256 indexed tokenId, string tokenURI);
+
+    /**
+     * @dev Constructor that initializes the ERC721 contract with a name and symbol for the token.
+     */
+    constructor() ERC721("MyNFT", "MFT") {}
+
+    /**
+     * @dev Function to mint a new token and assign ownership to the specified address.
+     * @param recipient The address to receive ownership of the minted token.
+     * @param tokenURI The unique URI for the token metadata.
+     * @return The token id of the newly minted token.
+     */
+    function mintToken(address recipient, string memory tokenURI) external onlyOwner returns (uint256) {
+        // Increment tokenIds
+        _tokenIds.increment();
+        // Get the current token id
+        uint256 tokenId = _tokenIds.current();
+        // Mint the token and assign ownership to the specified address
+        _safeMint(recipient, tokenId);
+        // Set the tokenURI for the token id
+        _setTokenURI(tokenId, tokenURI);
+        // Emit event
+        emit TokenMinted(recipient, tokenId, tokenURI);
+        // Return the token id
+        return tokenId;
+    }
+
+    /**
+     * @dev Function to update the tokenURI for a specified token id.
+     * @param tokenId The id of the token.
+     * @param tokenURI The new tokenURI for the token.
+     */
+    function updateTokenURI(uint256 tokenId, string memory tokenURI) external onlyOwner {
+        // Set the new tokenURI for the specified token id
+        _setTokenURI(tokenId, tokenURI);
+    }
+
+    /**
+     * @dev Function to get the tokenURI for a specified token id.
+     * @param tokenId The id of the token.
+     * @return The tokenURI for the token id.
+     */
+    function getTokenURI(uint256 tokenId) external view returns (string memory) {
+        // Get the tokenURI for the specified token id
+        return _tokenURIs[tokenId];
+    }
+
+    /**
+     * @dev Overrides the standard ERC721 tokenURI function to return the tokenURI for a given token.
+     * @param tokenId The id of the token.
+     * @return The CID for the tokenURI metadata.
+     */
+    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+        // Get the tokenURI for the specified token id
+        string memory _tokenURI = _tokenURIs[tokenId];
+        // Check if the tokenURI is blank
+        require(bytes(_tokenURI).length > 0, "ERC721Metadata: URI query for nonexistent token");
+        // Return the tokenURI
+        return _tokenURI;
+    }
+
+    /**
+     * @dev Overrides the standard ERC721 function to allow for the burning of tokens.
+     * @param tokenId The id of the token to be burned.
+     */
+    function _burn(uint256 tokenId) internal virtual override(ERC721, ERC721URIStorage) {
+        // Call the parent _burn function
+        super._burn(tokenId);
+        // Delete the tokenURI for the specified token id
+        if (bytes(_tokenURIs[tokenId]).length != 0) {
+            delete _tokenURIs[tokenId];
+        }
+    }
+
+    /**
+     * @dev Internal function to set the tokenURI for a specified token id.
+     * @param tokenId The id of the token.
+     * @param tokenURI The unique URI for the token metadata.
+     */
+    function _setTokenURI(uint256 tokenId, string memory tokenURI) internal virtual override(ERC721, ERC721URIStorage) {
+        // Call the parent _setTokenURI function
+        super._setTokenURI(tokenId, tokenURI);
+        // Set the tokenURI for the specified token id
+        _tokenURIs[tokenId] = tokenURI;
+    }
+
+    /**
+     * @dev Returns the remaining number of tokens that can be minted in the current contract.
+     * @return The remaining number of tokens that can be minted.
+     */
+    function remainingTokens() external view returns (uint256) {
+        // Get the current token id
+        uint256 currentTokenId = _tokenIds.current();
+        // Return the difference between the max token id and the current token id
+        return maxTokens() - currentTokenId;
+    }
+
+    /**
+     * @dev Returns the maximum number of tokens that can be minted in the current contract.
+     * @return The maximum number of tokens that can be minted.
+     */
+    function maxTokens() public pure returns (uint256) {
+        // Set the maximum number of tokens
+        return 10000;
+    }
+}

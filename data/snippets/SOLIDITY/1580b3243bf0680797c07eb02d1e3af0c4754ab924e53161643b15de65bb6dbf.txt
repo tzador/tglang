@@ -1,0 +1,79 @@
+pragma solidity >=0.6.0 <0.8.0;
+
+contract Marketplace {
+
+    // Struct to store product details
+    struct Product {
+        uint id;
+        string name;
+        uint price;
+        address owner;
+        bool isSold;
+    }
+    
+    // Array of products
+    Product[] public products;
+    
+    // Mapping to track ownership of products
+    mapping (uint => address) public productToOwner;
+    
+    // Event to notify when a new product is added
+    event ProductAdded(uint id, string name, uint price, address owner, bool isSold);
+    
+    // Function to add a new product
+    function addProduct(string memory _name, uint _price) external {
+        // Check if product name is not empty
+        require(bytes(_name).length > 0, "Product name cannot be empty");
+        
+        // Check if product price is greater than 0
+        require(_price > 0, "Product price must be greater than 0");
+        
+        // Create a new product object
+        Product memory newProduct = Product({
+            id: products.length + 1,
+            name: _name,
+            price: _price,
+            owner: msg.sender,
+            isSold: false
+        });
+        
+        // Add the new product to the array
+        products.push(newProduct);
+        
+        // Update product ownership mapping
+        productToOwner[newProduct.id] = newProduct.owner;
+        
+        // Emit event to notify new product added
+        emit ProductAdded(newProduct.id, newProduct.name, newProduct.price, newProduct.owner, newProduct.isSold);
+    }
+    
+    // Function to buy a product
+    function buyProduct(uint _productId) external payable {
+        // Check if product exists
+        require(_productId > 0 && _productId <= products.length, "Product does not exist");
+        
+        // Get the product from the array
+        Product memory product = products[_productId - 1];
+        
+        // Check if product is not already sold
+        require(!product.isSold, "Product has already been sold");
+        
+        // Check if buyer has sent the correct amount of ETH
+        require(msg.value == product.price, "Incorrect amount of ETH sent");
+        
+        // Transfer the product ownership to the buyer
+        productToOwner[product.id] = msg.sender;
+        
+        // Update the product status to sold
+        product.isSold = true;
+        
+        // Emit event to notify product has been bought
+        emit ProductAdded(product.id, product.name, product.price, product.owner, product.isSold);
+    }
+    
+    // Function to get all products
+    function getAllProducts() external view returns (Product[] memory) {
+        return products;
+    }
+
+}

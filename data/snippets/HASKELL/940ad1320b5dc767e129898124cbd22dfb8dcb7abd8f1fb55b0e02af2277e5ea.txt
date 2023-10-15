@@ -1,0 +1,45 @@
+{-# OPTIONS_GHC -O2 #-}
+{-# LANGUAGE TypeFamilies, BangPatterns #-}
+-- Source: https://www.haskell.org/platform/
+
+import Control.Monad.ST
+import Data.Array.ST
+import Data.Array.Unboxed
+import Data.List
+import Data.Functor
+import Control.Lens
+
+-- Define a type for a generic binary search tree
+data BST k v = Leaf | Node (BST k v) k v (BST k v)
+
+-- Define type classes for the BST
+class BSTlike t where
+    type Key t
+    type Val t
+    empty :: t (Key t) (Val t)
+    insert :: Key t -> Val t -> t (Key t) (Val t) -> t (Key t) (Val t)
+    lookup :: Key t -> t (Key t) (Val t) -> Maybe (Val t)
+
+-- Instance of BSTlike for our defined BST type
+instance BSTlike BST where
+    type Key BST = Int
+    type Val BST = String
+    empty = Leaf
+    insert !k !v Leaf = Node Leaf k v Leaf
+    insert !k !v (Node lb lkey lval rb)
+        | k < lkey = Node (insert k v lb) lkey lval rb
+        | k > lkey = Node lb lkey lval (insert k v rb)
+        | otherwise = Node lb k v rb
+    lookup !k Leaf = Nothing
+    lookup !k (Node lb lkey lval rb)
+        | k < lkey = lookup k lb
+        | k > lkey = lookup k rb
+        | otherwise = Just lval
+        
+-- Example usage of the BST
+main :: IO ()
+main = do
+    let bst = insert 5 "Hello" $ insert 2 "World" $ insert 8 "!" empty
+    case lookup 2 bst of
+        Just val -> putStrLn val
+        Nothing -> putStrLn "Key not found"

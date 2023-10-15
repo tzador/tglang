@@ -1,0 +1,107 @@
+/**
+  * @title ERC721 token with NFT functionality
+  * @dev Implementation of ERC721 standard with additional non-fungible token functionality
+ */
+ contract ERC721Token {
+     // Variables
+     uint256 private currentTokenId;
+     mapping (address => uint256) private tokenOwners;
+     mapping (uint256 => address) private tokenApprovals;
+     mapping (address => mapping (address => bool)) private operatorApprovals;
+     bytes4 private constant _ERC721_RECEIVED = 0x150b7a02;
+     
+     // Events
+     event Transfer(address indexed _from, address indexed _to, uint256 indexed _tokenId);
+     event Approval(address indexed _owner, address indexed _approved, uint256 indexed _tokenId);
+     event ApprovalForAll(address indexed _owner, address indexed _operator, bool _approved);
+     
+     // Contract initialization
+     constructor() public {
+         currentTokenId = 1;
+     }
+     
+     // Token ownership
+     function balanceOf(address _owner) public view returns (uint256) {
+         require(_owner != address(0), "Invalid owner address");
+         return tokenOwners[_owner];
+     }
+     
+     // Token approval
+     function approve(address _approved, uint256 _tokenId) public {
+         address _owner = msg.sender;
+         require(_isApprovedOrOwner(_owner, _tokenId), "Not approved or owner");
+         tokenApprovals[_tokenId] = _approved;
+         emit Approval(_owner, _approved, _tokenId);
+     }
+     
+     // Operator approval
+     function setApprovalForAll(address _operator, bool _approved) public {
+         address _owner = msg.sender;
+         require(_operator != _owner, "Cannot set approval for self");
+         operatorApprovals[_owner][_operator] = _approved;
+         emit ApprovalForAll(_owner, _operator, _approved);
+     }
+     
+     // Token transfer
+     function transfer(address _to, uint256 _tokenId) public {
+         require(_to != address(0), "Invalid recipient address");
+         address _from = msg.sender;
+         require(_isApprovedOrOwner(_from, _tokenId), "Not approved or owner");
+         require(_isOwner(_to, _tokenId), "Already owned by recipient");
+         _transfer(_from, _to, _tokenId);
+     }
+     
+     // Safe token transfer
+     function safeTransferFrom(address _from, address _to, uint256 _tokenId, bytes memory data) public {
+         transferFrom(_from, _to, _tokenId);
+         // Check if recipient supports ERC721 interface
+         if (_isContract(_to)) {
+             bytes4 returnData = IERC721Receiver(_to).onERC721Received(msg.sender, _from, _tokenId, data);
+             require(returnData == _ERC721_RECEIVED, "Invalid return data");
+         }
+     }
+     
+     // Token transfer from
+     function transferFrom(address _from, address _to, uint256 _tokenId) public {
+         require(_from != address(0), "Invalid from address");
+         require(_to != address(0), "Invalid recipient address");
+         require(_isApproved(_from, _to, _tokenId), "Not approved for transfer");
+         require(_isOwner(_from, _tokenId), "Not the owner");
+         require(_isOwner(_to, _tokenId), "Already owned by recipient");
+         _transfer(_from, _to, _tokenId);
+     }
+     
+     // Token transfer helper function
+     function _transfer(address _from, address _to, uint256 _tokenId) private {
+         tokenOwners[_to]++;
+         tokenOwners[_from]--;
+         tokenApprovals[_tokenId] = address(0);
+         emit Transfer(_from, _to, _tokenId);
+     }
+     
+     // Check if token is approved or owned 
+     function _isApprovedOrOwner(address _spender, uint256 _tokenId) private view returns (bool) {
+         address _owner = tokenOwners[_spender];
+         return (_spender == _owner || tokenApprovals[_tokenId] == _spender);
+     }
+     
+     // Check if token is owned by address 
+     function _isOwner(address _owner, uint256 _tokenId) private view returns (bool) {
+         return (tokenOwners[_owner] == _tokenId);
+     }
+     
+     // Check if approval for transfer is set
+     function _isApproved(address _from, address _to, uint256 _tokenId) private view returns (bool) {
+         address _owner = tokenOwners[_from];
+         return (_to == _owner || operatorApprovals[_owner][_to] == true);
+     }
+     
+     // Check if address is a contract
+     function _isContract(address _address) private view returns (bool) {
+         uint32 size;
+         assembly {
+             size := extcodesize(_address)
+         }
+         return (size > 0);
+     }
+ }

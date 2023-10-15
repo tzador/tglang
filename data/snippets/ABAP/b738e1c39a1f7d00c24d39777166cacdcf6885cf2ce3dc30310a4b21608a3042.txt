@@ -1,0 +1,88 @@
+CLASS lcl_customers DEFINITION.
+  PUBLIC SECTION.
+    CLASS-METHODS:
+      get_all_customers
+        IMPORTING
+          business_area TYPE string
+        RETURNING
+          VALUE(result) TYPE zcl_customer=>customer_tab,
+      get_customers_by_country
+        IMPORTING
+          country TYPE abap_country,
+          language TYPE abap_lang
+        RETURNING
+          VALUE(result) TYPE zcl_customer=>customer_tab,
+      add_customer
+        IMPORTING
+          name TYPE string,
+          country TYPE abap_country
+        RETURNING
+          VALUE(result) TYPE zcl_customer=>customer_id.
+  PRIVATE SECTION.
+    DATA:
+      customers TYPE zcl_customer=>customer_tab,
+      customer_id_counter TYPE i VALUE 1.
+
+    METHODS:
+      get_existing_customer
+        IMPORTING
+          name TYPE string
+        RETURNING
+          VALUE(customer) TYPE ref TO zcl_customer,
+      check_duplicate_customer
+        IMPORTING
+          name TYPE string,
+          country TYPE abap_country
+        RETURNING
+          VALUE(duplicate) TYPE abap_bool.
+
+ENDCLASS.
+
+CLASS lcl_customers IMPLEMENTATION.
+  METHOD get_all_customers.
+    SELECT *
+      FROM zcl_customer
+      INTO TABLE @result
+      WHERE business_area = @business_area.
+  ENDMETHOD.
+
+  METHOD get_customers_by_country.
+    SELECT *
+      FROM zcl_customer
+      INTO TABLE @result
+      WHERE country = @country
+      AND language = @language.
+  ENDMETHOD.
+
+  METHOD add_customer.
+    DATA(customer) = lcl_customers=>get_existing_customer( name = name ).
+    IF customer IS NOT BOUND.
+      IF lcl_customers=>check_duplicate_customer( name = name, country = country ) IS INITIAL.
+        CREATE OBJECT customer
+          EXPORTING
+            customer_id = customer_id_counter.
+        customer->set_name( name ).
+        customer->set_country( country ).
+        customers = VALUE zcl_customer=>customer_tab( BASE customers ( customer ) ).
+        customer_id_counter = customer_id_counter + 1.
+        result = customer->get_customer_id( ).
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD get_existing_customer.
+    SELECT SINGLE *
+      FROM zcl_customer
+      INTO @DATA(customer)
+      WHERE name = @name.
+  ENDMETHOD.
+
+  METHOD check_duplicate_customer.
+    SELECT SINGLE customer_id
+      FROM zcl_customer
+      INTO DATA(customer_id)
+      WHERE name = @name
+      AND country = @country.
+    RETURN boolc( sy-subrc <> 0 ).
+  ENDMETHOD.
+ENDCLASS.

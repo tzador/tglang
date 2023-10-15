@@ -1,0 +1,127 @@
+pragma solidity ^0.5.0;
+
+// Importing OpenZeppelin's SafeMath library for secure mathematical operations
+import "./SafeMath.sol";
+
+// Creating a contract called Token with ERC20 standard functionality
+contract Token {
+    // Using SafeMath for uint256
+    using SafeMath for uint256;
+
+    // Declaring state variables for name, symbol, total supply, and decimals
+    string private _name;
+    string private _symbol;
+    uint256 private _totalSupply;
+    uint8 private _decimals;
+
+    // Mapping to store balances of all token holders
+    mapping (address => uint256) private _balances;
+
+    // Mapping to store allowances for token transfers
+    mapping (address => mapping (address => uint256)) private _allowances;
+
+    // Events for transfers, approvals, and supply changes
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    event SupplyChanged(uint256 newSupply);
+
+    // Constructor to initialize token with given name, symbol, total supply, and decimals
+    constructor (string memory name, string memory symbol, uint256 totalSupply, uint8 decimals) public {
+        _name = name;
+        _symbol = symbol;
+        _totalSupply = totalSupply;
+        _decimals = decimals;
+
+        // Assigning total supply to creator's balance
+        _balances[msg.sender] = _totalSupply;
+    }
+
+    // Function to return token name
+    function name() public view returns (string memory) {
+        return _name;
+    }
+
+    // Function to return token symbol
+    function symbol() public view returns (string memory) {
+        return _symbol;
+    }
+
+    // Function to return total supply
+    function totalSupply() public view returns (uint256) {
+        return _totalSupply;
+    }
+
+    // Function to return decimals
+    function decimals() public view returns (uint8) {
+        return _decimals;
+    }
+
+    // Function to return balance of given address
+    function balanceOf(address account) public view returns (uint256) {
+        return _balances[account];
+    }
+
+    // Function to transfer tokens from sender to given address
+    function transfer(address recipient, uint256 amount) public returns (bool) {
+        // Checking if sender has enough tokens
+        require(_balances[msg.sender] >= amount, "Sender does not have enough tokens");
+
+        // Updating balances
+        _balances[msg.sender] = _balances[msg.sender].sub(amount);
+        _balances[recipient] = _balances[recipient].add(amount);
+
+        // Emitting transfer event
+        emit Transfer(msg.sender, recipient, amount);
+
+        return true;
+    }
+
+    // Function to approve token transfer from sender to given address
+    function approve(address spender, uint256 amount) public returns (bool) {
+        // Updating allowances
+        _allowances[msg.sender][spender] = amount;
+
+        // Emitting approval event
+        emit Approval(msg.sender, spender, amount);
+
+        return true;
+    }
+
+    // Function to return allowance for given addresses
+    function allowance(address owner, address spender) public view returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    // Function to transfer tokens from given address to another address on behalf of sender
+    function transferFrom(address sender, address recipient, uint256 amount) public returns (bool) {
+        // Checking if sender has enough tokens
+        require(_balances[sender] >= amount, "Sender does not have enough tokens");
+
+        // Checking if sender has enough allowance
+        require(_allowances[sender][msg.sender] >= amount, "Sender does not have enough allowance");
+
+        // Updating allowances
+        _allowances[sender][msg.sender] = _allowances[sender][msg.sender].sub(amount);
+
+        // Updating balances
+        _balances[sender] = _balances[sender].sub(amount);
+        _balances[recipient] = _balances[recipient].add(amount);
+
+        // Emitting transfer event
+        emit Transfer(sender, recipient, amount);
+
+        return true;
+    }
+
+    // Function to change the total supply of tokens
+    function changeSupply(uint256 newSupply) public {
+        // Checking if sender is the contract owner
+        require(msg.sender == owner(), "Only contract owner can change supply");
+
+        // Updating total supply
+        _totalSupply = newSupply;
+
+        // Emitting supply changed event
+        emit SupplyChanged(newSupply);
+    }
+}

@@ -1,0 +1,59 @@
+# Set up server block for website
+server {
+    listen 80; # Defines which port to listen on
+    server_name example.com; # Defines server name
+    access_log /var/log/nginx/example.access.log main; # Sets location of access log and format
+    error_log /var/log/nginx/example.error.log error; # Sets location of error log and format
+    root /var/www/example; # Sets root directory for website files
+
+    # Define location directives
+    location / {
+        try_files $uri $uri/ /index.html; # Tries to find requested file, if not found, goes to index.html
+        index index.html; # Sets default file to load
+    }
+
+    # Set up caching
+    location ~* .(jpg|jpeg|png|gif|ico|css|js)$ {
+        expires 30d; # Sets expiration time for cached files
+    }
+
+    # Hide version number information
+    server_tokens off; # Disables server token display
+    # Protect against common attacks
+    include global/harden.conf; # Includes additional hardening configuration
+
+    # Set up SSL
+    listen 443 ssl; # Defines port and enables SSL
+    ssl_certificate /etc/ssl/example.crt; # Path to SSL certificate
+    ssl_certificate_key /etc/ssl/example.key; # Path to SSL certificate key
+    ssl_protocols TLSv1.2 TLSv1.3; # Specifies which TLS versions to use
+    ssl_prefer_server_ciphers on; # Enables use of server's preferred ciphers
+    ssl_ciphers "EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH"; # Sets list of ciphers to use
+
+    # Set up reverse proxy
+    location /api/ {
+        proxy_pass http://api.example.com; # Defines backend server to send requests to
+        proxy_set_header Host $host; # Sets header to pass along original host name
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # Sets header to pass along original client IP address
+        proxy_set_header X-Forwarded-Proto $scheme; # Sets header to pass along original protocol
+        proxy_buffering off; # Disables buffering of responses from backend server
+    }
+
+    # Set up gzip compression
+    gzip on; # Enables gzip compression
+    gzip_types text/plain text/css application/json application/javascript text/xml; # Specifies which file types to compress
+    gzip_min_length 1000; # Sets minimum file size to compress
+    gzip_comp_level 5; # Sets gzip compression level
+    gzip_buffers 16 8k; # Sets number and size of buffer used for compressed data
+
+    # Enable server-side includes
+    ssi on; # Enables server-side includes
+    ssi_types text/html; # Specifies which file types to include
+}
+
+# Disable default server block
+server {
+    listen 80 default_server;
+    server_name _;
+    return 444; # Returns no response
+}

@@ -1,0 +1,43 @@
+# Some dummy code to demonstrate parallel computing in JULIA
+
+# Load necessary packages
+using Distributed
+using SharedArrays
+
+# Define the function to run in parallel
+@everywhere function parallel_function(a, b)
+    s = zeros(length(a))
+    for i in 1:length(a)
+        s[i] = a[i] * b[i]
+    end
+    return s
+end
+
+# Number of workers to use in parallel
+nworkers = 4
+
+# Generate some sample data
+a = rand(1:10, 10)
+b = rand(1:10, 10)
+
+# Create a shared array to store results
+sa = SharedArray{Float64}(length(a))
+
+# Set up parallel workers
+addprocs(nworkers)
+
+# Distribute data to workers
+@distributed for i in 1:nworkers
+    local_a = a[((i-1)*length(a))/nworkers + 1 : (i*length(a))/nworkers]
+    local_b = b[((i-1)*length(b))/nworkers + 1 : (i*length(b))/nworkers]
+    local_res = parallel_function(local_a, local_b)
+    @sync begin
+        sa[((i-1)*length(a))/nworkers + 1 : (i*length(a))/nworkers] = local_res
+    end
+end
+
+# Wait for all computations to finish
+@eval @everywhere wait()
+
+# Print results
+println("Result of parallel computation: ", sa)

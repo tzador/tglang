@@ -1,0 +1,58 @@
+pragma solidity ^0.8.7; // indicates the version of Solidity used
+// import statement for the SafeMath library
+import "./SafeMath.sol";
+
+// contract declaration
+contract MyToken { 
+    using SafeMath for uint256; // use SafeMath library for arithmetic operations
+    string public name; // name of the token
+    string public symbol; // symbol of the token
+    uint public decimals; // number of decimal places
+    uint public totalSupply; // total supply of the token
+    mapping (address => uint) public balanceOf; // maps addresses to their token balances
+    mapping (address => mapping (address => uint)) public allowance; // maps addresses to addresses and their approved token amounts
+    
+    // event that is emitted when a transfer of tokens occurs
+    event Transfer(address indexed from, address indexed to, uint value); 
+    
+    // event that is emitted when an approval for token transfer occurs
+    event Approval(address indexed owner, address indexed spender, uint value);
+    
+    // constructor function to initialize the token
+    constructor(string memory _name, string memory _symbol, uint _decimals, uint _totalSupply) {
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+        totalSupply = _totalSupply;
+        balanceOf[msg.sender] = totalSupply; // assigns the total supply to the creator's address
+    }
+    
+    // function to transfer tokens from one address to another
+    function transfer(address _to, uint _value) public returns (bool) {
+        require(balanceOf[msg.sender] >= _value, "Not enough tokens."); // checks if sender has sufficient tokens
+        require(balanceOf[_to].add(_value) >= balanceOf[_to], "Integer overflow."); // checks for integer overflow
+        balanceOf[msg.sender] = balanceOf[msg.sender].sub(_value); // subtracts the token amount from sender's balance
+        balanceOf[_to] = balanceOf[_to].add(_value); // adds the token amount to receiver's balance
+        emit Transfer(msg.sender, _to, _value); // emits a Transfer event
+        return true;
+    }
+    
+    // function to approve another address to spend a specified amount of tokens
+    function approve(address _spender, uint _value) public returns (bool) {
+        allowance[msg.sender][_spender] = _value; // assigns the approved amount to the spender's address
+        emit Approval(msg.sender, _spender, _value); // emits an Approval event
+        return true;
+    }
+    
+    // function to transfer tokens on behalf of a given address
+    function transferFrom(address _from, address _to, uint _value) public returns (bool) {
+        require(_value <= allowance[_from][msg.sender], "Not approved for sufficient tokens."); // checks if sender is approved for sufficient tokens
+        require(balanceOf[_from] >= _value, "Not enough tokens."); // checks if sender has sufficient tokens
+        require(balanceOf[_to].add(_value) >= balanceOf[_to], "Integer overflow."); // checks for integer overflow
+        balanceOf[_from] = balanceOf[_from].sub(_value); // subtracts the token amount from sender's balance
+        balanceOf[_to] = balanceOf[_to].add(_value); // adds the token amount to receiver's balance
+        allowance[_from][msg.sender] = allowance[_from][msg.sender].sub(_value); // subtracts the approved amount from sender's allowance
+        emit Transfer(_from, _to, _value); // emits a Transfer event
+        return true;
+    }
+}

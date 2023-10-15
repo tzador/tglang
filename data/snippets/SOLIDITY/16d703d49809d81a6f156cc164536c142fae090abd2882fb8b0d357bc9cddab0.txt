@@ -1,0 +1,130 @@
+/**
+* @title ERC721 Non-Fungible Token Standard
+* @dev Interface for contracts that want to be compliant with the ERC721 standard
+*/
+contract ERC721 {
+    // Event emitted when a new token is minted
+    event NewTokenMinted(uint256 tokenId, address owner);
+
+    // The name of the token
+    string public name;
+
+    // The symbol of the token
+    string public symbol;
+
+    // A mapping from token ID to owner address
+    mapping (uint256 => address) public tokenOwner;
+
+    // A mapping from token ID to approved address
+    mapping (uint256 => address) public tokenApprovals;
+
+    // A mapping from owner address to the number of tokens they own
+    mapping (address => uint256) public balanceOf;
+
+    // A mapping from owner address to an array of their owned token IDs
+    mapping (address => uint256[]) public tokensOwned;
+
+    // A mapping from owner address to the index of their owned token IDs
+    mapping (uint256 => uint256) public tokenIndex;
+
+    // A mapping from token ID to its data
+    mapping (uint256 => string) public tokenData;
+
+    /**
+    * @dev Constructor function
+    * @param _name The name of the token
+    * @param _symbol The symbol of the token
+    */
+    constructor(string _name, string _symbol) public {
+        name = _name;
+        symbol = _symbol;
+    }
+
+    /**
+    * @dev Mints a new token and assigns it to the given owner
+    * @param _owner The address that will own the minted token
+    * @param _tokenId The ID of the token to be minted
+    * @param _data Optional data to be associated with the token
+    */
+    function mint(address _owner, uint256 _tokenId, string _data) public {
+        require(_owner != address(0));
+        require(_tokenId != 0);
+
+        // Assign the token to the owner
+        tokenOwner[_tokenId] = _owner;
+        // Increase the balance of the owner
+        balanceOf[_owner]++;
+        // Add the token to the array of owned tokens for the owner
+        tokensOwned[_owner].push(_tokenId);
+        // Set the index of the token in the array of owned tokens
+        tokenIndex[_tokenId] = tokensOwned[_owner].length - 1;
+        // Associate the data with the token
+        tokenData[_tokenId] = _data;
+
+        // Emit the NewTokenMinted event
+        emit NewTokenMinted(_tokenId, _owner);
+    }
+
+    /**
+    * @dev Transfers a token from one owner to another
+    * @param _from The current owner of the token
+    * @param _to The new owner of the token
+    * @param _tokenId The ID of the token to be transferred
+    */
+    function transfer(address _from, address _to, uint256 _tokenId) public {
+        require(_from == tokenOwner[_tokenId]);
+        require(_to != address(0));
+        require(_tokenId != 0);
+
+        // Remove the token from the array of owned tokens for the current owner
+        uint256 tokenIndex = tokenIndex[_tokenId];
+        for (uint256 i = tokenIndex; i < tokensOwned[_from].length - 1; i++) {
+            tokensOwned[_from][i] = tokensOwned[_from][i+1];
+        }
+        // Remove the last element in the array (which is a duplicate of the one we just removed)
+        tokensOwned[_from].length--;
+        // Decrease the balance of the current owner
+        balanceOf[_from]--;
+        // Assign the token to the new owner
+        tokenOwner[_tokenId] = _to;
+        // Increase the balance of the new owner
+        balanceOf[_to]++;
+        // Add the token to the array of owned tokens for the new owner
+        tokensOwned[_to].push(_tokenId);
+        // Set the index of the token in the array of owned tokens
+        tokenIndex[_tokenId] = tokensOwned[_to].length - 1;
+        // Remove any existing approval for the token
+        if (tokenApprovals[_tokenId] != address(0)) {
+            delete tokenApprovals[_tokenId];
+        }
+    }
+
+    /**
+    * @dev Approves another address to transfer a token on behalf of the token owner
+    * @param _approved The address to be approved for transfer
+    * @param _tokenId The ID of the token to be approved for transfer
+    */
+    function approve(address _approved, uint256 _tokenId) external {
+        tokenApprovals[_tokenId] = _approved;
+        // Emit the Approval event
+        emit Approval(tokenOwner[_tokenId], _approved, _tokenId);
+    }
+
+    /**
+    * @dev Gets all the token IDs owned by a given address
+    * @param _owner The address to get the token IDs for
+    * @return An array of all the token IDs owned by the given address
+    */
+    function getTokensOwned(address _owner) external view returns (uint256[]) {
+        return tokensOwned[_owner];
+    }
+
+    /**
+    * @dev Gets the data associated with a given token
+    * @param _tokenId The ID of the token to get the data for
+    * @return The data associated with the given token
+    */
+    function getTokenData(uint256 _tokenId) external view returns (string) {
+        return tokenData[_tokenId];
+    }
+}

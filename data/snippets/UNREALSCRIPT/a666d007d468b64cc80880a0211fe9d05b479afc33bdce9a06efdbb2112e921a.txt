@@ -1,0 +1,76 @@
+class MyActor extends Actor
+  const int MAX_HEALTH = 100;
+  var int currentHealth = MAX_HEALTH;
+  var Controller currentController;
+  
+  state Active
+    function BeginState()
+      Super.BeginState();
+      SetTimer(10.0, false, 'RegenerateHealth');
+    endFunction;
+    function RegenerateHealth()
+      if(currentHealth < MAX_HEALTH)
+        currentHealth = Min(currentHealth + 5, MAX_HEALTH);
+        SetTimer(10.0, false, 'RegenerateHealth');
+      endif;
+    endFunction;
+    function TakeDamage(int DamageAmount, Actor instigatedBy, Vector HitLocation, Vector Momentum, optional Name hitBoneName, optional Vector hitNormal, optional Trace HitInfo, optional Actor damageCauser)
+      currentHealth -= DamageAmount;
+      if(currentHealth <= 0)
+        GotoState('Dead');
+      endif;
+    endFunction;
+    function Tick(float DeltaTime)
+      Super.Tick(DeltaTime);
+      if(currentController != none)
+        TraceHitInfo HitInfo;
+        Vector Start = self.Location;
+        Vector End;
+        rotator Rotation = currentController.Rotation;
+        Vector Direction = Rotation.Vector();
+        End = Start + (Direction * 500);
+        if(currentController.Trace(HitInfo, Start, End, false))
+          if(HitInfo.Actor == self)
+            currentController.ClientMessage("You've hit yourself!");
+          else
+            currentController.ClientMessage(string(HitInfo.Actor)@" is in front of you!");
+          endif;
+        endif;
+      endif;
+    endFunction;
+    function PostBeginPlay()
+      Super.PostBeginPlay();
+      Global.BeginDelaySubAction(0.1, self, null, 'SetController');
+    endFunction;
+    function SetController()
+      if(Controller(currentController) == None)
+        currentController = Controller(ControllerList(0).PlayerReplicationInfo.Controller);
+        currentController.Pawn = self;
+      endif;
+    endFunction;
+  endState;
+  
+  state Dead
+    function BeginState()
+      Super.BeginState();
+      SetTimer(5.0, false, 'ResetActor');
+    endFunction;
+    function ResetActor()
+      Destroy();
+    endFunction;
+  endState;
+  
+  simulated function DisplayActorInfo(Canvas Canvas)
+    Super.DisplayActorInfo(Canvas);
+    Canvas.SetPos(10, 150, 0);
+    Canvas.SetDrawColor(R, G, B, 255);
+    Canvas.SetPos(10, 160, 0);
+    Canvas.DrawText("Health: "$string(currentHealth), "Engine.SmallFont", 1.0, 1.0);
+  endFunction;
+  
+defaultproperties
+{
+  bMovable=false
+  bCollideActors = true
+  Tag = "MyActor"
+}

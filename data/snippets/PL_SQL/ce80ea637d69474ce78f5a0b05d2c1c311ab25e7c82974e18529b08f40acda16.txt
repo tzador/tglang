@@ -1,0 +1,28 @@
+CREATE PROCEDURE CALCULATE_ORDER_TOTAL
+(
+   p_order_id IN INTEGER,
+   p_discount_amount OUT NUMBER
+)
+IS
+   v_subtotal NUMBER;
+   v_tax NUMBER;
+   v_total NUMBER;
+BEGIN
+   SELECT SUM(quantity * price) INTO v_subtotal FROM order_items WHERE order_id = p_order_id;
+
+   SELECT sales_tax_rate INTO v_tax FROM sales_tax_rates WHERE state = 'NY';
+
+   v_total := v_subtotal - p_discount_amount;
+   v_total := ROUND(v_total + (v_total * v_tax), 2);
+
+   INSERT INTO order_totals VALUES (p_order_id, v_total);
+
+   IF (v_subtotal > 1000) THEN
+      UPDATE order_totals SET eligible_for_discount = 1 WHERE order_id = p_order_id;
+   ELSE
+      UPDATE order_totals SET eligible_for_discount = 0 WHERE order_id = p_order_id;
+   END IF;
+END;
+ /
+CALL CALCULATE_ORDER_TOTAL (12345, 50);
+ /

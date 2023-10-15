@@ -1,0 +1,107 @@
+;   This code snippet creates a sales order in 1C:Enterprise
+
+#Language "en-US"                        ; Default language set to English
+
+;   Object definitions
+
+Catalog Name "Product"                   ; Defines a catalog object named "Product"
+    Type = Catalog                        ; Indicates the object is a catalog
+    HierarchicalItem                     ; Enables hierarchical representation
+    UseStandardCommands = False         ; Disables the use of standard commands for the object
+
+Catalog Name "Customer"                  ; Defines a catalog object named "Customer"
+    Type = Catalog
+    HierarchicalItem
+    UseStandardCommands = False
+
+Document Name "SalesOrder"                ; Defines a document object named "SalesOrder"
+    Type = Document
+    Export = True                         ; Enables export of the object
+    Numbering = PerQuarter                ; Defines numbering parameters for the object
+        Prefix = "SO-"                   ; Sets prefix for number format
+        Suffix = Format(Quarter, "0", 2) ; Adds the quarter number to the number format
+    Register = DocumentRegister           ; Registers the document object in the "DocumentRegister" object
+    Dimensions                            ; Enables the use of dimensions
+
+DocumentRegister Name "DocumentRegister" ; Defines the document register object
+    Type = DocumentRegister
+    DocumentType = Document               ; Sets the document type for the register
+    MutualRegister = SalesReturns        ; Sets the mutual register to "SalesReturns" accounting object
+    Sequence = NumberSequence             ; Defines a sequence of numbers for the register
+        Code = "DocRegister"              ; Sets the code of the number sequence
+        ResetOnStartingPeriod = True     ; Resets the sequence at the beginning of each year
+        PeriodForReset = Year            ; Specifies the period of the reset (year in this case)
+
+Enum Name "PaymentType"                   ; Defines an enumeration object for payment types
+    Type = Enumeration
+    Options = Cash, CreditCard, BankTransfer, Check  ; Defines the options for the enumeration
+
+;   Document attributes
+
+Attribute Name "Date" Receipt.Date .........; Defines an attribute for the document "Date of Receipt"
+    Type = Date
+    UseIn = SalesOrder
+    UseAs = DocumentDate
+
+Attribute Name "Product" LineQuery.Product ; Defines an attribute for the document "Product"
+    Type = CatalogRef . Product
+    TabName = "Products"
+    UseIn = SalesOreder
+    UseAs     = “DocumentLines”
+
+Attribute Name "Quantity" LineQuery.Quantity ; Defines an attribute for the document "Quantity"
+    Type = Quantity
+    TabName = "Products"
+    UseIn = SalesOrder
+    UseAs = DocumentLines
+
+Attribute Name "Price" LineQuery.Price       ; Defines an attribute for the document "Price"
+    Type = Amount
+    TabName = "Products"
+    UseIn = SalesOrder
+    UseAs = DocumentLines
+
+Attribute Name "Amount" LineQuery.Amount     ; Defines an attribute for the document "Amount"
+    Type = Amount
+    TabName = "Products"
+    UseIn = SalesOrder
+    UseAs = DocumentLines
+
+Attribute Name "Customer" TabularSection.Customer    ; Defines an attribute for the document "Customer"
+    Type = CatalogRef . Customer
+    TabName = "CustomerOrders"
+    EditType = RealOnly                           ; Sets the attribute as read-only
+    UseIn = SalesOrder
+    UseAs = DocumentCustomer
+
+Attribute Name "PaymentType" TabularSection.PaymentType  ; Defines an attribute for the document "PaymentType"
+    Type = EnumerationRef . PaymentType
+    TabName = "CustomerOrders"
+    UseIn = SalesOrder
+    UseAs = DocumentCustomer
+
+;   Variable declarations
+
+Variable SalesOrderManager  ; Declares a variable of type "SalesOrderManager"
+Variable SalesOrder         ; Declares a variable of type "SalesOrder"
+
+;   Setting values for the variables
+
+SalesOrderManager = New SalesOrderManager ; Initializes the variable of type "SalesOrderManager"
+SalesOrder = SalesOrderManager.CreateObject(); Initializes the variable of type "SalesOrder"
+SalesOrder.Date = Today; Sets the document date as today's date
+SalesOrder.PostingDate = Today; Sets the posting date as today's date
+SalesOrder.DocumentCustomer = CatalogName.Customer.135; Sets the customer as the one with the ID "135"
+SalesOrder.LineQuery.Selected = CatalogName.Product.10, CatalogName.Product.25; Selects products with IDs "10" and "25" for the document
+SalesOrder.LineQuery.Quantity = 5, 8; Sets the quantities of the selected products as 5 and 8
+SalesOrder.LineQuery.Price = 10.50, 15.90; Sets the prices of the selected products as 10.50 and 15.90
+SalesOrder.LineQuery.ExecuteAs = "New"; Executes the line query as a new line in the document
+SalesOrder.LineQuery.Add(); Adds the selected product lines to the document
+SalesOrder.PaymentType = EnumName.PaymentType.CreditCard; Sets the payment type as "CreditCard"
+
+SalesOrderManager.PerformOperations(); Performs all operations related to the document
+SalesOrder.Write(); Writes the document to the database
+
+;   Output
+
+Message ("Sales order " + SalesOrder.Number + " created successfully."); Prints a success message with the generated sales order number

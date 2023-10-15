@@ -1,0 +1,65 @@
+pragma solidity ^0.8.0;
+
+import "contracts/SafeMath.sol";
+
+/**
+* @dev This contract allows for the creation and management of decentralized
+* autonomous organizations (DAOs).
+*/
+contract DAO {
+  // Variables
+  address[] public members;
+  uint256 public totalContributions;
+  mapping(address => bool) public memberExists;
+  mapping(address => uint256) public memberContributions;
+
+  // Events
+  event MemberAdded(address member);
+  event ContributionsUpdated(address member, uint256 contribution);
+
+  // Modifier
+  modifier onlyMembers() {
+    require(memberExists[msg.sender], "Not a member.");
+    _;
+  }
+
+  // Constructor
+  constructor() {
+    members.push(msg.sender);
+    memberExists[msg.sender] = true;
+  }
+
+  // Functions
+  /**
+  * @dev Allows anyone to contribute to the DAO.
+  */
+  function contribute() external payable {
+    require(msg.value > 0, "Contribution must be greater than zero.");
+    totalContributions += msg.value;
+    memberContributions[msg.sender] += msg.value;
+    emit ContributionsUpdated(msg.sender, msg.value);
+  }
+
+  /**
+  * @dev Adds a new member to the DAO.
+  * @param _member The address of the new member.
+  */
+  function addMember(address _member) external onlyMembers {
+    require(!memberExists[_member], "Member already exists.");
+    members.push(_member);
+    memberExists[_member] = true;
+    emit MemberAdded(_member);
+  }
+
+  /**
+  * @dev Allows a member to withdraw their contributions from the DAO.
+  * @param _amount The amount of contributions to withdraw.
+  */
+  function withdrawContributions(uint256 _amount) external onlyMembers {
+    require(memberContributions[msg.sender] >= _amount, "Insufficient contributions.");
+    memberContributions[msg.sender] -= _amount;
+    totalContributions -= _amount;
+    payable(msg.sender).transfer(_amount);
+    emit ContributionsUpdated(msg.sender, -_amount);
+  }
+}

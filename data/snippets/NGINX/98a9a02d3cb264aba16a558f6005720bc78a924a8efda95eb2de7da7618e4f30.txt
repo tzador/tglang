@@ -1,0 +1,51 @@
+events {  # Configures the parameters that affect connection processing. 
+    worker_connections  1024;  # Defines the maximum number of simultaneous connections that can be opened by a worker process. 
+}
+
+http {  # The main configuration block that contains directives and nested blocks that control how NGINX handles HTTP requests. 
+    include       mime.types;  # Includes the file with MIME types mappings. 
+
+    server {  # Configures the server listening socket and location of the server’s content. 
+        listen       8080; # Defines the port the server accepts requests on.
+        server_name  example.com;  # Defines a domain name for the server.
+        
+        location / {  # Defines the root of the location that NGINX will serve content from.
+            root   /data/www;  # Defines the root directory that NGINX will serve files from.
+            index  index.html index.htm;  # Defines the file that will be served as the default when a directory is requested.
+        }
+        
+        error_page 404 /404.html; # Defines the file that will be served in case of a request for a non-existent page.
+        error_page 500 502 503 504 /50x.html; # Defines the file that will be served in case of a server error.
+        
+        location = /50x.html {  # Defines the location of the file that will be served for server errors.
+            root   /data/www/error; 
+        }
+    }
+    
+    server {  # Configures a second server listening on port 80.
+        listen       80;
+        server_name  example.org;
+        return       301 https://example.org$request_uri;  # Redirects all requests to the HTTPS version of the server. 
+    }
+
+    server {  # Configures a third server listening on port 443 for HTTPS requests. 
+        listen       443 ssl;
+        server_name  example.org;
+        
+        ssl_certificate      cert.pem;  # Specifies the certificate file.
+        ssl_certificate_key  cert.key;  # Specifies the certificate key file. 
+        ssl_protocols        TLSv1.2 TLSv1.3; # Specifies the protocols that NGINX will use for secure connections.
+        ssl_ciphers          HIGH:!aNULL:!MD5;  # Specifies the ciphers that NGINX will use to encrypt data.
+        
+        location / {  # Defines the root of the location that NGINX will serve content from for HTTPS requests.
+            root   /data/www/secure;  
+            index  index.html index.htm;  
+        }
+        
+        location /api/ {  # Defines the location of the API endpoint for HTTPS requests.
+            proxy_pass http://api.example.org;  # Redirects requests to this endpoint for processing.
+            proxy_set_header Host $host; # Sets the Host header to the original host name.
+            proxy_set_header X-Forwarded-For $remote_addr; # Sets the X-Forwarded-For header to the client's IP address.
+        }
+    }
+}

@@ -1,0 +1,89 @@
+# Main nginx configuration file
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+
+# Events block
+events {
+    worker_connections 1024;
+    multi_accept on;
+    use epoll;
+}
+
+# HTTP block
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    # SSL configuration
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256';
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    # Server block
+    server {
+        listen 80;
+        server_name example.com;
+        return 301 https://$host$request_uri; # Redirect all HTTP traffic to HTTPS
+    }
+
+    # HTTPS server block
+    server {
+        listen 443 ssl;
+        server_name example.com;
+
+        # SSL certificate and key files
+        ssl_certificate /etc/nginx/ssl/certificate.crt;
+        ssl_certificate_key /etc/nginx/ssl/private_key.key;
+
+        # Enable HTTP Strict Transport Security (HSTS)
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+        # Enable OCSP stapling
+        ssl_stapling on;
+        ssl_stapling_verify on;
+
+        # Enable session resumption for better perfomance
+        ssl_session_tickets on;
+        ssl_session_ticket_key /etc/nginx/ssl/session_ticket.key;
+
+        # Enable HTTP/2 and gzip compression
+        http2_push_preload on; # Enable push preload
+        gzip on;
+        gzip_types application/javascript text/css text/plain text/xml application/json image/svg+xml;
+
+        # Root directory for website files
+        root /var/www/html;
+
+        # Index file
+        index index.html;
+
+        # Additional server configurations
+        # location / {
+        #     ... # Additional configurations for root path (e.g. rewrites, proxy_pass)
+        # }
+        # location /images/ {
+        #     ... # Additional configurations for images subdirectory (e.g. caching)
+        # }
+    }
+
+    # Server for handling Let's Encrypt ACME challenges
+    server {
+        listen 80;
+        server_name example.com;
+        location /.well-known/acme-challenge/ {
+            root /var/www/letsencrypt/;
+            default_type 'text/plain';
+            try_files $uri =404; # Return 404 if challenge file does not exist
+        }
+    }
+
+    # Additional server blocks for subdomains or other websites hosted on same server
+    # server {
+    #     listen 443 ssl;
+    #     server_name subdomain.example.com;
+    #     ... # Additional configurations for subdomain
+    # }
+}

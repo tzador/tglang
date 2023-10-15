@@ -1,0 +1,58 @@
+server {
+    listen 80;
+    server_name www.example.com;
+    rewrite ^/(.*) https://$server_name/$1 permanent;
+    # The above section redirects all HTTP traffic to HTTPS.
+
+    location / {
+        # Directs all requests to the index.html file in the root directory
+        root /var/www/html;
+        index index.html;
+    }
+
+    location /blog {
+        # Sets the root directory for the blog section
+        root /var/www/blog;
+        index index.html;
+        # Allows for caching of blog pages for 24 hours
+        expires 24h;
+        access_log /var/log/nginx/blog_access.log;
+        error_log /var/log/nginx/blog_error.log;
+    }
+
+    location /api {
+        # Proxies requests to the API server on port 8080
+        proxy_pass http://localhost:8080;
+        # Sets the HTTP headers for the API
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+        # Enables caching of static assets for 1 year
+        expires 1y;
+        access_log off;
+        add_header Cache-Control "public";
+    }
+
+    location ~ /\.(ht|git)$ {
+        # Denies access to hidden files in the root directory
+        deny all;
+    }
+}
+
+# This server block is used for HTTPS connections
+server {
+    listen 443 ssl;
+    server_name www.example.com;
+
+    ssl_certificate /etc/ssl/certs/example.crt;
+    ssl_certificate_key /etc/ssl/private/example.key;
+
+    location / {
+        root /var/www/html;
+        index index.html;
+    }
+}

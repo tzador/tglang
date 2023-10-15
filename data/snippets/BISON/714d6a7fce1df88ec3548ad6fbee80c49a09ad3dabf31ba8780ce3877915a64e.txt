@@ -1,0 +1,185 @@
+%code{
+    /* Scanner variables */
+    int line_num = 1; /* To keep track of line number */
+    char *line_val = NULL; /* To store line string */
+    int len = 0; /* To store length of line string */
+
+    /* Parser variables */
+    int stack_size = 32; /* Initial size of stack */
+    int top = -1; /* Index of top of stack */
+    int *stack = NULL; /* Pointer to stack */
+    int result = 0; /* Variable to store final result */
+}
+
+%token DIGIT /* Token for numerical digit */
+%token PLUS /* Token for addition symbol */
+%token MINUS /* Token for subtraction symbol */
+%token DIV /* Token for division symbol */
+%token MULT /* Token for multiplication symbol */
+
+%token_int {result} RESULT /* Variable token to store the final result */
+
+%%
+
+input: /* The starting rule */
+    expression { /* Actions to be taken after the rule is matched */
+        /* Store the final result in the variable token RESULT */
+        RESULT = $1;
+        /* Free the allocated memory for the stack */
+        free(stack);
+        /* Set the stack pointer back to NULL */
+        stack = NULL;
+        /* Reset the top of stack index */
+        top = -1;
+        /* Return 0 to indicate successful parsing */
+        return 0;
+    }
+    ;
+
+expression: /* Rule for evaluating arithmetic expressions */
+    term { /* Actions to be taken after the rule is matched */
+        /* Set the result variable to be equal to the value of the first term */
+        result = $1;
+    }
+    |
+    expression PLUS term { /* Actions to be taken after the rule is matched */
+        /* Add the value of the second term to the result variable */
+        result += $3;
+    }
+    |
+    expression MINUS term { /* Actions to be taken after the rule is matched */
+        /* Substract the value of the second term from the result variable */
+        result -= $3;
+    }
+    ;
+
+term: /* Rule for evaluating terms in an expression */
+    factor { /* Actions to be taken after the rule is matched */
+        /* Set the result variable to be equal to the value of the first factor */
+        result = $1;
+    }
+    |
+    term MULT factor { /* Actions to be taken after the rule is matched */
+        /* Multiply the result variable by the value of the next factor */
+        result *= $3;
+    }
+    |
+    term DIV factor { /* Actions to be taken after the rule is matched */
+        /* Divide the result variable by the value of the next factor */
+        result /= $3;
+    }
+    ;
+
+factor: /* Rule for evaluating factors in a term */
+    DIGIT { /* Actions to be taken after the rule is matched */
+        /* Convert the token value to integer and return it as the factor value */
+        $$ = atoi($1);
+    }
+    |
+    expression { /* Actions to be taken after the rule is matched */
+        /* Return the value of the expression as the factor value */
+        $$ = $1;
+    }
+    ;
+
+%%
+
+/* Function to push an integer onto the stack */
+void push(int num){
+    /* Check if the stack is full */
+    if(top == stack_size - 1){
+        /* If full, increase the size of the stack */
+        stack_size *= 2;
+        stack = realloc(stack, stack_size * sizeof(int));
+    }
+    /* Push the number onto the stack */
+    stack[++top] = num;
+}
+
+/* Function to pop an integer from the stack */
+int pop(){
+    /* Check if the stack is empty */
+    if(top == -1){
+        /* If empty, return -1 */
+        return -1;
+    }
+    /* Pop the number from the stack and return it */
+    return stack[top--];
+}
+
+/* Function to evaluate a postfix expression */
+int evaluate(char *expr){
+    /* Loop through the expression character by character */
+    for(int i=0; i<len; i++){
+        /* If the character is a whitespace, skip it */
+        if(expr[i] == ' '){
+            continue;
+        }
+        /* If the character is a digit, push it onto the stack */
+        else if(isdigit(expr[i])){
+            push(expr[i] - '0');
+        }
+        /* If the character is an operation symbol, pop two numbers from the stack, perform the operation, and push the result back onto the stack */
+        else{
+            int num1 = pop();
+            int num2 = pop();
+            switch(expr[i]){
+                case '+':
+                    push(num2 + num1);
+                    break;
+                case '-':
+                    push(num2 - num1);
+                    break;
+                case '*':
+                    push(num2 * num1);
+                    break;
+                case '/':
+                    push(num2 / num1);
+                    break;
+            }
+        }
+    }
+    /* The final result will be at the top of the stack */
+    return pop();
+}
+
+/* Function to read an input file line by line and parse each line */
+void parse_file(char *filename){
+    /* Create a file pointer to the input file */
+    FILE *fp = fopen(filename, "r");
+    /* Check if the file was opened successfully */
+    if(fp == NULL){
+        perror("Error opening file");
+        return ;
+    }
+    /* Loop until the end of the file is reached */
+    while(!feof(fp)){
+        /* Read a line from the file */
+        int read = getline(&line_val, &len, fp);
+        /* If the line was read successfully, parse it */
+        if(read != -1){
+            /* Parse the line and store the result in the variable token RESULT */
+            yy_scan_string(line_val);
+            yyparse();
+            /* Print the result to the console */
+            printf("Result of line %d: %d\n", line_num, RESULT);
+            /* Increment the line number counter */
+            line_num++;
+        }
+    }
+    /* Close the file */
+    fclose(fp);
+}
+
+int main(int argc, char **argv){
+    /* Print usage message if no input file was provided */
+    if(argc < 2){
+        printf("Usage: %s <input file>\n", argv[0]);
+        return 0;
+    }
+    /* Call the function to parse the input file */
+    parse_file(argv[1]);
+    /* Print a newline character at the end */
+    printf("\n");
+    return 0;
+}

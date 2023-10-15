@@ -1,0 +1,146 @@
+const graphql = require('graphql');
+
+// Define type for user
+const UserType = new graphql.GraphQLObjectType({
+  name: 'User',
+  fields: {
+    id: {
+      type: graphql.GraphQLID
+    },
+    name: {
+      type: graphql.GraphQLString
+    },
+    email: {
+      type: graphql.GraphQLString
+    },
+    age: {
+      type: graphql.GraphQLInt
+    }
+  }
+});
+
+// Define type for post
+const PostType = new graphql.GraphQLObjectType({
+  name: 'Post',
+  fields: {
+    id: {
+      type: graphql.GraphQLID
+    },
+    title: {
+      type: graphql.GraphQLString
+    },
+    body: {
+      type: graphql.GraphQLString
+    },
+    author: {
+      type: UserType,
+      resolve(parent, args) {
+        return User.findById(parent.authorId);
+      }
+    }
+  }
+});
+
+// Defining root query
+const RootQuery = new graphql.GraphQLObjectType({
+  name: 'RootQueryType',
+  fields: {
+    post: {
+      type: PostType,
+      args: {
+        id: {
+          type: graphql.GraphQLID
+        }
+      },
+      resolve(parent, args) {
+        return Post.findById(args.id);
+      }
+    },
+    posts: {
+      type: new graphql.GraphQLList(PostType),
+      resolve(parent, args) {
+        return Post.find();
+      }
+    },
+    user: {
+      type: UserType,
+      args: {
+        id: {
+          type: graphql.GraphQLID
+        }
+      },
+      resolve(parent, args) {
+        return User.findById(args.id);
+      }
+    },
+    users: {
+      type: new graphql.GraphQLList(UserType),
+      resolve(parent, args) {
+        return User.find();
+      }
+    }
+  }
+});
+
+// Defining mutations
+const Mutation = new graphql.GraphQLObjectType({
+  name: 'Mutation',
+  fields: {
+    addUser: {
+      type: UserType,
+      args: {
+        name: {
+          type: new graphql.GraphQLNonNull(graphql.GraphQLString)
+        },
+        email: {
+          type: new graphql.GraphQLNonNull(graphql.GraphQLString)
+        },
+        age: {
+          type: graphql.GraphQLInt
+        }
+      },
+      resolve(parent, args) {
+        let user = new User({
+          name: args.name,
+          email: args.email,
+          age: args.age
+        });
+        return user.save();
+      }
+    },
+    addPost: {
+      type: PostType,
+      args: {
+        title: {
+          type: new graphql.GraphQLNonNull(graphql.GraphQLString)
+        },
+        body: {
+          type: new graphql.GraphQLNonNull(graphql.GraphQLString)
+        },
+        authorId: {
+          type: new graphql.GraphQLNonNull(graphql.GraphQLID)
+        }
+      },
+      resolve(parent, args) {
+        let post = new Post({
+          title: args.title,
+          body: args.body,
+          authorId: args.authorId
+        });
+        return post.save();
+      }
+    }
+  }
+});
+
+// Creating router for graphql
+app.use('/graphql', graphqlHTTP({
+  schema: graphql.buildSchema(`
+    schema {
+      query: RootQueryType
+      mutation: Mutation
+    }
+  `),
+  rootValue: root,
+  graphiql: true
+}));

@@ -1,0 +1,46 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+
+module ComplexList where
+
+data Nat = Z | S Nat
+
+data Vec (n :: Nat) a where
+  Nil :: Vec Z a
+  Cons :: a -> Vec n a -> Vec (S n) a
+
+(++) :: Vec n a -> Vec m a -> Vec (n + m) a
+Nil ++ ys = ys
+Cons x xs ++ ys = Cons x (xs ++ ys)
+
+appendAssoc :: Vec n a -> Vec m a -> Vec l a -> (n + (m + l)) :~: ((n + m) + l)
+appendAssoc Nil ys zs = Refl
+appendAssoc (Cons x xs) ys zs = case appendAssoc xs ys zs of
+  Refl -> Refl
+
+type family (n :: Nat) + (m :: Nat) :: Nat where
+  Z + m = m
+  (S n) + m = S (n + m)
+
+type family (n :: Nat) * (m :: Nat) :: Nat where
+  Z * m = Z
+  (S n) * m = (n * m) + m
+
+splitAt :: forall n m a. (n <= (n + m)) ~ 'True => Vec (n + m) a -> (Vec n a, Vec m a)
+splitAt = splitAt' @n @m
+
+splitAt' :: forall n m a. Vec (n + m) a -> (Vec n a, Vec m a)
+splitAt' Nil = (Nil, Nil)
+splitAt' (Cons x xs) = (Cons x ys, zs)
+  where
+    (ys, zs) = splitAt' @n @m xs
+
+split :: Vec (n * m) a -> Vec m (Vec n a)
+split Nil = Nil
+split xs = ys `Cons` split zs
+  where
+    (ys, zs) = splitAt @n @((n * m) - n) xs

@@ -1,0 +1,93 @@
+// Contract for managing a multi-signature wallet
+contract MultiSigWallet {
+    // Define variables
+    mapping(address => bool) public owners; // mapping for storing owner addresses and their approval status
+    address[] public ownersArr; // array for storing the owner addresses
+    uint public numOwnersRequired; // number of approvals required for transactions
+    uint public transactionCount; // counter for tracking transaction IDs
+
+    // Define events
+    event Deposit(address indexed sender, uint value); // event emitted when funds are deposited into the wallet
+    event SubmitTransaction(address indexed owner, uint indexed transactionId, address indexed to, uint value, bytes data); // event emitted when a new transaction is submitted
+    event ConfirmTransaction(address indexed owner, uint indexed transactionId); // event emitted when an owner confirms a transaction
+    event ExecuteTransaction(uint indexed transactionId); // event emitted when a transaction is executed
+    event RevokeConfirmation(address indexed owner, uint indexed transactionId); // event emitted when an owner revokes their confirmation for a transaction
+
+    // Define structs
+    struct Transaction {
+        address to; // address of the recipient
+        uint value; // amount of Ether to send
+        bytes data; // optional data to include
+        bool executed; // boolean to track if the transaction has been executed
+        uint numConfirmations; // number of confirmations received for the transaction
+        mapping (address => bool) isConfirmed; // mapping to track which owners have confirmed the transaction
+    }
+
+    // Define array of transactions
+    Transaction[] public transactions;
+
+    // Define constructor function
+    constructor(address[] memory _owners, uint _numOwnersRequired) public {
+        require(_owners.length > 0 && _numOwnersRequired > 0 && _numOwnersRequired <= _owners.length); // check for valid inputs
+        for (uint i = 0; i < _owners.length; i++) { // loop through owner addresses
+            require(!owners[_owners[i]] && _owners[i] != address(0)); // check for duplicate or zero address
+            owners[_owners[i]] = true; // add owner to mapping
+        }
+        ownersArr = _owners; // assign owners array
+        numOwnersRequired = _numOwnersRequired; // assign number of required approvals
+    }
+
+    // Define fallback function
+    function () external payable {
+        emit Deposit(msg.sender, msg.value); // emit deposit event
+    }
+
+    // Define modifier for only owner
+    modifier onlyOwner() {
+        require(owners[msg.sender]); // check if sender is an owner
+        _; // continue with the rest of the code
+    }
+
+    // Define function for submitting a new transaction
+    function submitTransaction(address _to, uint _value, bytes _data) public onlyOwner {
+        require(_to != address(0)); // check for valid recipient address
+        uint transactionId = transactionCount; // assign ID for the transaction
+        transactions.push(Transaction({
+            to: _to,
+            value: _value,
+            data: _data,
+            executed: false,
+            numConfirmations: 0
+        })); // add the transaction to the array
+        transactionCount++; // increment transaction count
+        emit SubmitTransaction(msg.sender, transactionId, _to, _value, _data); // emit the submit transaction event
+    }
+
+    // Define function for confirming a transaction
+    function confirmTransaction(uint _transactionId) public onlyOwner {
+        require(_transactionId < transactionCount); // check for valid transaction ID
+        require(!transactions[_transactionId].isConfirmed[msg.sender]); // check if owner has not already confirmed the transaction
+        transactions[_transactionId].isConfirmed[msg.sender] = true; // add confirmation to mapping
+        transactions[_transactionId].numConfirmations++; // increment confirmation count
+        emit ConfirmTransaction(msg.sender, _transactionId); // emit confirm transaction event
+    }
+
+    // Define function for executing a transaction
+    function executeTransaction(uint _transactionId) public onlyOwner {
+        require(_transactionId < transactionCount); // check for valid transaction ID
+        require(transactions[_transactionId].numConfirmations == numOwnersRequired); // check if transaction has required number of approvals
+        require(!transactions[_transactionId].executed); // check if transaction has not already been executed
+        transactions[_transactionId].to.transfer(transactions[_transactionId].value); // execute the transaction by sending ether to the recipient
+        transactions[_transactionId].executed = true; // set execution status to true
+        emit ExecuteTransaction(_transactionId); // emit execute transaction event
+    }
+
+    // Define function for revoking confirmation for a transaction
+    function revokeConfirmation(uint _transactionId) public onlyOwner {
+        require(_transactionId < transactionCount); // check for valid transaction ID
+        require(transactions[_transactionId].isConfirmed[msg.sender]); // check if owner has confirmed the transaction
+        transactions[_transactionId].isConfirmed[msg.sender] = false; // set confirmation status to false
+        transactions[_transactionId].numConfirmations--; // decrement confirmation count
+        emit RevokeConfirmation(msg.sender, _transactionId); // emit revoke confirmation event
+    }
+}

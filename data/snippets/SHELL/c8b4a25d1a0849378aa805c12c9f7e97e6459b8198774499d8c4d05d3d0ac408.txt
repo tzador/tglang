@@ -1,0 +1,73 @@
+#!/bin/bash
+
+####### Constants ##########
+declare -r BASE_DIR=$(cd $(dirname $0) && pwd)
+declare -r CONFIG_FILE="$BASE_DIR/config.conf"
+
+####### Functions ##########
+# function to display error message
+error_msg()
+{
+    local datetime=$(date)
+    echo "$datetime - ERROR: $1" >> $BASE_DIR/error.log
+    echo "Error: $1"
+}
+
+# function to validate input file
+validate_file()
+{
+    local file_ext=$(echo $1 | awk -F . '{print $NF}')
+
+# check if file exists and is not empty
+if [[ ! -s "$1" ]]; then
+        error_msg "File '$1' does not exist or is empty"
+        return 1
+    fi
+
+# check file extension
+    case "$file_ext" in
+        "txt") return 0;;
+        "csv") return 0;;
+        *) error_msg "Invalid file extension, please provide .txt or .csv file"
+        return 1;;
+    esac
+}
+
+# function to process input file
+process_file()
+{
+# read each line of the file and perform an action
+    while read line; do
+        echo "$line ---- processed"
+    done < "$1"
+}
+
+####### Main ##########
+# check if config file exists
+if [[ -f "$CONFIG_FILE" ]]; then
+    # source config file
+    source "$CONFIG_FILE"
+
+    # check if required variables are set
+    if [[ -z "$INPUT_FILE" ]]; then
+        error_msg "Variable 'INPUT_FILE' is not set in the config file"
+        exit 1
+    fi
+
+    if [[ ! -f "$INPUT_FILE" ]]; then
+        error_msg "File specified for 'INPUT_FILE' does not exist"
+        exit 1
+    fi
+
+    # validate input file
+    validate_file "$INPUT_FILE"
+    if [ $? -eq 0 ]; then
+        # process input file
+        process_file "$INPUT_FILE"
+    else
+        exit 1
+    fi
+else
+    error_msg "Config file '$CONFIG_FILE' does not exist, please create it and try again"
+    exit 1
+fi

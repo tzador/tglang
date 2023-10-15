@@ -1,0 +1,51 @@
+/* This is a SAS program that cleans and summarizes data */
+
+/* Specify the paths for the input and output data */
+%let input_path = "C:\Documents\Data.csv";
+%let output_path = "C:\Documents\Summary_Data.csv";
+
+/* Read in the raw data */
+data raw_data;
+infile &input_path.;
+input ID $ Age Blood_Pressure Cholesterol;
+/* convert ID to numeric and label variable */
+ID_num = input(ID, 8.);
+label ID_num = "Patient ID";
+run;
+
+/* Check for missing values */
+proc freq data=raw_data;
+tables ID_num Age Blood_Pressure Cholesterol / missing;
+format ID_num 8.;
+run;
+
+/* Fill in missing values with average */
+proc stdize data=raw_data out=clean_data
+	method = mean;
+var Age Blood_Pressure Cholesterol;
+run;
+
+/* Calculate mean and standard deviation of variables */
+proc means data=clean_data mean median std;
+var Age Blood_Pressure Cholesterol;
+output out=summary_data (drop=_type_ _freq_) 
+	mean=Age_Average BP_Average Chol_Average 
+	median=Age_Median BP_Median Chol_Median 
+	std=Age_Standard_Deviation BP_Standard_Deviation Chol_Standard_Deviation;
+run;
+
+/* Export summary data to csv file */
+proc export data=summary_data
+	outfile="&output_path."
+	dbms=csv replace;
+run;
+
+/* Print summary statistics */
+%put Mean age: &Age_Average.;
+%put Median blood pressure: &BP_Median.;
+%put Standard deviation of cholesterol: &Chol_Standard_Deviation.;
+
+/* Drop unnecessary variables */
+data clean_data;
+set clean_data (drop=ID_num);
+run;

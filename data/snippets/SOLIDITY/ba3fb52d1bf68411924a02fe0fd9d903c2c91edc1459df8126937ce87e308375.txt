@@ -1,0 +1,195 @@
+// This contract represents a decentralized voting system
+
+// Importing necessary libraries
+pragma solidity ^0.8.9;
+
+library SafeMath {
+    // This library ensures safe mathematical operations 
+    // to prevent overflow and underflow errors
+    
+    // Function to add two numbers safely
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        uint256 c = a + b;
+        require(c >= a, "SafeMath: addition overflow");
+
+        return c;
+    }
+
+    // Function to subtract two numbers safely
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b <= a, "SafeMath: subtraction underflow");
+        uint256 c = a - b;
+
+        return c;
+    }
+
+    // Function to multiply two numbers safely
+    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+        // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
+        // benefit is lost if 'b' is also tested.
+        // See: https://github.com/OpenZeppelin/openzeppelin-contracts/pull/522
+        if (a == 0) {
+            return 0;
+        }
+
+        uint256 c = a * b;
+        require(c / a == b, "SafeMath: multiplication overflow");
+
+        return c;
+    }
+
+    // Function to divide two numbers safely
+    function div(uint256 a, uint256 b) internal pure returns (uint256) {
+        // Solidity only automatically asserts when dividing by 0
+        require(b > 0, "SafeMath: division by zero");
+        uint256 c = a / b;
+        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
+
+        return c;
+    }
+
+  
+}
+
+contract Voting {
+    // State variables
+    address public owner; // address of contract creator
+    uint256 public totalVoters; // total number of registered voters
+    uint256 public votingID; // ID for the current voting session
+    uint256 private constant MAX_OPTIONS = 10; // maximum number of options for voting
+    uint256 public startTime; // start time for the vote
+    uint256 public endTime; // end time for the vote
+    bool public isActive; // flag to indicate if voting is still active
+    bool public isStopped; // flag to indicate if voting is stopped
+    bool public isEnded; // flag to indicate if voting is ended
+
+    // Mapping to store all the registered voters
+    mapping(address => bool) public voters;
+
+    // Array to store all the options for voting
+    string[] public options;
+
+    // Array to store the vote count for each option
+    uint256[] public votes;
+
+    // Events to emit during various stages of voting
+    event RegisterVoter(address indexed voter);
+    event AddOption(string option);
+    event StartVoting(uint256 endTime);
+    event StopVoting();
+    event Vote(address indexed voter, uint256 indexed optionIndex);
+    event EndVoting();
+
+    // Constructor for the contract
+    constructor() {
+        owner = msg.sender; // set contract creator as owner
+        totalVoters = 0; // initialize total voters to 0
+        votingID = 0; // initialize voting ID to 0
+        startTime = 0; // initialize start time to 0
+        endTime = 0; // initialize end time to 0
+        isActive = false; // set voting as inactive by default
+        isStopped = false; // set voting as not stopped by default
+        isEnded = false; // set voting as not ended by default
+    }
+
+    // Function to register a voter
+    function registerVoter(address _voter) public {
+        require(msg.sender == owner, "Only owner can register voters");
+        require(!voters[_voter], "Voter is already registered");
+
+        voters[_voter] = true;
+        totalVoters++;
+
+        emit RegisterVoter(_voter);
+    }
+
+    // Function to add an option for voting
+    function addOption(string memory _option) public {
+        require(msg.sender == owner, "Only owner can add options");
+        require(options.length < MAX_OPTIONS, "Maximum options reached");
+
+        options.push(_option);
+        votes.push(0);
+
+        emit AddOption(_option);
+    }
+
+    // Function to set the end time for the vote
+    function setEndTime(uint256 _endTime) public {
+        require(msg.sender == owner, "Only owner can set end time");
+        require(!isActive, "Voting has already started");
+
+        endTime = _endTime;
+    }
+
+    // Function to start the voting session
+    function startVoting() public {
+        require(msg.sender == owner, "Only owner can start voting");
+        require(endTime > 0, "End time has not been set");
+        require(!isActive && !isStopped && !isEnded, "Previous voting session must end before starting a new one");
+
+        startTime = block.timestamp; // set current block timestamp as start time
+        isActive = true; // set voting as active
+        votingID++; // increment voting ID
+
+        emit StartVoting(endTime);
+    }
+
+    // Function to stop the voting session
+    function stopVoting() public {
+        require(msg.sender == owner, "Only owner can stop voting");
+        require(!isStopped, "Voting is already stopped");
+
+        isStopped = true;
+        isActive = false;
+
+        emit StopVoting();
+    }
+
+    // Function for voters to submit their vote
+    function vote(uint256 _optionIndex) public {
+        require(isActive, "Voting is not active");
+        require(!isStopped, "Voting is stopped");
+        require(!isEnded, "Voting is ended");
+        require(voters[msg.sender], "Voter is not registered");
+        require(_optionIndex < options.length, "Invalid option index");
+
+        votes[_optionIndex]++;
+
+        emit Vote(msg.sender, _optionIndex);
+    }
+
+    // Function to end the voting session
+    function endVoting() public {
+        require(msg.sender == owner, "Only owner can end voting");
+        require(isActive || isStopped, "Voting must be active or stopped before ending");
+        require(!isEnded, "Voting is already ended");
+
+        isEnded = true;
+        isActive = false;
+
+        emit EndVoting();
+    }
+
+    // Function to view the winning option
+    // This function is annotated with the `view` modifier
+    // which means it does not require any state change
+    // and does not consume any gas when called
+    function viewResults() public view returns (string memory winningOption) {
+        require(isEnded, "Voting is not ended");
+
+        uint256 winningOptionIndex = 0;
+        uint256 winningOptionVotes = 0;
+
+        // Loop to find the option with the most votes
+        for (uint256 i = 0; i < options.length; i++) {
+            if (votes[i] > winningOptionVotes) {
+                winningOptionIndex = i;
+                winningOptionVotes = votes[i];
+            }
+        }
+
+        winningOption = options[winningOptionIndex];
+        return winningOption;
+    }
+}

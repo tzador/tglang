@@ -1,0 +1,73 @@
+# This code snippet generates a random maze using the recursive backtracking algorithm.
+# It takes in two parameters - width and height of the maze.
+proc generateMaze(width, height: int) =
+  # Create a grid of cells with all walls initially present
+  var cells = newSeq[seq[int]](height, fill(newSeq[int](width), 0b1111))
+
+  # Randomly select a starting cell and mark it as visited
+  var currentCell = (rand(height), rand(width))
+  cells[currentCell[0]][currentCell[1]] = cells[currentCell[0]][currentCell[1]] | 0b1000
+
+  # Initialize a stack to keep track of visited cells
+  var visitedCells = newSeq[(int, int)]()
+
+  # Recursive function to generate the maze
+  proc generate(currentCell: (int, int)) =
+    # Mark the current cell as visited and add it to stack
+    visitedCells.add(currentCell)
+    cells[currentCell[0]][currentCell[1]] = cells[currentCell[0]][currentCell[1]] | 0b0100
+
+    # Randomly choose next unvisited neighbor cell
+    var nextCell = randomNeighbor(currentCell, cells)
+    
+    # If no unvisited neighbor cell is found, backtrack
+    if nextCell[0] == -1 and nextCell[1] == -1:
+      if visitedCells.len > 0:
+        # Pop the top element from stack and backtrack
+        currentCell = visitedCells.pop()
+        generate(currentCell)
+      else:
+        # If stack is empty, maze generation is complete
+        return
+    else:
+      # Remove walls between current and next cell and recursively call generate
+      var wall = getWallBetween(currentCell, nextCell)
+      cells[currentCell[0]][currentCell[1]] = cells[currentCell[0]][currentCell[1]] & wall
+      cells[nextCell[0]][nextCell[1]] = cells[nextCell[0]][nextCell[1]] & opBinaryNot(wall)
+      generate(nextCell)
+  
+  # Start recursive maze generation from the initial cell
+  generate(currentCell)
+
+# Helper function to get a random unvisited neighbor cell
+proc randomNeighbor(currentCell: (int, int), cells: seq[seq[int]]): (int, int) =
+  var neighbors = @[(currentCell[0] - 1, currentCell[1]), (currentCell[0], currentCell[1] + 1),
+                    (currentCell[0] + 1, currentCell[1]), (currentCell[0], currentCell[1] - 1)]
+  var unvisited = @[(int, int)]()
+  for neighbor in neighbors:
+    if neighbor[0] >= 0 and neighbor[0] < cells.len and neighbor[1] >= 0 and neighbor[1] < cells[0].len:
+      if cells[neighbor[0]][neighbor[1]] & 0b0100 == 0:
+        unvisited.add(neighbor)
+  
+  # If no unvisited neighbor cells, return (-1, -1)
+  if unvisited.len == 0:
+    return (-1, -1)
+    
+  # Return a random unvisited neighbor
+  return unvisited[rand(unvisited.len)]
+
+# Helper function to get the wall between two cells
+proc getWallBetween(currentCell: (int, int), nextCell: (int, int)): int =
+  if nextCell[0] < currentCell[0]:
+    result = 0b1000
+  elif nextCell[0] > currentCell[0]:
+    result = 0b0010
+  elif nextCell[1] < currentCell[1]:
+    result = 0b0100
+  else:
+    result = 0b0001
+  
+  return result
+
+# Call generateMaze and pass in width and height
+generateMaze(10, 10)

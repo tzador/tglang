@@ -1,0 +1,85 @@
+*&---------------------------------------------------------------------*
+*& Report ZREPORT
+*&
+*&---------------------------------------------------------------------*
+REPORT zreport.
+
+* Annotate internal table for data declaration and type definition
+TYPES: BEGIN OF gty_flight_details,
+         carrid TYPE s_carr_id,
+         connid TYPE s_conn_id,
+         fldate TYPE s_date,
+         price TYPE decfloat23,
+         planetype TYPE s_planetype,
+       END OF gty_flight_details.
+DATA: gt_flight_details TYPE STANDARD TABLE OF gty_flight_details WITH DEFAULT KEY.
+" Default key automatically determines the primary key fields
+
+* Annotate select option for dynamic WHERE clause
+SELECT-OPTIONS: so_price FOR gt_flight_details-price.
+
+* Annotate selection screen with texts
+SELECT-OPTIONS s_carrera FOR gty_flight_details-carrid VISIBLE LENGTH 20 MATCHCODE OBJECT carrera.
+SELECT-OPTIONS s_connid FOR gty_flight_details-connid MODIF ID MI.
+
+* Annotate parameters for user inputs
+PARAMETERS p_date TYPE gty_flight_details-fldate DEFAULT sy-datum.
+" Default value is today's date
+PARAMETERS p_planetype TYPE gty_flight_details-planetype LOWER CASE DEFAULT 'boeing 777'.
+
+* Annotate event for user initialization of selection screen
+AT SELECTION-SCREEN OUTPUT.
+  LOOP AT s_carrera.
+    MESSAGE s046(00) WITH 'This is a custom message for' s_carrera.
+  ENDLOOP.
+
+* Annotate event for user validation of inputs
+AT SELECTION-SCREEN ON s_carrera.
+  IF s_carrera-low = 'LH'.
+    MESSAGE id sy-msgid type sy-msgty NUMBER sy-msgno
+      with sy-cprog sy-dynnr sy-repid sy-dyname
+    into data(error_msg).
+    MESSAGE error_msg DISPLAY LIKE 'SAP MsgBox' DISPLAY LIKE 'E'.
+  ENDIF.
+
+* Annotate event for database access and data selection
+START-OF-SELECTION.
+  SELECT gty_flight_details~carrid gty_flight_details~connid gty_flight_details~fldate
+         gty_flight_details~price gty_flight_details~planetype
+         INTO CORRESPONDING FIELDS OF TABLE gt_flight_details
+         FROM gty_flight_details INNER JOIN sflight ON
+         gty_flight_details~carrid = sflight~carrid
+         AND gty_flight_details~connid = sflight~connid
+         WHERE gty_flight_details~price IN so_price
+         AND gty_flight_details~fldate = p_date
+         AND gty_flight_details~planetype = p_planetype.
+
+* Annotate event for displaying output and formatting
+  AT LINE-SELECTION.
+    WRITE: / gty_flight_details-carrid, gty_flight_details-connid,
+           gty_flight_details-fldate, gty_flight_details-price,
+           gty_flight_details-planetype.
+  ENDAT.
+
+* Annotate event for user actions on output
+  AT LINE-SELECTION.
+    CASE SYSTEM-CALLER.
+      WHEN 'SOBJ'.
+        MESSAGE e087(00) WITH 'This is a custom message for' gty_flight_details-carrid.
+      WHEN 'SOBJ'.
+        MESSAGE e087(00) WITH 'This is a custom message for' gty_flight_details-connid.
+      WHEN 'SOBJ'.
+        MESSAGE e087(00) WITH 'This is a custom message for' gty_flight_details-fldate.
+      WHEN 'SOBJ'.
+        MESSAGE e087(00) WITH 'This is a custom message for' gty_flight_details-price.
+      WHEN 'SOBJ'.
+        MESSAGE e087(00) WITH 'This is a custom message for' gty_flight_details-planetype.
+      WHEN OTHERS.
+        CLEAR SYSTEM-CALLER.
+    ENDCASE.
+  ENDAT.
+
+* Annotate event for program termination
+END-OF-SELECTION.
+  WRITE 'End of Program'.
+  PAUSE.

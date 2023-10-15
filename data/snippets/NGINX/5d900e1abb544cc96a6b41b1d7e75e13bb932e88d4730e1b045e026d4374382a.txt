@@ -1,0 +1,59 @@
+# Basic server configuration
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    charset utf-8;
+    root /var/www/html;
+
+    # Enable gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json;
+    gzip_min_length 1000;
+
+    # Enable caching of static assets
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico)$ {
+        expires 1d;
+        add_header Cache-Control "public, max-age=86400";
+        access_log off;
+    }
+
+    # Prevent access to hidden files
+    location ~ /\.ht {
+        deny all;
+    }
+
+    # Enable SSL and redirect all HTTP to HTTPS
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    ssl_certificate /path/to/certificate.crt;
+    ssl_certificate_key /path/to/private.key;
+    # Set your preferred TLS version and ciphers
+    ssl_protocols TLSv1.2;
+    ssl_ciphers EECDH+AESGCM:EDH+AESGCM;
+
+    # Basic proxy configuration
+    location / {
+        proxy_pass http://127.0.0.1:8000/;
+        proxy_redirect off;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Nginx-Proxy true;
+        proxy_set_header X-Real-IP $remote_addr;
+
+        # Enable WebSocket support
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        # Enable rate limiting
+        limit_req zone=server burst=30;
+        limit_conn server 10;
+    }
+
+    # Enable HTTP/2
+    http2_streams 100;
+
+    # Enable server-side includes
+    ssi on;
+}

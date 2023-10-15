@@ -1,0 +1,160 @@
+/**
+ * This class represents a character in the game
+ */
+class PlayerCharacter extends Actor
+    /**
+     * Property variables
+     */
+    placeable;
+    config() globalconfig;
+    transient;
+    bool bIsAlive;
+    int Health;
+    int MaxHealth;
+    float Speed;
+    /**
+     * Event functions
+     */
+    event BeginPlay()
+    {
+        super.BeginPlay();
+
+        //Initialize property variables
+        bIsAlive = true;
+        Health = 100;
+        MaxHealth = 100;
+        Speed = 10.0;
+
+        //Register input bindings
+        Input.KeyDown.Bind(self, EInputKey.IK_Space, 'Jump');
+
+        //Bind event to perform action on player's death
+        OnDeath.BindEvent('Die');
+    }
+
+    /**
+     * Update function called every frame
+     */
+    function Tick(float DeltaTime)
+    {
+        //Update player's movement based on input
+        UpdateMovement(DeltaTime);
+
+        //Update player's health every frame
+        UpdateHealth(DeltaTime);
+    }
+
+    /**
+     * Updates player's movement based on input
+     */
+    function UpdateMovement(float DeltaTime)
+    {
+        //Initialize movement vector
+        local Vector MovementVector;
+
+        //Check for input keys and update movement vector
+        if (Input.IsKeyPressed(EInputKey.IK_W))
+        {
+            MovementVector.Y += 1.0;
+        }
+
+        if (Input.IsKeyPressed(EInputKey.IK_A))
+        {
+            MovementVector.X -= 1.0;
+        }
+
+        if (Input.IsKeyPressed(EInputKey.IK_S))
+        {
+            MovementVector.Y -= 1.0;
+        }
+
+        if (Input.IsKeyPressed(EInputKey.IK_D))
+        {
+            MovementVector.X += 1.0;
+        }
+
+        //Normalize and set the movement vector
+        MovementVector = MovementVector.Normalized();
+        MovementVector *= Speed;
+        SetMovement(MovementVector);
+    }
+
+    /**
+     * Updates player's health every frame
+     */
+    function UpdateHealth(float DeltaTime)
+    {
+        //Check if player is still alive
+        if (Health > 0)
+        {
+            //Artificially decrease player's health over time
+            Health -= 1;
+        }
+        else
+        {
+            //Call event to perform action on player's death
+            OnDeath.Broadcast();
+        }
+    }
+
+    /**
+     * Performs the jump action on player's input
+     */
+    function Jump()
+    {
+        //Check if player is on the ground
+        if (IsGrounded())
+        {
+            //Apply jump force
+            ApplyForce(Vector(0,0,500));
+        }
+    }
+
+    /**
+     * Performs the die action on player's death
+     */
+    function Die()
+    {
+        //Set player's health to 0
+        Health = 0;
+
+        //Disable player's input
+        DisableInput(Player(Owner).Controller);
+    }
+
+    /**
+     * Checks if the player is on the ground
+     * @return true if player is on the ground, false otherwise
+     */
+    function IsGrounded()
+    {
+        //Initialize trace variables
+        local Vector TraceStart = Location;
+        TraceStart.Z -= 50;
+        local Vector TraceEnd = Location;
+        TraceEnd.Z -= 100;
+
+        //Perform line trace to check ground collision
+        local TraceActors;
+        local TraceHitInfo;
+        TraceActors = TraceActors(
+        'TraceStart',
+        'TraceEnd',
+        false,
+        class'Actor',
+        false,
+        TraceHitInfo,
+        3
+        );
+
+        //Check the hit result to determine if player is grounded
+        if (TraceHitInfo.bBlockingHit)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+);

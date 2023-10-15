@@ -1,0 +1,81 @@
+class Turret extends Actor
+    placeable; //indicates that this class can be placed in level
+
+    //========================
+    //CONSTANT VARIABLES
+    //========================
+    const int MAX_AMMO = 100; //maximum ammo for the turret
+    const int FIRE_RATE = 3; //fire rate in seconds
+    const int MIN_RANGE = 500; //minimum range for the turret to start firing
+    const int MAX_RANGE = 1000; //maximum range for the turret to shoot
+
+    //========================
+    //VARIABLES
+    //========================
+    var int Ammo; //current ammo of the turret
+    var float LastFireTime; //stores the last time the turret fired
+    var bool bCanFire; //indicates if the turret can currently fire
+
+    //========================
+    //FUNCTIONS
+    //========================
+    //constructor function, called when the turret is spawned
+    function Turret() 
+    {
+        bAutoActivate = false; //the turret will not automatically activate when spawned
+        Ammo = MAX_AMMO; //sets the current ammo to maximum
+        LastFireTime = 0; //sets the last fire time to 0
+        bCanFire = true; //sets bCanFire to true
+    }
+
+    //event called when the turret takes damage
+    event TakeDamage(int DamageAmount, Pawn EventInstigator, Vector HitLocation, Vector Momentum, 
+    class<DamageType> DamageType) 
+    {
+        Super.TakeDamage(DamageAmount, EventInstigator, HitLocation, Momentum, DamageType); 
+        //calls the parent class' TakeDamage function
+        if (DamageAmount > 0) //if there is damage
+        {
+            bCanFire = false; //sets bCanFire to false
+            SetTimer(FIRE_RATE, false, 'ResetFire'); //sets a timer for FIRE_RATE seconds to call the ResetFire function
+        }
+    }
+
+    //function that resets bCanFire to true after a certain amount of time
+    function ResetFire() 
+    {
+        bCanFire = true; //sets bCanFire to true
+    }
+
+    //event called when the turret is being used by a player
+    simulated event UsedBy(SpawnedPawn User) 
+    {
+        Super.UsedBy(User); //calls the parent class' UsedBy function
+        if (bCanFire) //if bCanFire is true
+        {
+            if (VSize(User.Location - Location) > MIN_RANGE && VSize(User.Location - Location) < MAX_RANGE) 
+            //checks if the player is within the turret's range
+            {
+                Fire(); //calls the Fire function
+            }
+        }
+    }
+
+    //function that fires the turret
+    function Fire() 
+    {
+        if (Ammo > 0) //if there is still ammo
+        {
+            Ammo--; //decreases the ammo by 1
+            LastFireTime = Level.TimeSeconds; //sets the last fire time to the current time
+            class<TurretProjectile> ProjClass; //creates a variable to store the projectile class
+            ProjClass = class'TurretProjectile'; //sets the projectile class
+            local TurretProjectile Projectile; //creates a variable to store the projectile
+            Projectile = Spawn(ProjClass,, Location, Rotation); //spawns the projectile
+            if (Projectile != None) //if the projectile exists
+            {
+                Projectile.SetBase(this); //sets the turret as the base for the projectile
+            }
+        }
+    }
+}

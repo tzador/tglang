@@ -1,0 +1,105 @@
+%%
+// This section defines the grammar rules using BNF notation
+%start Program
+Program: FunctionList
+FunctionList: /* empty */ | Function | FunctionList Function
+Function: "function" Identifier "(" DeclarationList ")" CompoundStatement
+
+DeclarationList: /* empty */ | Declaration | DeclarationList Declaration
+
+Declaration: Type IdentifierList ";" | Type ";"
+
+IdentifierList: /* empty */ | Identifier | IdentifierList Identifier ","
+
+Type: "int" | "float" | "double" | "char" | "string"
+
+CompoundStatement: "{" DeclarationList StatementList "}"
+StatementList: /* empty */ | Statement | StatementList Statement
+
+Statement: Expression ";" | CompoundStatement | IfStatement | WhileStatement | ForStatement | ReturnStatement
+
+IfStatement: "if" "(" Expression ")" Statement ("else" Statement)?
+
+WhileStatement: "while" "(" Expression ")" Statement
+
+ForStatement: "for" "(" DeclarationList ExpressionList ";" Expression ")" Statement
+
+ReturnStatement: "return" Expression ";"
+
+ExpressionList: /* empty */ | Expression | ExpressionList "," Expression
+
+Expression: MultExpression | AddExpression
+
+MultExpression: PrimaryExpression | MultExpression "*" PrimaryExpression | MultExpression "/" PrimaryExpression
+
+AddExpression: MultExpression | AddExpression "+" MultExpression | AddExpression "-" MultExpression
+
+PrimaryExpression: Identifier "(" ExpressionList ")" | Identifier | Number | String | "(" Expression ")"
+
+Number: Integer | Double
+Integer: [0-9]+
+Double: [0-9]+"."[0-9]+
+
+String: "\\"" [^"]* "\\\""
+
+Identifier: [a-zA-Z]+ [a-zA-Z0-9]*
+%%
+
+// This section includes the code for tokenizing the input
+%union {
+  char *str;
+  int val;
+}
+
+// This section defines the token types used in the grammar rules
+%token <str> Identifier String
+%token <val> Integer Double
+%token If While For Return
+
+// This section specifies the precedence of the operators
+%left '+' '-'
+%left '*' '/'
+
+// This section defines the start symbol for the grammar
+%start Program
+
+// This section specifies the code to be executed when a token is matched
+%{
+#include <stdio.h>
+#include <stdlib.h>
+void yyerror(char *msg) {
+  fprintf(stderr, "ERROR: %s\n", msg);
+  exit(1);
+}
+%}
+
+// This section includes the necessary C functions for parsing and lexing
+%header {
+  #include <stdio.h>
+  #include <stdlib.h>
+}
+
+// This section specifies the lexer rules for tokenizing the input
+%%
+[a-zA-Z]+[a-zA-Z0-9]*  { yylval.str = yytext; return Identifier; }
+[0-9]+"."[0-9]+        { yylval.val = atof(yytext); return Double; }
+[0-9]+                 { yylval.val = atoi(yytext); return Integer; }
+\".*\"                 { yylval.str = yytext; return String; }
+.                      { return yytext[0]; }
+%%
+
+// This section specifies the main function for running the parser
+int main(void) {
+  yyparse();
+  printf("Parsing complete.\n");
+  return 0;
+}
+
+// This section specifies the yylex function for tokenizing the input
+int yylex(void) {
+  int token = yylex();
+  if (token <= 0)
+    return 0;
+  else
+    return token;
+}

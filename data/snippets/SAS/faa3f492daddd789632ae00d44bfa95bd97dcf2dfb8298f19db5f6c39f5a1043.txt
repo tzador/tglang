@@ -1,0 +1,46 @@
+/* Create macro variable to store current date */
+%let today = %sysfunc(today());
+
+/* Create table combining sales and customer data */
+data combined_sales;
+    /* Set merge statement to join sales and customers by customer ID */
+    merge sales(in=sales) customers(in=customers);
+        /* Set where statement to include customers with active status only */
+        /* Note: Active status is represented by 'Y' in customers dataset */
+        where status = 'Y';
+    /* Set format statement to convert date variables to DDMMYY10. format */
+    format sale_date date10. customer_since date10.;
+    /* Set retain statement to keep sale date and customer since info for each observation */
+    retain sale_date customer_since;
+    /* Set output statement to rename variables and remove customer ID */
+    /* Note: Using 'drop=' will remove the variable from the output table */
+    output
+        /* Set new name for customer name variable */
+        rename=(customer_name = name)
+        /* Drop customer ID from output table */
+        drop customer_id;
+run;
+
+/* Print table with customer name, sale date, and customer since info */
+proc print data=combined_sales;
+    /* Set title statement to label output table */
+    title 'Combined Sales Data for Active Customers';
+    /* Set var statement to only include specified variables in output table */
+    var name sale_date customer_since;
+run;
+
+/* Create new column in table showing days between customer since and current date */
+data combined_sales;
+    /* Set set statement to reassign combined_sales table */
+    set combined_sales;
+    /* Set days_since statement to calculate days between today and customer since date */
+    days_since = intck('day', customer_since, &today);
+run;
+
+/* Create bar chart showing average days since for each customer */
+proc sgplot data=combined_sales;
+    /* Set vbar statement to create vertical bar chart */
+    vbar name / response=days_since;
+    /* Set title statement to label chart */
+    title 'Average Days Since Customer Signup';
+run;

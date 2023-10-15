@@ -1,0 +1,52 @@
+pragma solidity ^0.4.24;
+
+contract Payment {
+    
+    //Define variables
+    address public owner; //owner of the contract
+    address public receiver; //receiver of the payment
+    uint public amount; //amount to be paid
+    uint public deadline; //deadline for payment
+    
+    //Define events
+    event PaymentMade(address _sender, uint _amount, uint _timestamp); //event triggered when payment is made
+    event PaymentReceived(address _receiver, uint _amount); //event triggered when payment is received
+    
+    //Define modifiers
+    modifier onlyOwner() { //modifier to restrict access to only owner
+        require(msg.sender == owner);
+        _;
+    }
+    
+    modifier onlyReceiver() { //modifier to restrict access to only receiver
+        require(msg.sender == receiver);
+        _;
+    }
+    
+    modifier beforeDeadline() { //modifier to check if payment is being made before deadline
+        require(now < deadline);
+        _;
+    }
+    
+    //Define constructor
+    constructor(address _receiver, uint _amount, uint _deadline) public {
+        owner = msg.sender;
+        receiver = _receiver;
+        amount = _amount;
+        deadline = _deadline;
+    }
+    
+    //Function to make payment
+    function makePayment() public payable onlyOwner beforeDeadline {
+        require(msg.value == amount); //check if correct amount is being paid
+        emit PaymentMade(msg.sender, msg.value, now); //trigger PaymentMade event
+    }
+    
+    //Function to receive payment
+    function receivePayment() public onlyReceiver {
+        require(address(this) == msg.sender); //check if contract is calling the function
+        require(now > deadline); //check if deadline has passed
+        emit PaymentReceived(receiver, amount); //trigger PaymentReceived event
+        selfdestruct(receiver); //send contract balance to receiver
+    }
+}

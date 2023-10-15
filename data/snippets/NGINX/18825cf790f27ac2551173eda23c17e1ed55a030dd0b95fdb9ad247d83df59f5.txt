@@ -1,0 +1,103 @@
+server {
+    listen 80;
+    server_name mydomain.com;
+    root /var/www/mydomain;
+    
+    location / {
+        # First, check if the file exists on disk before redirecting
+        # to avoid unnecessary redirects
+        try_files $uri $uri/ /index.html;
+        
+        # Enable gzip compression for all file types
+        gzip on;
+        
+        # Cache static files for 1 year using in-memory storage
+        # This will improve site loading speed
+        expires 1y;
+        
+        # Set cache control headers
+        add_header Cache-Control "public, must-revalidate, proxy-revalidate";
+        add_header X-Frame-Options SAMEORIGIN;
+        
+        # Restrict access to certain file types for security purposes
+        # Deny access to .htaccess, .log, .php files
+        location ~* \.(htaccess|log|php)$ {
+            deny all;
+        }
+        
+        # Allow access to certain file types
+        # Here, we will allow any requests for .css, .js, .png files
+        location ~* \.(css|js|png)$ {
+            access_log off;
+            expires 30d;
+            add_header Cache-Control public;
+        }
+        
+        # Enable browser caching for all other files
+        # Cache will be stored in client's browser for 30 days
+        # and checked for updates every 1 day
+        location / {
+            add_header Last-Modified $sent_http_expires;
+            add_header Cache-Control "public, must-revalidate, proxy-revalidate";
+            access_log off;
+            expires 1d;
+        }
+        
+        # Redirect any requests with www.mydomain.com to mydomain.com
+        # This will help with SEO optimization
+        if ($host ~* ^www\.(.+)) {
+            rewrite ^/(.*)$ $scheme://$1 permanent;
+        }
+        
+        # Enable server side caching for frequently requested dynamic content
+        location ~* \.(html)$ {
+            proxy_cache cache;
+            proxy_cache_key "$scheme$request_method$host$request_uri";
+            proxy_cache_valid any 1d;
+            proxy_cache_revalidate on;
+            proxy_cache_bypass $http_pragma;
+            proxy_cache_min_uses 1;
+            proxy_cache_use_stale error timeout invalid_header updating http_500 http_502 http_503 http_504;
+        }
+    }
+    
+    location /admin {
+        # This section is for the admin section of our application
+        # We will use basic HTTP authentication for added security
+        # This can be configured to use a specific username and password
+        # or we can reference a file with multiple users and their passwords
+        auth_basic "Admin Login";
+        auth_basic_user_file /etc/nginx/.htpasswd;
+        
+        # Redirect any requests for admin section to HTTPS
+        return 301 https://$server_name$request_uri;
+    }
+    
+    location /static {
+        # This section is for serving static files
+        # We will deny access to certain file types for security purposes
+        # Deny access to .php, .py, .pl files
+        location ~* \.(php|py|pl)$ {
+            deny all;
+        }
+        
+        # Serve static files directly from disk
+        alias /var/www/static/;
+        
+        # Enable browser caching with the same settings as above
+        location / {
+            add_header Last-Modified $sent_http_expires;
+            add_header Cache-Control "public, must-revalidate, proxy-revalidate";
+            access_log off;
+            expires 1d;
+        }
+    }
+    
+    # Enable SSL with a self-signed certificate for development purposes
+    listen 443 ssl;
+    ssl_certificate /etc/nginx/ssl/nginx.crt;
+    ssl_certificate_key /etc/nginx/ssl/nginx.key;
+    
+    # Enable HTTP/2 for improved site performance
+    http2_push_preload on;
+}

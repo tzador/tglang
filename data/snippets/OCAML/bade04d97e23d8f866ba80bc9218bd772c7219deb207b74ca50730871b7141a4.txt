@@ -1,0 +1,42 @@
+(* A polynomial type representing a polynomial function *)
+type poly = Monomial of int * int | Sum of poly list
+
+(* A function for evaluating a polynomial at a given value *)
+let rec eval (poly: poly) (value: int) : int =
+  match poly with
+  | Monomial (coeff, exp) -> coeff * (value ** exp)
+  | Sum (l) -> List.fold_left (fun acc p -> acc + (eval p value)) 0 l
+  (* The base case for our recursion is a monomial which we evaluate by 
+  multiplying the coefficient by the given value raised to the exponent *)
+  (* For a polynomial sum, we use list folding to recursively evaluate each term 
+  and add them together *)
+  (* The use of "acc" allows us to keep track of the running total as we traverse 
+  through the list of terms *)
+
+(* A function for simplifying a polynomial expression *)
+let rec simplify (poly: poly) : poly =
+  match poly with
+  | Monomial (coeff, exp) -> Monomial (coeff, exp)
+  (* Monomials cannot be simplified any further, so we simply return the monomial *)
+  | Sum (l) ->
+      (* We start by sorting the list of polynomials in the sum by exponent (highest to lowest) *)
+      let sorted_list = List.sort (fun (Monomial (_, exp1)) (Monomial (_, exp2)) -> compare exp2 exp1) l in
+      (* Next, we use list folding to combine terms with the same exponent into a single term *)
+      let simplified_list = List.fold_left (fun acc p ->
+        let curr_exp = match p with
+                       | Monomial (_, exp) -> exp
+                       | Sum (_) -> 0 (* Should never happen, but needed for type checking *)
+        in
+        match acc with
+        | Monomial (coeff, exp) -> if exp = curr_exp then Monomial (coeff + eval p 1, exp) else Sum (acc :: [p])
+        | Sum (l) -> Sum (match l with
+                          | [] -> [p]
+                          | hd :: tl -> if curr_exp = match hd with
+                                                     | Monomial (_, exp) -> exp
+                                                     | Sum (_) -> 0 (* Should never happen, but needed for type checking *)
+                                       then Sum (List.concat [[Sum []]; [hd]; [p]]@tl) else Sum (acc :: [p])) ) (Sum []) sorted_list in
+      (* Finally, we recursively simplify each term of the simplified sum *)
+      Sum (List.map simplify (match simplified_list with
+                               | Sum (l) -> l
+                               | Monomial (_, _) -> []))
+  (* The simplified expression will be a sum of monomials, so we map the simplify function over the list of terms in the simplified sum *)

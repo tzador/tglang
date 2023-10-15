@@ -1,0 +1,69 @@
+worker_processes 4;
+worker_cpu_affinity auto;
+
+http {
+    upstream backend {
+        server 127.0.0.1:8000;
+        server 127.0.0.1:8001;
+        server 127.0.0.1:8002;
+    }
+
+    server {
+        listen 80;
+        server_name example.com;
+
+        # Default location block
+        location / {
+            proxy_pass http://backend;
+        }
+        
+        # Block specific rewrite rule
+        location /articles/ {
+            rewrite ^/articles/(?<year>[0-9]{4})/$ /archive/$year last;
+        }
+
+        # Block to handle static files
+        location /static/ {
+            root /var/www/example.com;
+            gzip_static on;
+            expires max;
+        }
+
+        # Blocking specific IP addresses
+        deny 192.168.1.1;
+        allow 10.0.0.0/8;
+        allow 2001:0db8::/32;
+    }
+
+    server {
+        listen 443 ssl;
+        server_name example.com;
+
+        # SSL Configuration
+        ssl_certificate /etc/nginx/ssl/example.com.crt;
+        ssl_certificate_key /etc/nginx/ssl/example.com.key;
+
+        # Location block for secure requests
+        location /secure/ {
+            proxy_pass https://backend;
+
+            # Configure SSL parameters
+            proxy_ssl_certificate /etc/nginx/ssl/backend.crt;
+            proxy_ssl_certificate_key /etc/nginx/ssl/backend.key;
+            proxy_ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+            proxy_ssl_ciphers HIGH:!aNULL:!MD5;
+            proxy_ssl_session_reuse on;
+        }
+
+        # Block to handle error pages
+        error_page 404 /404.html;
+        error_page 500 /500.html;
+    }
+
+    server {
+        listen 8080;
+        location / {
+            return 200 'Welcome to example.com!';
+        }
+    }
+}

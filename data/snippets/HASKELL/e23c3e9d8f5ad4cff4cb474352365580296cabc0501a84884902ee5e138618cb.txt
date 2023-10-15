@@ -1,0 +1,36 @@
+{-# LANGUAGE GADTs, EmptyDataDecls, KindSignatures #-}
+
+-- | A simple data type representing a binary tree
+data Tree a = Empty | Node a (Tree a) (Tree a)
+
+-- | A GADT representing proofs that two types are equal
+data Equal :: * -> * -> * where
+    Refl :: Equal x x
+
+-- | A function that takes in a proof of equality and returns a pair with equal types
+sym :: Equal a b -> (a, b)
+sym Refl = (,) Refl Refl
+
+-- | A function that inserts an element into a binary tree
+insert :: Ord a => a -> Tree a -> Tree a
+insert x Empty = Node x Empty Empty
+insert x (Node y left right)
+    | x < y     = Node y (insert x left) right
+    | otherwise = Node y left (insert x right)
+
+-- | A helper function for retrieving the minimum element in a tree
+getMin :: Ord a => Tree a -> a
+getMin Empty = error "Empty tree"
+getMin (Node x Empty _) = x
+getMin (Node _ left _) = getMin left
+
+-- | A function that deletes an element from a binary tree
+delete :: Ord a => a -> Tree a -> Tree a
+delete _ Empty = Empty
+delete x (Node y left right)
+    | x < y     = Node y (delete x left) right
+    | x > y     = Node y left (delete x right)
+    | otherwise = case sym (getMin right) of -- using sym function to get a proof that x is equal to minimum element
+        (Refl, Refl) -> case right of
+            Empty -> Empty
+            Node _ _ _ -> left

@@ -1,0 +1,220 @@
+Set
+i     time index (hours) /00,01,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16,17,18,19,20,21,22,23/
+j     location (regions) /New York, Los Angeles, Chicago, Houston, Phoenix, Philadelphia, San Antonio, San Diego, Dallas, San Jose, Austin, Jacksonville, San Francisco, Columbus, Fort Worth, Charlotte, Detroit, El Paso, Memphis, Boston/
+k     product type (types) /Electronics, Clothing, Home Goods, Beauty, Sports, Toys, Office Supplies, Appliances, Furniture, Books/
+l     random variable (months) /Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec/;
+
+Parameters
+demand(i,j,k,l)  demand for each product type in each location for each hour of the day/month;
+price(k)         price for each product type;
+capacity(j)      maximum capacity for each location;
+
+$Title Multiple Product and Time Period Optimization
+
+$onecho >infile.inc
+$setglobal gdxincname inputfile.gdx
+sets
+i   'time'
+j   'location'
+k   'product type'
+l   'month';
+$include %gdxincname%
+$offecho
+
+Table t(i,j,k,l) Product and Time Period Demand
+                    New York Los Angeles   Chicago    ... Boston
+Electronics  Jan         5         7          3
+             Feb         6         8          4
+             Mar         7         9          5
+             Apr         8         10         6
+             May         9         11         7
+             Jun         10        12         8
+             Jul         11        13         9
+             Aug         12        14         10
+             Sep         13        15         11
+             Oct         14        16         12
+             Nov         15        17         13
+             Dec         16        18         14
+Clothing     Jan         10        12         6
+             Feb         12        14         8
+             Mar         14        16         10
+             Apr         16        18         12
+             May         18        20         14
+             Jun         20        22         16
+             Jul         22        24         18
+             Aug         24        26         20
+             Sep         26        28         22
+             Oct         28        30         24
+             Nov         30        32         26
+             Dec         32        34         28;
+
+Table p(k) Product Prices
+         Electronics   10
+         Clothing      20
+         Home Goods    30
+         Beauty        40
+         Sports        50
+         Toys          60
+         Office Supplies 70
+         appliances    80
+         Furniture     90
+         Books         100;
+
+Table c(j) Location Capacities
+         New York      100
+         Los Angeles   200
+         Chicago       150
+         Houston       300
+         Phoenix       400
+         Philadelphia  250
+         San Antonio   350
+         San Diego     500
+         Dallas        450
+         San Jose      550
+         Austin        200
+         Jacksonville  300
+         San Francisco 400
+         Columbus      150
+         Fort Worth    250
+         Charlotte     350
+         Detroit       400
+         El Paso       500
+         Memphis       450
+         Boston        300;
+
+Variables
+x(j,k)    number of products to produce at each location
+z        total profit;
+
+Positive Variables x;
+
+Equations
+profit      calculate total profit
+demand(j,k) meet demand at each location
+
+profit..    z =e= sum((j,k), p(k)*x(j,k));
+
+demand(j,k).. sum(i, t(i,j,k)*x(j,k)) =l= c(j);
+
+Model multi_prod /all/;
+
+$onEcho > runGams.bat
+set PATH=%PATH%;"C:\GAMS\win64"
+gams auto.gms
+$offEcho
+
+$call '%gams%' runGams
+
+$echo Profit %z%;
+x.l(j,k)$ output
+$if errorlevel 1 $abort SOLUTION ERROR $else
+$echo Production at location %j%, type %k%: %x.l(j,k)%
+$loop(k,
+$loop(j,
+gams display output incname inputfile
+$onEcho > display.gms
+Scalars x(j,k) 'production values'
+/$if not set abseps $abort abseps is not set/
+/$if not set releps $abort releps is not set/
+Set
+ varchar.(lastidx,j,k);
+file f display
+/
+/;
+abort$(execute_unload(close(f))) "could not close file for display";
+display x.l(lastidx,j,k);
+$offEcho
+$call $set z=0 $onEcho > gotoEoF
+$echo %x% ('%j%','%k%')= %+7.2f >> display.gms
+$call $set z=%z%+%p.j%;
+$offEcho
+$if not exist display.gms $abort GAMS compiler is not on PATH
+$if not exist inputfile.gdx $abort The input file %inputfile.gdx% does not exist Gaussian integer
+Gams Gen4 display inputfile output incname %abstol% %reltol% display
+Reported number x.l(j,k). If setlast(:,j,k)<> value how suitable appropriate daveucas x.l(j,k)
+Table z{l}(case=j, product=s, parameter=, always write minimal write to display file)
+Bottom of file
+
+Display inputfile inputfile output non-error checking
+j New York, Loss Angeles, Chicago, Houston, Phoenix, Philadelphia, San Antonio, San Diego, Dallas,
+    San Jose, Austin, Jacksonville, San Francisco, Columbus, Fort Worth, Charlotte, Detroit, El Paso, Memphis, Boston
+k   Electronics, Clothing, Home Goods, Beauty, Sports, Toys, Office Supplies, Appliances, Furniture, Books
+l    Months
+Output Column Selection Display Parameters Display = Select Columns Cases='Output x.l(j,k)' ('lastidx','j','k')
+Output Row Selection Display 0 .x.l lastidx * variables display report accumulate minimal
+Output Start disabled Report display
+
+$exit
+$OffEcho rests
+$Off echo
+Set
+onecho >inputfile.inc
+$echo Variables
+x(j,k)
+Equations
+profit
+demand(j,k)
+Model multi_prod /all/;
+display inputfile.gms;
+$call $set z=0 $onEcho
+$echo ** Output **;
+if %gams% auto.gms
+$ifthen not set $call = $abort ERROR $abort;
+$call runGams make inputfile.inc
+%gams%
+Auto.gms
+Auto.gms inputfile.inc
+@return;
+$echo "*** Input value **** of time(s)" > outputFile
+Display= 0 etch j; k
+demand= replacements;
+%clear(inc*.inc)
+Set
+onecho inputfile.inc
+$ondis method=csv< mark "(" separators=";" trim_indent inputfile
+row abcdefghikooxyz==0,"# # # 0 ",#
+row(ELECTRONICS_COSTS,,,)
+abcdefghikxyz == 1,2,3,#
+row(CLOTHING_COSTS,,,,)
+abcdefghikxyz ==10,20,30,#
+row(HOME GOODS_COSTS,,,)
+$(p(k)),#
+row(SPORTS_COSTS,,,)
+abcd,damihkxyz=S,5,6,#
+row(TOYS COSTS,,,)
+abcd,eghkxyz =Type, #,+3,4,#
+20 nella television,abcd,eghkxyz==T,4,5
+20 o'venda surveillance,abcd,eghkxyz==S,4,6
+s AMULD deg, abcd,filter, experience_kill,abcd ,xyz ==G,4,7
+50 kell Chromium jjfdsf, abcd,xyz ==C,3,5
+20 Ventilators acacias
+Oneaderze,
+cover ups, abcd ener ration.supersets(),zy= abcd,abcdekletzxy= A,1,2,#
+card stands,, abcd,xyz =a,10,20
+$xcall %gams% auto.gms demand = file Output= (RelErr=0)
+set
+onecho
+
+Note: The code snippet can be customized with different sets, parameters, and values depending on the specific optimization problem that needs to be solved. This code snippet is just an example and may not work as a stand-alone code. It requires the GAMS software to be installed and the appropriate input files to be created.
+
+To run the code snippet and solve the optimization problem, follow these steps:
+
+1. Create a new folder and name it "GAMS".
+2. Copy and paste the code snippet into a text editor and save it as "auto.gms" in the "GAMS" folder.
+3. Open a command prompt or terminal and navigate to the "GAMS" folder.
+4. Run the code by entering the command "gams auto.gms" and pressing Enter.
+5. The output will be displayed in the command prompt and saved in the file "outputFile" within the "GAMS" folder.
+
+This code snippet utilizes different GAMS features such as sets, parameters, tables, variables, equations, and model declaration to formulate and solve an optimization problem. It also includes the use of GAMS commands such as $Title, $SetGlobal, $OnEcho, $Call, $If, $Abort, $Loop, $Exit, and $OffEcho to control the flow and display of the code.
+
+The code snippet first declares and initializes the sets i, j, k, and l to represent the time index (in hours), location (regions), product type, and random variable (months), respectively. It also declares parameters for demand, price, and capacity values for each set, followed by creating a title and including an input file, "infile.inc", which contains the sets declared.
+
+Next, a table "t" is created to represent the product and time period demand for each location, product type, and month. Another table "p" is created for the product prices, and a table "c" for location capacities.
+
+After the tables are created, the code snippet declares variables for the number of products to produce, represented by "x(j,k)", and a total profit variable "z". Then, equations are declared for calculating the total profit and meeting the product demand at each location.
+
+A model "multi_prod" is created using all sets and variables declared. Then, an include file "inputfile.inc" is created, which contains the declaration of the variables, equations, and the model "multi_prod".
+
+To display the output, the code snippet calls the GAMS software, sets the output file name to "outputFile", and specifies the output format, which is a CSV file ("method=csv"). Lastly, a note is displayed, emphasizing the importance of the input values and informing the user that the code snippet may not work as a stand-alone code.
+
+NOTE: This code snippet and any accompanying files are for demonstration purposes only. It is important to ensure that all input values and data are properly defined and formatted for the code to work correctly.

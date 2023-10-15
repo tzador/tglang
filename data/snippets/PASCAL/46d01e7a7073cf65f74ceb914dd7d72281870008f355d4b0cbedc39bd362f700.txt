@@ -1,0 +1,83 @@
+{
+    This is a code snippet that generates random numbers using the Mersenne Twister algorithm.
+    This algorithm was introduced by Makoto Matsumoto and Takuji Nishimura in 1997.
+}
+program RandomNumberGen;
+uses
+    Sysutils, crt;
+var
+    seedVal: longword; //seed value for the Mersenne Twister algorithm
+    i, n: integer; //variables for loop control and number of random numbers to generate
+    mt: array[1..624] of longword; //array to store the Mersenne Twister state vector
+    m: array[0..1] of longword; //array to store last 2 values in the state vector
+    matrixA: longword = $9951F256; //matrix A value for the Mersenne Twister algorithm
+    arrayM1: longword = $9D2C5680; //array M1 value for the Mersenne Twister algorithm
+    arrayM2: longword = $EFC60000; //array M2 value for the Mersenne Twister algorithm
+    magicVal: longword = $1F140000; //magic value used in the Mersenne Twister algorithm
+    upperMask: longword = $80000000; //upper mask used in the tempering operation
+    lowerMask: longword = $7FFFFFFF; //lower mask used in the tempering operation
+    tempVal: longword; //temporary variable used in the tempering operation
+    mtIndex: integer = 625; //index used in the tempering operation
+    limit: integer = 397; //limit used in the tempering operation
+    seed: longword; //seed value used in the tempering operation
+
+{
+    This function initializes the Mersenne Twister state vector.
+    It takes in a seed value as input and fills the state vector with random values based on the seed.
+}
+procedure initializeMt(seedVal: longword);
+var
+    i: integer;
+begin
+    mt[1] := seedVal;
+    for i := 2 to 624 do begin
+        mt[i] := (1812433253 * (mt[i-1] xor (mt[i-1] shr 30)) + i);
+    end;
+end;
+
+{
+    This function generates a random number using the Mersenne Twister algorithm.
+    It returns a longword data type.
+}
+function getRandomNum: longword;
+begin
+    if mtIndex > 624 then begin //check if index is out of bounds
+        seed := mt[624];
+        for i := 1 to 227 do begin //loop through tempering calculations
+            tempVal := (seedVal and upperMask) or (mt[i+1] and lowerMask); //tempering operation
+            seed := mt[i+397] xor (tempVal shr 1); //store the tempered value in the seed
+            if (tempVal mod 2) <> 0 then begin
+                seed := seed xor matrixA; //perform additional xor operation if tempVal is odd
+            end;
+            mt[i] := seed; //update the state vector
+        end;
+        for i := 228 to 624 do begin //loop through remaining state vector values
+            seed := mt[i-227] xor (tempVal shr 1) xor mt[i]; //perform tempering and xor operations
+            mt[i] := seed; //update the state vector
+        end;
+        mt[625] := i; //reset index
+        mtIndex := 1; //reset index
+    end;
+    tempVal := mt[mtIndex]; //get current value in state vector
+    mtIndex := mtIndex + 1; //increment index
+    tempVal := tempVal xor (tempVal shr 11); //xor operation
+    tempVal := tempVal xor ((tempVal shl 7) and arrayM1); //xor and and operations
+    tempVal := tempVal xor ((tempVal shl 15) and arrayM2); //xor and and operations
+    tempVal := tempVal xor (tempVal shr 18); //xor operation
+    randomize; //randomize for more randomness
+    tempVal := tempVal * magicVal; //multiply by the magic value
+    getRandomNum := tempVal; //return the random number
+end;
+
+begin
+    seedVal := randomize; //set seed value
+    initializeMt(seedVal); //initialize Mersenne Twister state vector
+
+    writeln('Enter the number of random numbers to be generated: '); //prompt user for input
+    readln(n); //read in number of random numbers
+
+    for i := 1 to n do begin //loop through and generate random numbers
+        writeln('Random number ', i, ': ', getRandomNum);
+    end;
+
+end.

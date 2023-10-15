@@ -1,0 +1,43 @@
+server {
+    listen 80; # indicates which port the server should listen on
+    server_name example.com; # tells the server which domain name to respond to
+  
+    location / {
+        root /var/www/example.com; # specifies the root directory for the server
+        index index.html index.htm; # sets the default files to serve when no specific file is requested
+    }
+    
+    location /images/ {
+        alias /var/www/example.com/images/; # sets the root directory for the specific location
+        autoindex on; # enables directory listing
+    }
+    
+    location ~ ^/(downloads|docs) {
+        root /var/www/example.com; # sets the root directory for the location
+        try_files $uri $uri/ /index.php?$args; # attempts to serve files in the specified order, and if not found, sends the request to index.php
+        allow all; # allows access to the specified location
+        deny 192.168.1.1; # denies access to the specified IP address
+    }
+    
+    location ~* \.(jpg|jpeg|png|gif)$ {
+        root /var/www/example.com; # sets the root directory for the location
+        try_files $uri $uri/ @redirect; # attempts to serve files in the specified order, and if not found, redirects to @redirect location
+        access_log /var/log/nginx/example.com/access.log; # specifies the path for the access log
+        error_log /var/log/nginx/example.com/error.log; # specifies the path for the error log
+        rewrite ^/images/(.*)$ /$1 break; # rewrites the request URI to remove the /images/ prefix
+        expires 365d; # sets the cache expiration time to 365 days
+        add_header Cache-Control public; # specifies the cache control header
+        add_header Vary Accept-Encoding; # specifies the vary header to handle cached responses with different encodings
+    }
+    
+    location @redirect {
+        rewrite ^(.*)$ https://www.example.com$1 permanent; # redirects the request to a different URL
+    }
+    
+    error_page 404 /404.html; # specifies the error page for 404 errors
+    error_page 500 502 503 504 /50x.html; # specifies the error page for 500, 502, 503, and 504 errors
+    
+    location = /50x.html {
+        root /var/www/example.com; # sets the root directory for the location
+    }
+}

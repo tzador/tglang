@@ -1,0 +1,44 @@
+{-# LANGUAGE DataKinds, DeriveGeneric, TypeOperators #-}  
+
+module Main (main) where
+
+import Control.Monad
+import Data.Proxy (Proxy(..))
+import Data.Text (Text)
+import qualified Data.Text as T
+import GHC.Generics
+import Network.HTTP.Client (Manager, newManager)
+import Network.HTTP.Client.TLS (tlsManagerSettings)
+import Servant.API
+import Servant.Client
+import System.Environment (getArgs)
+
+data User = User
+  { username :: Text
+  , firstName :: Text
+  , lastName :: Text
+  , age :: Int
+  } deriving (Show, Generic)
+
+instance FromJSON User
+
+type UserAPI = "users" :> Get '[JSON] [User]
+
+userAPI :: Proxy UserAPI
+userAPI = Proxy
+
+getUser :: ClientM [User]
+getUser = client userAPI
+
+main :: IO ()
+main = do
+    manager <- newManager tlsManagerSettings
+    baseUrl <- parseBaseUrl "https://jsonplaceholder.typicode.com"
+    args <- getArgs
+    case args of
+        [userId] -> do
+            result <- runClientM (getUser (read userId)) (ClientEnv manager baseUrl)
+            case result of
+                Left err -> putStrLn $ "Error: " ++ show err
+                Right users -> forM_ users $ \u -> putStrLn $ T.unpack $ username u
+        _ -> putStrLn "Please provide a user ID."

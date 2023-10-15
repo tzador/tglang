@@ -1,0 +1,64 @@
+# This is a complex NGINX configuration file
+# Please refer to NGINX documentation for explanation of each directive
+
+worker_processes auto;  # automatically detects the number of CPU cores for optimal performance
+
+events {
+  worker_connections 1024;  # maximum number of connections per worker process
+  use epoll;  # use epoll event notification mechanism for better performance and scalability
+}
+
+http {
+
+  # HTTP server configuration
+
+  server {
+    listen 80;  # listen to port 80 for HTTP requests
+    server_name _;  # set server name to any
+    return 301 https://$host$request_uri;  # redirect all HTTP requests to HTTPS
+  }
+
+  # HTTPS server configuration
+
+  server {
+    listen 443 ssl;  # listen to port 443 for HTTPS requests with SSL encryption
+    server_name example.com;  # set server name to example.com
+
+    # SSL certificate configuration
+    ssl_certificate /etc/nginx/ssl/example.crt;  # path to SSL certificate file
+    ssl_certificate_key /etc/nginx/ssl/example.key;  # path to SSL certificate private key file
+
+    # Security and performance optimizations
+    ssl_session_timeout 1d;  # expire SSL session after 1 day
+    ssl_session_cache shared:SSL:50m;  # store shared SSL sessions for 50 MB
+    ssl_session_tickets off;  # disable session tickets to prevent potential security breaches
+    ssl_session_timeout 5m;  # re-establish session after 5 minutes of inactivity
+    ssl_protocols TLSv1.2 TLSv1.3;  # specify supported TLS protocols
+    ssl_prefer_server_ciphers on;  # prefer server-defined cipher suite for better security
+    ssl_ciphers 'ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256';  # specify allowed cipher suites for TLS handshake
+
+    # Enable forward secrecy by disabling client-side renegotiation and SSLv3 and using ECDHE key exchange
+    ssl_dhparam /etc/nginx/ssl/dhparam.pem;  # path to Diffie-Hellman key exchange parameters
+    ssl_ecdh_curve secp384r1;  # specify ECDH curve for key exchange
+    ssl_stapling on;  # enable OCSP stapling for better security and performance
+    ssl_stapling_verify on;  # verify stapled OCSP response
+    resolver 8.8.8.8 8.8.4.4 valid=300s;  # specify DNS server for OCSP validation
+    resolver_timeout 5s;  # set timeout for DNS resolver
+
+    # Enable HTTP Strict Transport Security (HSTS) to force HTTPS for future requests
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload";
+
+    # HTTP to HTTPS redirection
+    if ($scheme != "https") {
+      return 301 https://$server_name$request_uri;
+    }
+
+    # Proxy pass configuration
+    location / {
+      proxy_pass http://127.0.0.1:8080;  # proxy all requests to backend server
+      proxy_set_header Host $host;  # forward original host header
+      proxy_set_header X-Real-IP $remote_addr;  # forward client IP address
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;  # forward original client IP
+    }
+  }
+}

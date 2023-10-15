@@ -1,0 +1,109 @@
+! This program solves the Navier-Stokes equations for incompressible fluid flow
+program navier_stokes
+    implicit none
+    integer :: nx, ny, nz, i, j, k, iter, max_iter    ! declare variables
+    real :: dx, dy, dz, dt, tol, Re                   ! declare variables
+    real, dimension(1:nx, 1:ny, 1:nz) :: u, v, w, p    ! declare arrays for velocity components and pressure
+    real, dimension(1:nx+1, 1:ny, 1:nz) :: u_temp      ! temporary array for storing x-velocity
+    real, dimension(1:nx, 1:ny+1, 1:nz) :: v_temp      ! temporary array for storing y-velocity
+    real, dimension(1:nx, 1:ny, 1:nz+1) :: w_temp      ! temporary array for storing z-velocity
+    
+    ! set initial conditions for velocity and pressure
+    do i = 1, nx
+        do j = 1, ny
+            do k = 1, nz
+                u(i,j,k) = 0.0
+                v(i,j,k) = 0.0
+                w(i,j,k) = 0.0
+                p(i,j,k) = 0.0
+            end do
+        end do
+    end do
+    
+    ! set boundary conditions for velocity
+    do j = 1, ny
+        do k = 1, nz
+            u(1,j,k) = 0.0     ! left boundary
+            u(nx,j,k) = 0.0    ! right boundary
+        end do
+    end do
+    
+    do i = 1, nx
+        do k = 1, nz
+            v(i,1,k) = 0.0     ! bottom boundary
+            v(i,ny,k) = 0.0    ! top boundary
+        end do
+    end do
+    
+    do i = 1, nx
+        do j = 1, ny
+            w(i,j,1) = 0.0     ! front boundary
+            w(i,j,nz) = 0.0    ! back boundary
+        end do
+    end do
+    
+    ! start time iteration
+    iter = 1
+    max_iter = 1000
+    dt = 0.001
+    tol = 1.0e-6
+    Re = 100.0
+    
+    do while (iter < max_iter)
+        
+        ! calculate temporary arrays for x, y, z-velocity
+        do i = 1, nx + 1
+            do j = 1, ny
+                do k = 1, nz
+                    u_temp(i,j,k) = u(i,j,k) + dt * ((-u(i,j,k) * (u(i+1,j,k) - u(i-1,j,k)) / (2.0*dx)) - (v(i,j,k) * (u(i,j+1,k) - u(i,j-1,k)) / (2.0*dy)) - (w(i,j,k) * (u(i,j,k+1) - u(i,j,k-1)) / (2.0*dz)) + (1.0 / Re) * ((u(i+1,j,k) - 2.0*u(i,j,k) + u(i-1,j,k)) / (dx**2) + (u(i,j+1,k) - 2.0*u(i,j,k) + u(i,j-1,k)) / (dy**2) + (u(i,j,k+1) - 2.0*u(i,j,k) + u(i,j,k-1)) / (dz**2)))
+                end do
+            end do
+        end do
+        
+        do i = 1, nx
+            do j = 1, ny + 1
+                do k = 1, nz
+                    v_temp(i,j,k) = v(i,j,k) + dt * ((-u(i,j,k) * (v(i+1,j,k) - v(i-1,j,k)) / (2.0*dx)) - (v(i,j,k) * (v(i,j+1,k) - v(i,j-1,k)) / (2.0*dy)) - (w(i,j,k) * (v(i,j,k+1) - v(i,j,k-1)) / (2.0*dz)) + (1.0 / Re) * ((v(i+1,j,k) - 2.0*v(i,j,k) + v(i-1,j,k)) / (dx**2) + (v(i,j+1,k) - 2.0*v(i,j,k) + v(i,j-1,k)) / (dy**2) + (v(i,j,k+1) - 2.0*v(i,j,k) + v(i,j,k-1)) / (dz**2)))
+                end do
+            end do
+        end do
+        
+        do i = 1, nx
+            do j = 1, ny
+                do k = 1, nz + 1
+                    w_temp(i,j,k) = w(i,j,k) + dt * ((-u(i,j,k) * (w(i+1,j,k) - w(i-1,j,k)) / (2.0*dx)) - (v(i,j,k) * (w(i,j+1,k) - w(i,j-1,k)) / (2.0*dy)) - (w(i,j,k) * (w(i,j,k+1) - w(i,j,k-1)) / (2.0*dz)) + (1.0 / Re) * ((w(i+1,j,k) - 2.0*w(i,j,k) + w(i-1,j,k)) / (dx**2) + (w(i,j+1,k) - 2.0*w(i,j,k) + w(i,j-1,k)) / (dy**2) + (w(i,j,k+1) - 2.0*w(i,j,k) + w(i,j,k-1)) / (dz**2)))
+                end do
+            end do
+        end do
+        
+        ! update velocity and pressure by taking new values from temporary arrays
+        do i = 1, nx
+            do j = 1, ny
+                do k = 1, nz
+                    u(i,j,k) = u_temp(i,j,k)
+                    v(i,j,k) = v_temp(i,j,k)
+                    w(i,j,k) = w_temp(i,j,k)
+                    p(i,j,k) = p(i,j,k) + dt * (-((p(i+1,j,k) - p(i-1,j,k)) / (2.0*dx)) - ((p(i,j+1,k) - p(i,j-1,k)) / (2.0*dy)) - ((p(i,j,k+1) - p(i,j,k-1)) / (2.0*dz)) + ((u_temp(i+1,j,k) - u_temp(i-1,j,k)) / (2.0*dx)) + ((v_temp(i,j+1,k) - v_temp(i,j-1,k)) / (2.0*dy)) + ((w_temp(i,j,k+1) - w_temp(i,j,k-1)) / (2.0*dz)))
+                end do
+            end do
+        end do
+        
+        ! check for convergence
+        if (maxval(abs(u - u_temp)) < tol .and. maxval(abs(v - v_temp)) < tol .and. maxval(abs(w - w_temp)) < tol) then
+            exit    ! exit loop if convergence criteria is met
+        end if
+        
+        iter = iter + 1     ! increment iteration number
+    end do
+    
+    ! print results
+    write(*,*) "Final velocity in x-direction:"
+    write(*,*) u
+    write(*,*) "Final velocity in y-direction:"
+    write(*,*) v
+    write(*,*) "Final velocity in z-direction:"
+    write(*,*) w
+    write(*,*) "Final pressure:"
+    write(*,*) p
+    
+end program navier_stokes

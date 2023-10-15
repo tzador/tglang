@@ -1,0 +1,56 @@
+# This code snippet is a PowerShell function called "Get-Timeline"
+
+function Get-Timeline {
+    [CmdletBinding()]
+    param (
+        [Parameter(Position = 0, Mandatory = $true)]
+        $StartDateTime,
+
+        [Parameter(Position = 1, Mandatory = $true)]
+        $EndDateTime,
+
+        [Parameter(Position = 2)]
+        [string[]]$EventTypes = 'all'
+    )
+
+    # Create regular expression to match date format
+    $regEx = '^\d{4}/\d{2}/\d{2}\s\d{2}:\d{2}:\d{2}'
+
+    # Format input dates to match regular expression
+    if ($StartDateTime -match $regEx -and $EndDateTime -match $regEx) {
+
+        # Convert input dates to DateTime objects
+        $startDate = Get-Date $StartDateTime
+        $endDate = Get-Date $EndDateTime
+
+        # Check if start date is before end date
+        if ($startDate -gt $endDate) {
+            Write-Host "Start date must be earlier than end date"
+        }
+        else {
+            # Create hashtable to store events
+            $events = @{}
+
+            # Get logs from system event log
+            $sysLogs = Get-EventLog -LogName System -After $startDate -Before $endDate
+
+            foreach ($log in $sysLogs) {
+                # Get event type
+                $eventType = $log.EntryType
+
+                # Check if event type is one of the specified event types
+                if ($EventTypes -contains 'all' -or $EventTypes -contains $eventType) {
+
+                    # Add event to hashtable
+                    $events.Add($log.TimeGenerated, $log.Message)
+                }
+            }
+
+            # Sort hashtable by date and output events
+            $events.GetEnumerator() | Sort-Object Name | Out-String
+        }
+    } 
+    else {
+        Write-Host "Please enter dates in the format 'yyyy/mm/dd hh:mm:ss'"
+    }
+}

@@ -1,0 +1,61 @@
+using GLib;
+
+[DBus (name = "org.example.LinuxInterface", register_objects = true)]
+namespace org.example
+{
+    [Export]
+    public class LinuxClass : Object
+    {
+        private string[] linux_array;
+        
+        public void add_array(string[] input)
+        {
+            foreach (string val in input)
+            {
+                linux_array.append(val);
+            }
+        }
+
+        public void print_array()
+        {
+            foreach (string val in linux_array)
+            {
+                print(val + ", ");
+            }
+        }
+    }
+    
+    public int main(string[] args)
+    {
+        LinuxClass linux_object = new LinuxClass();
+    
+        // Create dbus connection
+        string bus_name = "org.example.LinuxInterface";
+        string bus_path = "/org/example/LinuxInterface";
+    
+        try
+        {
+            Connection dbus_connection = Bus.get_sync(BusType.SESSION, null);
+    
+            // Register LinuxClass object as an object on the bus
+            dbus_connection.register_object(bus_path, linux_object);
+
+            // Call the add_array method on the object using the bus
+            GLib.Variant input = new GLib.Variant("as", new string[] {"New Element 1", "New Element 2", "New Element 3"});
+            GLib.Variant output = dbus_connection.call_sync(bus_name, bus_path,
+                                                             bus_name, "add_array", input,
+                                                             DBusCallFlags.NONE, -1, null);
+         
+            // Call the print_array method on the object using the bus
+            Variant output = dbus_connection.call_sync(bus_name, bus_path,
+                                                       bus_name, "print_array", null,
+                                                       DBusCallFlags.NONE, -1, null);
+            
+        } catch (Error e)
+        {
+            print(e.message);
+        }
+        
+        return 0;
+    }
+}

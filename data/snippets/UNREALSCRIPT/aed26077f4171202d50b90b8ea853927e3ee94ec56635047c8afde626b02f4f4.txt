@@ -1,0 +1,87 @@
+class Level extends DynamicControllerScoreboard; //defines a new class called "Level" that inherits properties from the "DynamicControllerScoreboard" class
+
+var() int MaxPlayers; //creates a variable called "MaxPlayers" that can be accessed from any class and allows integers as values
+
+state Play //defines a new state called "Play"
+{
+    function BeginState() //defines a function that is called when the state begins
+    {
+        if (WorldInfo.GameInfo.bGameEnded == true) //checks if the game has ended
+        {
+            RestartGame(); //calls a built-in function to restart the game
+        }
+
+        for (i=0; i<=MaxPlayers; i++) //loops through all players
+        {
+            PlayerController(PawnList[i].Controller).Score++; //increases the score of the player's controller by 1
+        }
+
+        if (PawnList.Length >= MaxPlayers) //checks if the number of players matches the maximum allowed
+        {
+            SwitchLevel(); //calls a built-in function to switch to the next level
+        }
+    }
+};
+
+event SwitchLevel() //defines an event called "SwitchLevel"
+{
+    Level TempLevel; //creates a variable to store the next level
+    TempLevel = World.NextSwitchLevelLevel; //gets the next level stored in the World object
+
+    if (TempLevel != none) //checks if there is a next level
+    {
+        World.NextSwitchLevelLevel = none; //sets the World's next level to none to prevent infinite loop
+        GotoState('Play', self); //goes to the "Play" state in the current level
+    }
+}
+
+delegate OnPlayerDeath(); //creates a delegate called "OnPlayerDeath" that can be used to call a function when a player dies
+
+class Player extends Pawn; //defines a new class called "Player" that inherits properties from the "Pawn" class
+
+defaultproperties //defines default properties for the class
+{
+    OnDeathDelegate = OnPlayerDeath; //assigns the "OnPlayerDeath" delegate to the OnDeathDelegate property
+    MaxHealth = 100; //sets the maximum health of the player to 100
+    Health = MaxHealth; //sets the initial health of the player to the maximum health
+}
+
+event TakeDamage(int Damage, Pawn EventInstigator, Vector HitLocation, Vector Momentum, class<DamageType> DamageType) //defines an event called "TakeDamage" with parameters for damage, instigating pawn, hit location, momentum, and damage type
+{
+    if (Damage >= Health) //checks if the damage is greater than or equal to the current health
+    {
+        OnDeathDelegate.Execute(); //calls the function assigned to the "OnPlayerDeath" delegate
+    }
+    else //if not, decrease the player's health by the damage amount
+    {
+        Health -= Damage;
+    }
+}
+
+confunction ClientTakeDamage(byte iDamage, Pawn EventInstigator, Object.Vector HitLocation, Object.Vector Momentum) //defines a console function called "ClientTakeDamage" with parameters for damage, instigating pawn, hit location, and momentum
+{
+    local Player playerInstigator; //creates a variable to store the instigating player, assuming the instigator is a player
+
+    if (EventInstigator != none && EventInstigator.IsA('player')) //checks if the instigator is valid and is a player
+    {
+        playerInstigator = EventInstigator; //sets the player instigator variable to the instigating player
+    }
+
+    TakeDamage(iDamage, playerInstigator, HitLocation, Momentum, class''); //calls the "TakeDamage" event with the given parameters and an empty damage type
+}
+
+state Dead extends Play; //defines a new state called "Dead" that inherits from the "Play" state
+
+function BeginState() //defines a function that is called when the state begins
+{
+    Super.BeginState(); //calls the parent class's function, in this case "BeginState" in the "Play" state
+
+    SetTimer(5.0, false, class, 'RespawnPlayer'); //sets a timer to respawn the player after 5 seconds, calling the "RespawnPlayer" function when it expires
+}
+
+simulated function respawnPlayer() //defines a simulated function called "RespawnPlayer"
+{
+    health = maxHealth; //restores the player's health to the maximum value
+
+    GotoState('Play', self); //goes back to the "Play" state, allowing the player to continue playing
+}

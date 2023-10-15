@@ -1,0 +1,46 @@
+PRO rebin, input, output, newx, newy, [/AVERAGE], [/DENAN, /INTERP]
+  compile_opt strictarr
+  if n_params lt 5 then begin
+    message, 'Usage: REBIN, input, output, newx, newy, [/AVERAGE], [/DENAN, /INTERP]'
+    return
+  endif
+  ; Initialize variables
+  input = fltarr(n_elements(newy),n_elements(newx))
+  input = new_value
+  ninput=dimsizes(input)
+  noutput=[newx,newy]
+  output=fltarr(n_elements(newy),n_elements(newx))
+  i2=indgen(newy)
+  j2=indgen(n_elements(newy))
+  
+  ; Set flags
+  n=keyword_set(AVERAGE)
+  denan=keyword_set(DENAN)
+  LINTERP=keyword_set(INTERP)
+  
+  ; Average over input pixels in the range (i1,j1) to (i1+nidx-1,j1+nidx-1)
+  i1=n_elements(newy) - n_elements(newx)
+  j1=n_elements(newy) - n_elements(newx)
+  for i=0,n_elements(newx)-1 do begin
+    nidx=i1+n
+    for j=0,n_elements(newy)-1 do begin
+      output[i2,j2]=
+      if n ne 0 then begin
+        output /= max(1.0,n)
+      endif
+    endfor
+  endfor
+  ; If DENAN keyword is set, replace any NANs in input with 0 before averaging
+  if denan then begin
+    w=where(strsin(input),missing)
+    input[w]=0.0
+  endif
+  ; If INTERP keyword is set, interpolate between non-NAN input pixels
+  if LINTERP then begin
+    for i=i1,n_elements(input)-1 do begin
+      w=where(input[i,j1:j1+nidx-1],missing)
+      i0=i+i1
+      output[i0,j0:j0+nidx-1]=interpolate(input[i0,j0:j0+nidx-1],/double)
+    endfor
+  endif
+END

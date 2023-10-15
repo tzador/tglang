@@ -1,0 +1,118 @@
+1. pragma solidity ^0.8.0; //defines the compiler version
+2. 
+3. //Contract for a decentralized marketplace
+4. contract Marketplace {
+5.     //State variables
+6. 
+7.     address public owner; //address of the marketplace owner
+8.     uint public productCount; //tracks the number of products in the marketplace
+9.     
+10.    //Struct for storing product information
+11.    struct Product {
+12.        uint id;
+13.        string name;
+14.        string description;
+15.        uint price;
+16.        address payable seller;
+17.        bool sold;
+18.    }
+19.    
+20.    //Mapping to store products
+21.    mapping(uint => Product) public products;
+22.    
+23.    //Modifier to restrict access to only the marketplace owner
+24.    modifier onlyOwner() {
+25.        require(msg.sender == owner, "Only the marketplace owner can access this function.");
+26.        _; //continue with the execution flow
+27.    }
+28.    
+29.    //Event that will be emitted when a new product is added
+30.    event ProductCreated(
+31.        uint id,
+32.        string name,
+33.        string description,
+34.        uint price,
+35.        address payable seller,
+36.        bool sold
+37.    );
+38.    
+39.    //Event that will be emitted when a product is bought
+40.    event ProductBought(
+41.        uint id,
+42.        string name,
+43.        string description,
+44.        uint price,
+45.        address payable seller,
+46.        bool sold
+47.    );
+48.    
+49.    //Constructor function to set the marketplace owner
+50.    constructor() {
+51.        owner = msg.sender;
+52.    }
+53.    
+54.    //Function to add a new product to the marketplace
+55.    function addProduct(string memory _name, string memory _description, uint _price) public onlyOwner {
+56.        //Increment productCount by 1
+57.        productCount++;
+58.        
+59.        //Add the product to the products mapping
+60.        products[productCount] = Product(productCount, _name, _description, _price, payable(msg.sender), false);
+61.        
+62.        //Emit the ProductCreated event
+63.        emit ProductCreated(productCount, _name, _description, _price, msg.sender, false);
+64.    }
+65.    
+66.    //Function to buy a product
+67.    function buyProduct(uint _id) public payable {
+68.        //Check if the product exists and is not sold
+69.        require(products[_id].id != 0 && !products[_id].sold, "The product does not exist or is already sold.");
+70.        
+71.        //Check if the amount sent is equal to the product price
+72.        require(msg.value == products[_id].price, "You must send the exact product price.");
+73.        
+74.        //Transfer the product price to the seller
+75.        products[_id].seller.transfer(msg.value);
+76.        
+77.        //Mark the product as sold
+78.        products[_id].sold = true;
+79.        
+80.        //Emit the ProductBought event
+81.        emit ProductBought(products[_id].id, products[_id].name, products[_id].description, products[_id].price, products[_id].seller, true);
+82.    }
+83.    
+84.    //Function to get the list of all products
+85.    function getAllProducts() public view returns (uint[] memory, string[] memory, string[] memory, uint[] memory, address[] memory, bool[] memory) {
+86.        //Create memory arrays to store the product information
+87.        uint[] memory ids = new uint[](productCount);
+88.        string[] memory names = new string[](productCount);
+89.        string[] memory descriptions = new string[](productCount);
+90.        uint[] memory prices = new uint[](productCount);
+91.        address[] memory sellers = new address[](productCount);
+92.        bool[] memory soldStatus = new bool[](productCount);
+93.        
+94.        for (uint i = 0; i < productCount; i++) {
+95.            //Add the product information to the memory arrays
+96.            ids[i] = products[i+1].id;
+97.            names[i] = products[i+1].name;
+98.            descriptions[i] = products[i+1].description;
+99.            prices[i] = products[i+1].price;
+100.           sellers[i] = products[i+1].seller;
+101.           soldStatus[i] = products[i+1].sold;
+102.       }
+103.       
+104.       //Return the memory arrays
+105.       return (ids, names, descriptions, prices, sellers, soldStatus);
+106.   }
+107.   
+108.   //Function to transfer ownership of the marketplace
+109.   function transferOwnership(address _newOwner) public onlyOwner {
+110.       owner = _newOwner;
+111.   }
+112.   
+113.   //Function to destroy the marketplace contract
+114.   function destroy() public onlyOwner {
+115.       //Self-destruct the contract and send all remaining ether to the marketplace owner
+116.       selfdestruct(payable(owner));
+117.   }
+118. }

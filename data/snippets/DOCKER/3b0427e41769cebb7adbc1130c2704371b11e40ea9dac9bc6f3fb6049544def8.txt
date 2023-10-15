@@ -1,0 +1,57 @@
+# This is a Dockerfile to build a container with Python, Node.js, and Java installed
+
+# Start with a base image
+FROM ubuntu:latest
+
+# Set environment variables for Python and Java installations
+ENV PYTHON_VERSION 3.8.5
+ENV JAVA_VERSION 11.0.10
+
+# Update package manager and install necessary packages
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    nodejs \
+    default-jre-headless \
+    default-jdk-headless \
+    build-essential \
+    git \
+    vim \
+    nano
+
+# Install specific Python version
+RUN curl -O https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz && \
+    tar -xvf Python-${PYTHON_VERSION}.tar.xz && \
+    rm Python-${PYTHON_VERSION}.tar.xz && \
+    cd Python-${PYTHON_VERSION} && \
+    ./configure && \
+    make && \
+    make install && \
+    cd .. && \
+    rm -r Python-${PYTHON_VERSION}
+
+# Install Java Development Kit
+RUN curl -O https://download.java.net/openjdk/jdk${JAVA_VERSION}/ri/openjdk-${JAVA_VERSION}_linux-x64_bin.tar.gz && \
+    tar -xvf openjdk-${JAVA_VERSION}_linux-x64_bin.tar.gz && \
+    rm openjdk-${JAVA_VERSION}_linux-x64_bin.tar.gz && \
+    mv jdk-${JAVA_VERSION} /usr/lib/jvm/ && \
+    update-alternatives --install /usr/bin/java java /usr/lib/jvm/jdk-${JAVA_VERSION}/bin/java 1 && \
+    update-alternatives --install /usr/bin/javac javac /usr/lib/jvm/jdk-${JAVA_VERSION}/bin/javac 1 && \
+    update-alternatives --set java /usr/lib/jvm/jdk-${JAVA_VERSION}/bin/java && \
+    update-alternatives --set javac /usr/lib/jvm/jdk-${JAVA_VERSION}/bin/javac
+
+# Define working directory and copy source code
+WORKDIR /app
+COPY . /app
+
+# Install dependencies for Node.js
+RUN npm install
+
+# Install dependencies for Python
+RUN pip3 install -r requirements.txt
+
+# Expose port for running server
+EXPOSE 8000
+
+# Start server when container is run
+CMD ["python3", "server.py"]

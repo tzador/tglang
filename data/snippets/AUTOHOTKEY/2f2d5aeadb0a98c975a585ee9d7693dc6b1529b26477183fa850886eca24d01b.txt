@@ -1,0 +1,64 @@
+; This code snippet creates a GUI that enables the user to search for songs in a database and play them.
+; The table in the database has two columns: 'Title' and 'Artist'.
+; The user can search by either the song title or the artist's name.
+
+; Creating the GUI window
+Gui, Add, Text, , Search Songs:
+Gui, Add, Edit, vSearch
+Gui, Add, Button, Default, Search
+
+; Defining variables
+search := ""
+title := ""
+artist := ""
+
+; Defining functions
+SearchForTitle:
+    Loop, Parse, search, csv
+    {
+        title := A_LoopField
+        QueryDatabase()
+    }
+    
+SearchForArtist:
+    Loop, Parse, search, csv
+    {
+        artist := A_LoopField
+        QueryDatabase()
+    }
+    
+QueryDatabase:
+    Loop, Read, database.txt
+    {
+        SplitText := StrSplit(A_LoopReadLine, "`t")
+        if((title = "" OR StrMatch(SplitText[1], "*" . title . "*")) AND (artist = "" OR StrMatch(SplitText[2], "*" . artist . "*")))
+        {
+            Run, % SplitText[3]
+            break
+        }
+    }
+    if(!ErrorLevel)
+        MsgBox, Song not found in database.
+    
+; Defining hotkeys
+#z:: ; Win+Z to show window
+    Gui, Show, , Search Songs
+return
+
+Escape:: ; Esc to close window
+    WinGet, active_id, ID, A
+    Gui, Destroy
+    Gui, Cancel
+    WinActivate, ahk_id %Active_ID%
+ExitApp
+
+~Search::
+    GuiControlGet, search, , Search ; Get search text from textbox
+    if(search != "")
+    {
+        if(InStr(search, "-"))
+            Goto, SearchForArtist
+        else
+            Goto, SearchForTitle
+    }
+return

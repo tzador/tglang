@@ -1,0 +1,45 @@
+// Define a custom task called "generate" that depends on the "build" task
+task generate(dependsOn: 'build') << {
+    println "Generating project files..."
+    // Create a new file "settings.gradle" with the project name
+    file("settings.gradle").write("rootProject.name = 'MyProject'")
+    // Create a new folder "config" and copy all files ending with ".yml" into it
+    file("config").mkdirs()
+    file("src").listFiles().findAll { it.name.endsWith(".yml") }.each { file ->
+        file.copyTo(new File("config/${file.name}"))
+    }
+}
+// Define a custom task called "clean" that deletes the "config" folder and the generated "settings.gradle" file
+task clean << {
+    println "Cleaning project..."
+    file("config").deleteDir()
+    file("settings.gradle").delete()
+}
+// Configure the "build" task to depend on the "clean" task
+build.dependsOn clean
+// Add a custom closure to the "build" task that prints a message when the task is executed
+build {
+    doFirst {
+        println "Building project..."
+    }
+}
+// Create a new task called "test" that depends on the "build" task and runs all tests in the "test" folder
+task test(dependsOn: 'build', type: Test) {
+    testClassesDir = file('test')
+    classpath = sourceSets.test.runtimeClasspath
+}
+// Configure the "check" task to depend on the "test" task
+check.dependsOn test
+// Create a new task called "jar" that creates a JAR file with all the compiled code
+task jar(type: Jar) {
+    from sourceSets.main.output
+}
+// Configure the "assemble" task to depend on the "jar" task
+assemble.dependsOn jar
+// Create a new task called "run" that depends on the "jar" task and runs the compiled code
+task run(dependsOn: 'jar', type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'com.example.Main'
+}
+// Set the default tasks to be executed when no task is specified
+defaultTasks 'clean', 'assemble'

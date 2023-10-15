@@ -1,0 +1,65 @@
+// Develop section
+develop {
+    // Define configurations that are only used during development
+    sourceSets {
+        main {
+            java {
+                srcDir "src/main/java"
+        
+                // Add additional source directory for integration tests
+                srcDir "integration-test/java"
+        
+                // Add classpath entry for integration test dependencies
+                compileClasspath += configurations.integrationTestCompile
+        
+                // Define task that executes integration tests
+                task integrationTest(type: Test) {
+                    testClassesDir = sourceSets.integrationTest.output.classesDirs
+        
+                    // Add classpath entry for integration test dependencies
+                    classpath += configurations.integrationTestRuntime
+                }
+        
+                // Make sure integration tests are executed when running 'check' task
+                check.dependsOn integrationTest
+        
+                // Add code quality tasks
+                tasks.withType(Check) {
+                    // Define tasks for linting and code formatting
+                    checkstyle
+                    pmd
+                    spotbugs
+        
+                    // Exclude integration test sources from code quality tasks
+                    source = sourceSets.main.allJava
+                    exclude "integration-test/java/**"
+        
+                    // Make sure code quality tasks are executed when running 'check' task
+                    check.dependsOn this
+                }
+            }
+        }
+    }
+    
+    // Define tasks for creating and uploading code coverage report
+    task jacocoReport(type: JacocoReport) {
+        dependsOn("check")
+        group = "Reporting"
+        description = "Generates code coverage report using Jacoco"
+    
+        // Define report destination
+        reports {
+            xml.enabled = false
+            html.enabled = true
+            html.destination = "${buildDir}/reports/jacoco"
+        }
+    
+        // Define source files and class files for coverage report
+        sourceDirectories = files(sourceSets.main.allSource.srcDirs)
+        classDirectories = files(sourceSets.main.output.classesDirs)
+        executionData = fileTree("${buildDir}/jacoco/test.exec")
+    
+        // Exclude external code from coverage report
+        excludes = ['com/example/external/**','com/example/thirdparty/**']
+    }
+}

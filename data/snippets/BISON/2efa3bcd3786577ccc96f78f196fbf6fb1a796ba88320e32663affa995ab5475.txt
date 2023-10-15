@@ -1,0 +1,87 @@
+/* This is a complex code snippet in BISON, a programming language used for creating parser generators */
+
+/* Declare the token types */
+%token <num> NUMBER
+%token <id> IDENTIFIER
+
+/* Define the grammar rules */
+program     : declaration_list
+            | { print("Syntax error: missing declaration list"); }
+;
+
+declaration_list    : declaration_list declaration
+                                    | declaration
+;
+
+declaration : type_specifier ID ';' 
+            | type_specifier ID '=' NUM ';' 
+            | type_specifier ID '[' NUM ']' ';' 
+            | type_specifier ID '[' NUM ']' '=' '{' numlist '}' ';' 
+;
+
+type_specifier : int | float | char
+                | bool | string
+;
+
+numlist : numlist ',' NUM 
+        | NUM 
+;
+
+/* Define the token patterns */
+%token <sval> NUM   "[0-9]+"
+%token <sval> ID    "[a-zA-Z][a-zA-Z0-9]*"
+
+/* Define helper functions */
+int     parse_int(string num_str) {
+    int result = 0;
+    for (int i = 0; i < num_str.size(); i++) {
+        result = result * 10 + (int)(num_str[i] - '0');
+    }
+    return result;
+}
+
+float   parse_float(string num_str) {
+    float result = 0.0;
+    float decimal = 0.1;
+    int length = num_str.size();
+    bool is_decimal = false;
+    for (int i = 0; i < length; i++) {
+        if (num_str[i] == '.') {
+            is_decimal = true;
+            continue;
+        }
+        if (!is_decimal) {
+            result = result * 10 + (int)(num_str[i] - '0');
+        } else {
+            result += decimal * (float)(num_str[i] - '0');
+            decimal /= 10.0;
+        }
+    }
+    return result;
+}
+
+string parse_string(string str) {
+    string result = "";
+    int length = str.size();
+    for (int i = 1; i < length - 1; i++) {
+        result += str[i];
+    }
+    return result;
+}
+
+/* Start the parser */
+%%
+
+/* Handle unexpected tokens */
+{
+    printf("Unexpected token: %s\n", yytext);
+    YYERROR;
+}
+
+/* Define the lexer */
+[ \t\r\n\f]       /* skip whitespace */ 
+"/*"([^*]|"*"[^/])*"*/"   /* skip comments */ 
+
+\"[^"\n]*\"               {yylval.sval = parse_string(yytext); return STRING;}
+{NUM}                    {yylval.sval = parse_int(yytext); return NUMBER;}
+{ID}                     {yylval.sval = yytext; return IDENTIFIER;}

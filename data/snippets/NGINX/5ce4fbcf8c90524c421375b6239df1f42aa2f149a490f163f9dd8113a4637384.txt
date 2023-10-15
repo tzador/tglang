@@ -1,0 +1,65 @@
+## This code snippet sets up a server to handle website traffic
+
+upstream backend {
+    server 127.0.0.1:8000; # backend server
+}
+
+# Default server to handle unspecified server names
+server {
+    # Listen on port 80
+    listen 80 default_server;
+
+    # Root directory of website
+    root /var/www/html;
+
+    # Set index page
+    index index.html;
+
+    # Enable gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+    gzip_min_length 1000;
+    gzip_proxied any;
+    gzip_vary on;
+
+    # Handle website error pages
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html {
+        # Root directory for error pages
+        root /var/www/html;
+    }
+
+    # Set up route for backend server
+    location /api/ {
+        proxy_pass http://backend; # proxy to backend server
+        proxy_redirect off; # disable redirects
+    }
+
+    # Redirect all other requests to index.html
+    try_files $uri $uri/ /index.html;
+
+    # Enable caching
+    proxy_buffering on;
+    proxy_cache_valid 200 60m;
+    proxy_cache_valid 404 1m;
+    proxy_cache_bypass $http_pragma;
+    proxy_cache_revalidate on;
+    proxy_cache_use_stale error timeout invalid_header updating http_500 http_502 http_503 http_504;
+    add_header X-Proxy-Cache $upstream_cache_status;
+
+    # Enable rate limiting
+    limit_req_zone $binary_remote_addr zone=limit:10m rate=60r/m;
+
+    # Handle requests based on request method
+    location /upload {
+        # Only allow POST requests
+        if ($request_method != POST) {
+            return 405; # return error if method is not allowed
+        }
+        limit_req zone=limit burst=1000 nodelay; # rate limit for upload requests
+        proxy_pass http://backend; # proxy to backend server
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # set client IP address in request headers
+        proxy_set_header Host $http_host; # set the original host requested
+    }
+}

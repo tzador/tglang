@@ -1,0 +1,178 @@
+server {
+  #listen on port 80
+  listen 80;
+
+  #set server name
+  server_name example.com;
+
+  #redirect requests to www.example.com
+  return 301 https://www.example.com$request_uri;
+}
+
+server {
+  #listen on port 443
+  listen 443 ssl;
+
+  #set server name
+  server_name www.example.com;
+
+  #set SSL certificate and key
+  ssl_certificate /etc/ssl/certs/example.com.crt;
+  ssl_certificate_key /etc/ssl/private/example.com.key;
+
+  #set SSL protocols
+  ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+
+  #enable HTTP/2
+  http2 on;
+
+  #set default content type
+  default_type application/octet-stream;
+
+  #set server root directory
+  root /var/www/example;
+
+  location / {
+    #set index file
+    index index.html;
+  }
+
+  #set error pages
+  error_page 403 /errors/403.html;
+  error_page 404 /errors/404.html;
+  error_page 500 502 503 504 /errors/50x.html;
+
+  #restrict access to .htaccess file 
+  location ~ /\.ht {
+    deny all;
+  }
+
+  #protect against common exploits and file injections
+  #disable server tokens and version numbers
+  server_tokens off;
+  more_set_headers "Server: Custom Server";
+  add_header X-Content-Type-Options nosniff;
+  add_header X-XSS-Protection "1; mode=block";
+  add_header X-Frame-Options SAMEORIGIN;
+  add_header X-Robots-Tag none;
+  more_set_headers "Cache-Control: no-cache, no-store, must-revalidate, max-age=0";
+  more_set_headers "Pragma: no-cache";
+  more_set_headers "Expires: Wed, 11 Jan 1984 05:00:00 GMT";
+
+  #enable gzip compression
+  gzip on;
+  gzip_disable "msie6";
+  gzip_vary on;
+  gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss
+    text/javascript;
+
+  #enable server-side caching
+  open_file_cache max=100;
+  open_file_cache_errors off;
+  open_file_cache_min_uses 2;
+  open_file_cache_valid 15m;
+
+  #enable server-side file compression
+  gzip_static on;
+
+  #set file compression level
+  gzip_comp_level 9;
+
+  #set buffer size for file compression
+  gzip_buffers 16 8k;
+
+  #set minimum file size for compression (avoid small files)
+  gzip_min_length 100;
+
+  #enable server-side caching of frequently requested resources
+  location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+    expires 30d;
+
+    #enable caching for static resources
+    add_header Cache-Control "public";
+
+    #set cache key zone for static resources
+    add_header X-Whiskey-Cache-Key "$request_method$request_uri";
+
+    #cache static resources from cookie-less requests
+    #performs better when serving static assets in a separate subdomain or CDN
+    add_header Set-Cookie Whiskey-Cache-Key=$request_method$request_uri;
+    expires max;
+  }
+
+  #set up reverse proxy for backend server
+  location /api {
+    #set proxy pass to backend server
+    proxy_pass http://127.0.0.1:8000;
+
+    #set proxy headers
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Frame-Options SAMEORIGIN;
+    proxy_set_header X-Robots-Tag none;
+    proxy_set_header X-Whiskey-Raw-URI $request_uri;
+    proxy_set_header X-Whiskey-Cache-Key $request_method$request_uri;
+    proxy_set_header X-Whiskey-Server-IP $server_addr;
+    proxy_set_header X-Whiskey-Server-Port $server_port;
+
+    #turn off proxy buffering to avoid stale data
+    proxy_buffering off;
+
+    #set proxy cache key zone for backend requests
+    add_header X-Whiskey-Cache-Key "$request_method$request_uri";
+
+    #enable caching for backend responses
+    proxy_cache my_cache;
+    proxy_cache_key "$scheme$request_method$host$request_uri";
+  }
+
+  #enable SSL session caching to improve performance
+  ssl_session_cache shared:SSL:10m;
+  ssl_session_timeout 10m;
+
+  #set SSL ciphers
+  ssl_ciphers EECDH+CHACHA20:EECDH+AES128:RSA+AES128:EECDH+AES256:RSA+AES256:EECDH+3DES:RSA+3DES:!MD5;
+
+  #enable OCSP stapling for faster and more reliable SSL verification
+  ssl_stapling on;
+  ssl_stapling_verify on;
+  resolver 8.8.8.8 8.8.4.4 valid=60m;
+  resolver_timeout 2s;
+
+  #set HSTS header for enhanced security
+  add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+  #restrict access to certain file types
+  location ~* \.(log|htaccess|htpasswd)$ {
+    deny all;
+  }
+
+  #enable server-side caching of frequently accessed files
+  location ~* \.(pdf|doc|zip|rar)$ {
+    expires 30d;
+
+    #set caching for downloads
+    add_header Cache-Control "public";
+
+    #set cache key zone for downloads
+    add_header X-Whiskey-Cache-Key "$request_method$request_uri";
+
+    #cache files from cookie-less requests
+    #performs better when serving downloads in a separate subdomain or CDN
+    add_header Set-Cookie Whiskey-Cache-Key=$request_method$request_uri;
+    expires max;
+  }
+
+  #set up basic authentication for certain URLs
+  location ~ ^/protected/ {
+    auth_basic "Restricted Area";
+    auth_basic_user_file /etc/nginx/.htpasswd;
+  }
+
+  #set up rate limiting to prevent excessive requests
+  #maximum of 10 requests per second, with burst limit of 20 requests
+  limit_req zone=rate_limit burst=20 nodelay;
+
+  #set up request size limit
+  client_max_body_size 10M;
+}

@@ -1,0 +1,238 @@
+REPORT ZDEMO.
+
+*" This program demonstrates various features of the ABAP programming language
+
+*" Data Declarations
+DATA: lv_counter TYPE i,       "Counter variable
+      lv_str     TYPE string,  "String variable to hold text
+      lv_tab     TYPE STANDARD TABLE OF i,  "Table variable
+
+*" Select statement to get data from a database table
+SELECT * FROM dbo_customers INTO TABLE @DATA(lt_customers).
+
+*" Looping through the table to perform operations
+LOOP AT lt_customers INTO DATA(ls_customer).
+
+  *" Clear the string variable
+  lv_str = ''.
+
+  *" Concatenating strings and variables
+  lv_str = 'Customer ' && ls_customer-customer_name && ' has ID ' && ls_customer-customer_id && '.'.
+
+  *" Writing the string to the output
+  WRITE: / lv_str.
+
+  *" Checking if the customer is active and incrementing the counter
+  IF ls_customer-is_active = abap_true.
+    ADD 1 TO lv_counter.
+  ENDIF.
+
+ENDLOOP.
+
+*" Writing the final count to the output
+WRITE: / 'There are ' && lv_counter && ' active customers in the database.'.
+
+*" Sorting the table in descending order
+SORT lt_customers BY customer_id DESCENDING.
+
+*" Looping through the sorted table and writing the data to the output
+LOOP AT lt_customers INTO DATA(ls_customer).
+  WRITE: / 'Customer ID: ' && ls_customer-customer_id.
+  WRITE: / 'Customer Name: ' && ls_customer-customer_name.
+  WRITE: / 'Address: ' && ls_customer-address.
+  WRITE: / 'City: ' && ls_customer-city.
+  WRITE: / 'State: ' && ls_customer-state.
+  WRITE: / 'Country: ' && ls_customer-country.
+  WRITE: / 'Active: ' && ls_customer-is_active.
+  SKIP.
+ENDLOOP.
+
+*" Creating a new entry in the table
+DATA(ls_new_customer) = VALUE dbo_customers(
+                           customer_id = '1234'
+                           customer_name = 'John Doe'
+                           address = '123 Main Street'
+                           city = 'New York'
+                           state = 'NY'
+                           country = 'USA'
+                           is_active = abap_true ).
+
+*" Inserting the new entry into the table and committing the changes
+INSERT dbo_customers FROM ls_new_customer.
+COMMIT WORK.
+
+*" Deleting a specific entry from the table
+DELETE dbo_customers WHERE customer_id = '1234'.
+
+*" Raising an exception if the customer is not found
+IF sy-subrc = 4.
+  MESSAGE e001(00) WITH 'Customer not found.'.
+ENDIF.
+
+*" Selecting a single field into a variable
+SELECT SINGLE address FROM dbo_customers INTO @DATA(lv_address) WHERE customer_id = '5678'.
+
+*" Writing the address to the output
+WRITE: / 'The address for customer 5678 is ' && lv_address && '.'.
+
+*" Declaring a class and its attributes
+CLASS lcl_customer DEFINITION.
+  PUBLIC SECTION.
+    DATA: customer_id TYPE string,  "Customer ID
+          customer_name TYPE string,  "Customer Name
+          address      TYPE string,  "Address
+          city         TYPE string,  "City
+          state        TYPE string,  "State
+          country      TYPE string.  "Country
+
+    METHODS: constructor IMPORTING iv_customer_id TYPE string "Constructor method to initialize the customer ID
+                        iv_customer_name TYPE string "and customer name.
+
+    METHODS: display_details. "Method to display the customer details
+  PRIVATE SECTION.
+    DATA: lv_str TYPE string. "Local variable for string concatenation
+ENDCLASS.
+
+*" Implementing the methods in the class
+CLASS lcl_customer IMPLEMENTATION.
+  METHOD constructor.
+    customer_id = iv_customer_id.
+    customer_name = iv_customer_name.
+  ENDMETHOD.
+
+  METHOD display_details.
+    lv_str = 'Customer ' && customer_name && ' has ID ' && customer_id && '.'.
+    WRITE: / lv_str.
+    SKIP.
+    WRITE: / 'Address: ' && address.
+    WRITE: / 'City: ' && city.
+    WRITE: / 'State: ' && state.
+    WRITE: / 'Country: ' && country.
+  ENDMETHOD.
+ENDCLASS.
+
+*" Creating an object of the class
+DATA(lo_customer) = NEW lcl_customer( iv_customer_id = '9012' iv_customer_name = 'Jane Smith' ).
+
+*" Calling the method to display the customer details
+lo_customer->display_details( ).
+
+*" Declaring and implementing an interface
+INTERFACE lif_user.
+  METHODS: get_name RETURNING VALUE(r_name) TYPE string.
+  METHODS: get_email RETURNING VALUE(r_email) TYPE string.
+  METHODS: get_phone RETURNING VALUE(r_phone) TYPE string.
+ENDINTERFACE.
+
+CLASS lcl_customer_final DEFINITION.
+  PUBLIC SECTION.
+    INTERFACES: lif_user.
+    METHODS: constructor IMPORTING iv_customer_id TYPE string "Constructor method to initialize the customer ID
+                        iv_customer_name TYPE string "and customer name.
+  PRIVATE SECTION.
+    DATA: email TYPE string,  "Email address
+          phone TYPE string.  "Phone number
+ENDCLASS.
+
+CLASS lcl_customer_final IMPLEMENTATION.
+  METHOD constructor.
+    super->constructor( iv_customer_id = iv_customer_id iv_customer_name = iv_customer_name ).
+    email = 'jane.smith@example.com'.
+    phone = '+1 (123) 456-7890'.
+  ENDMETHOD.
+
+  METHOD lif_user~get_name.
+    r_name = customer_name.
+  ENDMETHOD.
+
+  METHOD lif_user~get_email.
+    r_email = email.
+  ENDMETHOD.
+
+  METHOD lif_user~get_phone.
+    r_phone = phone.
+  ENDMETHOD.
+ENDCLASS.
+
+*" Creating objects of the class and interface
+DATA(lo_customer2) = NEW lcl_customer_final( iv_customer_id = '3456' iv_customer_name = 'Jake Johnson' ).
+DATA(lo_user) = CAST lif_user( lo_customer2 ).
+
+*" Calling the methods from the interface to display the customer details
+WRITE: / lo_user->get_name( ).
+WRITE: / lo_user->get_email( ).
+WRITE: / lo_user->get_phone( ).
+
+*" Creating a structure type
+TYPES: BEGIN OF ty_customer,
+         customer_id TYPE string,
+         customer_name TYPE string,
+         address TYPE string,
+         city TYPE string,
+         state TYPE string,
+         country TYPE string,
+         is_active TYPE abap_bool,
+       END OF ty_customer.
+
+*" Creating a table by using the structure
+DATA: lt_customers2 TYPE TABLE OF ty_customer.
+
+*" Adding data to the table
+APPEND VALUE ty_customer( customer_id = '4567' customer_name = 'Sarah Brown' address = '456 Main Street' city = 'Los Angeles' state = 'CA' country = 'USA' is_active = abap_false ) TO lt_customers2.
+APPEND VALUE ty_customer( customer_id = '6789' customer_name = 'Mike Johnson' address = '789 Main Street' city = 'Miami' state = 'FL' country = 'USA' is_active = abap_true ) TO lt_customers2.
+
+*" Looping through the table and displaying the data
+LOOP AT lt_customers2 INTO DATA(ls_customer2).
+  WRITE: / 'Customer ID: ' && ls_customer2-customer_id.
+  WRITE: / 'Customer Name: ' && ls_customer2-customer_name.
+  WRITE: / 'Address: ' && ls_customer2-address.
+  WRITE: / 'City: ' && ls_customer2-city.
+  WRITE: / 'State: ' && ls_customer2-state.
+  WRITE: / 'Country: ' && ls_customer2-country.
+  WRITE: / 'Active: ' && ls_customer2-is_active.
+  SKIP.
+ENDLOOP.
+
+*" Arithmetic operations
+DATA(lv_num1) = 10.
+DATA(lv_num2) = 5.
+DATA(lv_result1) = lv_num1 + lv_num2.     "Addition
+DATA(lv_result2) = lv_num1 - lv_num2.      "Subtraction
+DATA(lv_result3) = lv_num1 * lv_num2.      "Multiplication
+DATA(lv_result4) = lv_num1 / lv_num2.      "Division
+DATA(lv_result5) = lv_num1 ** lv_num2.     "Exponentiation
+DATA(lv_result6) = MOD( lv_num1, lv_num2 ). "Modulo division
+
+*" Logical operations
+DATA(lv_bool1) = abap_true.
+DATA(lv_bool2) = abap_false.
+DATA(lv_result7) = lv_bool1 AND lv_bool2.   "Logical AND
+DATA(lv_result8) = lv_bool1 OR lv_bool2.    "Logical OR
+DATA(lv_result9) = NOT lv_bool1.            "Logical NOT
+
+*" Comparison operations
+DATA(lv_str1) = 'ABAP'.
+DATA(lv_str2) = 'abap'.
+DATA(lv_result10) = lv_str1 EQ lv_str2.     "Equal
+DATA(lv_result11) = lv_str1 NE lv_str2.     "Not equal
+DATA(lv_result12) = lv_str1 GT lv_str2.     "Greater than
+DATA(lv_result13) = lv_str1 GE lv_str2.     "Greater than or equal
+DATA(lv_result14) = lv_str1 LT lv_str2.     "Less than
+DATA(lv_result15) = lv_str1 LE lv_str2.     "Less than or equal
+
+*" String operations
+DATA(lv_str3) = 'Welcome'.
+DATA(lv_str4) = ' to ABAP!'.
+DATA(lv_str5) = lv_str3 && lv_str4.         "String concatenation
+DATA(lv_result16) = STRLEN( lv_str5 ).      "String length
+DATA(lv_result17) = SUBSTRING( lv_str5 3 5 )."Substring
+DATA(lv_result18) = COND #( WHEN lv_bool1 THEN 'Yes' ELSE 'No' ). "Conditional operator
+
+*" Error handling
+TRY.
+  DATA(lv_result19) = lv_num1 / 0. "Dividing by zero to generate an error
+  CATCH cx_sy_arithmetic_overflow.
+    WRITE: / 'Arithmetic overflow occurred.'.
+  CATCH cx_sy_conversion_no_number.
+    WRITE: / 'Invalid division operation.'.
+ENDTRY.

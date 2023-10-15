@@ -1,0 +1,121 @@
+http {
+    # set the path where NGINX will look for configuration files
+  include /etc/nginx/conf.d/*.conf;
+
+  # set the default server configuration
+  server {
+    # listen on port 80
+    listen 80;
+    # set the server name
+    server_name mydomain.com;
+
+    # define the default location
+    location / {
+      # set the root directory for this location
+      root /var/www/mydomain.com;
+      # set index file for this location
+      index index.html;
+    }
+  }
+
+  # configure virtual server for subdomain
+  server {
+    # listen on port 80 for subdomain
+    listen 80;
+    # set the subdomain server name
+    server_name subdomain.mydomain.com;
+
+    # define the location for subdomain
+    location / {
+      # set the root directory for this subdomain
+      root /var/www/subdomain.mydomain.com;
+      # set index file for this subdomain location
+      index index.html;
+    }
+  }
+}
+
+Events {
+    # configure the maximum number of connections allowed
+    worker_connections 1024;
+}
+
+http {
+    # enable gzip compression for HTTP responses
+    gzip on;
+    # configure the compression level
+    gzip_comp_level 5;
+    # set the types of files to compress
+    gzip_types text/plain text/css application/json;
+    # enable gzip for all HTTP methods
+    gzip_http_version 1.1;
+    # configure the minimum length of a response before compression is used
+    gzip_min_length 1000;
+    # set the buffer size for gzip compression
+    gzip_buffers 16 8k;
+    # enable gzip for HTTPS responses
+    gzip_proxied any;
+    # configure the types of responses to exclude from compression
+    gzip_disable "MSIE [1-6]\.";
+
+    # configure caching for static assets
+    # set the cache control header
+    expires max;
+    # set the maximum amount of time to keep cached assets
+    proxy_cache_valid 200 60m;
+    # ignore requests that include authorization headers
+    proxy_cache_bypass $http_pragma;
+    proxy_cache_bypass $http_authorization;
+}
+
+server {
+    # listen on port 443 for HTTPS requests
+    listen 443 ssl;
+    # set the server name
+    server_name mydomain.com;
+
+    # configure SSL certificate
+    ssl_certificate /etc/nginx/ssl/mydomain.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/mydomain.com.key;
+
+    # configure security headers
+    add_header Strict-Transport-Security max-age=31536000;
+    add_header X-Frame-Options SAMEORIGIN;
+    add_header X-Content-Type-Options nosniff;
+
+    # redirect HTTP requests to HTTPS
+    if ($scheme != "https") {
+        return 301 https://$host$request_uri;
+    }
+
+    # define the default location
+    location / {
+      # set the root directory for this location
+      root /var/www/mydomain.com;
+      # set index file for this location
+      index index.html;
+    }
+  }
+
+  # configure load balancing for web servers
+  upstream mydomain_servers {
+    # set the available web server nodes
+    server 123.456.789.1;
+    server 123.456.789.2;
+    server 123.456.789.3;
+  }
+
+  server {
+    # listen on port 80
+    listen 80;
+    # set the server name
+    server_name mydomain.com;
+    # enable load balancing for this server block
+    location / {
+      proxy_pass http://mydomain_servers;
+      # set the client request timeout
+      proxy_read_timeout 300;
+      # enable load balancing for HTTP connections
+      proxy_set_header Connection "";
+    }
+  }

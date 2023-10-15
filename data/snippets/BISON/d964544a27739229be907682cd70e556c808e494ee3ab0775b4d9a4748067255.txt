@@ -1,0 +1,176 @@
+%code requires {
+//declaring variables used in the parser
+int num = 0;
+string name = "";
+}
+
+%%
+
+statement: //non-terminal
+	| assignment
+	| print
+	| input
+	| loop
+;
+
+assignment:
+	/* non-terminal for assigning a value to a variable */
+	ID '=' expression {
+	//assigning the parsed expression value to the variable
+	num = $3;
+	}
+	| ID '=' STRING {
+	//assigning the parsed string value to the variable
+	name = $3;
+	}
+;
+
+print:
+	/* non-terminal for printing variables and values */
+	PRINT ID {
+	//printing the value of the parsed variable
+	printf("%d", $2);
+	}
+	| PRINT expression {
+	//printing the parsed expression value
+	printf("%d", $2);
+	}
+	| PRINT STRING {
+	//printing the parsed string value
+	printf($2);
+	}
+;
+
+input:
+	/* non-terminal for getting user input and assigning it to a variable */
+	INPUT ID {
+	//getting user input and assigning it to the variable
+	scanf("%d", &num);
+	}
+;
+
+loop:
+	/* non-terminal for looping a set of statements based on a condition */
+	LOOP '(' i=NUMBER ')' '{' {
+	//setting the initial value of the loop variable
+	num = $3;
+	} statement '}'{
+	//checking the loop condition
+	if(num > 0){
+		//reducing the loop variable by 1 for each iteration
+		num = num - 1;
+		//recursively calling the statement within the loop
+		statement;
+	}	
+	}
+;
+
+%%
+
+//function to evaluate an expression and return the result
+int expression(void) {
+	//parsing and storing the left operand
+	left_operand = $1; 
+	//parsing and storing the operator
+	operator = $2; 
+	//parsing and storing the right operand
+	right_operand = $3;
+	//evaluating the expression based on the operator
+	if (operator == '+') {
+		//returning the result of the addition
+		return left_operand + right_operand;
+	}
+	else if (operator == '-') {
+		//returning the result of the subtraction
+		return left_operand - right_operand;
+	}
+	else if (operator == '*') {
+		//returning the result of the multiplication
+		return left_operand * right_operand;
+	}
+	else if (operator == '/') {
+		//returning the result of the division
+		return left_operand / right_operand;
+	}
+}
+
+//function to handle syntax errors in the input
+void yyerror(char *s) {
+	//printing the error message
+	fprintf (stderr, "%s\n", s);
+}
+
+//main function
+int main(void) {
+	//setting up the parser
+	yyparse();
+	//returning 0 if the parsing is successful
+	return 0;
+}
+
+%%
+
+//setting up the lexer
+%{
+//including necessary libraries
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
+
+//defining tokens
+#define NUMBER 0
+#define ID 1
+#define STRING 2
+#define IF 3
+#define ENDIF 4
+#define THEN 5
+#define PRINT 6
+#define INPUT 7
+#define LOOP 8
+
+//setting up the parser
+int yylex(void);
+int yyparse(void);
+void yyerror(char *);
+
+//declaring necessary variables
+int left_operand, right_operand;
+char operator;
+FILE *input; //input file
+int token; //token to be returned
+%}
+
+%option noyywrap //not wrapping the input file
+%option yylineno //counting lines
+%option nounput //not using uninitialized variables
+
+DIGIT [0-9]+ //regular expression for a single digit
+STRING_LITERAL [\"].+[\"] //regular expression for a string literal
+IDEN [A-Za-z]([A-Za-z]|[0-9])* //regular expression for an identifier
+
+%%
+
+{DIGIT} return NUMBER; //returning a token for a digit
+{STRING_LITERAL} return STRING; //returning a token for a string literal
+{IDEN} {id =string(ld "buffer", yylineno); return ID;}; //returning a token for an identifier
+"+" return '+';
+"-" return '-';
+"*" return '*';
+"/" return '/';
+"=" return '=';
+"(" return '(';
+")" return ')';
+"{" return '{';
+"}" return '}';
+"\n" yycolumn++; //incrementing column for each new line
+[ \t] ; //ignoring whitespaces
+. yyerror("Invalid character"); //error message for invalid characters
+
+%%
+
+//function to get the next token
+int yylex(void) {
+	//returning the next token from the input file
+	return yylex();
+}

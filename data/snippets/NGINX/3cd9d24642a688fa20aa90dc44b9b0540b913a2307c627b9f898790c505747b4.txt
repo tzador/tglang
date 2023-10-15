@@ -1,0 +1,43 @@
+### Defines an upstream group named "backend"
+upstream backend {
+	# Defines multiple servers in the group along with weight and other parameters
+	server backend1.example.com weight=5;
+	server backend2.example.com:8080 max_fails=3 fail_timeout=30s;
+	server unix:/tmp/backend3;
+}
+
+### Main server configuration
+server {
+	listen 80;
+	server_name example.com;
+
+	# Redirects all traffic to HTTPS
+	return 301 https://$server_name$request_uri;
+}
+
+### HTTPS server configuration
+server {
+	# Listen on port 443
+	listen 443 ssl;
+
+	# Specifies the domain name and certificate file
+	server_name example.com;
+	ssl_certificate /etc/nginx/ssl/example.crt;
+	ssl_certificate_key /etc/nginx/ssl/example.key;
+
+	# Enables HTTP/2 protocol
+	http2_push_preload on;
+
+	# Specifies the location of static files
+	location /static {
+		alias /var/www/example/static;
+	}
+
+	# Proxy requests to the "backend" upstream group
+	location / {
+		proxy_pass http://backend;
+	}
+}
+
+### Limiting file uploads to 10MB
+client_max_body_size 10M;

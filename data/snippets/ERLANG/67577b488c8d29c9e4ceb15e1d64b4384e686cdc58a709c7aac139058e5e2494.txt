@@ -1,0 +1,52 @@
+-module(concurrent).
+-compile(export_all).
+%% Defines a module named "concurrent" and makes all its functions available for export
+
+--record(person,
+ {
+     name = "",
+     age = 0,
+     job = ""
+ }).
+%% Defines a record named "person" with 3 fields: name, age, and job
+
+start() ->
+    ParentPid = self(),
+    %% Gets current process ID
+    spawn(fun () -> 
+        Pid = self(),
+        io:fwrite("~p: Starting a new process\n", [Pid]),
+        %% Prints the current process ID 
+        loop(ParentPid)
+    end).
+%% Defines a start function that spawns a new process and starts a loop
+
+loop(ParentPid) ->
+    receive
+        {Name, Age, Job} ->
+            %% Gets a message with person details
+            io:fwrite("Creating a new person: ~s\n", [Name]),
+            Person = #person{name=Name, age=Age, job=Job},
+            ParentPid ! Person,
+            %% Sends the person details back to the parent process
+            loop(ParentPid);
+        stop ->
+            io:fwrite("Stopping the process\n", []),
+            ok
+    end.
+%% Defines a loop function that receives messages and creates a new person or stops the process
+
+parent_process() ->
+    Pid = spawn(fun () ->
+        spawn(concurrent, start, [])
+    end),
+    %% Spawns a new process that starts the concurrent module's start function
+    receive 
+        Person ->
+            %% Gets the person details from the spawned process
+            io:fwrite("Person details: ~p\n", [Person]),
+            Pid ! stop
+        after 3000 ->
+            io:fwrite("Timed out\n", [])
+    end. 
+%% Defines a parent process that spawns a new process and receives the person details or times out after 3 seconds.

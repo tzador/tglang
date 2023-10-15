@@ -1,0 +1,56 @@
+PRO cluster_data, data
+; This procedure takes in a 2D array of data and clusters it into groups using K-means algorithm
+; Input:
+;   - data: 2D array of data to be clustered, columns represent features and rows represent observations
+; Output:
+;   - clusters: 2D array of clustered data, columns represent features and rows represent clustered observations
+;   - indices: Index vector, with the same number of elements as data, holding cluster assignments for each observation
+;   - centers: 2D array of cluster centers, columns represent features and rows represent clusters
+
+; Initialize variables
+n_obs = n_elements(data(*, 1))  ; Number of observations
+n_feats = n_elements(data(1, *))  ; Number of features
+n_clusters = 3  ; Number of desired clusters
+max_iter = 10  ; Maximum number of iterations for K-means algorithm
+
+; Initialize random seed
+seed = RANDOMU(seed=0)
+
+; Select random observations as initial centers
+random_indices = (n_obs-1) * RANDOMU(seed=seed)
+initial_centers = data[random_indices, *]
+new_centers = fltarr(n_clusters, n_feats)
+
+; Initialize variables for cluster assignments
+clusters = fltarr(n_obs, n_feats)
+indices = fix(fltarr(n_obs, 1))
+old_indices = fix(fltarr(n_obs, 1))
+
+; Loop through K-means algorithm until convergence or maximum iterations reached
+for iter = 0, max_iter - 1 do begin
+    ; Assign each observation to the cluster of the nearest center
+    for i = 0, n_obs - 1 do begin
+        ; Calculate distance between current observation and each center
+        distances = euclidean_dist(data[i, *], new_centers, /SQRT)
+
+        ; Assign observation to nearest center
+        nearest_center = where(distances eq min(distances), n_centers)[0]
+        clusters[i, *] = data[i, *]
+        indices[i] = nearest_center
+    endfor
+
+    ; Update cluster centers
+    for j = 0, n_clusters - 1 do begin
+        ; Calculate new center as mean of observations assigned to cluster
+        new_centers[j, *] = TOTAL(data[where(indices eq j)[0], *]) / n_elements(where(indices eq j)[0])
+    endfor
+
+    ; Check for convergence
+    if indices eq old_indices then break  ; Stop iteration if cluster assignments do not change
+    old_indices = indices  ; Update old indices
+endfor
+
+; Return clusters, indices, and centers
+return, clusters, indices, new_centers
+
+END

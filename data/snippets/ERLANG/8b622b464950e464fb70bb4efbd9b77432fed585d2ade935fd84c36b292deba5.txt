@@ -1,0 +1,75 @@
+-module(dining_philosophers).
+-export([start/0, philosopher/2]).
+
+start() ->
+    Forks = init_forks(),
+    spawn_link(fun() -> philosopher(1, Forks) end),
+    spawn_link(fun() -> philosopher(2, Forks) end),
+    spawn_link(fun() -> philosopher(3, Forks) end),
+    spawn_link(fun() -> philosopher(4, Forks) end),
+    spawn_link(fun() -> philosopher(5, Forks) end).
+
+philosopher(Num, Forks) ->
+    receive
+        {want, Fork1, Fork2} ->
+            %% Pick up first fork
+            Fork1 ! {pick_up, Num},
+
+            %% Pick up second fork
+            Fork2 ! {pick_up, Num},
+
+            io:format("Philosopher ~w is eating...~n", [Num]),
+
+            %% Put down first fork
+            Fork1 ! {put_down, Num},
+
+            %% Put down second fork
+            Fork2 ! {put_down, Num},
+
+            %% Continue thinking
+            io:format("Philosopher ~w is thinking...~n", [Num]),
+            philosopher(Num, Forks);
+        
+        {wait, Fork} ->
+            %% Wait for fork to become available
+            receive
+                {available, Fork} ->
+                    philosopher(Num, Forks)
+            end;
+            
+        {die, Num} ->
+            io:format("Philosopher ~w has died. RIP.~n", [Num]);
+        
+        _ ->
+            io:format("Invalid message received.~n")
+    end.
+
+init_forks() ->
+    %% Create five forks
+    Fork1 = spawn_link(fun() -> fork(1) end),
+    Fork2 = spawn_link(fun() -> fork(2) end),
+    Fork3 = spawn_link(fun() -> fork(3) end),
+    Fork4 = spawn_link(fun() -> fork(4) end),
+    Fork5 = spawn_link(fun() -> fork(5) end),
+
+    %% Return list of forks
+    [Fork1, Fork2, Fork3, Fork4, Fork5].
+
+fork(Num) -> 
+    %% Wait for philosopher to request fork
+    receive
+        {pick_up, PhilNum} ->
+            io:format("Philosopher ~w has picked up fork ~w.~n", [PhilNum, Num]),
+            
+            %% Wait for philosopher to put down fork
+            receive
+                {put_down, PhilNum} ->
+                    io:format("Philosopher ~w has put down fork ~w.~n", [PhilNum, Num]),
+                    
+                    %% Fork is now available
+                    fork(Num)
+            end;
+        
+        _ ->
+            io:format("Invalid message received.~n")
+    end.

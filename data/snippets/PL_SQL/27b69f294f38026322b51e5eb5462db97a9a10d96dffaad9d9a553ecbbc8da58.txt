@@ -1,0 +1,27 @@
+CREATE OR REPLACE
+PROCEDURE update_employee_salary (emp_id INTEGER, new_salary INTEGER) AS
+    v_old_salary INTEGER;
+BEGIN
+    -- Retrieve the current salary of the employee
+    SELECT salary INTO v_old_salary FROM employees WHERE employee_id = emp_id;
+
+    -- Update the salary field
+    UPDATE employees SET salary = new_salary WHERE employee_id = emp_id;
+
+    -- Audit trail for salary change
+    INSERT INTO audit_logs (employee_id, action, timestamp)
+    VALUES (emp_id, 'Update Salary', SYSDATE);
+    
+    -- Raise an error if new salary is less than previous salary
+    IF new_salary < v_old_salary THEN
+        RAISE_APPLICATION_ERROR(-20001, 'New salary cannot be less than previous salary.');
+    END IF;
+    
+    COMMIT;
+    
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Rollback any changes and raise an error if an exception occurs
+        ROLLBACK;
+        RAISE;
+END;

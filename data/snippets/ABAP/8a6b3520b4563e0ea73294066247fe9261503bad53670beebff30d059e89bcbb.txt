@@ -1,0 +1,87 @@
+REPORT Z_TEST.
+
+*This is a report to check the validity of employee data.
+
+TABLES: PA0001, PA0002, PA0007.
+TABLES: VBRP, BSEG, LFA1, MARA.
+
+DATA: BEGIN OF it_employee OCCURS 0,
+  pernr LIKE PA0001-pernr,
+  endda LIKE PA0001-endda,
+END OF it_employee.
+
+DATA: lv_count TYPE i.
+
+CONSTANTS: lc_max_days TYPE PA0007-days1 VALUE 30.
+
+UPDATE it_employee.
+SELECT pernr endda
+FROM PA0001
+INTO TABLE it_employee
+WHERE endda = sy-datum OR endda = pa0007-begda.
+
+lv_count = lines( it_employee ).
+
+LOOP AT it_employee ASSIGNING FIELD-SYMBOL(<employee>).
+  SELECT SINGLE NAME1
+  FROM PA0002
+  INTO <employee>-name1
+  WHERE pernr = <employee>-pernr.
+ENDLOOP.
+
+CHECK lv_count GE 1.
+WRITE: 'There are',lv_count,'employees with an end date of today or before'.
+
+DATA(SUBRC) = 0.
+WHILE ( SUBRC = 0 ).
+  CLEAR SUBRC.
+  READ TABLE it_employee INDEX lv_count ASSIGNING FIELD-SYMBOL(<employee>).
+  CHECK sy-subrc = 0.
+  SELECT SINGLE endda
+  FROM pa0007
+  INTO <employee>-endda
+  WHERE pernr = <employee>-pernr
+  AND endda = PA0007-ENDDA
+  AND begda = PA0007-BEGDA.
+  IF sy-subrc = 0.
+    SUBRC = 1.
+  ENDIF.
+ENDWHILE.
+
+CLEAR SUBRC.
+WHILE ( SUBRC = 0 ).
+  CLEAR SUBRC.
+  READ TABLE it_employee INDEX lv_count ASSIGNING FIELD-SYMBOL(<employee>).
+  CHECK sy-subrc = 0.
+  SELECT SINGLE NAME1
+  FROM MARA
+  INTO <employee>-mara
+  WHERE matnr = <employee>-matnr.
+  IF sy-subrc = 0.
+    SELECT SINGLE NAME1
+    FROM LFA1
+    INTO <employee>-lfa1
+    WHERE name1 = MARA-NAME1.
+  ENDIF.
+  IF sy-subrc = 0.
+    DATA BEGIN OF ls_message.
+      INCLUDE STRUCTURE SOTRGTXT.
+    DATA END OF ls_message.
+
+    ls_message-key = 'Z_TEST'.
+    ls_message-line = 'The employee',<employee>-pernr,'has a matching vendor',<employee>-lfa1,'for the material',<employee>-mara.
+    CALL FUNCTION 'REUSE_MESSAGE_INFO'
+      EXPORTING
+        message = ls_message
+      EXCEPTIONS
+        OTHERS = 4.
+    MODIFY it_employee.
+  ENDIF.
+ENDWHILE.
+
+* Output the updated employee data
+LOOP AT it_employee ASSIGNING FIELD-SYMBOL(<employee>).
+  WRITE: / <employee>-pernr,
+    <employee>-name1,
+    <employee>-endda.
+ENDLOOP.

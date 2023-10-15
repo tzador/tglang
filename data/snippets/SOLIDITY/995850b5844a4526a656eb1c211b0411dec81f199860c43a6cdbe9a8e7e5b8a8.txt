@@ -1,0 +1,55 @@
+pragma solidity ^0.8.0; // version pragma to state the compiler version
+
+// interface for the token contract
+interface IERC20 {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    event Transfer(address indexed from, address indexed to, uint256 value);
+}
+
+// contract to hold an ERC20 token
+contract MyToken is IERC20 {
+    string public constant name = "My Token"; // define the name of the token
+    string public constant symbol = "MTK"; // define the symbol of the token
+    uint8 public constant decimals = 18; // define the number of decimals the token uses
+    uint256 public override totalSupply; // total supply of the token
+    mapping(address => uint256) public override balanceOf; // mapping to track the balance of each address
+    mapping(address => mapping(address => uint256)) public override allowance; // mapping to track allowed amounts for transfers
+
+    constructor(uint256 initialSupply) {
+        totalSupply = initialSupply; // set initial supply to the total supply
+        balanceOf[msg.sender] = initialSupply; // set the initial balance of the contract creator to the initial supply
+    }
+
+    // function to transfer tokens to a given address
+    function transfer(address recipient, uint256 amount) external override returns (bool) {
+        require(amount <= balanceOf[msg.sender], "Insufficient balance"); // check if sender has enough tokens to transfer
+        balanceOf[msg.sender] -= amount; // subtract amount from sender's balance
+        balanceOf[recipient] += amount; // add amount to recipient's balance
+        emit Transfer(msg.sender, recipient, amount); // emit transfer event
+        return true; // indicate successful transfer
+    }
+
+    // function to approve an address to spend a certain amount of tokens on sender's behalf
+    function approve(address spender, uint256 amount) external override returns (bool) {
+        allowance[msg.sender][spender] = amount; // set the allowed amount for the spender
+        emit Approval(msg.sender, spender, amount); // emit approval event
+        return true; // indicate successful approval
+    }
+
+    // function to transfer tokens from a given address to another address (if allowed)
+    function transferFrom(address sender, address recipient, uint256 amount) external override returns (bool) {
+        require(amount <= balanceOf[sender], "Insufficient balance"); // check if sender has enough tokens to transfer
+        require(amount <= allowance[sender][msg.sender], "Not approved"); // check if amount is within allowed limit
+        balanceOf[sender] -= amount; // subtract amount from sender's balance
+        balanceOf[recipient] += amount; // add amount to recipient's balance
+        allowance[sender][msg.sender] -= amount; // subtract amount from sender's allowed limit
+        emit Transfer(sender, recipient, amount); // emit transfer event
+        return true; // indicate successful transfer
+    }
+}

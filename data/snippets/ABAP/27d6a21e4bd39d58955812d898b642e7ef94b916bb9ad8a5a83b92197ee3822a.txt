@@ -1,0 +1,55 @@
+*&---------------------------------------------------------------------*
+*& Report ZSAMPLE_REPORT
+*&---------------------------------------------------------------------*
+*& This report displays sales data for a specific date range
+*&---------------------------------------------------------------------*
+REPORT ZSAMPLE_REPORT.
+
+* Selects data from sales table
+SELECT * FROM ZSALES_TABLE
+  INTO CORRESPONDING FIELDS OF TABLE @DATA(lt_sales_data)
+  WHERE sales_date BETWEEN @DATE_RANGE_START AND @DATE_RANGE_END.
+
+* Checks if any data was retrieved
+IF lines( lt_sales_data ) > 0.
+
+* Sorts data by sales date
+  SORT lt_sales_data BY sales_date ASCENDING.
+
+* Formats data for display
+  DO lines( lt_sales_data ) TIMES.
+    DATA(ls_sales_data) = lt_sales_data[ sy-tabix ].
+    ls_sales_data-sales_amount = ls_sales_data-sales_amount / 100.
+    MODIFY lt_sales_data FROM ls_sales_data INDEX sy-tabix TRANSPORTING sales_amount.
+  ENDDO.
+
+* Displays data in ALV grid
+  cl_salv_table=>factory(
+     IMPORTING
+       r_salv_table = DATA(lr_salv_table)
+     CHANGING
+       t_table      = lt_sales_data ).
+
+  lr_salv_table->display( ).
+
+* Output data to Excel
+  DATA(li_field_catalog) = lr_salv_table->get_columns( ).
+  DATA(lr_data_print) = NEW cl_salv_bs_excel(
+                            EXPORTING
+                              t_fieldcat = li_field_catalog ).
+  lr_data_print->if_salv_bs_excel~add_data(
+    EXPORTING
+      it_data = lt_sales_data ).
+  CALL FUNCTION 'GUI_DOWNLOAD'
+    EXPORTING
+      filename = 'SALES_DATA.XLSX'
+      filetype = 'BIN'
+    TABLES
+      data_tab = lt_sales_data.
+
+ELSE.
+  WRITE: 'No sales data found for the selected date range'.
+ENDIF.
+
+* Add logic for displaying error message if data retrieval fails
+*&---------------------------------------------------------------------*

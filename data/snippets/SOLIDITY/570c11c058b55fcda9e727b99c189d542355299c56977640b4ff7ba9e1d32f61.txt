@@ -1,0 +1,55 @@
+// Contract defining a voting system for electing a representative
+// This contract makes use of the Solidity standard token
+pragma solidity ^0.4.24;
+
+// Basic interface for a standard token
+contract Token {
+    function approve(address spender, uint256 value) public returns (bool);
+    function transferFrom(address from, address to, uint256 value) public returns (bool);
+}
+
+// Main contract defining the voting system
+contract VotingSystem {
+    // Variables to keep track of the voter's token balance and their vote
+    mapping (address => uint256) public tokenBalances;
+    mapping (address => bool) public hasVoted;
+
+    // Contract address of the token being used for voting
+    address public tokenAddress;
+
+    // Event to be emitted when a vote is cast
+    event Vote(address voter, address candidate, uint256 tokens);
+
+    // Constructor to set the contract address of the token
+    constructor(address _tokenAddress) public {
+        tokenAddress = _tokenAddress;
+    }
+
+    // Function to allow a token holder to vote for a candidate
+    function vote(address candidate, uint256 tokens) public {
+        require(tokens > 0, "Tokens must be greater than 0");
+        require(Token(tokenAddress).transferFrom(msg.sender, address(this), tokens), "Token transfer failed");
+        require(hasVoted[msg.sender] == false, "Already voted");
+        
+        // Update voter's token balance and mark them as having voted
+        tokenBalances[msg.sender] += tokens;
+        hasVoted[msg.sender] = true;
+
+        // Emit the vote event
+        emit Vote(msg.sender, candidate, tokens);
+    }
+
+    // Function to allow the elected representative to withdraw their tokens
+    function withdrawTokens() public {
+        require(hasVoted[msg.sender], "Not the elected representative");
+
+        // Calculate the percentage of tokens the representative is entitled to
+        uint256 totalTokens = Token(tokenAddress).balanceOf(address(this));
+        uint256 percent = (tokenBalances[msg.sender] * 100) / totalTokens;
+
+        // Transfer the tokens and reset the voting system
+        require(Token(tokenAddress).transfer(msg.sender, percent), "Token transfer failed");
+        tokenBalances[msg.sender] = 0;
+        hasVoted[msg.sender] = false;
+    }
+}

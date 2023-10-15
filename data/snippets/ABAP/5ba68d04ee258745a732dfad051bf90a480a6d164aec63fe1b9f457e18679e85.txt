@@ -1,0 +1,35 @@
+METHOD check_vehicle.
+  DATA: lt_restrictions TYPE TABLE OF zcl_restriction,
+        lv_restriction_count TYPE i,
+        lv_vehicle_count TYPE i.
+
+  SELECT * FROM zcl_restriction
+    INTO TABLE lt_restrictions
+    WHERE vehicle_id = iv_vehicle_id.
+
+  lv_restriction_count = lines( lt_restrictions ).
+  IF lv_restriction_count > 0.
+
+    SELECT COUNT( * ) FROM zcl_vehicle
+      INTO lv_vehicle_count
+      WHERE id = iv_vehicle_id.
+
+    IF lv_vehicle_count > 0.
+      LOOP AT lt_restrictions ASSIGNING FIELD-SYMBOL(<ls_restriction>).
+        <ls_restriction>-is_vehicle_valid = abap_true.
+        UPDATE zcl_restriction FROM <ls_restriction>.
+      ENDLOOP.
+      RESUME NEXT SCREEN.
+    ELSE.
+      RAISE EXCEPTION TYPE zcx_vehicle_not_found
+        EXPORTING
+          iv_vehicle_id = iv_vehicle_id.
+    ENDIF.
+
+  ELSE.
+    RAISE EXCEPTION TYPE zcx_no_restrictions_found
+      EXPORTING
+        iv_vehicle_id = iv_vehicle_id.
+  ENDIF.
+
+ENDMETHOD.

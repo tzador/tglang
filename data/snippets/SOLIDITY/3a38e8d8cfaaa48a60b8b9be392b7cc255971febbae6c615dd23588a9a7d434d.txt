@@ -1,0 +1,282 @@
+pragma solidity ^0.8.0;
+
+/**
+ * @title SafeMath
+ * @dev Math operations with safety checks that revert on error
+ */
+ library SafeMath {
+    /**
+     * @dev Adds two unsigned integers, reverts on overflow.
+     */
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        uint256 c = a + b;
+        require(c >= a, "SafeMath: addition overflow");
+
+        return c;
+    }
+
+    /**
+     * @dev Subtracts two unsigned integers, reverts on overflow (when the result is negative).
+     */
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b <= a, "SafeMath: subtraction overflow");
+        uint256 c = a - b;
+
+        return c;
+    }
+
+    /**
+     * @dev Multiplies two unsigned integers, reverts on overflow.
+     */
+    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+        // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
+        // benefit is lost if 'b' is also tested.
+        // See: https://github.com/OpenZeppelin/openzeppelin-contracts/pull/522
+        if (a == 0) {
+            return 0;
+        }
+
+        uint256 c = a * b;
+        require(c / a == b, "SafeMath: multiplication overflow");
+
+        return c;
+    }
+
+    /**
+     * @dev Integer division of two unsigned integers truncating the quotient, reverts on division by zero.
+     */
+    function div(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b > 0, "SafeMath: division by zero");
+        uint256 c = a / b;
+
+        return c;
+    }
+
+    /**
+     * @dev Divides two unsigned integers and returns the remainder (unsigned integer modulo),
+     * reverts when dividing by zero.
+     */
+    function mod(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b != 0, "SafeMath: modulo by zero");
+        return a % b;
+    }
+}
+
+/**
+* @title ERC20
+* @dev The official specification of the ERC20 interface
+*/
+interface ERC20 {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+}
+
+/**
+ * @title ERC20Detailed
+ * @dev An extension of ERC20 to add a name, symbol, and decimals to the token contract.
+ */
+contract ERC20Detailed is ERC20 {
+    string private _name;
+    string private _symbol;
+    uint8 private _decimals;
+
+    /**
+     * @dev Sets the values for `name` and `symbol`. All three of these values are immutable: they can
+     * only be set once during construction.
+     */
+    constructor (string memory name_, string memory symbol_, uint8 decimals_) {
+        _name = name_;
+        _symbol = symbol_;
+        _decimals = decimals_;
+    }
+
+    /**
+     * @dev Returns the name of the token.
+     */
+    function name() public view virtual returns (string memory) {
+        return _name;
+    }
+
+    /**
+     * @dev Returns the symbol of the token, usually a shorter version of the name.
+     */
+    function symbol() public view virtual returns (string memory) {
+        return _symbol;
+    }
+
+    /**
+     * @dev Returns the number of decimals used to get its user representation.
+     *
+     * For example, if `decimals` equals `2`, a balance of `505` tokens should
+     * be displayed to a user as `5,05` (`505 / 10 ** 2`).
+     *
+     * Tokens usually opt for a value of 18, imitating the relationship between
+     * Ether and Wei in ETH. This is the value {ERC20} uses, unless this function is
+     * overridden;
+     */
+    function decimals() public view virtual returns (uint8) {
+        return _decimals;
+    }
+}
+
+/**
+* @title Owned
+* @dev The contract is owned by a single address that can transfer ownership
+* @dev from the current owner to a new owner.
+*/
+contract Owned {
+    address public owner;
+    event OwnershipTransferred(address indexed _from, address indexed _to);
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner);
+        _;
+    }
+
+    /**
+     * @dev Transfers ownership from the current owner to a new owner.
+     * @param _newOwner address The address of the new owner.
+     */
+    function transferOwnership(address _newOwner) onlyOwner external {
+        require(_newOwner != address(0));
+        owner = _newOwner;
+        emit OwnershipTransferred(msg.sender, _newOwner);
+    }
+}
+
+/**
+* @title EIP20Interface
+* @dev The interface for the ERC20 token standard.
+* @dev A standard interface for tokens that follow the ERC20 standard.
+*/
+contract EIP20Interface {
+    uint256 public totalSupply;
+    function balanceOf(address account) public view returns (uint256);
+    function transfer(address to, uint tokens) public returns (bool);
+    function transferFrom(address from, address to, uint256 tokens) public returns (bool);
+    function approve(address spender, uint256 tokens) public returns (bool);
+    function allowance(address owner, address spender) public view returns (uint256);
+    event Transfer(address indexed from, address indexed to, uint256 tokens);
+    event Approval(address indexed owner, address indexed spender, uint256 tokens);
+}
+
+/**
+* @title SafeERC20
+* @dev Wrappers around ERC20 operations that throw on failure (when the token
+* contract returns false). Tokens that return no value (and instead revert or
+* throw on failure) are also supported, non-reverting calls are assumed to be
+* successful.
+* To use this library you can add a `using SafeERC20 for ERC20;` statement to your contract,
+* which allows you to call the safe operations as `token.safeTransfer(...)`, etc.
+*/
+library SafeERC20 {
+
+    /**
+    * @dev Transfers tokens from one address to another.
+    * @dev This is used by `token.transferFrom()` and should only be called from
+    * @dev a contract that has been approved to spend tokens on behalf of the owner
+    * @param _tokenContract address The address from which to transfer the tokens.
+    * @param _from address The original holder of the tokens.
+    * @param _to address The recipient of the tokens.
+    * @param _value uint256 The amount of tokens to transfer.
+    */
+    function safeTransferFrom(EIP20Interface _tokenContract, address _from, address _to, uint256 _value) internal {
+        require(_tokenContract.transferFrom(_from, _to, _value), "SafeERC20: transferFrom failed");
+    }
+}
+
+/**
+* @title TokenFaucet
+* @dev A token faucet contract that allows users to claim a set amount of ERC20 tokens every designated time interval.
+*/
+contract TokenFaucet  is Owned, ERC20Detailed {
+    using SafeMath for uint256;
+    using SafeERC20 for EIP20Interface;
+
+    EIP20Interface public token;
+    uint256 public tokenRate;  //tokens per minute
+    uint256 public lastClaimTime;  //timestamp of last claim for a given address
+    mapping (address => uint256) public tokensClaimed;  //mapping of addresses to the amount of tokens claimed
+
+    /**
+     * @dev Constructor function that sets the token address and initial token rate.
+     * @param _tokenAddr address The address of the ERC20 token contract.
+     * @param _tokenRate uint256 The token rate (tokens per minute) for the faucet.
+     */
+    constructor(address _tokenAddr, uint256 _tokenRate) ERC20Detailed("Token Faucet Token", "TFT", 18) {
+        require(_tokenAddr != address(0), "Token address cannot be 0x0");
+        token = EIP20Interface(_tokenAddr);
+        tokenRate = _tokenRate; //tokens per minute
+        lastClaimTime = block.timestamp;
+    }
+
+    /**
+     * @dev Updates the token rate.
+     * @param _newRate uint256 The new token rate (tokens per minute).
+     */
+    function updateTokenRate(uint256 _newRate) onlyOwner external {
+        tokenRate = _newRate;
+    }
+
+    /**
+     * @dev Allows an address to claim tokens, based on the current token rate.
+     * @param _recipient address The recipient of the claimed tokens.
+     */
+    function claimTokens(address _recipient) external {
+        require(block.timestamp >= lastClaimTime.add(60), "Must wait at least one minute between claims");
+        require(_recipient != address(0), "Recipient address cannot be 0x0");
+
+        //calculate the number of tokens to claim based on current token rate and time since last claim
+        uint256 numTokensToClaim = tokenRate.mul(block.timestamp.sub(lastClaimTime)).div(60);
+
+        //make sure enough tokens are available in the contract
+        require(numTokensToClaim <= token.balanceOf(address(this)), "Not enough tokens in the faucet");
+
+        //claim tokens from the faucet contract and transfer to the recipient
+        token.safeTransferFrom(token, owner, _recipient, numTokensToClaim);
+
+        //update mapping and last claim time
+        tokensClaimed[_recipient] = tokensClaimed[_recipient].add(numTokensToClaim);
+        lastClaimTime = block.timestamp;
+
+        //emit event
+        emit ClaimedTokens(_recipient, numTokensToClaim);
+    }
+
+    /**
+     * @dev Allows the owner to withdraw any excess tokens in the faucet contract.
+     * @param _amount uint256 The amount of tokens to withdraw.
+     */
+    function withdrawTokens(uint256 _amount) external onlyOwner {
+        require(_amount <= token.balanceOf(address(this)), "Not enough tokens in the faucet");
+
+        //withdraw tokens from the faucet contract and transfer to the owner
+        token.safeTransferFrom(token, address(this), owner, _amount);
+
+        //emit event
+        emit TokensWithdrawn(_amount);
+    }
+
+    /**
+     * @dev Event for when tokens are claimed.
+     * param _recipient address The address where tokens were claimed.
+     * param _amount uint256 The amount of tokens claimed.
+     */
+    event ClaimedTokens(address indexed _recipient, uint256 indexed _amount);
+
+     /**
+     * @dev Event for when tokens are withdrawn from the faucet contract.
+     * param _amount uint256 The amount of tokens withdrawn.
+     */
+    event TokensWithdrawn(uint256 indexed _amount);
+}

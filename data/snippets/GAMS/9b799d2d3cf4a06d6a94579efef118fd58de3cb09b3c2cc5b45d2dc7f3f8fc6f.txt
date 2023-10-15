@@ -1,0 +1,40 @@
+SET i 'index set of production lines' /1*10/;
+PARAMETER x(i) 'production capacity per line' /1 10, 2 20, 3 30, 4 40, 5 50, 6 60, 7 70, 8 80, 9 90, 10 100/;
+DISPLAY i,x;
+ALIAS (i,j);
+PARAMETER d(i,j) 'distance between production lines';
+TABLE d(i,j)
+       1   2   3   4   5   6   7   8   9  10
+  1    0  10  20  30  40  50  60  70  80  90
+  2   10   0  25  35  45  55  65  75  85  95
+  3   20  25   0  40  50  60  70  80  90 100
+  4   30  35  40   0  60  70  80  90 100 100
+  5   40  45  50  60   0  80  90  90 100 100
+  6   50  55  60  70  75   0  90 100 100 100
+  7   60  65  70  80  90  95   0 100 100 100
+  8   70  75  80  90  90 100 100   0 100 100
+  9   80  85  90  90 100 100 100 100   0 100
+ 10   90  95 100 100 100 100 100 100 100   0;
+PARAMETER m(i,j) 'transportation costs between production lines';
+m(i,j) = 0.5 * d(i,j) * (x(i) + x(j));
+DISPLAY m;
+ALIAS (i,j,k);
+VARIABLES
+   y(i,j) 'flow of goods between production lines'
+   z       'total transportation costs';
+EQUATIONS
+   cost          'total transportation costs'
+   capacity(i)   'capacity constraint for each production line'
+   inbound(j)    'inbound flow constraint for each production line'
+   outbound(j)   'outbound flow constraint for each production line';
+cost..
+   z =e= sum((i,j), m(i,j)*y(i,j));
+capacity(i)..
+   sum(j, y(i,j)) =e= x(i);
+inbound(j)..
+   sum(i, y(i,j)) =l= x(j);
+outbound(j)..
+   sum(i, y(i,j)) =g= 0;
+MODEL transport /all/;
+SOLVE transport USING lp minimizing z;
+DISPLAY y.l, z.l;

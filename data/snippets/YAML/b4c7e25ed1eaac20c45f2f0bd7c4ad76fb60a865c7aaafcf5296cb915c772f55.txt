@@ -1,0 +1,39 @@
+- name: Initialize user profile
+  hosts: localhost
+  tasks:
+  - name: Create new user
+    user:
+      name: tom
+      password: "{{ lookup('password', '/etc/secret/tom.txt') }}"
+      shell: /bin/bash
+      createhome: yes
+      state: present
+    become: true
+  - name: Create user directory
+    file:
+      path: /home/tom
+      state: directory
+      owner: tom
+      group: tom
+      mode: '0755'
+- name: Clone git repository
+  git:
+    repo: https://github.com/username/repo.git
+    dest: /home/tom/repo
+    accept_hostkey: yes
+    force: true
+  vars:
+    git_username: my_username
+    git_password: "{{ lookup('env', 'GIT_PASSWORD') }}"
+  environment:
+    HTTP_PROXY: http://proxy.example.com:8080
+    HTTPS_PROXY: http://proxy.example.com:8080
+    no_proxy: localhost,127.0.0.1
+- name: Install dependencies
+  shell: |
+    cd /home/tom/repo
+    pip install -r requirements.txt
+  args:
+    executable: /bin/bash
+  environment:
+    PATH: "{{ ansible_env.PATH }}:/usr/local/bin"

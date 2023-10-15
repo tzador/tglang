@@ -1,0 +1,64 @@
+%{
+    # This section is used to declare external variables and headers
+    int count = 0; // Declare a variable called 'count' with initial value of 0
+    #include <stdio.h> // Include the standard input output header file
+%}
+
+/* This section defines the tokens that will be used */
+%token NUMBER
+%token ADD SUB MULT DIV
+%token EOL
+
+%%
+/* This section defines the grammar rules */
+exp: NUMBER | exp ADD exp | exp SUB exp | exp MULT exp | exp DIV exp;
+line: exp EOL { // Once a line is parsed, print the result of the expression
+    printf("%d\n", $1);
+};
+
+/* This section includes the user input and executes the parsing process */
+%%
+main:
+    yyparse(); // Execute yyparse function to start parsing process
+%%
+
+/* This section defines the actions to be taken when a token is matched */
+yyerror(char* s) {
+    fprintf(stderr, "%s\n", s); // Print an error message if there is an error in parsing
+}
+
+/* This section includes the function definitions for the tokens */
+int yywrap() {
+    return 1; // Function used to signify the end of input
+}
+
+int yyerror(char *s) {
+    fprintf(stderr, "%s\n", s); // Function used to display an error message if there is an error in parsing
+}
+
+int yylex() {
+    int c;
+    /* This loop reads the user input character by character and returns the appropriate token once a valid token is found */
+    while ((c = getchar()) == ' ' || c == '\t'); // Ignore whitespace characters
+    if (c == EOF)
+        return 0; // Return 0 when end of file is reached
+    if (c == '-') // Check for negative numbers
+        if (isdigit(c = getchar())) {
+            ungetc(c, stdin);
+            scanf("%d", &yylval); // Return a negative number as a token
+            return NUMBER;
+        } else {
+            ungetc('0', stdin); // Put back the '-' and read the number as positive
+        }
+    if (isdigit(c)) { // Check for positive numbers
+        ungetc(c, stdin);
+        scanf("%d", &yylval); // Read and return a positive number as a token
+        return NUMBER;
+    }
+    if (c == 'n') // Check for 'n' as end of line
+        if (getchar() == '\n')
+            return EOL; // Return EOL token if end of line is reached
+        else
+            ungetc('\n', stdin); // Put back the character if it is not end of line
+    return c; // Return any unrecognized character as a token
+}

@@ -1,0 +1,74 @@
+# Set a variable to the current time in unix timestamp format
+set $timestamp unix_timestamp;
+
+# Return a 200 status code and the current time in the response headers
+header 'X-Timestamp' $timestamp;
+return 200;
+
+# Define a location block
+location / {
+
+    # Set a default root directory for this location
+    root /var/www/example.com;
+
+    # Enable gzip compression on responses
+    gzip on;
+
+    # Include custom headers in the response
+    add_header X-Custom-Header "Hello World";
+
+    # Set the expires header to 1 year in the future
+    expires 1y;
+
+    # Deny access to any files starting with a dot
+    location ~ /\. {
+        deny all;
+    }
+
+    # Proxy requests to a different server
+    proxy_pass http://127.0.0.1:8000;
+    
+    # Set cache control headers
+    add_header Cache-Control "public, max-age=31536000, immutable";
+} 
+
+# Define a server block
+server {
+    # Listen on port 80
+    listen 80;
+
+    # Listen on port 443 with SSL
+    listen 443 ssl;
+
+     # Configure SSL certificate paths
+    ssl_certificate /etc/nginx/ssl/example.crt;
+    ssl_certificate_key /etc/nginx/ssl/example.key;
+
+    # Specify allowed TLS protocols and ciphers
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    # Set a default server name
+    server_name example.com;
+
+    # Deny access to any files starting with a dot
+    location ~ /\. {
+        deny all;
+    }
+
+    # Set a permanent redirect from HTTP to HTTPS
+    return 301 https://$server_name$request_uri;
+
+    # Enable server side caching
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=my_cache:10m inactive=60m;
+    proxy_cache_key "$scheme$request_method$host$request_uri";
+
+    # Proxy requests to a different server
+    proxy_pass http://127.0.0.1:8000;
+
+    # Set cache control headers
+    add_header Cache-Control "public, max-age=31536000, immutable";
+
+    # Set a custom error page
+    error_page 404 /404.html;
+}

@@ -1,0 +1,53 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'com.jfrog.artifactory' version '4.13.0'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+artifactory {
+    contextUrl = 'http://localhost:8081/artifactory'
+    publish {
+        repository {
+            repoKey = 'libs-release-local'
+            username = 'admin'
+            password = 'password'
+        }
+        defaults {
+            publications('mavenJavaLibrary')
+            publishArtifacts = true
+            publishPom = true
+        }
+    }
+    resolve {
+        repository {
+            repoKey = 'libs-release'
+            username = 'admin'
+            password = 'password'
+        }
+    }
+}
+
+buildscript {
+    repositories {
+        maven {
+            url 'http://localhost:8081/artifactory/plugins-release'
+            credentials {
+                username = "${artifactory_user}"
+                password = "${artifactory_password}"
+            }
+        }
+    }
+    dependencies {
+        classpath "org.jfrog.buildinfo:build-info-extractor-gradle:4.14.1"
+    }
+}
+
+task dockerBuild(type: Exec) {
+    dependsOn build
+    commandLine 'docker', 'build', '-t', projectName, '.'
+}

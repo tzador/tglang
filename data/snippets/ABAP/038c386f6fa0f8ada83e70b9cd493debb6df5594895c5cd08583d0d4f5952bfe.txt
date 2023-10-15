@@ -1,0 +1,44 @@
+METHOD calculate_count.
+" This is a method to calculate the total count of a table
+  DATA: ls_table_ref TYPE REF TO data,
+        lr_table TYPE REF TO cl_abap_tabledescr,
+        lt_table TYPE STANDARD TABLE OF data,
+        lv_count TYPE i,
+        ls_record LIKE LINE OF lt_table,
+        lv_data_step TYPE i.
+  FIELD-SYMBOLS: <ls_table_ref> TYPE ANY TABLE,
+                 <ls_table_line> TYPE ANY.
+* Setter method to set the table reference passed as input
+  TRY.
+      ls_table_ref ?= ip_tab_ref.
+    CATCH cx_sy_move_cast_error.
+      " Error handling
+  ENDTRY.
+
+  lr_table ?= cl_abap_tabledescr=>describe_by_data_ref( ls_table_ref ).
+
+  IF lr_table IS BOUND.
+    IF lt_table IS INITIAL.
+      " Fetch all data from the table
+      SELECT * FROM (ls_table_ref) INTO TABLE lt_table.
+    ENDIF.
+
+    " Get the number of data steps for the table
+    lv_data_step = cl_abap_tabledescr=>get_row_count( lt_table ).
+
+    CHECK lv_data_step >= 1.
+
+    " Loop through the table records and increment the count
+    LOOP AT lt_table INTO ls_record.
+      ASSIGN COMPONENT sy-tabix OF STRUCTURE ls_record TO <ls_table_line>.
+      IF <ls_table_line> IS ASSIGNED.
+        lv_count = lv_count + 1.
+      ENDIF.
+    ENDLOOP.
+  ELSE.
+    " Table reference invalid
+  ENDIF.
+
+  " Return the final count value
+  rp_out = lv_count.
+ENDMETHOD.

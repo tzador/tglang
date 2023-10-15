@@ -1,0 +1,61 @@
+pragma solidity ^0.5.0; // Solidity version declaration
+
+interface Token { // Interface for token contract
+    function transferFrom(address _from, address to, uint256 _value) external returns (bool); // Function to transfer tokens
+    function approve(address spender, uint256 value) external returns (bool); // Function to approve token transfer
+}
+
+contract TokenSale { // Token sale contract
+    address payable private owner; // Owner who will receive the funds
+    Token private token; // Instance of Token contract
+    uint256 public rate; // Exchange rate
+    uint256 private weiRaised; // Total wei raised
+    mapping (address => uint256) private balances; // Mapping of address to balance
+
+    modifier onlyOwner() { // Modifier to restrict access to only owner
+        require(msg.sender == owner, "Access denied. Only the owner can perform this action.");
+        _;
+    }
+
+    event TokenPurchase(address indexed purchaser, address indexed beneficiary, uint256 value, uint256 tokens); // Event for token purchase
+
+    constructor(address payable _owner, address _tokenAddress, uint256 _rate) public { // Constructor function
+        owner = _owner; // Set owner
+        token = Token(_tokenAddress); // Create instance of Token contract
+        rate = _rate; // Set exchange rate
+    }
+
+    function() external payable { // Fallback function to accept ether
+        buyTokens(msg.sender); // Call buyTokens function with sender's address as beneficiary
+    }
+
+    function buyTokens(address beneficiary) public payable { // Function to buy tokens
+        require(beneficiary != address(0), "Invalid beneficiary address.");
+        require(msg.value > 0, "Value must be greater than 0.");
+
+        uint256 weiAmount = msg.value; // Calculate wei amount to be sent
+        uint256 tokens = weiAmount * rate; // Calculate token amount to be received
+
+        require(token.transferFrom(owner, beneficiary, tokens), "Token transfer failed."); // Transfer tokens from owner to beneficiary
+        balances[beneficiary] = balances[beneficiary] + weiAmount; // Update balance of beneficiary
+        weiRaised = weiRaised + weiAmount; // Update total wei raised
+
+        emit TokenPurchase(msg.sender, beneficiary, weiAmount, tokens); // Emit token purchase event
+    }
+
+    function withdraw() external onlyOwner { // Function to withdraw ether
+        owner.transfer(address(this).balance); // Transfer wei to owner
+    }
+
+    function withdrawTokens() external onlyOwner { // Function to withdraw tokens
+        require(token.approve(owner, balances[msg.sender]), "Token approval failed."); // Approve token transfer for owner to withdraw
+        require(token.transferFrom(msg.sender, owner, balances[msg.sender]), "Token transfer failed."); // Transfer tokens from msg.sender to owner
+        balances[msg.sender] = 0; // Reset balance of msg.sender
+    }
+
+    function getBalance(address _address) external view returns(uint256) { // Function to get balance of an address
+        require(_address != address(0), "Invalid address.");
+        
+        return balances[_address]; // Return balance of _address
+    }
+}

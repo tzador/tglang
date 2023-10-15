@@ -1,0 +1,23 @@
+Param (
+    $username = "Bob", # Specifies the username to be used
+    $password = "password", # Specifies the password to be used
+    $domain = "example.com" # Specifies the domain to be used
+)
+# The following command enables PowerShell remoting on remote computers
+Invoke-Command -ComputerName "server1,$env:COMPUTERNAME" -ScriptBlock { 
+    # The following code creates a new local user account
+    New-LocalUser -Name $args[0] -Password $args[1] -FullName "Bob Smith" -Description "Local user account for Bob" -AccountNeverExpires -UserMayNotChangePassword 
+    # The following code adds the user to the administrators group
+    Add-LocalGroupMember -Group "Administrators" -Member $args[0]
+} -ArgumentList $username,$password
+# The following code connects to the remote computer and adds the user to the local administrators group
+Enter-PSSession -ComputerName server1 -Credential (Get-Credential "$domain\$username")
+# The following code adds the user to the Remote Desktop Users group
+New-LocalGroupMember -Group "Remote Desktop Users" -Member $username
+# The following code enables Remote Desktop connections on the remote computer 
+Invoke-Command -ComputerName server1 -ScriptBlock {
+    # The following command enables Remote Desktop connections on the remote computer
+    Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" 0
+    # The following command starts the Remote Desktop Services service
+    Start-Service TermService
+}

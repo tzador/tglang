@@ -1,0 +1,93 @@
+//Contract to manage a voting system
+contract VotingSystem {
+    //Variables to store candidate details
+    struct Candidate {
+        uint id;
+        string name;
+        uint voteCount;
+    }
+
+    //Variables to store voter details
+    struct Voter {
+        bool voted;
+        uint votedCandidate;
+    }
+
+    //Variable to store admin
+    address public admin;
+
+    //Mapping to store candidate details
+    mapping(uint => Candidate) public candidates;
+
+    //Mapping to store voter details
+    mapping(address => Voter) public voters;
+
+    //Modifier to restrict access to admin only
+    modifier onlyAdmin() {
+        require(msg.sender == admin, "Only admin can access this function.");
+        _;
+    }
+
+    //Events to be emitted upon successful operations
+    event NewCandidateAdded(uint id, string name);
+    event VoterVoted(address indexed voter, uint indexed candidateId);
+    event AdminChanged(address indexed previousAdmin, address indexed newAdmin);
+    event VotingStarted();
+    event VotingEnded();
+
+    //Constructor to assign admin upon contract deployment
+    constructor(address _admin) {
+        admin = _admin;
+    }
+
+    //Function to add a candidate by the admin
+    function addCandidate(string memory name) public onlyAdmin {
+        uint id = getCandidateId();
+        candidates[id] = Candidate(id, name, 0);
+        emit NewCandidateAdded(id, name);
+    }
+
+    //Function to get the current candidate id
+    function getCandidateId() private view returns (uint) {
+        uint currentId = getHighestCandidateId();
+        return currentId + 1;
+    }
+
+    //Function to get the highest candidate id in the mapping
+    function getHighestCandidateId() private view returns (uint) {
+        uint highestId = 0;
+        for (uint i = 1; i <= candidates.length; i++) {
+            if (candidates[i].id > highestId) {
+                highestId = candidates[i].id;
+            }
+        }
+        return highestId;
+    }
+
+    //Function to start the voting process
+    function startVoting() public onlyAdmin {
+        emit VotingStarted();
+    }
+
+    //Function to vote for a candidate
+    function vote(uint candidateId) public {
+        require(!voters[msg.sender].voted, "Voter has already voted.");
+        require(candidateId > 0 && candidateId <= candidates.length, "Invalid candidate id.");
+        voters[msg.sender].votedCandidate = candidateId;
+        candidates[candidateId].voteCount += 1;
+        emit VoterVoted(msg.sender, candidateId);
+    }
+
+    //Function to end the voting process
+    function endVoting() public onlyAdmin {
+        emit VotingEnded();
+    }
+
+    //Function to change the current admin
+    function changeAdmin(address newAdmin) public onlyAdmin {
+        require(newAdmin != address(0), "Invalid admin address.");
+        address previousAdmin = admin;
+        admin = newAdmin;
+        emit AdminChanged(previousAdmin, newAdmin);
+    }
+}

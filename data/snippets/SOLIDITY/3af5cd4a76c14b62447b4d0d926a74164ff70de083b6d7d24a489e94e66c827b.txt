@@ -1,0 +1,140 @@
+//This contract implements a basic crowd funding platform, where users can submit proposals for projects and others can contribute to fund them
+//It is designed to follow the principles of SOLID (Single Responsibility, Open-Closed, Liskov Substitution, Interface Segregation, Dependency Inversion)
+
+pragma solidity ^0.6.0;
+
+//Importing SafeMath library for secure mathematical operations
+import "@openzeppelin/contracts/math/SafeMath.sol";
+
+//Interface for interacting with external Oracle contract
+interface Oracle { 
+    function getExchangeRate(string memory _currency) external view returns (uint);
+}
+
+//Main CrowdFunding contract
+contract CrowdFunding {
+    using SafeMath for uint;
+
+    //States for the funding process: Ongoing, Successful, Failed
+    enum FundingState { Ongoing, Successful, Failed }
+
+    //Struct for storing details of a proposal
+    struct Proposal {
+        string name;
+        uint goal;
+        uint deadline;
+        uint currentAmount;
+        address payable projectOwner;
+        mapping(address => uint) contributions;
+    }
+
+    //Array of all proposals
+    Proposal[] public proposals;
+
+    //Address of the external Oracle contract
+    address public oracleAddress;
+
+    //Modifier to only allow the project owner to perform certain actions
+    modifier onlyProjectOwner(uint _index) {
+        require(msg.sender == proposals[_index].projectOwner, "Only the project owner can perform this action.");
+        _;
+    }
+
+    //Events for notifying when a new proposal is created, when a contribution is made, and when a project is successfully funded
+    event NewProposal(string _name, uint _goal, uint _deadline, address _projectOwner);
+    event ContributionMade(uint _index, address _contributor, uint _amount);
+    event ProjectFunded(string _name, uint _goal, address _projectOwner);
+
+    //Constructor function, sets the address of the Oracle contract
+    constructor(address _oracleAddress) public {
+        oracleAddress = _oracleAddress;
+    }
+
+    //Function for creating a new proposal
+    function createProposal(string memory _name, uint _goal, uint _deadline) public {
+        require(_deadline > block.timestamp, "Deadline must be in the future.");
+        require(_deadline < block.timestamp.add(7 days), "Deadline can not be more than one week in the future.");
+        proposals.push(
+            Proposal({
+                name: _name,
+                goal: _goal,
+                deadline: _deadline,
+                currentAmount: 0,
+                projectOwner: msg.sender
+            })
+        );
+        emit NewProposal(_name, _goal, _deadline, msg.sender);
+    }
+
+    //Function for making a contribution to a proposal
+    function contribute(uint _index) public payable {
+        require(_index < proposals.length, "Invalid proposal index.");
+        require(msg.value > 0, "Contribution must be more than 0 ether.");
+        require(block.timestamp < proposals[_index].deadline, "Deadline for this proposal has passed.");
+
+        //Getting the exchange rate for ETH to USD from the Oracle contract
+        Oracle oracle = Oracle(oracleAddress);
+        uint exchangeRate = oracle.getExchangeRate("ETH");
+        uint contributionInUSD = msg.value.mul(exchangeRate);
+
+        //Adding the contribution to the current amount of the proposal
+        proposals[_index].currentAmount = proposals[_index].currentAmount.add(contributionInUSD);
+
+        //Storing the contribution amount for the sender
+        proposals[_index].contributions[msg.sender] = proposals[_index].contributions[msg.sender].add(contributionInUSD);
+
+        emit ContributionMade(_index, msg.sender, contributionInUSD);
+
+        //Checking if the proposal has reached its goal
+        if (proposals[_index].currentAmount >= proposals[_index].goal) {
+            //Sending the funds to the project owner
+            proposals[_index].projectOwner.transfer(proposals[_index].currentAmount);
+
+            //Notifying that the project has been successfully funded
+            emit ProjectFunded(proposals[_index].name, proposals[_index].goal, proposals[_index].projectOwner);
+
+           //Changing the state of the proposal to successful
+           proposals[_index].state = FundingState.Successful;
+        }
+    }
+
+    //Function for getting the current amount of a proposal
+    function getCurrentAmount(uint _index) public view returns (uint) {
+        require(_index < proposals.length, "Invalid proposal index.");
+        return proposals[_index].currentAmount;
+    }
+
+    //Function for getting the amount contributed by a specific user for a specific proposal
+    function getContribution(uint _index, address _contributor) public view returns (uint) {
+        require(_index < proposals.length, "Invalid proposal index.");
+        return proposals[_index].contributions[_contributor];
+    }
+
+    //Function for checking if a proposal has reached its goal
+    function hasReachedGoal(uint _index) public view returns (bool) {
+        require(_index < proposals.length, "Invalid proposal index.");
+        return proposals[_index].currentAmount >= proposals[_index].goal;
+    }
+
+    //Function for withdrawing the funding if a proposal has failed
+    function withdrawFunds(uint _index) public onlyProjectOwner(_index) {
+        require(_index < proposals.length, "Invalid proposal index.");
+        require(block.timestamp > proposals[_index].deadline, "Deadline for this proposal has not yet passed.");
+        require(!hasReachedGoal(_index), "Funding was successful and can not be withdrawn.");
+        
+        //Returning the funds to the contributors
+        for (uint i = 0; i < proposals[_index].contributions.length; i++) {
+            address contributor = proposals[_index].contributions[i].key;
+            uint amount = proposals[_index].contributions[i].value;
+            contributor.transfer(amount);
+        }
+
+        //Changing the state of the proposal to failed
+        proposals[_index].state = FundingState.Failed;
+    }
+    
+    //Fallback function, rejects any ether sent directly to the contract
+    function() external payable {
+        revert("This contract does not accept direct payments.");
+    }
+}

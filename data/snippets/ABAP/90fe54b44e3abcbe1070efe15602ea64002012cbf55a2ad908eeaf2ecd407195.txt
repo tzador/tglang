@@ -1,0 +1,43 @@
+METHOD process_changes.
+  DATA: lv_limit TYPE i,
+        lt_employee_changes TYPE TABLE OF employee_changes,
+        lt_new_employees TYPE TABLE OF employees,
+        lt_changed_employees TYPE TABLE OF employees,
+        lt_deleted_employees TYPE TABLE OF employees.
+
+  SELECT * FROM employee_changes
+    INTO CORRESPONDING FIELDS OF TABLE lt_employee_changes
+    WHERE change_date >= @im_start_date
+      AND change_date <= @im_end_date.
+
+  SELECT * FROM employees INTO table lt_new_employees FOR UPDATE
+    WHERE employee_id IN @lt_employee_changes-employee_id
+      AND employee_status = 'NEW'.
+
+  IF lt_new_employees IS NOT INITIAL.
+    LOOP AT lt_new_employees ASSIGNING FIELD-SYMBOL(<fs_new_employee>).
+      <fs_new_employee>-employee_status = 'ACTIVE'.
+    ENDLOOP.
+    UPDATE employees FROM TABLE lt_new_employees.
+  ENDIF.
+
+  SELECT * FROM employees INTO TABLE lt_changed_employees FOR UPDATE
+    WHERE employee_id IN @lt_employee_changes-employee_id
+      AND employee_status = 'CHANGED'.
+
+  IF lt_changed_employees IS NOT INITIAL.
+    LOOP AT lt_changed_employees ASSIGNING FIELD-SYMBOL(<fs_changed_employee>).
+      <fs_changed_employee>-first_name = lt_employee_changes-first_name.
+      <fs_changed_employee>-last_name = lt_employee_changes-last_name.
+    ENDLOOP.
+    UPDATE employees FROM TABLE lt_changed_employees.
+  ENDIF.
+
+  SELECT * FROM employees INTO TABLE lt_deleted_employees FOR UPDATE
+    WHERE employee_id IN @lt_employee_changes-employee_id
+      AND employee_status = 'DELETED'.
+  
+  IF lt_deleted_employees IS NOT INITIAL.
+    DELETE employees FROM TABLE lt_deleted_employees.
+  ENDIF.
+ENDMETHOD.

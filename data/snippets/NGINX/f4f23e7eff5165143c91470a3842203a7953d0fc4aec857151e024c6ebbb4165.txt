@@ -1,0 +1,88 @@
+events {
+  # Sets the maximum number of simultaneous connections that can be opened by a worker process.
+  worker_connections  1024;
+}
+
+http {
+  include       mime.types;
+  # The charset can be negotiated with HTTP's use of charset parameters in the Content-Type header.
+  # The usage of a charset is most commonly used to encode characters for an HTTP header seen by a user.
+  charset       utf-8;
+
+  # Configure where Nginx will store its log files.
+  # The log files will be named in relation to the app
+  access_log /var/log/nginx/access.log;
+  error_log /var/log/nginx/error.log;
+
+  # Include settings from the /etc/nginx/conf.d directory.
+  include /etc/nginx/conf.d/*.conf;
+
+  # Set server name to localhost
+  server_name localhost;
+
+  # Configure gzip compression to reduce data transfer size
+  gzip on;
+  gzip_comp_level 3;
+  gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+  # Configure SSL certificates
+  # Define the path of the certificate and key files using the SSL_certificate and SSL_certificate_key directives
+  # Nginx will use these files to validate the server's identity and establish a secure connection
+  # The certificate and key files are typically stored in the /etc/ssl/certs and /etc/ssl/private directories
+  ssl_certificate /etc/ssl/certs/nginx-selfsigned.crt;
+  ssl_certificate_key /etc/ssl/private/nginx-selfsigned.key;
+
+  server {
+    listen 80;
+    listen [::]:80;
+    # Redirect all HTTP traffic to HTTPS for added security
+    location / {
+      return 301 https://$host$request_uri;
+    }
+  }
+
+  server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    # Set the root directory of the website
+    root /var/www/html;
+
+    # Configure SSL protocols and ciphers to ensure secure connections
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers "ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-SHA256";
+    ssl_prefer_server_ciphers on;
+
+    # Enable HTTP Strict Transport Security (HSTS) to ensure secure connections are always used
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload";
+
+    # Configure Nginx to use the index.html file as the default page for the website
+    index index.html;
+
+    # Configure the error pages for 404 and 500 errors
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html{
+      root /var/www/;
+    }
+
+    # Configure caching to improve website performance
+    location ~* .(png|jpg|jpeg|gif|ico)$ {
+      expires 1y;
+      log_not_found off;
+    }
+
+    # Configure proxy caching
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=website_cache:10m inactive=60m;
+    proxy_cache_key "$scheme$request_method$host$request_uri";
+    proxy_cache_valid 200 301 302 404 5m;
+
+    # Configure reverse proxy to pass requests to backend server
+    location / {
+      proxy_cache website_cache;
+      proxy_pass http://localhost:8080;
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+  }
+}

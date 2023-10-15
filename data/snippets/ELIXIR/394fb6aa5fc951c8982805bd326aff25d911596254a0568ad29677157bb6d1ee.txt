@@ -1,0 +1,54 @@
+defmodule User do
+  @moduledoc "Defines User information"
+  @vsn "1.0.0"
+  @behaviour GenServer
+  
+  require Logger
+  
+  # Defines the structure and fields of a user
+  defstruct name: nil,
+            age: nil,
+            email: nil,
+            location: nil
+
+  # Callback function for starting the GenServer process
+  def start_link(init_arg) do
+    GenServer.start_link(__MODULE__, init_arg, name: __MODULE__)
+  end
+
+  # Callback function for initializing the state of the GenServer
+  def init(init_arg) do
+    {:ok, %User{}} # Start with empty state
+  end
+
+  # Callback function for handling incoming messages
+  def handle_info({:new_user, user} = message, state) do
+    Logger.info("New user created: #{user.name}")
+    {:noreply, state}
+  end
+
+  # Callback function for responding to calls
+  def handle_call({:get_user, user_id}, _from, state) do
+    user = state
+    IO.puts("User with ID #{user_id}: Name - #{user.name}, Age - #{user.age}, Email - #{user.email}, Location - #{user.location}")
+    {:reply, user, state}
+  end
+
+  # Callback function for handling unexpected messages
+  def handle_call(_message, _from, state) do
+    {:reply, "Invalid message", state}
+  end
+
+  # Callback function for handling termination
+  def handle_terminate(reason, state) do
+    Logger.info("GenServer terminated due to: #{inspect reason}")
+    :ok
+  end
+end
+
+# Spawn a new GenServer for a user with given information
+{:ok, pid} = User.start_link(%User{name: "John Doe", age: 30, email: "johndoe@example.com", location: "New York"})
+# Send a message to the GenServer
+GenServer.cast(pid, {:new_user, %User{name: "Jane Smith", age: 25, email: "janesmith@example.com", location: "Los Angeles"}})
+# Make a call to retrieve the user information
+GenServer.call(pid, {:get_user, "1"})

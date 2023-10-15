@@ -1,0 +1,103 @@
+%code {
+    #include <stdio.h>
+    #include <stdlib.h>
+}
+
+%%
+    input: EXPRESSION {char *op_symbols[] = {"+", "-", "*", "/", "^"};}
+          {printf("Expression found: %s\n", $$);
+ 
+              if(strchr(op_symbols, $1[0])) {
+                  /* if operator, convert to postfix */
+                    char postfix[strlen($1)];
+                    ininfix_to_postfix($1, postfix);
+
+                    printf("Equivalent postfix expression: %s\n", postfix);
+              } else if(*$1 == '\n') {
+                  /* exit program if newline */
+                  printf("Program terminated.\n");
+                  exit(0);
+              } else {
+                  /* print corresponding error message */
+                  printf("Error: Invalid input\n");
+              }
+          }
+
+    EXPRESSION: NUMBER                         { $$ = $1; }
+              | EXPRESSION op EXPRESSION       { char temp[strlen($2) + strlen($1) + strlen($3) + 2]; sprintf(temp,"%s %s %s", $1, $2, $3); $$ = temp; }
+              | '(' EXPRESSION ')'            { char temp[strlen($1) + strlen($2) + strlen($3) + 2]; sprintf(temp,"( %s )", $2); $$ = temp; }
+%%
+ 
+/* function to convert infix expression to postfix expression */
+void infix_to_postfix(char infix[], char postfix[]) 
+{
+    /* operand stack */
+    char operand_stack[strlen(infix)];
+    int top = -1; /* top of stack */
+ 
+    /* separate each token */
+    char *token = strtok(infix, " ");
+ 
+    while(token != NULL) {
+        if(*token == '(') {
+            /* push '(' to stack */
+            operand_stack[++top] = *token;
+        } else if(isdigit(*token) || isalpha(*token)) {
+            /* append operand to output */
+            strcat(postfix, token);
+        } else if(strchr(op_symbols, *token)) {
+            /* check if precedence of current char is lower than top of stack */
+            while(token_precedence(operand_stack[top]) >= token_precedence(*token))
+                /* push top of stack to output */
+                strcat(postfix, &operand_stack[top--]);
+ 
+            /* push current char to stack */
+            operand_stack[++top] = *token;
+        } else if(*token == ')') {
+            /* keep pushing from stack until '(' is encountered */
+            while(top != -1 && operand_stack[top] != '(')
+                strcat(postfix, &operand_stack[top--]);
+ 
+            /* pop '(' from stack */
+            if(top == -1) {
+                /* if stack is empty, incorrect parentheses */
+                printf("Error: Incorrect parentheses.\n");
+                return;
+            }
+ 
+            --top;
+        }
+ 
+        /* get next token */
+        token = strtok(NULL, " ");
+    }
+ 
+    /* pop remaining tokens from stack */
+    while(top != -1)
+        strcat(postfix, &operand_stack[top--]);
+}
+ 
+/* function to check the precedence of operators */
+int token_precedence(char op_symbol) 
+{
+    switch (op_symbol) {
+        case '+':
+        case '-':
+            return 1;
+            break;
+ 
+        case '*':
+        case '/':
+            return 2;
+            break;
+ 
+        case '^':
+            return 3;
+            break;
+ 
+        default:
+            printf("Error: Invalid operator.\n");
+            exit(0);
+            break;
+    }
+}

@@ -1,0 +1,99 @@
+###############################################################################
+# This is a complex CMakeLists file that defines multiple targets,
+# sets compiler flags, and links to libraries.
+###############################################################################
+
+# Define the minimum version of CMake required
+cmake_minimum_required(VERSION 3.14)
+
+# Set project name
+project(MyProject)
+
+# Use C++11 standard
+set(CMAKE_CXX_STANDARD 11)
+
+# Set compiler flags for all targets
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror -pedantic")
+
+# Create a library target
+add_library(myLib SHARED
+    source/file1.cpp
+    source/file2.cpp
+)
+
+# Create an executable target
+add_executable(myApp
+    main.cpp
+)
+
+# Link library to executable
+target_link_libraries(myApp myLib)
+
+# Add subdirectory for other libraries
+add_subdirectory(lib)
+
+# Include header files from other directories
+include_directories(
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/lib/include
+)
+
+# Add compiler flag for debug builds
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
+
+# Specify an installation path for the executable
+install(TARGETS myApp DESTINATION bin)
+
+# Create a test target
+enable_testing()
+add_test(NAME MyTest COMMAND myApp)
+
+# Specify where the tests should be run from
+set_tests_properties(MyTest PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/test
+)
+
+# Set up code coverage with gcov
+option(ENABLE_COVERAGE "Enable code coverage reporting" ON)
+if(ENABLE_COVERAGE)
+    # Set compiler flags for code coverage
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -coverage")
+
+    # Set linker flag for code coverage
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -coverage")
+
+    # Specify sources for code coverage
+    set(COVERAGE_SRCS 
+        source/file1.cpp
+        source/file2.cpp
+        main.cpp
+    )
+
+    # Build test executable with code coverage
+    add_executable(myApp_coverage ${COVERAGE_SRCS})
+
+    # Link libraries to test executable
+    target_link_libraries(myApp_coverage myLib)
+
+    # Create test for code coverage
+    add_test(NAME MyTest_coverage COMMAND myApp_coverage)
+
+    # Specify where the code coverage report should be generated
+    set(COVERAGE_DIR ${CMAKE_SOURCE_DIR}/coverage)
+    # Generate report with gcov
+    add_custom_target(coverage
+        # clean the coverage directory
+        COMMAND ${CMAKE_COMMAND} -E remove_directory ${COVERAGE_DIR}
+        # create the directory
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${COVERAGE_DIR}
+        # run lcov and output to coverage.info
+        COMMAND lcov --capture --directory ${CMAKE_BINARY_DIR} --output-file ${COVERAGE_DIR}/coverage.info
+        # remove irrelevant files
+        COMMAND lcov --remove ${COVERAGE_DIR}/coverage.info '/usr/*' '${CMAKE_SOURCE_DIR}/lib/*' 'test/*' '*/test/*' --output-file ${COVERAGE_DIR}/coverage.info
+        # generate html report
+        COMMAND genhtml ${COVERAGE_DIR}/coverage.info --output-directory ${COVERAGE_DIR}
+        WORKING_DIRECTORY ${COVERAGE_DIR}
+        # Display coverage information
+        COMMENT "Generating code coverage report in ${COVERAGE_DIR}"
+    )
+endif()

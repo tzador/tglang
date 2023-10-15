@@ -1,0 +1,62 @@
+{-# LANGUAGE PolyKinds #-}
+
+module Main (main) where
+
+import Data.Proxy
+import Data.Kind
+
+-- | A type-level list, indexed by a kind.
+data List (k :: Type) (a :: [k]) = Nil | Cons (Proxy a) (Proxy (List k a))
+
+instance Show (List k a) where
+    show Nil = "Nil"
+    show (Cons _ xs) = "Cons (" ++ show (Proxy :: Proxy a) ++ ") (" ++ show xs ++ ")"
+
+-- | A type-level function that applies a type-level function to each element of a list.
+type family MapList (f :: k -> j) (xs :: [k]) :: [j] where
+    MapList f '[] = '[]
+    MapList f (x ': xs) = f x ': MapList f xs
+
+-- | A type-level function that combines two lists into a single list.
+type family ConcatList (xs :: [k]) (ys :: [k]) :: [k] where
+    ConcatList '[] ys = ys
+    ConcatList (x ': xs) ys = x ': ConcatList xs ys
+
+-- | A type-level function that takes the union of two lists.
+type family UnionList (xs :: [k]) (ys :: [k]) :: [k] where
+    UnionList '[] ys = ys
+    UnionList (x ': xs) ys = If (Elem x ys) (UnionList xs ys) (x ': UnionList xs ys)
+
+-- | A type-level predicate that checks if an element is in a list.
+type family Elem (x :: k) (xs :: [k]) :: Bool where
+    Elem x '[]       = 'False
+    Elem x (x ': xs) = 'True
+    Elem x (y ': xs) = Elem x xs
+
+-- | A type-level if statement.
+type family If (p :: Bool) (t :: k) (f :: k) :: k where
+    If 'True t f  = t
+    If 'False t f = f
+
+-- | A type alias for a type-level list of kind 'Type'.
+type TypeList a = List Type a
+
+-- | A type-level function that recursively computes the powerset of a type-level list.
+type family PowerSet (xs :: [k]) :: [[k]] where
+    PowerSet '[] = '[ '[] ]
+    PowerSet (x ': xs) = ConcatList (MapList '(: '[]) (PowerSet xs)) (PowerSet xs)
+
+-- | An example type-level list of types.
+type MyList = '[Int, Bool, String]
+
+-- | An example of using a type-level function to map over a type-level list.
+type MyMap = MapList (Maybe :: Type -> Type) MyList -- Should evaluate to '[Maybe Int, Maybe Bool, Maybe String]
+
+-- | An example of using a type-level function to combine two type-level lists.
+type MyConcat = ConcatList '[ '[], '[Int], '[Bool, String] ] '[ '[Char], '[Double, Float], '[] ] -- Should evaluate to '[ '[], '[Int], '[Bool, String], '[Char], '[Double, Float], '[] ]
+
+-- | An example of using a type-level function to take the union of two type-level lists.
+type MyUnion = UnionList '[ 'True, 'False, '[Int] ] '[ 'False, 'True, '[String] ] -- Should evaluate to '[ 'True, 'False, '[Int], '[String] ]
+
+-- | An example of using a type-level function to compute the powerset of a type-level list.
+type MyPowerSet = PowerSet MyList -- Should evaluate to '[ '[], '[String], '[Bool], '[String, Bool], '[Int], '[String, Int], '[Bool, Int], '[String, Bool, Int] ]

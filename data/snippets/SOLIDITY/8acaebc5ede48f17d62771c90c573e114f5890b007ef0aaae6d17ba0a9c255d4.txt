@@ -1,0 +1,69 @@
+/*
+This contract allows for the creation and exchange of non-fungible tokens (NFTs). 
+It implements the ERC721 standard.
+*/
+
+pragma solidity ^0.8.0;
+
+import "./ERC721.sol";
+
+contract NFT is ERC721 {
+    
+    uint public tokenCounter; // keeps track of the total number of tokens
+    
+    struct Token {
+        uint id; // unique token id
+        string name; // name of the token
+        string description; // brief description of the token
+        address owner; // address of the current owner of the token
+    }
+    
+    Token[] public tokens; // stores all created tokens
+    
+    mapping(string => bool) _tokenExists; // tracks if a token with a particular name has already been created
+    
+    constructor() public ERC721("NFT", "NFT") {} // sets the name and symbol of the token
+    
+    // event indicating a new token has been minted
+    event NewTokenMinted(uint _id, string _name, string _description, address _owner);
+    
+    // event indicating a token has been transferred between owners
+    event Transfer(address _from, address _to, uint _id);
+    
+    // function to create a new token
+    function mint(string memory _name, string memory _description) public {
+        require(!_tokenExists[_name], "Token with this name already exists!"); // checks if a token with the given name has already been minted
+        
+        Token memory newToken = Token(tokenCounter, _name, _description, msg.sender); // creates a new token with the given values
+        
+        tokens.push(newToken); // adds the new token to the tokens array
+        _tokenExists[_name] = true; // sets the tokenExists mapping value to true for the newly created token
+        
+        _mint(msg.sender, tokenCounter); // mints the token and assigns it to the sender
+        
+        emit NewTokenMinted(tokenCounter, _name, _description, msg.sender); // emits the NewTokenMinted event
+        
+        tokenCounter++; // increments the tokenCounter
+    }
+    
+    // function to transfer a token to a new owner
+    function transfer(address _to, uint _id) public {
+        require(msg.sender == tokens[_id].owner, "You do not own this token!"); // checks if the sender owns the token they wish to transfer
+        
+        _transfer(msg.sender, _to, _id); // transfers the token to the new owner
+        
+        tokens[_id].owner = _to; // updates the owner address for the transferred token
+        
+        emit Transfer(msg.sender, _to, _id); // emits the Transfer event
+    }
+    
+    // function to get token details by id
+    function getTokenDetails(uint _id) public view returns (uint, string memory, string memory, address) {
+        return (tokens[_id].id, tokens[_id].name, tokens[_id].description, tokens[_id].owner); // returns the details of the token with the given id
+    }
+    
+    // function to get total number of tokens
+    function getTotalTokens() public view returns (uint) {
+        return tokenCounter; // returns the total number of tokens
+    }
+}

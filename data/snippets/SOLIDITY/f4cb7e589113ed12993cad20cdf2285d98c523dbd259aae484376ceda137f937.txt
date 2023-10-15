@@ -1,0 +1,96 @@
+// Importing the required libraries
+import "github.com/oraclize/ethereum-api/oraclizeAPI.sol";
+import "./SafeMath.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+// Defining the contract
+contract MyContract is ERC20 {
+    using SafeMath for uint256; // Importing SafeMath library for safe mathematical operations
+
+    // State variables
+    address private owner; // Will be used to store the contract owner's address
+    uint256 private _totalTokens; // Will be used to store the total number of tokens in circulation
+
+    // Mapping to keep track of token balances
+    mapping(address => uint256) private _balances;
+
+    // Events to be emitted on token transactions
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+
+    // Constructor function
+    constructor() public {
+        owner = msg.sender; // Setting contract owner to the address that deployed the contract
+        _totalTokens = 1000000; // Initializing the total number of tokens to 1 million
+        _balances[owner] = _totalTokens; // Assigning all the tokens to the contract owner
+    }
+
+    // Function to get the total number of tokens in circulation
+    function totalSupply() public view returns (uint256) {
+        return _totalTokens; // Returning the total number of tokens
+    }
+
+    // Function to get the token balance of a given address
+    function balanceOf(address account) public view returns (uint256) {
+        return _balances[account]; // Returning the token balance of the given address
+    }
+
+    // Function to send tokens to a given address
+    function transfer(address recipient, uint256 amount) public returns (bool) {
+        require(amount > 0, "Amount must be greater than 0"); // Making sure the amount to be transfered is not 0
+        require(_balances[msg.sender] >= amount, "Not enough balance"); // Checking if the sender has enough tokens to transfer
+        _balances[msg.sender] = _balances[msg.sender].sub(amount); // Subtracting the amount from the sender's balance
+        _balances[recipient] = _balances[recipient].add(amount); // Adding the amount to the recipient's balance
+        emit Transfer(msg.sender, recipient, amount); // Emitting the Transfer event
+        return true; // Returning true to indicate successful transfer
+    }
+
+    // Function to approve a given address to spend a specific amount of tokens on behalf of the sender
+    function approve(address spender, uint256 amount) public returns (bool) {
+        require(amount > 0, "Amount must be greater than 0"); // Making sure the amount to be approved is not 0
+        _approve(msg.sender, spender, amount); // Calling internal _approve function
+        return true; // Returning true to indicate successful approval
+    }
+
+    // Internal function to approve a given address to spend a specific amount of tokens on behalf of a given address
+    function _approve(address owner, address spender, uint256 amount) internal {
+        require(_balances[owner] >= amount, "Not enough balance"); // Making sure the owner has enough tokens to approve
+        _allowances[owner][spender] = amount; // Assigning the approval amount to the owner and spender mapping
+        emit Approval(owner, spender, amount); // Emitting the Approval event
+    }
+
+    // Function to transfer tokens on behalf of a given address with approval
+    function transferFrom(address sender, address recipient, uint256 amount) public returns (bool) {
+        require(amount > 0, "Amount must be greater than 0"); // Making sure the amount to be transfered is not 0
+        require(_balances[sender] >= amount, "Not enough balance"); // Checking if the sender has enough tokens to transfer
+        require(_allowances[sender][msg.sender] >= amount, "Not enough allowance"); // Checking if the sender has enough allowance from the caller
+        _balances[sender] = _balances[sender].sub(amount); // Subtracting the amount from the sender's balance
+        _balances[recipient] = _balances[recipient].add(amount); // Adding the amount to the recipient's balance
+        _approve(sender, msg.sender, _allowances[sender][msg.sender].sub(amount)); // Reducing the remaining allowance for the caller
+        emit Transfer(sender, recipient, amount); // Emitting the Transfer event
+        return true; // Returning true to indicate successful transfer
+    }
+    
+    // Function to mint new tokens (only callable by the contract owner)
+    function mint(uint256 amount) public {
+        require(msg.sender == owner, "Only the contract owner can call this function"); // Only allowing the contract owner to call this function
+        _totalTokens = _totalTokens.add(amount); // Adding the newly minted tokens to the total supply
+        _balances[owner] = _balances[owner].add(amount); // Adding the newly minted tokens to the owner's balance
+        emit Transfer(address(0), owner, amount); // Emitting the Transfer event for the new tokens being added to the owner's balance
+    }
+
+    // Function to burn tokens (only callable by the contract owner)
+    function burn(uint256 amount) public {
+        require(msg.sender == owner, "Only the contract owner can call this function"); // Only allowing the contract owner to call this function
+        require(_totalTokens >= amount, "Not enough tokens to burn"); // Making sure there are enough tokens to be burned
+        _totalTokens = _totalTokens.sub(amount); // Subtracting the specified amount of tokens from the total supply
+        _balances[msg.sender] = _balances[msg.sender].sub(amount); // Subtracting the specified amount of tokens from the owner's balance
+        emit Transfer(msg.sender, address(0), amount); // Emitting the Transfer event for the burned tokens (sent to address(0))
+    }
+
+    // Fallback function (only callable by the contract owner)
+    function() external payable onlyOwner {
+        // Using Oraclize to get ETH/USD price
+        oraclize_query("URL", "json(https://api.coinbase.com/v2/prices/ETH-USD/spot).data.amount"); 
+    }
+}

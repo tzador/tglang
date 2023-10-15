@@ -1,0 +1,83 @@
+/* This program retrieves customer information from a database 
+and outputs a report with various data points. */
+
+DEFINE VARIABLE cust-num AS INTEGER INIT 1000.
+DEFINE VARIABLE cust-name AS CHARACTER INIT "John Smith".
+DEFINE VARIABLE cust-city AS CHARACTER INIT "New York".
+DEFINE VARIABLE cust-state AS CHARACTER INIT "NY".
+DEFINE VARIABLE cust-phone AS CHARACTER INIT "555-123-4567".
+
+/* Connect to the database */
+DEF VAR ConnectName AS CHAR NO-UNDO.
+DEFINE VARIABLE hQuery AS HANDLE.
+DEFINE VARIABLE hStatement AS HANDLE.
+
+SET ConnectName = "DatabaseConnString".
+RUN DATABASE QUERY WITH 0,
+    RUN VALUE( Clear hStatement ).
+    DROP OBJECT hStatement.
+END.
+
+/* Query the customer information */
+RUN STORED-PROCEDURE STORE-myProcedure.p (INPUT cust-number)
+    IN ALL ROWS nodump {&PROC-HANDLE} BY-REFERENCE:
+    CREATE THE PROC-HANDLE.
+END.
+
+DO WHILE TRUE:
+    SET NO-ERROR.
+    hQuery:GET-NEXT().
+    IF hQuery:QUERY-OFF-END THEN LEAVE.
+    hQuery:GET-FIRST().
+    IF ASSIGN-ERROR THEN
+        MESSAGE "Error in retrieval of query.".
+    ELSE IF hQuery:NUM-RESULTS > 0 THEN
+        DO:
+            CASE hQuery:ROW-COUNT:
+                WHEN 1 TO 5:
+                    MESSAGE "Customer information found.".
+                WHEN 6 TO 10:
+                    MESSAGE "Multiple customers found.".
+                OTHERWISE
+                    MESSAGE "Too many customers found, please refine your search criteria.".
+            END CASE.
+            DO u/lDB:COL-COUNT UNDER hQuery:CURSOR:
+                SET NO-ERROR.
+                ASSIGN dbField = u/lDB:FIELD(“cust_name”).
+                IF ASSIGN-ERROR THEN
+                    MESSAGE "Error retrieving customer name.".
+                ELSE
+                    ASSIGN cust-name = dbField.
+
+                ASSIGN dbField = u/lDB:FIELD(“cust_city”).
+                IF ASSIGN-ERROR THEN
+                    MESSAGE "Error retrieving customer city.".
+                ELSE
+                    ASSIGN cust-city = dbField.
+
+                ASSIGN dbField = u/lDB:FIELD(“cust_state”).
+                IF ASSIGN-ERROR THEN
+                    MESSAGE "Error retrieving customer state.".
+                ELSE
+                    ASSIGN cust-state = dbField.
+
+                ASSIGN dbField = u/lDB:FIELD(“cust_phone”).
+                IF ASSIGN-ERROR THEN
+                    MESSAGE "Error retrieving customer phone number.".
+                ELSE
+                    ASSIGN cust-phone = dbField.
+
+                /* Output customer information to report */
+                OUTPUT TO "customer_report.txt".
+                PUT UNFORMATTED
+                    "Customer Number: " cust-num
+                    SKIP "Customer Name: " cust-name
+                    SKIP "Customer City: " cust-city
+                    SKIP "Customer State: " cust-state
+                    SKIP "Customer Phone Number: " cust-phone.
+                OUTPUT CLOSE.
+            END.
+        END.
+    ELSE
+        MESSAGE "No customers found with the specified criteria.".
+END.

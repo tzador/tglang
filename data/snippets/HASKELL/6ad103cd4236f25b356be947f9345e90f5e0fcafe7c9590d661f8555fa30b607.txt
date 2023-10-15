@@ -1,0 +1,33 @@
+{-# LANGUAGE DataKinds #-} 
+
+module Example where 
+
+import GHC.TypeLits
+import Data.Proxy
+
+-- Defining a type-level natural number as a kind 
+data Nat = Z | S Nat 
+
+-- Define the plus operator for type-level natural numbers 
+type family (:+) (n :: Nat) (m :: Nat) :: Nat where 
+  Z :+ m = m 
+  (S n) :+ m = S (n :+ m) 
+
+-- Create a singleton type for type-level natural numbers 
+newtype SNat (n :: Nat) = SNat { getSNat :: Integer } 
+
+-- Implement a type class for converting type-level naturals to concrete naturals 
+class KnownNat (n :: Nat) where 
+  natVal :: proxy n -> SNat n 
+
+-- Define instances for Z and S 
+instance KnownNat Z where 
+  natVal _ = SNat 0 
+
+instance KnownNat n => KnownNat (S n) where 
+  natVal _ = SNat $ 1 + getSNat (natVal (Proxy :: Proxy n)) 
+
+-- Example usage 
+sumSNats :: SNat n -> SNat m -> SNat (n :+ m) 
+sumSNats n m = natVal n `add` natVal m 
+  where add (SNat x) (SNat y) = SNat (x + y)

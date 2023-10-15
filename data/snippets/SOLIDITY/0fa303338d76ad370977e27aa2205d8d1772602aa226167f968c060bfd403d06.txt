@@ -1,0 +1,55 @@
+/**
+ * @title ERC721Proof
+ * @dev This is an extended ERC721 token that implements proof of ownership for unique assets.
+ */
+contract ERC721Proof is ERC721, Owned {
+    using SafeMath for uint256;
+
+    // Variables
+    uint256 public proofId;
+    uint256 public claimDuration;
+    mapping(uint256 => bytes32) public proofs;
+
+    event OwnershipProofSubmitted(uint256 _tokenId, bytes32 _proofHash);
+
+    /**
+     * @dev Allows the owner of a token to submit a proof of ownership
+     * @param _tokenId The id of the token to submit proof for
+     * @param _proofHash The hash of the proof of ownership
+     */
+    function submitProof(uint256 _tokenId, bytes32 _proofHash) external onlyOwnerOf(_tokenId) {
+        require(_proofHash != 0, "Proof hash cannot be 0");
+        proofs[_tokenId] = _proofHash;
+        emit OwnershipProofSubmitted(_tokenId, _proofHash);
+    }
+
+    /**
+     * @dev Allows the owner of a token to remove the proof of ownership
+     * @param _tokenId The id of the token to remove proof for
+     */
+    function removeProof(uint256 _tokenId) external onlyOwnerOf(_tokenId) {
+        require(proofs[_tokenId] != 0, "No proof exists for this token");
+        delete proofs[_tokenId];
+    }
+
+    /**
+     * @dev Allows anyone to claim ownership of a token if they have the correct proof
+     * @param _tokenId The id of the token to claim ownership for
+     * @param _proof The proof of ownership
+     */
+    function claimOwnership(uint256 _tokenId, bytes32 _proof) external {
+        require(proofs[_tokenId] != 0, "No proof exists for this token");
+        require(proofs[_tokenId] == keccak256(abi.encodePacked(_proof)), "Incorrect proof provided");
+
+        // Transfer ownership to the caller
+        _approve(address(0), _tokenId);
+        _transferFrom(ownerOf(_tokenId), msg.sender, _tokenId);
+
+        // Delete proof and proof ID
+        delete proofs[_tokenId];
+        proofId++;
+
+        // Reset claim duration to avoid replay attacks
+        claimDuration = block.timestamp.add(1 weeks);
+    }
+}

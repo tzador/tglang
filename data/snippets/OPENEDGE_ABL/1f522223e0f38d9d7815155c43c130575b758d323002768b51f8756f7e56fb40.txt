@@ -1,0 +1,56 @@
+DEFINE VARIABLE cName AS CHARACTER NO-UNDO.
+
+DEFINE TEMP-TABLE ttCustomer
+FIELD cName AS CHARACTER FORMAT "x(20)".
+
+CREATE ttCustomer. /* create the temp-table */
+
+/* insert data into the temp-table */
+ASSIGN
+    ttCustomer.cName = "John Smith"
+    ttCustomer.cStatus = "Active"
+    ttCustomer.cCity = "New York"
+    ttCustomer.cState = "NY".
+
+zkutil:CASELESS-INDEX(TTSTUDIOCUST.NAME, 5) /* add case-insensitive index to the temp-table */
+
+/* define a cursor for querying the temp-table */
+DEFINE CURSOR csrCustomer FOR
+    SELECT cName, cStatus, cCity, cState
+    FROM ttCustomer
+    WHERE cState = "NY"
+    ORDER BY cName ASCENDING.
+
+OPEN csrCustomer. /* open the cursor to retrieve data from the temp-table */
+
+/* loop through the cursor to print out the data */
+REPEAT:
+    FETCH csrCustomer NO-LOCK.
+    DISPLAY "Customer Name: " csrCustomer.cName SKIP
+        "Status: " csrCustomer.cStatus SKIP
+        "City: " csrCustomer.cCity SKIP
+        "State: " csrCustomer.cState.
+END.
+
+CLOSE csrCustomer. /* close the cursor */
+
+/* delete the temp-table */
+DELETE OBJECT ttCustomer.
+
+/* define a procedure to handle errors */
+DEFINE PROCEDURE handleError.
+    MESSAGE "An error has occurred: " + ERROR-STATUS:GET-MESSAGE(1)
+        VIEW-AS ALERT-BOX ERROR. /* display error message */
+    ERROR-STATUS:RELEASE-ALL. /* release error status buffer */
+END PROCEDURE.
+
+/* try to insert data into the temp-table but intentionally cause an error */
+TRY:
+    CREATE ttCustomer.
+    ASSIGN
+        ttCustomer.cName = ""
+        ttCustomer.cStatus = "Active"
+        ttCustomer.cCity = "New York"
+        ttCustomer.cState = "NY".
+    ON ERROR UNDO, THROW handleError. /* if an error occurs, rollback changes and call the handleError procedure */
+END TRY.

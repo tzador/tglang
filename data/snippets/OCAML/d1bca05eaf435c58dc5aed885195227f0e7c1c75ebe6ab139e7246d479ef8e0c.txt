@@ -1,0 +1,55 @@
+type expr =
+  | Num of int
+  | Plus of expr * expr
+  | Minus of expr * expr
+  | Times of expr * expr
+  | Divide of expr * expr
+  | Mod of expr * expr
+  | Power of expr * expr
+  | Var of string
+
+(* Represents mathematical expressions including integers, addition, subtraction, multiplication, division, modulus, and exponentiation *)
+
+let rec eval e =
+  match e with
+    | Num n -> n
+    | Plus (e1, e2) -> eval e1 + eval e2
+    | Minus (e1, e2) -> eval e1 - eval e2
+    | Times (e1, e2) -> eval e1 * eval e2
+    | Divide (e1, e2) -> eval e1 / eval e2
+    | Mod (e1, e2) -> eval e1 mod eval e2
+    | Power (e1, e2) -> int_of_float ((float_of_int (eval e1)) ** (float_of_int (eval e2)))
+    | Var x -> failwith "Cannot evaluate variable x"
+
+(* Evaluates mathematical expressions recursively, using pattern matching *)
+
+let rec simplify e =
+  match e with
+    | Plus (Num 0, e2) | Plus (e1, Num 0) -> simplify e2
+    | Minus (e1, Num 0) -> simplify e1
+    | Minus (e1, e2) when e1 = e2 -> Num 0
+    | Times (Num 0, _) | Times (_, Num 0) -> Num 0
+    | Times (Num 1, e2) | Times (e2, Num 1) -> simplify e2
+    | Divide (e1, Num 1) -> simplify e1
+    | Divide (Num 0, _) -> Num 0
+    | Power (_, Num 0) -> Num 1
+    | Power (Num 0, _) -> Num 0
+    | Power (e1, Num 1) -> simplify e1
+    | Power (e1, Num 2) when e1 = e1 -> Times (e1, e1)
+    | Power (e1, e2) when e2 = e2 -> Power (simplify e1, simplify e2)
+    | _ -> e
+
+(* Simplifies a mathematical expression by applying algebraic identities *)
+
+let rec derive e v =
+  match e with
+    | Num _ -> Num 0
+    | Var x -> if x = v then Num 1 else Num 0
+    | Plus (e1, e2) -> Plus (derive e1 v, derive e2 v)
+    | Minus (e1, e2) -> Minus (derive e1 v, derive e2 v)
+    | Times (e1, e2) -> Plus (Times (e1, derive e2 v), Times (derive e1 v, e2))
+    | Divide (e1, e2) -> Divide (Minus (Times (e1, derive e2 v), Times (derive e1 v, e2)), Power (e2, Num 2))
+    | Mod (e1, e2) -> Minus (e1, Times (Divide (e1, e2), e2))
+    | Power (e1, e2) -> Times (e2, Times (Power (e1, simplify (Minus (e2, Num 1))), derive e1 v))
+
+(* Finds the derivative of a mathematical expression with respect to a given variable v, using the power rule and other differentiation rules *)

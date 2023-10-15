@@ -1,0 +1,86 @@
+%%% This module implements a trie data structure in Erlang %%%
+
+-module(trie).
+-export([trie/0, insert/2, search/2, remove/2]).
+
+%% @doc: Creates a new empty trie
+%% @spec: trie() -> {root, [], []}
+%% The root contains three elements: a flag to indicate if its a complete word,
+%% and two lists containing nodes for the next letters
+trie() ->
+    {root, [], []}.
+
+%% @doc: Inserts a string into a trie
+%% @spec: insert(string, trie()) -> trie()
+%% The string is broken down into individual characters and inserted into the trie
+insert("", Trie) ->
+    {root, CompleteFlag, NodeList} = Trie;
+insert([Head | Tail], {root, CompleteFlag, NodeList}) ->
+    case lists:keyfind(Head, 1, NodeList) of
+        false ->
+            Node = newNode(Head),
+            NodeList2 = insert(Node, NodeList),
+            Trie2 = {root, CompleteFlag, NodeList2};
+        {Head, Node} ->
+            Trie2 = {root, CompleteFlag, NodeList}
+    end,
+    insert(Tail, Trie2).
+
+%% @doc: Searches for a string in the trie
+%% @spec: search(string, trie()) -> boolean()
+%% The string is broken down into individual characters and checked in the trie
+search("", Trie) ->
+    {root, CompleteFlag, _} = Trie,
+    CompleteFlag;
+search([Head | _], {root, _, NodeList}) ->
+    case lists:keyfind(Head, 1, NodeList) of
+        false ->
+            false;
+        {Head, Node} ->
+            search(Tail, Node)
+    end.
+
+%% @doc: Removes a string from the trie
+%% @spec: remove(string, trie()) -> trie()
+%% The string is broken down into individual characters and removed from the trie
+remove("", Trie) ->
+    Trie;
+remove([Head | Tail], {root, CompleteFlag, NodeList}) ->
+    case lists:keyfind(Head, 1, NodeList) of
+        false ->
+            Trie;
+        {Head, Node} ->
+            NewNode = remove(Tail, Node),
+            case canRemove(Node) of
+                true ->
+                    {root, CompleteFlag, remove(Node, NodeList)};
+                false ->
+                    {root, CompleteFlag, lists:keyreplace(Head, 1, NodeList, {Head, NewNode})}
+            end
+    end.
+    
+%% @hidden
+%% newNode(Character) -> {Character, false, []}
+%% Creates a new node containing the character and a flag to indicate if its a complete word
+newNode(Character) ->
+    {Character, false, []}.
+    
+%% @hidden
+%% insert(Node, NodeList) -> [Node | NodeList]
+%% Inserts a new node into the node list
+insert(Node, NodeList) ->
+    [Node | NodeList].
+    
+%% @hidden
+%% remove(Trie, Node) -> Trie
+%% Removes the given node from the trie
+remove(Node, NodeList) ->
+    lists:delete(Node, NodeList).
+    
+%% @hidden
+%% canRemove(Node) -> Boolean
+%% Checks if the given node can be removed (i.e has no children)
+canRemove({_, false, _}) ->
+    false;
+canRemove({_, true, _}) ->
+    true.

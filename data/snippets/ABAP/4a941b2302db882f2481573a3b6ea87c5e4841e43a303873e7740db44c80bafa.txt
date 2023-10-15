@@ -1,0 +1,69 @@
+CLASS lcl_customer DEFINITION.
+  PUBLIC SECTION.
+    METHODS:
+      constructor IMPORTING iv_name TYPE string,
+      delete_customer,
+      update_contact_info,
+      reset_password RETURNING VALUE(rv_new_password) TYPE string,
+  PRIVATE SECTION.
+    DATA:
+      name TYPE string,
+      contact_info TYPE string,
+      password TYPE string.
+ENDCLASS.
+
+CLASS lcl_customer IMPLEMENTATION.
+  METHOD constructor.
+    name = iv_name.
+    password = create_password( ).
+  ENDMETHOD.
+
+  METHOD delete_customer.
+    DELETE FROM ztable
+           WHERE name = name
+           AND contact_info = contact_info.
+    reset_password( ).
+  ENDMETHOD.
+
+  METHOD update_contact_info.
+    UPDATE ztable
+       SET contact_info = contact_info
+       WHERE name = name.
+  ENDMETHOD.
+
+  METHOD reset_password.
+    rv_new_password = create_password( ).
+    password = rv_new_password.
+  ENDMETHOD.
+
+  METHOD create_password.
+    "randomly generates a password
+    data:
+      lv_len type i value 10,
+      lv_char type c,
+      lt_alnum type table of char with header line,
+      lv_password type string,
+      lv_cnt type i.
+    field-symbols:
+      <ls_alnum> type char,
+      <ls_foo> type any.
+
+    move 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789' to lt_alnum.
+
+    do 10 times.
+      lv_cnt = sy-tfill(lv_alnum).
+      read table lt_alnum assigning <ls_alnum> index lr_cnt.
+      lv_tmp = lv_tmp && <ls_alnum>.
+    enddo.
+
+    lv_password = lv_tmp.
+    loop at lt_alnum assigning <ls_foo>.
+      replace <ls_foo> with sy-zzero into lv_password.
+    endloop.
+
+    "shift randomly the new password, max length to randomly shift is 5 characters
+    pick up linearly next 1 characters from lv_password starting at '( ABS( sy-index * lv_len MOD 5 ) MOD lv_len ) + 1'.
+
+    return lv_password.
+  ENDMETHOD.
+ENDCLASS.

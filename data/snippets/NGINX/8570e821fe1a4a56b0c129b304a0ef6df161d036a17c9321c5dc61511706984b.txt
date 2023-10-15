@@ -1,0 +1,72 @@
+# Reverse proxy server configuration
+server {
+    listen       80;
+    server_name  example.com;
+
+    location / {
+        # Set cache expiration time to 1 minute
+        expires 1m;
+
+        # Enable caching for all GET requests
+        proxy_cache_methods GET;
+
+        # Define cache zone with maximum cache size of 10 MB
+        proxy_cache_path /data/nginx/cache levels=1:2 keys_zone=example_cache:10m inactive=60m;
+
+        # Set proxy cache bypass for requests with 'no-cache' header
+        proxy_cache_bypass $http_pragma;
+        proxy_cache_bypass $http_authorization;
+
+        # Do not include cookies in cached responses
+        proxy_cache_ignore_headers Set-Cookie;
+
+        # Proxy requests to upstream server
+        proxy_pass http://example_server;
+
+        # Add custom header to request
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    location /static/ {
+        # Serve static files from defined path
+        root /var/www/example.com;
+    }
+
+    error_page   500 502 503 504  /50x.html;
+    location = /50x.html {
+        # Serve custom error page
+        root /usr/share/nginx/html;
+    }
+}
+
+# HTTPS server configuration
+server {
+    listen       443 ssl;
+    server_name  example.com;
+
+    # SSL certificate and private key 
+    ssl_certificate      /etc/ssl/certs/example.crt;
+    ssl_certificate_key  /etc/ssl/private/example.key;
+
+    location / {
+        # Enable gzip compression for responses
+        gzip on;
+        gzip_types text/plain text/css application/json application/javascript;
+
+        # Do not compress files with size less than 1 KB
+        gzip_min_length 1k;
+
+        # Define custom log format
+        log_format custom '$remote_addr - $remote_user [$time_local] '
+                          '"$request" $status $body_bytes_sent '
+                          '"$http_referer" "$http_user_agent"';
+
+        # Write access logs to defined file
+        access_log /var/log/nginx/example.access.log custom;
+
+        # Return 404 error for requests to /admin/ path
+        location /admin/ {
+            return 404;
+        }
+    }
+}

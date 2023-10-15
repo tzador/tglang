@@ -1,0 +1,33 @@
+REPORT demo_abap.
+
+TABLES: mara, marc, makt. "Define database tables
+
+TYPES: BEGIN OF ty_material,  "Define types
+         matnr TYPE mara-matnr,
+         maktx TYPE makt-maktx,
+       END OF ty_material.
+
+DATA: lt_materials TYPE STANDARD TABLE OF ty_material, "Define internal table
+      wa_material TYPE ty_material.
+
+SELECT * FROM mara INTO TABLE lt_materials WHERE mtart = 'FERT'. "Select data from database table
+
+LOOP AT lt_materials INTO wa_material.  "Loop through internal table
+  SELECT * FROM marc UP TO 10 ROWS INTO DATA(lt_prices) WHERE matnr = wa_material-matnr.  "Select price data for each material
+
+  wa_material-material_price = REDUCE #(
+    INIT price = 0
+    FOR each_in = lt_prices (  "Calculate average price for material
+      NEXT price = price + each_in-peinh / lt_prices-lines
+    )
+  ). "Assign average price to material
+
+  INSERT wa_material INTO TABLE lt_materials. "Insert material data into internal table
+ENDLOOP.
+
+SORT lt_materials BY matnr DESCENDING.  "Sort internal table by material number
+DELETE ADJACENT DUPLICATES FROM lt_materials COMPARING matnr. "Remove duplicate entries
+
+LOOP AT lt_materials INTO wa_material.
+  WRITE: / wa_material-matnr, wa_material-maktx, wa_material-material_price. "Output material data in a formatted layout
+ENDLOOP.

@@ -1,0 +1,42 @@
+/* This code snippet demonstrates how to read multiple CSV files and merge them together */
+
+/*Create a macro variable to store the file path of the folder containing the CSV files*/
+%let folder_path = "C:\Documents\CSV_Files";
+
+/*Create a macro variable to store the list of CSV files within the folder*/
+%let file_list = %sysfunc(filename_list(&folder_path));
+
+/*Set the default format for any date variables in the CSV files*/
+options datestyle = yymmdd10.;
+
+/*Create a macro to read and merge the CSV files together*/
+%macro read_csv;
+  /*Set a counter for the number of files in the folder*/
+  %let num_files = %sysfunc(countw(&file_list));
+
+  /*Set a macro variable to store the name of each CSV file*/
+  %do i=1 %to &num_files;
+    %let file = %scan(&file_list, &i, %str("));
+
+    /*Create a data step to read the CSV file and store it in a temporary dataset*/
+    data temp_data;
+      infile &folder_path./&file dlm=',' firstobs=2;
+
+      /*Read the data from the CSV file*/
+      input var1 var2 var3 var4;
+    run;
+
+    /*Merge the temporary dataset with the main dataset*/
+    proc sql;
+      create table main_data as
+      select *
+      from main_data
+      union
+      select *
+      from temp_data;
+    quit;
+  %end;
+%mend;
+
+/*Call the macro to merge the CSV files*/
+%read_csv;

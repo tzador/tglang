@@ -1,0 +1,68 @@
+# This script will query the Windows registry for the file paths of all installed programs
+# and write the results to a CSV file.
+
+# Import the necessary PowerShell module
+Import-Module -Name Microsoft.PowerShell.Management
+
+# Create a new PowerShell credential object
+$cred = Get-Credential
+
+# Set the username and password for the target computer
+$Username = $cred.GetNetworkCredential().Username
+$Password = $cred.GetNetworkCredential().Password
+
+# Set the IP address or hostname of the remote computer
+$ComputerName = "192.168.1.1"
+
+# Establish a remote PS session
+$Session = New-PSSession -ComputerName $ComputerName -Credential $cred
+
+# Use the Invoke-Command cmdlet to run a scriptblock on the remote computer
+$Programs = Invoke-Command -Session $Session -ScriptBlock {
+    # Get the subkeys under the Uninstall registry key for all users
+    $reg = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, $ComputerName)
+    $key = $reg.OpenSubKey("Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall")
+
+    # Create an array to store the program names and file paths
+    $installedPrograms = @()
+
+    # Loop through each subkey and retrieve the program name and file path
+    foreach ($subkey in $key.GetSubKeyNames()) {
+        # Ignore empty subkeys
+        if ($subkey -ne "") {
+            # Get the program name and file path for each subkey
+            $programName = $key.OpenSubKey($subkey).GetValue("DisplayName")
+            $installLocation = $key.OpenSubKey($subkey).GetValue("InstallLocation")
+
+            # Add the program name and file path to the array
+            $installedPrograms += New-Object PsObject -Property @{
+                "Name"=$programName
+                "InstallLocation"= $installLocation
+            }
+        }
+    }
+
+    # Output the results
+    return $installedPrograms
+}
+
+# Close the remote PS session
+Remove-PSSession $Session
+
+# Create a new CSV file to write the results to
+$csv = New-Object -TypeName System.Text.StringBuilder
+
+# Loop through the results and append them to the CSV file
+foreach ($program in $Programs) {
+    # Create a string with the program name and file path
+    $line = "$($program.Name),$($program.InstallLocation)`n"
+
+    # Add the line to the CSV file
+    $csv.Append($line)
+}
+
+# Save the CSV file to the current directory
+$csv.ToString() | Set-Content -Path .\InstalledPrograms.csv -Encoding UTF8
+
+# Print a success message
+"Successfully retrieved installed programs on $ComputerName and saved to $(Get-Location)\InstalledPrograms.csv"

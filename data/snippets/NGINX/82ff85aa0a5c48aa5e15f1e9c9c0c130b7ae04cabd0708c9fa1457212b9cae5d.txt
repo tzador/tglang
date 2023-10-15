@@ -1,0 +1,61 @@
+server {
+    # listen on port 80
+    listen 80;
+
+    # server name
+    server_name example.com;
+
+    # root directory for the server
+    root /var/www/example.com;
+
+    # location block for handling requests to /images
+    # the regular expression will match for any path starting with /images
+    location ~ ^/images {
+        # enable compression for these requests
+        # specify the types of files that should be compressed
+        gzip on;
+        gzip_types image/jpeg image/png;
+
+        # set the cache control header to cache images for 7 days
+        expires 7d;
+    }
+
+    # location block for handling requests to /videos
+    # the regular expression will match for any path starting with /videos
+    location ~ ^/videos {
+        # allow all origins for CORS (cross-origin resource sharing)
+        add_header Access-Control-Allow-Origin *;
+    }
+
+    # location block for handling requests to /api
+    # the regular expression will match for any path starting with /api
+    location ~ ^/api {
+        # forward the request to the upstream server
+        proxy_pass http://api.example.com;
+    }
+
+    # location block for handling requests to /admin
+    # the regular expression will match for any path starting with /admin
+    # the location block will only be used if the request is not handled by another location block
+    location ~ ^/admin {
+        # only allow requests from the local network
+        allow 192.168.0.0/24;
+        deny all;
+
+        # handle PHP files
+        # the regular expression will match for any file with a .php extension
+        location ~ \.php$ {
+            # configure PHP-FPM
+            fastcgi_pass unix:/var/run/php/php7.4-fpm.sock;
+
+            # specify the root directory for PHP files
+            fastcgi_param DOCUMENT_ROOT /var/www/example.com/admin/;
+
+            # set the SCRIPT_FILENAME variable
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+
+            # include fastcgi_params for further configuration
+            include fastcgi_params;
+        }
+    }
+}

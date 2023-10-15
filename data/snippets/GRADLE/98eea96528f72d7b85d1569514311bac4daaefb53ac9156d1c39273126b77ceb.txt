@@ -1,0 +1,94 @@
+plugins {
+    // Plugin for Spring Boot
+    id 'org.springframework.boot' version '2.4.3'
+
+    // Plugin for building and managing Docker images
+    id 'com.palantir.docker' version '0.24.0'
+
+    // Plugin for running integration tests
+    id 'org.unbroken-dome.test-sets' version '1.2.0'
+
+    // Plugin for running Jacoco test coverage
+    id 'org.jacoco.gradle' version '0.8.4'
+
+    // Plugin for generating code from Protocol Buffers
+    id 'com.google.protobuf' version '0.8.16'
+}
+
+// Configure build properties
+ext {
+    springBootVersion = '2.4.3'
+    jacksonVersion = '2.12.1'
+    httpClientVersion = '4.5.10'
+    testLibraryVersion = '3.4.0'
+    protobufVersion = '3.11.4'
+    // Other project-specific properties
+    // ...
+}
+
+// Dependency management
+dependencies {
+    implementation "org.springframework.boot:spring-boot-starter-web:$springBootVersion"
+
+    // Other Spring Boot dependencies
+    // ...
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.boot:spring-boot-dependencies:$springBootVersion"
+    }
+}
+
+// Configuration for building and running Docker images
+docker {
+    image {
+        name 'my-docker-image'
+        files externalFiles("${projectDir}/src/main/docker", "Dockerfile")
+        buildArgs([
+                'JAR_FILE': jar.archivePath,
+                'JAVA_OPTS': '-Xmx256m'
+        ])
+    }
+}
+
+// Configuration for running Jacoco test coverage
+jacoco {
+    toolVersion = '0.8.4'
+    applyTo build
+    applyTo integrationTest
+}
+
+// Configuration for running integration tests
+testSets {
+    integrationTest {
+        dirName = 'intTest'
+    }
+    acceptanceTest {
+        dirName = 'accTest'
+    }
+}
+
+// Configuration for generating code from Protocol Buffers
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:${protobufVersion}"
+    }
+    plugins {
+        grpc {
+            artifact = "io.grpc:protoc-gen-grpc-java:${protobufVersion}"
+        }
+        java {
+            artifact = "com.google.protobuf:protoc-gen-grpc-java:${protobufVersion}"
+        }
+    }
+    generateProtoTasks {
+        ofSourceSet('main')
+                .forEach { task ->
+                    task.plugins {
+                        grpc {}
+                        java {}
+                    }
+                }
+    }
+}

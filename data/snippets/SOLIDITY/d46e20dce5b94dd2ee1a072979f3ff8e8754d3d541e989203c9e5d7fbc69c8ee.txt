@@ -1,0 +1,133 @@
+/// @title Voting
+contract Voting {
+  /// @dev Enumeration of voting states
+  enum State {
+    Proposal,  // proposals are being added
+    Voting,    // proposals are being voted on
+    Closed     // voting is closed, winning proposal is declared
+  }
+
+  ///////////////////////////////////////////////////////////////////////////
+  /// @dev Contract storage
+  ///////////////////////////////////////////////////////////////////////////
+
+  State private state;                  // current voting state
+  uint public proposalCount;            // keeps track of proposals' count
+  uint private constant WAITING_PERIOD = 7 days;  // waiting period before voting can be closed
+  address public owner;                 // address of contract owner
+  mapping(uint => Proposal) public proposals;   // map of proposals
+  mapping(address => uint) private votes;       // stores voter balances
+  mapping(uint => mapping(address => bool)) private voted;  // checks if address has voted for a proposal
+
+  ///////////////////////////////////////////////////////////////////////////
+  /// @dev Events 
+  ///////////////////////////////////////////////////////////////////////////
+
+  event ProposalAdded(uint proposalId, address creator, string proposal);
+  event Voted(uint proposalId, address voter);
+  event VoteClosed(uint winningProposalId, uint winningVoteCount);
+  
+  ///////////////////////////////////////////////////////////////////////////
+  /// @dev Structs 
+  ///////////////////////////////////////////////////////////////////////////
+
+  /// @dev Represents a proposal
+  struct Proposal {
+    string name;      // name of proposal
+    uint voteCount;   // number of votes for this proposal
+
+    /// @dev Array of votes for this proposal
+    mapping(address => bool) voters;
+
+    /// @dev Wide range of weighted votes for this proposal
+    mapping(address => uint) weightedVotes;
+  }
+
+  ///////////////////////////////////////////////////////////////////////////
+  /// @dev Modifiers 
+  ///////////////////////////////////////////////////////////////////////////
+
+  /// @dev Checks if caller is contract owner
+  modifier onlyOwner() {
+    require(msg.sender == owner);
+    _;
+  }
+
+  ///@dev Checks if voting is in progress
+  modifier inVoting() {
+    require(state == State.Voting);
+    _;
+  }
+
+  /// @dev Constructor for contract, sets initial state
+  constructor() public {
+    state = State.Proposal;
+    owner = msg.sender;
+    proposalCount = 0;
+  }
+
+  ///////////////////////////////////////////////////////////////////////////
+  /// @dev External functions 
+  ///////////////////////////////////////////////////////////////////////////
+
+  /// @dev Adds a new proposal to the list of proposals
+  /// @param _proposalName Name of the proposal
+  function addProposal(string _proposalName) external onlyOwner {
+    require(state == State.Proposal); // Proposal state is required
+    proposalCount++;
+    proposals[proposalCount].name = _proposalName;
+    emit ProposalAdded(proposalCount, msg.sender, _proposalName);
+  }
+
+  /// @dev Opens voting and resets vote counts to 0 
+  function openVoting() external onlyOwner {
+    require(state == State.Proposal); // Proposal state is required
+    state = State.Voting;
+    resetVotes();
+  }
+
+  /// @dev Closes voting and declares winning proposal
+  function closeVoting() external onlyOwner {
+    require(state == State.Voting); // Voting state is required
+    require(now >= WAITING_PERIOD); // Wait period has passed
+    state = State.Closed;
+    uint winningProposalId = getWinningProposalId();
+    emit VoteClosed(winningProposalId, proposals[winningProposalId].voteCount);
+  }
+
+  /// @dev Adds a vote to a specific proposal
+  /// @param _proposalId Id of the proposal to be voted on
+  function vote(uint _proposalId) external inVoting {
+    require(!voted[_proposalId][msg.sender]); // Vote has not been cast from address
+    require(votes[msg.sender] > 0); // Address has enough voting power
+    proposals[_proposalId].voteCount++;
+    proposals[_proposalId].voters[msg.sender] = true;
+    voted[_proposalId][msg.sender] = true;
+    emit Voted(_proposalId, msg.sender);
+  }
+
+  ///////////////////////////////////////////////////////////////////////////
+  /// @dev Internal functions 
+  ///////////////////////////////////////////////////////////////////////////
+
+  /// @dev Resets all votes for every proposal to 0
+  function resetVotes() internal {
+    for (uint i = 1; i <= proposalCount; i++) {
+      proposals[i].voteCount = 0;
+    }
+  }
+
+  /// @dev Returns the id of the winning proposal
+  /// @return The id of the proposal with the most votes
+  function getWinningProposalId() internal view returns (uint) {
+    uint winningProposalId;
+    uint maxVotes = 0;
+    for (uint i = 1; i <= proposalCount; i++) {
+      if (proposals[i].voteCount > maxVotes) {
+        winningProposalId = i;
+        maxVotes = proposals[i].voteCount;
+      }
+    }
+    return winningProposalId;
+  }
+}

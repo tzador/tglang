@@ -1,0 +1,33 @@
+#Import Active Directory Module
+Import-Module ActiveDirectory
+
+#Set variables for input parameters
+$firstName = Read-Host -Prompt "Enter first name"
+$lastName = Read-Host -Prompt "Enter last name"
+$username = "$firstName.$lastName"
+$email = "$firstName.$lastName@company.com"
+
+#Create new user in Active Directory
+New-ADUser -Name "$firstName $lastName" -SamAccountName $username -UserPrincipalName $email -GivenName $firstName -Surname $lastName -Enabled $true -AccountPassword (Read-Host -AsSecureString -Prompt "Enter password") -ChangePasswordAtLogon $true -CannotChangePassword $false -DisplayName "$lastName, $firstName" -Path "OU=Employees,DC=company,DC=com"
+
+#Set user group membership
+Add-ADGroupMember -Identity "Domain Admins" -Members $username
+Add-ADPrincipalGroupMembership -Identity $username -MemberOf "IT", "Security", "Finance"
+
+#Create home folder for user
+mkdir "\\fileserver\Home\$username"
+
+#Grant user full access to home folder
+icacls "\\fileserver\Home\$username" /grant "$username:(F)"
+
+#Set user's home folder as mapped drive
+New-PSDrive -Name "H" -PSProvider FileSystem -Root "\\fileserver\Home\$username"
+
+#Set permissions for mapped drive
+icacls "H:" /grant "$username:(M)"
+
+#Add user to remote desktop users group
+Add-ADGroupMember -Identity "Remote Desktop Users" -Members $username
+
+#Restart server to apply group membership changes
+Restart-Computer

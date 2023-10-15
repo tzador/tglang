@@ -1,0 +1,65 @@
+# This section contains the necessary imports for our program
+use strict;
+use warnings;
+use LWP::Simple; # Import for HTTP requests
+use JSON; # Import for handling JSON data
+use Time::Local; # Import for working with timestamps
+use HTML::TreeBuilder; # Import for parsing HTML
+
+# Global variables
+my $URL = 'https://example.com'; # URL for the website we will be scraping
+my $output_file = 'output.txt'; # File to write the output to
+
+# Function to get the current date and time
+sub get_current_time {
+    my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time);
+    # Adjusting the month and year to the correct values
+    $mon += 1;
+    $year += 1900;
+    # Formatting the datetime string
+    my $datetime = sprintf("%d-%02d-%02d %02d:%02d:%02d", $year, $mon, $mday, $hour, $min, $sec);
+    return $datetime;
+}
+
+# Function to make an HTTP request and return the response as a JSON object
+sub make_request {
+    my $json_response = get($URL); # Make the GET request to our URL
+    my $decoded_response = decode_json($json_response); # Decode the JSON response
+    return $decoded_response; # Return the decoded response
+}
+
+# Function to parse the HTML and extract relevant information
+sub parse_html {
+    my $html_response = get($URL); # Make the GET request to our URL
+    my $parsed_html = HTML::TreeBuilder->new_from_content($html_response); # Create an HTML::TreeBuilder object
+    my $article = $parsed_html->look_down(_tag => 'article'); # Using HTML::TreeBuilder's look_down method to find the article element
+    my $title = $article->look_down(_tag => 'h1')->as_text; # Using the look_down method again to find the h1 element and extracting the text
+    my $author = $article->look_down(_tag => 'span', class => 'author')->as_text; # Finding the author information using a combination of tag and class name
+    my $content = $article->look_down(_tag => 'div', class => 'content')->as_HTML; # Extracting the HTML content of the article
+    my $timestamp = $article->look_down(_tag => 'time')->attr('datetime'); # Extracting the value of the datetime attribute from the time element
+    $parsed_html->delete; # Deleting the HTML::TreeBuilder object to free up memory
+    return ($title, $author, $content, $timestamp); # Returning the extracted information
+}
+
+# Main execution of the program
+sub main {
+    open(my $fh, '>', $output_file) or die "Could not open file '$output_file' $!";
+    my $current_time = get_current_time(); # Get the current date and time
+    print $fh "Program started at: $current_time\n\n"; # Print a message to the output file
+    # Make an HTTP request and get the response
+    my $response = make_request();
+    # Extract relevant information from the HTML using our parse_html function
+    my (@parsed_title, $parsed_author, $parsed_content, $parsed_datetime) = parse_html();
+    print $fh "Title: $parsed_title\n";
+    print $fh "Author: $parsed_author\n";
+    print $fh "Content: $parsed_content\n";
+    print $fh "Timestamp: $parsed_datetime\n";
+    # Print the response in JSON format
+    print $fh "\nResponse:\n";
+    print $fh to_json($response, {pretty => 1});
+    close $fh; # Close the output file
+    print "Finished writing output to file '$output_file'.\n"; # Print a message to the console
+}
+
+# Calling the main function to execute our program
+main();

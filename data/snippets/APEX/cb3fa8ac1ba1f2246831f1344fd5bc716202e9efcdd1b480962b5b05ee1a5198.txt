@@ -1,0 +1,59 @@
+trigger updateProduct on Product__c (before update) {
+
+    // Create list to hold Ids of related Category__c records
+    List<Id> categoryIds = new List<Id>();
+    
+    // Loop through all updated Product__c records
+    for(Product__c p : Trigger.new) {
+        
+        // Check if Category__c field has been changed
+        if(p.Category__c != Trigger.oldMap.get(p.Id).Category__c) {
+            
+            // Add Category__c Id to list
+            categoryIds.add(p.Category__c);
+        }
+    }
+    
+    // Query for all related Category__c records
+    List<Category__c> categories = [SELECT Id, Name FROM Category__c WHERE Id IN :categoryIds];
+    
+    // Create map to hold updated Categories and their respective Product__c records
+    Map<Id, List<Product__c>> categoryProductMap = new Map<Id, List<Product__c>>();
+    
+    // Loop through queried Category__c records
+    for(Category__c c : categories) {
+        
+        // Create list to hold updated Product__c records for current Category__c
+        List<Product__c> categoryProducts = new List<Product__c>();
+        
+        // Loop through all updated Product__c records
+        for(Product__c p : Trigger.new) {
+            
+            // Check if Category__c field has been changed for current Product__c
+            if(p.Category__c == c.Id) {
+                
+                // Add Product__c record to list
+                categoryProducts.add(p); 
+            }
+        }
+        
+        // Add Category__c and respective Product__c records to map
+        categoryProductMap.put(c.Id, categoryProducts);
+    }
+    
+    // Loop through queried Category__c records again
+    for(Category__c c : categories) {
+        
+        // Calculate total price for all Product__c records in current Category__c
+        Decimal categoryPrice = 0;
+        for(Product__c p : categoryProductMap.get(c.Id)) {
+            categoryPrice += p.Price__c;
+        }
+        
+        // Update Category__c record with new total price
+        c.Total_Price__c = categoryPrice;
+    }
+    
+    // Update all queried Category__c records
+    update categories;
+}

@@ -1,0 +1,64 @@
+Sets i 'plants' /1*10/
+    j 'markets' /1*15/
+    k 'tech' /coal, gas, nuclear/
+    t 'technology stages' /1*5/;
+
+Alias (k,kt);
+
+Scalars c(i) 'plant capacity in MWh'
+        d(j) 'demand in MWh'
+        f 'fixed cost in $'
+        h 'holding cost per MWh'
+        vir(i,j) 'virtual plant ordering'
+        rh 'ramp up rate in MWh/h'
+        rl 'ramp down rate in MWh/h'
+        cap(k) 'installed capacity in MWh'
+        R 'penalty cost per MWh'
+        l 'life time in years'
+        hr 'hours in a year';
+
+Parameters
+    c0(i) 'fixed cost in $'
+    e0(i) 'energy efficiency'
+    beta(k,i) 'efficiency factor'
+    p(k) 'energy price on fuel type in $/MWh';
+
+Table r(i,j) 'transport cost in $/MWh'
+                j1  j2  j3  j4  j5  j6  j7  j8  j9 j10 j11 j12 j13 j14 j15
+   i1   10  24  18  34  14  28  12  32  16     30  20  26  22  36  40
+   i2   12  22  24  36  16  24  38  32  56     42  26  22  56  40  64
+   i3   14  30  34  26  18  26  20  34  16     36  40  24  48  40  52
+   i4   38  40  16  24  32  30  28  26  36     20  46  54  12  14  18
+   i5   20  36  28  34  24  44  38  32  26     20  56  34  26  34  30
+   i6   22  40  14  24  16  44  36  48  62     20  34  26  46  20  64
+   i7   24  36  56  76  28  32  76  10  32     30  26  24   6  38  56
+   i8   26  78  44  20  64  34  42  26  28     36  40  46  12  56  10
+   i9   28  24  36  26  36  40  20  44  22     50  24  26  30  80  34
+  i10   30  28  26  24  22  34  36  26  44     26  80  10  12  48  56;
+
+Variable q(i,j) 'flow of electricity in MWh'
+         z      'total costs incurred';
+Positive variable q, z;
+
+Equation
+        obj       'objective value'
+        qbal(i)   'flow balance'
+        supply(j) 'satisfied demand'
+        gen(i)    'limit on generation'
+        virt(i)   'virtual plant'
+        up(i)     'ramp up'
+        dn(i)     'ramp down'
+        capcon(i) 'capacity constraint'
+        techcon(i,t,k) 'technology constraint'
+        techstage(i,j,k) 'stage of technology for each plant';
+
+obj..    z =e= f*sum(i, c(i)) + sum((i,j), r(i,j)*q(i,j)) + R*sum(i, vir(i,j));
+qbal(i).. sum(j, q(i,j)) =e= c(i);
+supply(j).. sum(i, q(i,j)) =e= d(j);
+gen(i).. q(i,'large') + q(i,'small') =l= c(i);
+virt(i).. c(i) =g= vir(i,j)*d(j);
+up(i).. q(i-1,'small')*rl + q(i,'large')*rh =l= c(i);
+dn(i).. q(i,'large') + q(i+1,'small') =l= c(i+1) - q(i,'small');
+capcon(i).. sum(j, sum(k, q(i,j)*beta(k,i)*hr)) =l= c(i)*e0(i);
+techcon(i,t,k).. sum(j, sum(t, q(i,j)*beta(k,i)*hr)) =l= c(i)*e0(i);
+techstage(i,j,k).. q(i,j)*beta(k,i)*hr =l= cap(k)*hr*l*sum(t, p(k)*t);

@@ -1,0 +1,42 @@
+package main
+
+import (
+        "fmt"
+        "sync"
+)
+
+func search(array []int, target int, lower int, upper int, wg *sync.WaitGroup, ch chan bool) {
+        defer wg.Done()
+        mid := (lower + upper) / 2
+        if array[mid] == target {
+                ch <- true
+                return
+        } else if array[mid] > target {
+                wg.Add(1)
+                go search(array, target, lower, mid-1, wg, ch)
+        } else {
+                wg.Add(1)
+                go search(array, target, mid+1, upper, wg, ch)
+        }
+}
+
+func main() {
+        array := []int{1, 2, 3, 4, 5}
+        target := 3
+        wg := new(sync.WaitGroup)
+        ch := make(chan bool)
+        wg.Add(1)
+        go search(array, target, 0, len(array)-1, wg, ch)
+
+        go func() {
+                wg.Wait()
+                close(ch)
+        }()
+
+        found := <- ch
+        if found {
+                fmt.Println("Target Found!")
+        } else {
+                fmt.Println("Target Not Found!")
+        }
+}

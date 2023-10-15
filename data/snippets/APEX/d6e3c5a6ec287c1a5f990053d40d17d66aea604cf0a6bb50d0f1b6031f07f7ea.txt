@@ -1,0 +1,42 @@
+trigger ContactValidation on Contact (before insert, before update) {
+
+    // Create a set to hold all unique emails
+    Set<String> uniqueEmails = new Set<String>();
+
+    // Loop through all new and updated contacts
+    for(Contact con : Trigger.new) {
+
+        // Check if email field is empty
+        if(con.Email != null) {
+
+            // Add email to set if it is not already present
+            if(!uniqueEmails.contains(con.Email)) {
+                uniqueEmails.add(con.Email);
+            }
+        }
+    }
+
+    // Query for existing contacts with matching emails
+    List<Contact> existingContacts = [SELECT Id, Email 
+                                      FROM Contact 
+                                      WHERE Email IN :uniqueEmails];
+
+    // Create a map to track existing emails and their corresponding contact IDs
+    Map<String, Id> existingEmails = new Map<String, Id>();
+
+    // Loop through existing contacts and add email and ID to map
+    for(Contact con : existingContacts) {
+        existingEmails.put(con.Email, con.Id);
+    }
+
+    // Loop through new and updated contacts again
+    for(Contact con : Trigger.new) {
+
+        // Check if the contact's email already exists in the map
+        if(existingEmails.containsKey(con.Email)) {
+
+            // If email already exists, add error message to contact's record
+            con.addError('A contact with this email already exists: ' + existingEmails.get(con.Email));
+        }
+    }
+}

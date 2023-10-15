@@ -1,0 +1,37 @@
+#NGINX Configuration file
+server {
+    listen 80; #Port to listen on
+    server_name example.com; #Domain name
+    
+    location / { #Specifies the location to serve requests from
+        proxy_pass http://localhost:3000; #Proxying requests to port 3000
+        proxy_set_header Host $host; #Sets proxy header to $host
+        proxy_set_header X-Real-IP $remote_addr; #Sets proxy header to client IP address
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; #Sets proxy header to client IP address
+        proxy_redirect off; #Disables automatic redirection
+    }
+    
+    location /static/ { #Serving static files from a different location
+        alias /var/www/static_files/;
+    }
+    
+    location ~ \.php$ { #Serving PHP files
+        fastcgi_pass unix:/run/php/php7.2-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; #Sets script name for fastcgi requests
+        include fastcgi_params;
+    }
+    
+    error_page 404 /404.html; #Custom 404 error page
+    error_page 500 502 503 504 /50x.html; #Custom 5xx error pages
+    location = /50x.html { #Serves error pages from a different location
+        root /var/www/errors/;
+    }
+    
+    if ($host ~* www\.(.+)) { #Redirecting www subdomain to non-www
+        set $host_without_www $1;
+        rewrite ^(.*)$ https://$host_without_www$1 permanent;
+    }
+    
+    #Other server block directives and configurations
+}

@@ -1,0 +1,61 @@
+pragma solidity ^0.8.6;
+
+contract Contract {
+
+    address public owner; // declare state variable to store owner's address
+    uint public totalSupply; // declare state variable to store total supply of tokens
+
+    mapping(address => uint) public balances; // declare mapping to store balances of each address
+    mapping(address => mapping(address => uint)) public allowance; // declare nested mapping to store allowance of each address
+
+    event Transfer(address indexed _from, address indexed _to, uint _value); // declare event for transfers
+    event Approval(address indexed _owner, address indexed _spender, uint _value); // declare event for approvals
+
+    constructor() {
+        owner = msg.sender; // set the contract creator as the owner
+        totalSupply = 1000000; // set the initial total supply to 1 million tokens
+        balances[msg.sender] = totalSupply; // give all tokens to the owner initially
+    }
+
+    modifier onlyOwner() { // define a modifier to restrict certain functions to the owner only
+        require(msg.sender == owner, "You are not the owner.");
+        _;
+    }
+
+    function transfer(address _to, uint _value) public returns (bool) { // define a function for transferring tokens
+        require(balances[msg.sender] >= _value, "You do not have enough tokens.");
+        balances[msg.sender] -= _value; // subtract tokens from sender's balance
+        balances[_to] += _value; // add tokens to receiver's balance
+        emit Transfer(msg.sender, _to, _value); // emit the transfer event
+        return true;
+    }
+
+    function approve(address _spender, uint _value) public returns (bool) { // define a function for approving a spender's allowance
+        allowance[msg.sender][_spender] = _value; // set the allowance for the spender
+        emit Approval(msg.sender, _spender, _value); // emit the approval event
+        return true;
+    }
+
+    function transferFrom(address _from, address _to, uint _value) public returns (bool) { // define a function for transferring tokens from an approved allowance
+        require(balances[_from] >= _value, "The account does not have enough tokens.");
+        require(allowance[_from][msg.sender] >= _value, "You do not have enough allowance.");
+        balances[_from] -= _value; // subtract tokens from sender's balance
+        balances[_to] += _value; // add tokens to receiver's balance
+        allowance[_from][msg.sender] -= _value; // reduce the spender's allowance
+        emit Transfer(_from, _to, _value); // emit the transfer event
+        return true;
+    }
+
+    function mint(address _receiver, uint _amount) public onlyOwner { // define a function for minting new tokens
+        totalSupply += _amount; // increase total supply
+        balances[_receiver] += _amount; // add tokens to receiver's balance
+        emit Transfer(address(0), _receiver, _amount); // emit the transfer event
+    }
+
+    function burn(uint _amount) public { // define a function for burning tokens from sender's balance
+        require(balances[msg.sender] >= _amount, "You do not have enough tokens.");
+        totalSupply -= _amount; // decrease total supply
+        balances[msg.sender] -= _amount; // subtract tokens from sender's balance
+        emit Transfer(msg.sender, address(0), _amount); // emit the transfer event (burn)
+    }
+}

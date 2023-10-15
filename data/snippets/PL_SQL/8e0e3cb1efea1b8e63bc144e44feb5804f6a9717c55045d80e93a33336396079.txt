@@ -1,0 +1,27 @@
+CREATE OR REPLACE TRIGGER customer_trg
+BEFORE INSERT OR UPDATE OF balance ON customer
+FOR EACH ROW
+DECLARE
+    -- Define variables to be used in the trigger
+    v_cus_balance  integer;
+    v_min_balance  integer := 1000;
+BEGIN
+    -- Get current balance of customer
+    SELECT balance INTO v_cus_balance
+    FROM customer
+    WHERE customer_id = :new.customer_id;
+    
+    -- Check if balance is below minimum allowed
+    IF v_cus_balance < v_min_balance THEN
+        -- Raise error and rollback transaction
+        raise_application_error(-20000, 'Minimum balance not met');
+        rollback;
+    END IF;
+    
+    -- Calculate new balance based on transaction type
+    IF inserting THEN
+        :new.balance := :new.balance + :new.transaction_amount;
+    ELSIF updating THEN
+        :new.balance := :new.balance + (:new.transaction_amount - :old.transaction_amount);
+    END IF;
+END;

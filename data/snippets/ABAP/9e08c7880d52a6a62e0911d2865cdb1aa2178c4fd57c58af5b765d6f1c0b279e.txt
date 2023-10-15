@@ -1,0 +1,48 @@
+"Fetch data from table into internal table
+DATA: lt_table TYPE STANDARD TABLE OF sflight,
+      ls_row TYPE sflight.
+
+"Select data from table where carrid is 'LH'
+SELECT * FROM sflight INTO TABLE @lt_table WHERE carrid = 'LH'.
+
+"Loop through internal table
+LOOP AT lt_table INTO ls_row.
+
+  "Check if date is before current date
+  IF sy-datum < ls_row-fldate.
+
+    "Check if destination is within Europe
+    IF ls_row-destin IN ('LHR', 'PAR', 'AMS', 'CDG', 'MAD', 'FRA').
+
+      "Check if flight class is 'Economy'
+      IF ls_row-class = 'ECONOMY'.
+
+        "Calculate discount based on flight price
+        ls_row-price = ls_row-price - (ls_row-price * 0.1).
+      ENDIF.
+    ENDIF.
+
+    "Check if destination is 'JFK'
+    IF ls_row-destin = 'JFK'.
+
+      "Set booking class to 'C'
+      ls_row-bookid = 'C'.
+
+      "Add 'NYC' as destination to flight description
+      ls_row-fldescr = ls_row-fldescr && ' NYC'.
+    ENDIF.
+
+    "Update modified row in internal table
+    MODIFY lt_table FROM ls_row TRANSPORTING price bookid WHERE carrid = ls_row-carrid.
+  ELSE.
+
+    "Delete row from internal table if date is not before current date
+    DELETE lt_table WHERE carrid = ls_row-carrid.
+  ENDIF.
+ENDLOOP.
+
+"Insert new data into table
+INSERT sflight FROM TABLE lt_table.
+
+"Print message to user
+WRITE: 'Data successfully updated.'.

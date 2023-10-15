@@ -1,0 +1,131 @@
+## Sets the minimum required version of CMake
+cmake_minimum_required(VERSION 3.10)
+
+# Allows the use of C++11 features
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Specifies the project name
+project(MyProject)
+
+# Adds a library target called 'myLibrary' with the header files in the 'include' directory and the source files in the 'src' directory
+add_library(myLibrary
+    include/MyClass.h
+    src/MyClass.cpp
+)
+
+# Sets the include directories for the target 'myLibrary'
+target_include_directories(myLibrary PUBLIC include)
+
+# Sets the source files for the target 'myLibrary'
+target_sources(myLibrary PRIVATE src/MyClass.cpp)
+
+# Adds an executable target called 'myExecutable' with the source file 'main.cpp'
+add_executable(myExecutable main.cpp)
+
+# Links the target 'myExecutable' to the target 'myLibrary'
+target_link_libraries(myExecutable PRIVATE myLibrary)
+
+# Sets the output directory for the binary files to be generated
+set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
+
+# Specifies the installation rules for the target 'myExecutable'
+install(TARGETS myExecutable 
+    RUNTIME DESTINATION bin
+)
+
+# Specifies the installation rules for the target 'myLibrary'
+install(TARGETS myLibrary 
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    INCLUDES DESTINATION include
+)
+
+# Copies the header files to the installation directory
+install(DIRECTORY include/ DESTINATION include)
+
+# Adds a command to generate a configuration file based on the 'config.in' file
+configure_file(config.in config @ONLY)
+
+# Sets the output directory for the configuration file to be generated
+set(CONFIG_OUTPUT_PATH ${PROJECT_BINARY_DIR}/config)
+
+# Adds a command to install the configuration file to the installation directory
+install(FILES ${CONFIG_OUTPUT_PATH} DESTINATION config)
+
+# Sets the output directory for the documentation to be generated
+set(DOCUMENTATION_OUTPUT_PATH ${PROJECT_BINARY_DIR}/doc)
+
+# Adds a command to generate documentation using Doxygen based on the 'Doxyfile.in' file
+configure_file(Doxyfile.in Doxyfile @ONLY)
+
+add_custom_command(OUTPUT ${DOCUMENTATION_OUTPUT_PATH}
+    COMMAND Doxygen ${PROJECT_BINARY_DIR}/Doxyfile
+)
+
+# Adds a target called 'documentation' to generate the documentation
+add_custom_target(documentation ALL
+    DEPENDS ${DOCUMENTATION_OUTPUT_PATH}
+)
+
+# Sets the output directory for the test files to be generated
+set(TEST_OUTPUT_PATH ${PROJECT_BINARY_DIR}/test)
+
+# Adds a target called 'myTest' to build and run the tests using Google Test
+add_executable(myTest test/MyClassTest.cpp)
+target_link_libraries(myTest PRIVATE myLibrary gtest main)
+
+# Adds a command to run the tests
+add_custom_command(TARGET myTest POST_BUILD COMMAND myTest)
+
+# Adds a target called 'test' to automatically build and run the tests
+add_custom_target(test_all ALL
+    DEPENDS
+    ${TEST_OUTPUT_PATH}
+    myTest
+)
+
+## Makes the project exportable.
+include(CMakePackageConfigHelpers)
+set(PROJECT_VERSION "1.0.0")
+
+# Generates a file 'MyProjectConfig.cmake' with package information
+configure_package_config_file(
+    config/MyProjectConfig.cmake.in
+    ${PROJECT_BINARY_DIR}/MyProjectConfig.cmake
+    INSTALL_DESTINATION lib/cmake/MyProject
+)
+
+# Generates a file 'MyProjectConfigVersion.cmake' with project version
+write_basic_package_version_file(
+    ${PROJECT_BINARY_DIR}/MyProjectConfigVersion.cmake
+    COMPATIBILITY SameMajorVersion
+)
+
+# Installs the configuration files to the specified directory
+install(
+    FILES
+    ${PROJECT_BINARY_DIR}/MyProjectConfig.cmake
+    ${PROJECT_BINARY_DIR}/MyProjectConfigVersion.cmake
+    DESTINATION lib/cmake/MyProject
+)
+
+# Adds a target called 'package' to create a tarball with the project files
+include(InstallRequiredSystemLibraries)
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "MyProject")
+set(CPACK_PACKAGE_VENDOR "MyCompany")
+set(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/ReadMe.md")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/License.txt")
+set(CPACK_PACKAGE_VERSION_MAJOR "1")
+set(CPACK_PACKAGE_VERSION_MINOR "0")
+set(CPACK_PACKAGE_VERSION_PATCH "0")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "CMake ${CMake_VERSION_MAJOR}.${CMake_VERSION_MINOR}")
+set(CPACK_PACKAGE_CONTACT "contact@mycompany.com")
+set(CPACK_PACKAGE_FILE_NAME "MyProject-${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
+set(CPACK_SOURCE_PACKAGE_FILE_NAME "MyProject-${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.1.3), libstdc++6 (>= 4.2.1), libglib2.0-0 (>= 2.1.1), libpthread (>= 2.1.3)")
+set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
+set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "MyProject")
+set(CPACK_PACKAGE_EXECUTABLES "myExecutable" "MyProject")
+set(CPACK_GENERATOR "TGZ;ZIP;DEB;RPM;NSIS")
+include(CPack)

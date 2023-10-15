@@ -1,0 +1,45 @@
+{-# LANGUAGE DataKinds #-}                    -- Allows for a kind-polymorphic code
+{-# LANGUAGE GADTs #-}                        -- Enables Generalized Algebraic Data Types
+{-# LANGUAGE KindSignatures #-}               -- Allows polymorphism over types
+{-# LANGUAGE ScopedTypeVariables #-}          -- Enables explicit universal quantification
+{-# LANGUAGE TypeOperators #-}                -- Enables type-level operators
+
+module BinaryTree where                       -- Defines a new module named "BinaryTree"
+
+-- Defines a new data type for representing a binary tree with elements of arbitrary type
+-- The constructors "Empty" and "Node" allow for the creation of trees with or without data
+data Tree (a :: *) where
+    Empty :: Tree a                      -- Represents an empty tree
+    Node :: a -> Tree a -> Tree a -> Tree a  -- Represents a tree with a value and left and right subtrees
+
+-- Defines a type-level function for comparing two types and determining their ordering
+-- "LT" represents a type that is less than the other (i.e. "Int" < "String")
+-- "EQ" represents types that are equal (i.e. "Bool" <=> "Bool")
+-- "GT" represents a type that is greater than the other (i.e. "Char" > "Int")
+type family Compare (a :: *) (b :: *) :: Ordering where
+    Compare Int String = LT
+    Compare Int Int = EQ
+    Compare Char Int = GT
+    Compare a b = TypeError (Text "Cannot compare types " :<>: ShowType a :<>: Text " and " :<>: ShowType b)
+
+-- Defines a type-level function for inserting an element of arbitrary type into a binary tree
+-- If the tree is empty (represented by "Empty"), the value is inserted into a new tree
+-- If the tree is not empty, the value is inserted into the appropriate subtree based on the ordering of types
+type family Insert (a :: *) (t :: Tree *) :: Tree * where
+    Insert x Empty = Node x Empty Empty
+    Insert x (Node a l r) =
+        If (Compare x a == LT)
+            (Node a (Insert x l) r)
+            (Node a l (Insert x r))
+
+-- Defines a type-level function for checking if an element is contained within a binary tree
+-- If the tree is empty, the element is not contained
+-- If the tree is not empty, the element is compared to the current value
+-- If they are equal, the element is contained
+-- Otherwise, the element is searched for in the appropriate subtree
+type family Contains (a :: *) (t :: Tree *) :: Bool where
+    Contains x Empty = False
+    Contains x (Node a l r) =
+        If (Compare x a == EQ)
+            True
+            (Or (Contains x l) (Contains x r))

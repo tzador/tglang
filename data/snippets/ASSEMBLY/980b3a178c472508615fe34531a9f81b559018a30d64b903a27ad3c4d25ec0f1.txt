@@ -1,0 +1,83 @@
+.text                      ; Indicates the start of the code section
+.global _start             ; Declares "_start" as a global symbol
+
+_start:                   ; Entry point for the program
+    movl $1, %eax           ; System call number for "exit" function
+    movl $0, %ebx           ; Exit code
+    int $0x80               ; Invoke the kernel to execute the system call
+
+.data                    ; Indicates the start of the data section
+output_string:          ; The label for the output string
+    .ascii "Hello World\n"  ; Actual string to be outputted
+
+.bss                        ; Indicates the start of the uninitialized data section
+input_string:           ; The label for the input string
+    .skip 64                ; Reserve 64 bytes of memory for the input string
+
+.section .rodata     ; Defines a new section for read-only data
+message:              ; The label for the message string
+    .asciz "Enter a number: "   ; Actual string to be outputted
+
+.section .text         ; Defines a new section for code
+    main:                 ; The label for the main function
+    pushl %ebp            ; Save the current base pointer on the stack
+    movl %esp, %ebp       ; Set the current stack pointer as the base pointer
+    subl $16, %esp        ; Allocate 16 bytes of memory on the stack for local variables
+
+    movl $0, %eax         ; Clear the EAX register
+    movl message, %edi    ; Load the address of the message string into the EDI register
+    call printf           ; Invoke the "printf" function to output the message string
+
+    movl $0, %eax         ; Clear the EAX register again
+    leal input_string, %edi  ; Load the address of the input string into the EDI register
+    movl $64, %esi        ; Load the maximum number of characters to read into the ESI register
+    movl $0, %ebx         ; Clear the EBX register
+    call gets             ; Invoke the "gets" function to read input from the user and store it in the input string
+
+    movl input_string, %edi   ; Load the address of the input string into the EDI register
+    call atoi                 ; Invoke the "atoi" function to convert the input string to an integer and store it in the EAX register
+
+    pushl %eax           ; Push the integer onto the stack as an argument for the "exit" function
+    movl $1, %eax         ; System call number for "exit" function
+    movl $0, %ebx         ; Exit code
+    int $0x80             ; Invoke the kernel to execute the system call
+
+    leave                ; Equivalent to "movl %ebp, %esp" and "popl %ebp" - restore the previous base pointer and stack pointer
+    ret                  ; Return from the main function
+
+.section .data         ; Defines a new section for data
+    input_string:       ; Redefining the label for the input string
+    .space 64           ; Reserve 64 bytes of memory for the input string
+
+.section .bss          ; Defines a new section for uninitialized data
+    result:             ; The label for the result variable
+        .skip 4         ; Reserve 4 bytes of memory for the result variable
+
+.section .text         ; Defines a new section for code
+    atoi:               ; The label for the atoi function
+        pushl %ebp      ; Save the current base pointer on the stack
+        movl %esp, %ebp ; Set the current stack pointer as the base pointer
+        subl $12, %esp   ; Allocate 12 bytes of memory on the stack for local variables
+
+        movl $0, -4(%ebp) ; Initialize the result variable to 0
+        movl $10, -8(%ebp) ; Initialize the scale for conversion to decimal
+
+    loop:                 ; The loop for converting the string to an integer
+        movl (%edi), %eax  ; Load the current character into the EAX register
+        cmpl $0, %edi      ; Check if the current character is a null terminator
+        je convert         ; If it is, jump to the conversion code
+
+        movl -4(%ebp), %ecx ; Load the current result into the ECX register
+        imull -8(%ebp), %ecx ; Multiply the result by the conversion scale
+        addl $48, %eax      ; Convert the ASCII character of the current number to its corresponding integer value
+        subl $48, %eax      ; Subtract 48 because ASCII values start at 48
+        addl %eax, %ecx     ; Add the converted value to the current result
+        movl %ecx, -4(%ebp) ; Store the new result in the result variable
+        movl -8(%ebp), %eax ; Load the current scale into the EAX register
+        addl %eax, %edi     ; Increment the pointer to the input string
+        jmp loop            ; Jump back to the beginning of the loop
+
+    convert:               ; Conversion code
+        movl -4(%ebp), %eax ; Move the result into the EAX register
+        leave               ; Equivalent to "movl %ebp, %esp" and "popl %ebp" - restore the previous base pointer and stack pointer
+        ret                 ; Return from the function

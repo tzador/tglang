@@ -1,0 +1,90 @@
+class InventoryManager extends Actor
+    abstract config native class EItemRarity
+
+    event PostBeginPlay()
+    {
+        Super.PostBeginPlay();
+        `The PostBeginPlay event is called when the Actor first spawns and starts communicating with the game world.
+         It is used to initialize variables and call functions for the Actor.`
+        
+        //Spawn default weapons
+        if (WorldInfo.Game != none)
+        {
+            foreach WorldInfo.Game.GetDefaultPawn().Weapons[i]
+            {
+                SpawnDefaultWeaponFor(PlayerController(WorldInfo.Game.GetPlayerController(i)));
+            }
+        }
+    }
+
+    function SpawnDefaultWeaponFor(PlayerController PC)
+    {
+        local Inventory Weapon;
+        
+        if (WorldInfo.Game != none)
+        {
+            `The WorldInfo.Game variable represents the current game instance.`
+            Weapon = Spawn(class'Weapon',,, PC, PC.Pawn.Location, PC.Pawn.Rotation, none, true);
+            `The class'Weapon' represents the class of the weapon being spawned.
+             It is set to spawn on the Player Controller's location and rotation.
+             The final parameter specifies whether or not the weapon will be spawned physically in the game world.`
+        }
+    }
+
+    function GiveWeapon(class<Weapon> Weapons)
+    {
+        local Inventory Weapon;
+        
+        Weapon = Spawn(Weapons, Owner, Owner.Pawn.Location, Owner.Pawn.Rotation, none, true);
+        `The class parameter allows for any weapon class to be specified as an input, 
+         ensuring a flexible and dynamic system for giving weapons to actors.`
+    }
+
+    function InventoryFilter(Inventory Inv, out Inventory FilteredInv)
+    {
+        foreach (Inv)
+        {
+            if (`The if statement checks if the current inventory item is compatible with the current actor.
+                 If it is, it will be added to the FilteredInv variable.`
+                Inv[i].CompatibleWith(World.GetActorOfClass(class'PlayerPawn')))
+            {
+                FilteredInv[i] = Inv[i];
+            }
+        }
+    }
+
+    function SpawnPickupFrom(PlayerReplicationInfo PRI, Inventory Item) implements ActionEvents
+    {
+        `The implements ActionEvents keyword specifies that this function can be used as an action event delegate.`
+        local Pickup PickupItem;
+        
+        PickupItem = Spawn(class'Pickup', PRI, PRI.Pawn.Location, PRI.Pawn.Rotation);
+        `The class'Pickup' represents the class of the pickup item being spawned.
+         It is set to spawn on the Player Replication Info's location and rotation.`
+        
+        if (PickupItem != none)
+        {
+            PickupItem.AddToInventory(, Item, true);
+            `The Item parameter is added to the inventory of the pickup item.
+             The final parameter specifies whether or not the item will be transferred physically in the game world.`
+        }
+    }
+
+    function TeamChanged(TeamInfo T)
+    {
+        //Notify all inventory objects
+        foreach Inventory(Actor.Inventory)
+        {
+            if (`The if statement checks if the current inventory object is owned by the player
+                 who has changed their team, and if so, it will remove the inventory item from the player's inventory.`
+                Inventory[i].Owner == T.OriginalOwner)
+            {
+                Inventory[i].UnEquip();
+                Inventory[i].Pawn.RemoveInventory(Inventory[i]);
+            }
+        }
+        
+        `The T.OriginalOwner variable represents the original owner of the inventory object,
+         which has now switched teams and is no longer the owner.`
+    }
+endclass

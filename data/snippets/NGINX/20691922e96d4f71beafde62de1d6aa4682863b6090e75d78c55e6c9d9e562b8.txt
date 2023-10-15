@@ -1,0 +1,104 @@
+# Sets the maximum number of simultaneous connections for each worker process
+worker_connections 1024;
+
+# Declares a new HTTP server
+server {
+
+  # Sets the port number to listen on
+  listen 80;
+
+  # Defines the default server
+  server_name default_server;
+
+  # Enables the gzip compression
+  gzip on;
+
+  # Sets the list of allowed methods
+  # GET, POST, and HEAD are enabled by default
+  # Allows PUT, DELETE, and OPTIONS methods
+  # Denies all other methods
+  # Returns a 405 error for other methods
+  if ($request_method !~ ^(GET|POST|HEAD)$) {
+    return 405;
+  }
+
+  # Enables the use of HTTP proxy cache
+  proxy_cache_path /data/nginx/cache levels=1:2 keys_zone=my_cache:10m inactive=60m;
+
+  # Levels defines the number of subdirectories in the cache
+  # Keys_zone defines the name and size of the cache zone
+  # Inactive specifies the period of time in which cache items will be marked as inactive
+
+  # Enables caching for specific file types
+  location ~* \.(jpg|jpeg|png|gif|svg|mp4|mov|flv)$ {
+    expires 30d;
+  }
+
+  # Disables caching for specific paths
+  location ~* \.(php|html)$ {
+    expires -1;
+  }
+
+  # Defines custom error pages
+  error_page 404 /404.html;
+  error_page 500 502 503 504 /50x.html;
+
+  # Specifies the location of the custom error pages
+  location = /50x.html {
+    root /usr/share/nginx/html;
+  }
+
+  location = /404.html {
+    root /usr/share/nginx/html;
+  }
+
+  # Includes additional configuration files
+  include /etc/nginx/conf.d/*.conf;
+  include /etc/nginx/sites-enabled/*;
+
+  # Sets the root directory for requests
+  root /var/www/html;
+
+  # Defines the index files to be served
+  index index.html index.htm;
+
+  # Enables server-side includes
+  ssi on;
+
+  # Enables the use of the if directive
+  # developers should avoid using this directive as it is considered 'evil'
+  if (!-f $request_filename) {
+    return 404;
+  }
+
+  # Defines a location block for specific paths
+  location /api/ {
+    # Enables proxy_pass for requests to the specified URL
+    proxy_pass http://localhost:8000/;
+
+    # Sets request headers
+    proxy_set_header Authorization $http_authorization;
+    proxy_set_header X-SSL-Client-DN $ssl_client_s_dn;
+    proxy_set_header X-Real-IP $remote_addr;
+  }
+
+  # Defines a location block for requests to the root path
+  location / {
+    # Enables server-side caching
+    proxy_cache my_cache;
+    # Sets the cache key
+    proxy_cache_key "$scheme$request_method$host$request_uri";
+
+    # Sets the maximum cache size
+    proxy_cache_max_size 10g;
+    # Sets the cache expiry time
+    proxy_cache_valid 200 60m;
+
+    # Enables proxy buffering
+    proxy_buffering on;
+    # Sets the buffer size
+    proxy_buffer_size 128k;
+    proxy_buffers 4 256k;
+    proxy_busy_buffers_size 256k;
+  }
+}

@@ -1,0 +1,136 @@
+/*This BISON code snippet is a simple calculator that supports addition, subtraction, multiplication, and division operations.*/
+%{
+#include <stdio.h> /*include the standard input/output library*/
+
+int result; /*declare a global variable to store the result*/
+
+/*define functions for each operation*/
+int add(int x, int y) {
+    return x + y;
+}
+
+int subtract(int x, int y) {
+    return x - y;
+}
+
+int multiply(int x, int y) {
+    return x * y;
+}
+
+int divide(int x, int y) {
+    return x / y;
+}
+%}
+
+/*define the tokens for each operation and numbers*/
+%token PLUS       /*token for addition operation*/
+%token MINUS      /*token for subtraction operation*/
+%token TIMES      /*token for multiplication operation*/
+%token DIVIDE     /*token for division operation*/
+%token NUMBER     /*token for numbers*/
+
+%% /*beginning of the grammar rules*/
+
+/*grammar rule for expression*/
+exp:    factor
+    |   exp PLUS factor
+    |   exp MINUS factor
+    ;
+
+/*grammar rule for factor*/
+factor: term
+    |   factor TIMES term
+    |   factor DIVIDE term
+    ;
+
+/*grammar rule for term*/
+term:   NUMBER
+    ;
+
+/*specify the precedence and associativity of the operators*/
+%left PLUS MINUS /*left associative, lower precedence*/
+%left TIMES DIVIDE /*left associative, higher precedence*/
+
+%% /*end of the grammar rules*/
+
+/*beginning of the main function*/
+int main() {
+    yylex(); /*call the lexer to scan and tokenize the input*/
+
+    /*parse and evaluate the input*/
+    result = yyparse();
+
+    /*print the result*/
+    printf("Result = %d", result);
+
+    return 0;
+}
+
+/*function to handle syntax error*/
+void yyerror(char *s) {
+    fprintf(stderr, "%s\n", s); /*print the error message to the standard error stream*/
+    exit(1); /*quit the program with an error code*/
+}
+
+/*function to return the tokens to the parser*/
+int yylex() {
+    int c;
+
+    c = getchar(); /*get the next character from the standard input*/
+
+    /*check for the supported tokens and return them*/
+    switch(c) {
+        case '+':
+            return PLUS;
+        case '-':
+            return MINUS;
+        case '*':
+            return TIMES;
+        case '/':
+            return DIVIDE;
+        default:
+            /*if the character is a number, return the token for NUMBER and the value of the number*/
+            if (isdigit(c)) {
+                ungetc(c, stdin); /*put the character back to the input stream*/
+                scanf("%d", &yylval); /*scan the number and store it in the global variable yylval*/
+                return NUMBER;
+            }
+
+            /*otherwise, return 0 for end of input*/
+            return 0;
+    }
+}
+
+/*function to parse and evaluate the input*/
+int yyparse() {
+    int op;
+    int val;
+
+    /*parse and evaluate the first expression*/
+    val = yylval;
+    op = yylex();
+    val = add(val, yyparse());
+
+    /*continue parsing and evaluating while there are still expressions left*/
+    while (op != 0) {
+        /*execute the corresponding operation based on the operator token*/
+        switch(op) {
+            case PLUS:
+                val = add(val, yyparse());
+                break;
+            case MINUS:
+                val = subtract(val, yyparse());
+                break;
+            case TIMES:
+                val = multiply(val, yyparse());
+                break;
+            case DIVIDE:
+                val = divide(val, yyparse());
+                break;
+        }
+
+        op = yylex(); /*get the next operator token*/
+    }
+
+    return val; /*return the final result*/
+}

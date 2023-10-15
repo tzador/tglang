@@ -1,0 +1,42 @@
+DECLARE
+    -- Defining variables to hold the departments' information
+    v_department_name departments.department_name%TYPE;
+    v_department_manager departments.manager_id%TYPE;
+    v_num_employees departments.employees%TYPE;
+
+    -- Defining constants for measuring department performance
+    c_max_avg_salary CONSTANT NUMBER(6,2) := 80000.00;
+    c_min_avg_salary CONSTANT NUMBER(6,2) := 50000.00;
+
+BEGIN
+    -- Selecting departments with a performance rating above average
+    FOR rec IN (SELECT department_name, manager_id, AVG(salary) AS avg_salary, COUNT(*) AS num_employees
+                FROM departments
+                GROUP BY department_name, manager_id
+                HAVING AVG(salary) > (c_max_avg_salary + c_min_avg_salary) / 2
+                ORDER BY avg_salary DESC)
+
+        -- Loop through the departments
+        LOOP
+            -- Assigning department information to variables
+            v_department_name := rec.department_name;
+            v_department_manager := rec.manager_id;
+            v_num_employees := rec.num_employees;
+
+            -- Inserting the department information into a new table
+            INSERT INTO top_performing_departments (department_name, department_manager, num_employees)
+            VALUES (v_department_name, v_department_manager, v_num_employees);
+        END LOOP;
+
+    -- Selecting the top 5 performing departments
+    FOR rec IN (SELECT *
+                FROM top_performing_departments
+                WHERE ROWNUM <= 5
+                ORDER BY num_employees DESC)
+                
+        -- Loop through the top 5 performing departments
+        LOOP
+            -- Printing the department's name and number of employees
+            DBMS_OUTPUT.PUT_LINE('Department Name: ' || rec.department_name || ' \ Employees: ' || rec.num_employees);
+        END LOOP;
+END;

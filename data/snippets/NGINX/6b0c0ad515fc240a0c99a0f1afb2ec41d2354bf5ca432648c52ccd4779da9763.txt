@@ -1,0 +1,75 @@
+#nginx configuration block
+server {
+    #listen to port 80 on any incoming local IP address
+    listen *:80;
+    
+    #set server name to "example.com"
+    server_name example.com;
+
+    #location block for "/" route
+    location / {
+        #send HTTP 200 response
+        return 200;
+
+        #define HTTP request method
+        limit_except GET {
+            #send HTTP 403 (Forbidden) error
+            return 403;
+        }
+        
+        #enable gzip compression for response
+        gzip on;
+        
+        #set compression level to 5
+        gzip_comp_level 5;
+        
+        #send "Hello World!" as response body
+        #with text/html content-type
+        default_type "text/html";
+        return 200 "<h1>Hello World!</h1>"; 
+    }   
+    
+    #location block for "/about" route
+    location /about {
+        #return "About Us" page
+        pagespeed FetchHttps enable;
+        pagespeed  FetchHttps enable; 
+        
+        #set custom HTTP headers
+        add_header X-Frame-Options SAMEORIGIN;
+        add_header X-XSS-Protection "1; mode=block";
+
+        #proxy requests to backend server
+        #at port 3000 on localhost
+        proxy_pass http://localhost:3000; 
+    }
+    
+    #location block for "/images" route
+    location /images {
+        #set max file size for uploaded images
+        client_max_body_size 10M;
+        
+        #send cached images with 1 week expiry
+        expires 1w;
+        
+        #set caching rules for different file types
+        location ~* \.(jpg|jpeg|png)$ {
+            etag on;
+            add_header Cache-Control "public";
+        }
+        
+        location ~* \.(js|css)$ {
+            expires 1d;
+        }
+    }
+    
+    #location block for "/api" route
+    location /api {
+        #send requests to backend API server
+        proxy_pass http://api.example.com;
+        
+        #set custom HTTP headers
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+    }
+}

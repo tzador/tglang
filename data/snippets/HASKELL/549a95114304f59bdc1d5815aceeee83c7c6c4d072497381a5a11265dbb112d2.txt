@@ -1,0 +1,75 @@
+{-|
+Module: ImageProcessing
+Description: Contains functions for manipulating images
+-}
+module ImageProcessing
+(
+    Image(..),
+    Pixel(..),
+    loadImage,
+    invertImage,
+    bayerDither,
+    gaussianBlur,
+    equalizeHistogram,
+    rotateImage
+) where
+
+import Data.Array
+
+-- |Represents an image with a two-dimensional array of pixels
+newtype Image = Image (Array (Int, Int) Pixel)
+
+-- |Represents a color pixel with red, green, and blue values ranging from 0 to 255
+data Pixel = Pixel Int Int Int
+
+-- |Loads an image file and returns an Image object
+loadImage :: String -> IO Image
+loadImage filename = do
+    -- code for loading image file
+    pixels <- getImagePixels
+    return $ Image (pixels :: Array (Int, Int) Pixel)
+
+-- |Inverts the colors of an image
+invertImage :: Image -> Image
+invertImage (Image pixels) = Image (fmap invert pixels)
+    where invert (Pixel r g b) = Pixel (255-r) (255-g) (255-b)
+
+-- |Applies Bayer dithering to an image
+bayerDither :: Image -> Image
+bayerDither (Image pixels) = Image $ listArray (bounds pixels) (map dither (assocs pixels))
+    where dither (i,j) (Pixel r g b)
+            | (mod i 2 == 0) && (mod j 2 == 0)     = Pixel (r `div` 3) (g `div` 3) (b `div` 3)
+            | (mod i 2 == 0) && (mod j 2 == 1)     = Pixel (r `div` 3) (g `div` 3) ((b + 255) `div` 2)
+            | (mod i 2 == 1) && (mod j 2 == 0)     = Pixel (r `div` 3) ((g + 255) `div` 2) (b `div` 3)
+            | (mod i 2 == 1) && (mod j 2 == 1)     = Pixel (r `div` 3) ((g + 255) `div` 2) ((b + 255) `div` 2)
+
+-- |Applies Gaussian blur to an image
+gaussianBlur :: Image -> Image
+gaussianBlur (Image pixels) = Image $ listArray (bounds pixels) (map blur (assocs pixels))
+    where blur (i,j) (Pixel r g b)
+            | i == 0 || i == n || j == 0 || j == m = Pixel r g b
+            | otherwise = Pixel (round avgR) (round avgG) (round avgB)
+            where n = fst $ snd $ bounds pixels
+                  m = snd $ snd $ bounds pixels
+                  avgR = (fromIntegral (r1 + r2 + r3 + r4 + r) / 5.0)
+                  avgG = (fromIntegral (g1 + g2 + g3 + g4 + g) / 5.0)
+                  avgB = (fromIntegral (b1 + b2 + b3 + b4 + b) / 5.0)
+                  (Pixel r1 g1 b1) = pixels ! (i-1,j-1)
+                  (Pixel r2 g2 b2) = pixels ! (i,j-1)
+                  (Pixel r3 g3 b3) = pixels ! (i+1,j-1)
+                  (Pixel r4 g4 b4) = pixels ! (i-1,j)
+                  (Pixel r _ _) = pixels ! (i,j)
+
+-- |Equalizes the histogram of an image
+equalizeHistogram :: Image -> Image
+equalizeHistogram (Image pixels) = Image $ listArray (bounds pixels) (map equalize (assocs pixels))
+    where equalize (i,j) (Pixel r g b) = Pixel (histoR ! r) (histoG ! g) (histoB ! b)
+            where histoR = histogram (map (\(Pixel r _ _) -> r) (elems pixels))
+                  histoG = histogram (map (\(Pixel _ g _) -> g) (elems pixels))
+                  histoB = histogram (map (\(Pixel _ _ b) -> b) (elems pixels))
+                  histogram xs = listArray (0, 255) (map (\x -> (length (filter (==x) xs) * 255) `div` (length xs)) [0..255])
+
+-- |Rotates the image 90 degrees clockwise
+rotateImage :: Image -> Image
+rotateImage (Image pixels) = Image $ listArray (bounds pixels) (map rotate (assocs pixels))
+    where rotate (i,j) (Pixel r g b) = pixels ! (j, (fst (fst (bounds pixels))) - i)

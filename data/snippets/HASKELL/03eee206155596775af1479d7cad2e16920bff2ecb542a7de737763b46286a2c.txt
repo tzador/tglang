@@ -1,0 +1,28 @@
+-- | Wrapper type for a Maybe value
+data MaybeWrapper a = JustWrapper a | NothingWrapper
+
+-- | Functor instance for MaybeWrapper type
+instance Functor MaybeWrapper where
+  fmap func (JustWrapper val) = JustWrapper (func val)
+  fmap func NothingWrapper = NothingWrapper
+
+-- | Applicative instance for MaybeWrapper type
+instance Applicative MaybeWrapper where
+  pure val = JustWrapper val
+  JustWrapper func <*> value = fmap func value
+  NothingWrapper <*> _ = NothingWrapper
+
+-- | Hide the implementation details of IO actions
+data IOWrapper a = IOWrapper (RealWorld -> (a, RealWorld))
+
+-- | Functor instance for IOWrapper type
+instance Functor IOWrapper where
+  fmap func (IOWrapper io) = IOWrapper (\world -> let (val, newWorld) = io world in (func val, newWorld))
+
+-- | Applicative instance for IOWrapper type
+instance Applicative IOWrapper where
+  pure val = IOWrapper (\world -> (val, world))
+  IOWrapper func <*> IOWrapper val = IOWrapper (\world ->
+    let (f, newWorld) = func world
+    (x, newerWorld) = val newWorld
+    in (f x, newerWorld))

@@ -1,0 +1,72 @@
+/**
+    @title Voting
+    A simple contract for creating and managing votes.
+*/
+pragma solidity ^0.8.0;
+
+contract Voting {
+
+    struct Vote {
+        uint option;
+        uint voteCount;
+    }
+
+    mapping(address => bool) private voters;
+    Vote[] private votes;
+
+    /**
+        @dev Creates a new vote with default options set to 0.
+    */
+    constructor() public {
+        addOption(0);
+    }
+
+    /**
+        @dev Adds a new option to the vote.
+        @param option The new option to add.
+    */
+    function addOption(uint option) public {
+        votes.push(Vote({
+            option: option,
+            voteCount: 0
+        }));
+    }
+
+    /**
+        @dev Casts a vote for a specific option.
+        @param option The option to vote for.
+    */
+    function vote(uint option) public {
+        // Only allow new votes from new voters.
+        require(!voters[msg.sender], "You have already voted.");
+
+        // Check if the option exists before voting.
+        require(option < votes.length, "Option does not exist.");
+
+        // Cast the vote.
+        votes[option].voteCount++;
+        voters[msg.sender] = true;
+    }
+
+    /**
+        @dev Gets the winning option of the vote.
+        @return The winning option.
+    */
+    function getWinner() public view returns (uint) {
+        uint winner = 0;
+        uint winningVoteCount = 0;
+
+        // Find the option with the most votes.
+        for (uint i = 0; i < votes.length; i++) {
+            if (votes[i].voteCount > winningVoteCount) {
+                winner = i;
+                winningVoteCount = votes[i].voteCount;
+            } else if (votes[i].voteCount == winningVoteCount) {
+                // In case of a tie, randomly select one of the options.
+                winner = uint(keccak256(abi.encodePacked(block.timestamp, winner, i))) % 2 == 0 ? winner : i;
+            }
+        }
+
+        return votes[winner].option;
+    }
+}

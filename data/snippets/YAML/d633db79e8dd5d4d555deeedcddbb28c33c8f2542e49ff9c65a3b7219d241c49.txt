@@ -1,0 +1,44 @@
+# This is a YAML configuration file for a web application
+
+# Build stage
+build:
+  environment:
+    node_version: '8'
+    ruby_version: '2.6'
+  script:
+    - npm install
+    - bundle install
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+
+# Test stage
+test:
+  image: python:3.7
+  environment:
+    JUPYTER_TOKEN: '<Your Jupyter notebook token>'
+  services:
+    - selenium/standalone-chrome
+  script:
+    - pip install -r requirements.txt
+    - jupyter nbconvert --execute --to html notebook.ipynb
+  dependencies:
+    - build
+  artifacts:
+    paths:
+      - notebook.html
+
+# Deploy stage
+deploy:
+  image: alpine:latest
+  dependencies:
+    - test
+  script:
+    - echo "Deploying to production..."
+    - scp -r /path/to/artifacts user@server:/var/www/
+  environment:
+    name: '{{CI_PROJECT_NAME}}'
+    url: http://example.com
+  only:
+    - master

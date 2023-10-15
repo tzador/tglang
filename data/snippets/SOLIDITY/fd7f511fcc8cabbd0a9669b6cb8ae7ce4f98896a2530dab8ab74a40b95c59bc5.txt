@@ -1,0 +1,99 @@
+// This is a contract that implements a voting system using SOLIDITY
+
+// Importing the necessary libraries
+import "./SafeMath.sol";
+import "./VotingToken.sol";
+
+// Defining the contract
+contract Voting {
+    using SafeMath for uint256; // Using SafeMath library for handling mathematical operations safely
+
+    // Setting up the state variables
+    address public owner; // Address of the contract owner
+    uint256 public votingEndTime; // Timestamp for the end of voting
+    string public subject; // Subject of the vote
+    bool public resultCalculated; // Flag to check if the result has been calculated
+    bool public tokensDistributed; // Flag to check if voting tokens have been distributed
+    uint256 public winningOption; // Winning option of the vote
+    uint256 public totalVotes; // Total number of votes
+    uint256 public totalVoters; // Total number of voters
+
+    // Mapping to store the vote option and its vote count
+    mapping(string => uint256) public optionVotes;
+
+    // Mapping to store the address of voters and their voting tokens
+    mapping(address => uint256) public voterTokens;
+
+    // Defining an enum for the voting options
+    enum VotingOption { Option1, Option2, Option3 }
+
+    // Defining a struct for vote details
+    struct Vote {
+        address voter; // Address of the voter
+        VotingOption option; // Chosen voting option
+        uint256 weight; // Weight of the vote
+    }
+
+    // Array to store all the votes
+    Vote[] public votes;
+
+    // Defining the constructor function
+    constructor(string memory _subject, uint256 _duration) public {
+        owner = msg.sender; // Assigning the contract owner
+        subject = _subject; // Assigning the voting subject
+        votingEndTime = now.add(_duration); // Calculating the end time of voting
+    }
+
+    // Function to distribute voting tokens to the voters
+    function distributeTokens(address[] memory _voters) public {
+        require(msg.sender == owner, "You are not the owner of the contract"); // Allowing only the contract owner to distribute tokens
+        require(!tokensDistributed, "Tokens have already been distributed"); // Allowing token distribution only once
+        VotingToken votingToken = new VotingToken(); // Creating a new instance of the VotingToken contract
+        for(uint256 i = 0; i < _voters.length; i++) { // Looping through the voters and assigning them tokens
+            voterTokens[_voters[i]] = votingToken.balanceOf(_voters[i]); // Assigning the voting tokens to the voter
+        }
+        tokensDistributed = true; // Updating the tokensDistributed flag to true
+    }
+
+    // Function to cast a vote
+    function vote(uint256 _option, uint256 _tokenAmount) public {
+        require(!resultCalculated, "The result has already been calculated"); // Allowing voting only before result calculation
+        require(_tokenAmount <= voterTokens[msg.sender], "Insufficient voting tokens"); // Checking if the voter has enough tokens
+        require(now < votingEndTime, "Voting has ended"); // Allowing voting only before voting end time
+        require(_option > 0 && _option <= 3, "Invalid voting option"); // Checking if the voting option is valid
+        string memory option = getOptionString(_option); // Converting the voting option to a string
+        voterTokens[msg.sender] = voterTokens[msg.sender].sub(_tokenAmount); // Updating the voter's token balance
+        optionVotes[option] = optionVotes[option].add(_tokenAmount); // Updating the vote count for the chosen option
+        totalVotes = totalVotes.add(_tokenAmount); // Updating the total vote count
+        totalVoters = totalVoters.add(1); // Updating the total number of voters
+        votes.push(Vote(msg.sender, VotingOption(_option - 1), _tokenAmount)); // Adding the vote to the array of votes
+    }
+
+    // Function to calculate the winning option
+    function calculateResult() public {
+        require(msg.sender == owner, "You are not the owner of the contract"); // Allowing only the contract owner to calculate the result
+        require(!resultCalculated, "The result has already been calculated"); // Allowing result calculation only once
+        uint256 maxVotes = 0; // Variable to store the maximum vote count
+        for(uint256 i = 0; i < 3; i++) { // Looping through the vote options
+            string memory option = getOptionString(i + 1); // Converting the voting option to a string
+            if(optionVotes[option] > maxVotes) { // Checking if the vote count for the current option is higher than the current maximum
+                maxVotes = optionVotes[option]; // Updating the maximum vote count
+                winningOption = i + 1; // Updating the winning option
+            }
+        }
+        resultCalculated = true; // Updating the resultCalculated flag to true
+    }
+
+    // Function to get the voting option as a string
+    function getOptionString(uint256 _option) internal pure returns (string memory) {
+        if(_option == 1) {
+            return "Option1";
+        }
+        else if(_option == 2) {
+            return "Option2";
+        }
+        else if(_option == 3) {
+            return "Option3";
+        }
+    }
+}

@@ -1,0 +1,52 @@
+; This code snippet is a long and complex AutoHotkey script designed to automate repetitive tasks on the computer.
+
+#NoEnv ; Ensures no environment variables are used in this script
+
+SetTitleMatchMode, 2 ; Sets the window title match mode to use partial matching
+
+SetBatchLines, -1 ; Sets the maximum number of lines of code to execute per millisecond (-1 means no limit)
+
+; The following line creates a hotkey (Ctrl+Alt+B) that will run a function called "Batch_Processing"
+^!b::
+  Gosub, Batch_Processing ; Runs the "Batch_Processing" function
+return
+
+; The "Batch_Processing" function starts here
+Batch_Processing:
+  Loop ; Begins a loop to go through a list of files
+  {
+    FileSelectFile, Filename, %A_Desktop%`/*.*, 3, Select files to process, \n, , ,%A_LastError% ; Allows the user to select multiple files on the desktop and stores their filenames in the variable "Filename"
+
+    If (ErrorLevel = "Cancel") ; Checks if the user cancelled the file selection
+      break ; If so, it breaks out of the loop and the script ends
+
+    IfExist, %A_ScriptDir%/Processed/%Filename% ; Checks if the file already exists in the "Processed" folder
+      continue ; If so, it skips to the next iteration of the loop
+
+    FileCopy, %A_Desktop%/%Filename%, %A_ScriptDir%/Processed/ ; Copies the file from the desktop to the "Processed" folder
+
+    ; The following lines use regular expressions to find and replace specific text within the file
+    FileRead, FileContents, %A_ScriptDir%/Processed/%Filename% ; Reads the contents of the processed file into a variable called "FileContents"
+    StringReplace, FileContents, FileContents, oldText, newText, All ; Replaces all instances of "oldText" with "newText" within "FileContents"
+    StringReplace, FileContents, FileContents, anotherOldText, anotherNewText, All ; Replaces all instances of "anotherOldText" with "anotherNewText" within "FileContents"
+    FileWrite, %FileContents%, %A_ScriptDir%/Processed/%Filename% ; Writes the modified contents back into the processed file
+  }
+
+  Send {Esc} ; Sends the ESC key to close any open windows
+  TrayTip, Batch Processing Complete, Your files have been processed and saved in the "Processed" folder.,, 1 ; Displays a notification in the system tray to indicate the batch processing is complete
+
+return ; Ends the "Batch_Processing" function
+
+; The following lines create a timer that will run the "Daily_Backup" function every day at 6:00 AM
+#Persistent ; Ensures the script continues to run in the background
+SetTimer, Daily_Backup, % (24*60*60*1000) ; Sets the timer interval to 24 hours (in milliseconds)
+Daily_Backup:
+  FileSelectFolder, %A_ScriptDir%/Backup/, 2, Select a folder to backup, Please select the folder you want to back up.,,, %A_LastError% ; Opens a file selection dialogue for the user to select the folder they want to backup
+  BackupDirectory := ErrorLevel ; Stores the selected folder in a variable called "BackupDirectory"
+
+  RunWait %A_ScriptDir%/7-Zip/7z a -tzip -mx9 "%BackupDirectory%/Backup_%A_Now%.zip" "%BackupDirectory%/*.*" >nul ; Uses the command line version of 7-Zip to compress and backup all files within the selected folder
+
+  TrayTip, Daily Backup Complete, Your files have been backed up and compressed in the selected folder.,, 1 ; Displays a notification in the system tray to indicate the daily backup is complete
+return ; Ends the "Daily_Backup" function
+
+Return ; Ends the script

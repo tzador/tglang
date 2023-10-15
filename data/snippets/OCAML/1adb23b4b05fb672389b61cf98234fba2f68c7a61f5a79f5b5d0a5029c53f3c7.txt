@@ -1,0 +1,64 @@
+(**
+Module for handling binary numbers and performing arithmetic operations on them.
+*)
+
+(* Represents a binary number as a list of boolean values. *)
+type binary_number = bool list
+
+(* Helper function for converting an integer to a binary number. *)
+let rec int_to_binary n =
+    if n = 0 then [] else (n mod 2 = 1)::(int_to_binary (n/2)) 
+
+(** Performs the binary addition operation on two binary numbers. *)
+let rec binary_add num1 num2 carry =
+    match num1, num2, carry with
+    | [], [], false -> []
+    | [], [], true -> [true]
+    | [], hd2::tl2, carry -> (not hd2)::(binary_add [] tl2 carry)
+    | hd1::tl1, [], carry -> (not hd1)::(binary_add tl1 [] carry)
+    | hd1::tl1, hd2::tl2, carry ->
+        let sum = hd1 <> hd2 <> carry in
+        let new_carry = (hd1 && hd2) || ((hd1 || hd2) && carry) in
+        sum::(binary_add tl1 tl2 new_carry)
+
+(** Performs the binary subtraction operation on two binary numbers. *)
+let rec binary_sub num1 num2 borrow =
+    match num1, num2, borrow with
+    | [], [], false -> []
+    | [], [], true -> [false]
+    | [], hd2::tl2, borrow -> (not hd2)::(binary_sub [] tl2 borrow)
+    | hd1::tl1, [], borrow -> hd1::(binary_sub tl1 [] borrow)
+    | hd1::tl1, hd2::tl2, borrow ->
+        let diff = if borrow then (not hd1) <> hd2 else hd1 <> hd2 in
+        let new_borrow = if borrow then (hd1 && not hd2) || (not hd1 && hd2) else hd1 && hd2 in
+        diff::(binary_sub tl1 tl2 new_borrow)
+        
+(** Performs the binary multiplication operation on two binary numbers. *)
+let rec binary_mult num1 num2 =
+    match num1, num2 with
+    | [], _ | _, [] -> []
+    | _::_, [true] -> num1
+    | _::_, [false] -> []
+    | _::_, hd2::tl2 -> 
+        let partial_mult = binary_mult num1 tl2 in
+        let shifted_partial_mult = binary_shift_left partial_mult 1 in
+        if hd2 then binary_add num1 shifted_partial_mult false
+        else shifted_partial_mult
+
+(** Performs the binary division operation on two binary numbers. *)
+let rec binary_div num1 num2 =
+    match num1, num2 with
+    | [], _ | _, [] -> []
+    | _::_, [true] -> num1
+    | _::_, [false] -> []
+    | _::_, hd2::tl2 ->
+        let rest = binary_div (binary_sub num1 tl2 false) num2 in
+        if hd2 then 1::rest else 0::rest
+
+(** Shifts a binary number to the left by n positions. *)
+let rec binary_shift_left num n =
+    if n <= 0 then num else binary_shift_left (num @ [false]) (n-1)
+
+(** Shifts a binary number to the right by n positions. *)
+let rec binary_shift_right num n =
+    if n <= 0 then num else binary_shift_right (false::num) (n-1)

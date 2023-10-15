@@ -1,0 +1,90 @@
+%% Particle filter algorithm implementation
+ 
+ %% Initialization
+ % Set number of particles
+ N = 100;
+ 
+ % Initialize belief of robot's position
+ mu = [0; 0];
+ 
+ % Generate initial set of particles with random positions
+ particles = repmat(mu, [1, N]) + 0.5*randn(2, N);
+ 
+ % Set motion noise variance
+ motion_noise = 0.1;
+ 
+ % Set measurement noise variance
+ measurement_noise = 1;
+ 
+ % Set number of time steps
+ T = 10;
+ 
+ % Generate initial sensor measurement
+ [sensor_noise, sensor_rotation] = get_sensor_noise();
+ measurement = sense(mu) + sensor_noise;
+ 
+ % Initialize belief of robot's position using particle filter
+ weights = repmat(1/N, [1, N]);
+ 
+ %% Main loop
+ for t = 1:T
+     
+     % Predict robot's position using motion model
+     particles = motion_model(particles, motion_noise);
+     
+     % Update weights based on measurement 
+     for i = 1:N
+         weights(i) = measurement_model(measurement, particles(:, i), measurement_noise);
+     end
+     
+     % Normalize weights
+     weights = weights/sum(weights);
+     
+     % Resample particles with replacement
+     new_particles = resample_particles(particles, weights);
+     
+     % Update belief of robot's position using resampled particles
+     mu = mean(new_particles, 2);
+     
+     % Set new particles for next time step
+     particles = new_particles;
+     
+     % Generate new sensor measurements
+     [sensor_noise, sensor_rotation] = get_sensor_noise();
+     measurement = sense(mu) + sensor_noise;
+     
+ end
+ 
+ %% Functions
+ 
+ % The motion model predicts the new position of particles
+ function new_particles = motion_model(particles, motion_noise)
+     new_particles = particles + motion_noise*randn(2, size(particles, 2));
+ end
+ 
+ % The measurement model calculates the weight of each particle based on the
+ % difference between the predicted sensor reading and the actual sensor
+ % measurement
+ function weight = measurement_model(measurement, particle, measurement_noise)
+     weight = exp(-(norm(sense(particle) - measurement))^2/(2*measurement_noise));
+ end
+ 
+ % Resampling method to generate new set of particles from weighted particles
+ function new_particles = resample_particles(particles, weights)
+     new_particles = zeros(size(particles));
+     resampled_indices = randsample(1:length(particles), length(particles), true, weights);
+     for i = 1:length(particles)
+         new_particles(:, i) = particles(:, resampled_indices(i));
+     end
+ end
+ 
+ % Function to generate sensor noise and rotation
+ function [sensor_noise, sensor_rotation] = get_sensor_noise()
+     sensor_noise = 0.5*randn(2, 1);
+     sensor_rotation = 0.25*randn(1);
+ end
+ 
+ % Function to simulate sensor measurement
+ function measurement = sense(position)
+     measurement = [position(1) + 2*randn(1); position(2) + 2*randn(1)];
+ end

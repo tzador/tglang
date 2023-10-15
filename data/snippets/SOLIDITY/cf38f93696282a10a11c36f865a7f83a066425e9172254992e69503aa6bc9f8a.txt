@@ -1,0 +1,132 @@
+pragma solidity ^0.8.0;
+
+// This contract implements a ERC20 token with the following features:
+// 1. Pausable: Token transfers can be paused by the owner.
+// 2. Mintable: Owner can mint new tokens.
+// 3. Burnable: Owner can burn existing tokens.
+contract MyToken {
+    string public name;
+    string public symbol;
+    uint8 public constant decimals = 18;
+
+    mapping(address => uint256) public balances;
+    mapping(address => mapping(address => uint)) public allowed;
+
+    uint256 totalSupply_;
+
+    address public owner;
+
+    bool public paused = false;
+
+    // Modifier to restrict access to functions to the owner
+    modifier onlyOwner {
+        require(msg.sender == owner, "Only the owner can call this function");
+        _;
+    }
+
+    // Modifier to check if token transfers are paused
+    modifier notPaused {
+        require(!paused, "Token transfers are paused");
+        _;
+    }
+
+    // Event for token transfer
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
+    // Event for approval of token transfer
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+
+    // Event for token minting
+    event Mint(address indexed to, uint256 amount);
+
+    // Event for token burning
+    event Burn(address indexed from, uint256 amount);
+
+    // Constructor function to initialize the token name and symbol
+    constructor(string memory _name, string memory _symbol) {
+        name = _name;
+        symbol = _symbol;
+        owner = msg.sender;
+    }
+
+    // Function to get the total supply of the token
+    function totalSupply() public view returns (uint256) {
+        return totalSupply_;
+    }
+
+    // Function to get the balance of an address
+    function balanceOf(address _owner) public view returns (uint256) {
+        return balances[_owner];
+    }
+
+    // Function to transfer tokens
+    function transfer(address _to, uint256 _value) public notPaused returns (bool) {
+        require(_value <= balances[msg.sender], "Insufficient balance");
+        require(_to != address(0), "Cannot transfer to zero address");
+        
+        // Update balances
+        balances[msg.sender] = balances[msg.sender] - _value;
+        balances[_to] = balances[_to] + _value;
+
+        emit Transfer(msg.sender, _to, _value);
+        return true;
+    }
+
+    // Function to approve token transfers
+    function approve(address _spender, uint256 _value) public notPaused returns (bool) {
+        require(_spender != address(0), "Invalid spender address");
+        
+        // Update allowance 
+        allowed[msg.sender][_spender] = _value;
+
+        emit Approval(msg.sender, _spender, _value);
+        return true;
+    }
+
+    // Function to transfer tokens from one address to another
+    function transferFrom(address _from, address _to, uint256 _value) public notPaused returns (bool) {
+        require(_value <= balances[_from], "Insufficient balance");
+        require(_value <= allowed[_from][msg.sender], "Not enough allowance");
+        require(_to != address(0), "Cannot transfer to zero address");
+        
+        // Update balances and allowance
+        balances[_from] = balances[_from] - _value;
+        balances[_to] = balances[_to] + _value;
+        allowed[_from][msg.sender] = allowed[_from][msg.sender] - _value;
+
+        emit Transfer(_from, _to, _value);
+        return true;
+    }
+
+    // Function to pause token transfers
+    function pause() public onlyOwner {
+        paused = true;
+    }
+
+    // Function to unpause token transfers
+    function unpause() public onlyOwner {
+        paused = false;
+    }
+
+    // Function to mint new tokens
+    function mint(address _to, uint256 _amount) public onlyOwner {
+        require(_to != address(0), "Cannot mint to zero address");
+        
+        // Increase total supply and update balances
+        totalSupply_ = totalSupply_ + _amount;
+        balances[_to] = balances[_to] + _amount;
+
+        emit Mint(_to, _amount);
+    }
+
+    // Function to burn existing tokens
+    function burn(uint256 _amount) public onlyOwner {
+        require(balances[msg.sender] >= _amount, "Insufficient balance");
+        
+        // Decrease total supply and update balances
+        totalSupply_ = totalSupply_ - _amount;
+        balances[msg.sender] = balances[msg.sender] - _amount;
+
+        emit Burn(msg.sender, _amount);
+    }
+}

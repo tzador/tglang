@@ -1,0 +1,43 @@
+%%This code snippet creates a chat server using TCP sockets and handles multiple client connections
+
+-module(chat_server).
+%%defining the module
+
+-export([start/0, serve/1]).
+%% exporting the functions start and serve to be used from outside the module
+
+%% start function to start the chat server
+start() ->
+	{ok, Listen} = gen_tcp:listen(9999, [{active, false}, {reuseport, true}]),
+	%% creating a TCP socket and starting to listen on port 9999
+	serve(Listen).
+	%% calling the serve function to handle client connections
+
+%% serve function to handle client connections
+serve(Listen) ->
+	{ok, Socket} = gen_tcp:accept(Listen),
+	%% accepting the connection request from a client and creating a socket
+	spawn(fun() -> handle_client(Socket) end),
+	%% creating a new process to handle the client connection
+	serve(Listen).
+	%% calling the serve function again to handle new connections
+
+%% function to handle a single client connection
+handle_client(Socket) ->
+	{ok, Payload} = gen_tcp:recv(Socket, 0),
+	%% receiving data from the client through the socket
+	ParsedPayload = parse_payload(Payload),
+	%% parsing the payload received from the client
+	gen_tcp:send(Socket, ParsedPayload),
+	%% sending back a response to the client
+	handle_client(Socket).
+	%% calling the handle_client function to wait for the next message from the client
+
+%% function to parse the payload received from the client
+parse_payload(Payload) ->
+	%% splitting the payload by the colon delimiter to separate the sender's name from the message
+	[Sender, Message | _] = string:tokens(Payload, ":"),
+	%% formatting the message to include the sender's name
+	FormattedMessage = io_lib:format("~s: ~s", [Sender, Message]),
+	FormattedMessage.
+	%% returning the formatted message as the parsed payload

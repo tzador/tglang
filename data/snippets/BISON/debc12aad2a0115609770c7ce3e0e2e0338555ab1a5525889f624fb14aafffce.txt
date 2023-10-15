@@ -1,0 +1,110 @@
+%{
+    //This is a comment in BISON language
+    //This code snippet is adapted from the example provided in the GNU Bison Manual
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <string.h>
+
+    //Declare a global variable
+    int sum = 0;
+%}
+
+//Define the tokens that will be used in the grammar
+%token NUMBER
+%token PLUS
+%token MINUS
+%token MULTIPLY
+%token DIVIDE
+
+//Define the precedence and associativity of the tokens
+%left PLUS MINUS
+%left MULTIPLY DIVIDE
+
+//Define the grammar rules
+%%
+
+//Define the start symbol for the grammar
+calc: expr { printf("Result is %d\n", $1); }
+
+//Define the rule for an expression
+expr: NUMBER
+    | expr PLUS expr { $$ = $1 + $3; }
+    | expr MINUS expr { $$ = $1 - $3; }
+    | expr MULTIPLY expr { $$ = $1 * $3; }
+    | expr DIVIDE expr { $$ = $1 / $3; }
+    ;
+
+//Handle errors in input
+error: { printf("Syntax error\n"); exit(1); }
+
+%%
+
+//Code for getting the next token
+int yywrap(void)
+{
+    return 1;
+}
+
+//Code for handling the tokens and constructing the abstract syntax tree
+int yyerror(char *msg)
+{
+    fprintf(stderr, "Syntax error: %s\n", msg);
+    return 0;
+}
+
+//Main function
+int main(void)
+{
+    yyparse();
+    return 0;
+}
+
+//Scanner code that reads input from stdin
+%{
+    #include "calc.tab.h"
+%}
+
+%option noyywrap
+%{
+    static int lineno = 1;
+%}
+
+%regex \+
+%token <yytoken> MYPLUS
+
+%regex -
+%token <yytoken> MYMINUS
+
+%regex \*
+%token <yytoken> MYMULTIPLY
+
+%regex /
+%token <yytoken> MYDIVIDE
+
+%regex [0-9]+
+%token <yytoken> MYNUMBER
+
+%%
+
+//Lexical analyzer
+%%
+"*"                   { lineno++; return MYMULTIPLY; }
+"/"                   { lineno++; return MYDIVIDE; }
+"+"                   { lineno++; return MYPLUS; }
+"-"                   { lineno++; return MYMINUS; }
+[0-9]+                { lineno++; yylval.yytoken =
+                        (YYSTYPE) strtol(yytext, NULL, 10);
+                        return MYNUMBER;
+                      }
+[ \t\n]               { lineno++; }
+.                     { lineno++; yyerror("illegal character"); }
+
+//Include the generated header file for the token names
+#include "calc.tab.h"
+
+//Main entry point for the parser
+int yyparse(void)
+{
+    yylex();
+    return 0;
+}

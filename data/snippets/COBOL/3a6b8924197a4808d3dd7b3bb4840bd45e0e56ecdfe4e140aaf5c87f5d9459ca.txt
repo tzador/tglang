@@ -1,0 +1,73 @@
+IDENTIFICATION DIVISION.
+        PROGRAM-ID. SORT-DEMO.
+        ENVIRONMENT DIVISION.
+        INPUT-OUTPUT SECTION.
+        FILE-CONTROL.
+            SELECT MASTERFILE ASSIGN TO DISK ORGANIZATION IS SEQUENTIAL.
+            SELECT TEMPFILE ASSIGN TO DISK ORGANIZATION IS SEQUENTIAL.
+        DATA DIVISION.
+        FILE SECTION.
+        FD MASTERFILE
+            DATA RECORD IS MASTERREC.
+        01 MASTERREC.
+            02 EMPLOYEE-NAME PIC X(30).
+            02 EMPLOYEE-ID PIC X(10).
+            02 EMPLOYEE-SALARY PIC 9(6)V99.
+        SD TEMPFILE
+            DATA RECORD IS TEMPREC.
+        01 TEMPREC.
+            02 EMPLOYEE-NAME PIC X(30).
+            02 EMPLOYEE-ID PIC X(10).
+            02 EMPLOYEE-SALARY PIC 9(6)V99.
+        WORKING-STORAGE SECTION.
+        01 WS-SORT-TABLE.
+            02 WS-SORT-ENTRY.
+                03 WS-KEY PIC X(30).
+                03 WS-RECORD PIC X(52).
+            02 WS-FIRST FREE PIC 99.
+            02 WS-LAST FREE PIC 99.
+        01 WS-EMPLOYEE-COUNT PIC 99.
+        77 WS-SORT-KEY PIC X(30).
+        PROCEDURE DIVISION.
+        BEGIN.
+            OPEN INPUT MASTERFILE OUTPUT TEMPFILE.
+            READ MASTERFILE
+                AT END MOVE 'END OF FILE' TO WS-SORT-KEY.
+            PERFORM UNTIL WS-SORT-KEY = 'END OF FILE'
+                ADD 1 TO WS-EMPLOYEE-COUNT
+                MOVE EMPLOYEE-NAME TO WS-SORT-ENTRY (WS-EMPLOYEE-COUNT)
+                MOVE EMPLOYEE-ID TO WS-SORT-ENTRY (WS-EMPLOYEE-COUNT + 1)
+                MOVE EMPLOYEE-SALARY TO WS-SORT-ENTRY (WS-EMPLOYEE-COUNT + 2)
+                MOVE WS-EMPLOYEE-COUNT TO WS-SORT-TABLE (WS-EMPLOYEE-COUNT)
+                READ MASTERFILE
+                    AT END MOVE 'END OF FILE' TO WS-SORT-KEY.
+            PERFORM VARYING I FROM 1 BY 3 UNTIL I > WS-EMPLOYEE-COUNT
+                PERFORM VARYING J FROM 1 BY 3 UNTIL J > WS-EMPLOYEE-COUNT
+                    IF WS-SORT-ENTRY (J) > WS-SORT-ENTRY (J + 3)
+                        MOVE WS-SORT-ENTRY (J) TO WS-RECORD
+                        MOVE WS-SORT-ENTRY (J + 1) TO WS-RECORD (31:10)
+                        MOVE WS-SORT-ENTRY (J + 2) TO WS-RECORD (60:7)
+                        MOVE WS-SORT-ENTRY (J + 3) TO WS-SORT-ENTRY (J)
+                        MOVE WS-SORT-ENTRY (J + 1) TO WS-SORT-ENTRY (J + 3)
+                        MOVE WS-SORT-ENTRY (J + 2) TO WS-SORT-ENTRY (J + 4)
+                        MOVE WS-RECORD TO WS-SORT-ENTRY (J + 5)
+                END-PERFORM
+            MOVE 0 TO WS-FIRST-FREE
+            MOVE I TO WS-LAST-FREE
+            PERFORM UNTIL WS-SORT-TABLE (WS-EMPLOYEE-COUNT) = 0
+                MOVE WS-SORT-TABLE (WS-FIRST-FREE) TO WS-ID
+                MOVE WS-SORT-ENTRY (WS-FIRST) TO WS-RECORD
+                PERFORM VARYING J FROM WS-FIRST + 1 BY 3 UNTIL J > WS-LAST-FREE
+                    IF WS-SORT-ENTRY (J) = WS-ID
+                        ADD 1 TO WS-SORT-ENTRY (WS-FIRST-FREE + 2)
+                    ELSE
+                        MOVE 1 TO WS-FIRST-FREE
+                        MOVE J TO WS-FIRST-FREE
+                        ADD 1 TO WS-SORT-ENTRY (WS-FIRST-FREE)
+                        MOVE WS-SORT-ENTRY (J) TO WS-ID
+                END-PERFORM
+                WRITE TEMPFILE FROM WS-RECORD (1:67)
+                MOVE WS-SORT-TABLE (WS-FIRST-FREE + 1) TO WS-FIRST-FREE
+            END-PERFORM
+            CLOSE MASTERFILE, TEMPFILE.
+        STOP RUN.

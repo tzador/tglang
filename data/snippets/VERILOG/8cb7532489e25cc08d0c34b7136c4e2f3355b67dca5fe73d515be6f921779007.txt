@@ -1,0 +1,36 @@
+//This is a 32-bit floating point multiplier module
+module FLOAT_MULT_32_bit(input [31:0] a, b,
+  output [63:0] result); //Define input a, b and output result as a 64-bit signal
+
+  wire [30:0] exp_a, exp_b;
+  wire [22:0] mant_a, mant_b;
+  wire [54:0] mant_prod;
+  wire [23:0] mant_sum;
+
+  assign {exp_a, mant_a} = a;
+  assign {exp_b, mant_b} = b;
+  assign mant_prod = (mant_a + 1'b1) * (mant_b + 1'b1); //Multiply mantissas, add 1 to prevent overflow
+  assign mant_sum = {1'b0, mant_prod[53:23]} + {mant_prod[52:23], 1'b0}; //Add exponents
+
+  assign result[63] = a[31] ^ b[31]; //Sign bit
+  //Check for special cases
+  always @* begin
+    if (exp_a == 8'b11111111 && exp_b == 8'b11111111) //Infinity x infinity
+      result[62:53] = 0;
+      result[51:23] = 8'hFF;
+    else if (exp_a == 8'b00000000 && exp_b == 8'b11111111) //0 x infinity
+      result[62:53] = 0;
+      result[51:23] = 0;
+    else if (exp_a == 8'b11111111 && exp_b == 8'b00000000) //Infinity x 0
+      result[62:53] = 0;
+      result[51:23] = 0;
+    else if (exp_a == 8'b00000000 && exp_b == 8'b00000000) //0 x 0
+      result[62:53] = 0;
+      result[51:23] = 0;
+    else begin //Normal cases
+      result[62:53] = mant_sum[23:14];
+      result[51:23] = mant_sum[13:0];
+    end
+  end
+
+endmodule

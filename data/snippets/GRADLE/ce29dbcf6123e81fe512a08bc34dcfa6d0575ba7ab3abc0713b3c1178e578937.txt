@@ -1,0 +1,116 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'com.github.johnrengelman.shadow' version '5.0.0'
+}
+
+// Define project properties
+group 'com.example'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'com.google.guava:guava:30.0-jre'
+    implementation 'org.slf4j:slf4j-api:2.0.0-alpha0'
+    testImplementation 'junit:junit:4.13.2'
+}
+
+application {
+    // Define source directory for application
+    main {
+        sourceSets {
+            main {
+                java {
+                    srcDirs += 'src/main/java'
+                }
+            }
+        }
+        // Define main class for application
+        mainClassName = 'com.example.App'
+    }
+
+    // Define runtime arguments for application
+    applicationDefaultJvmArgs = ['-Xms1024m', '-Xmx4096m']
+
+    // Define distribution for application
+    distributions {
+        // Define custom distribution
+        customDist {
+            // Define exclude pattern for distribution
+            contents {
+                exclude 'docs'
+            }
+        }
+    }
+}
+
+// Define tasks for build process
+tasks.withType(JavaCompile) {
+    // Define compiler arguments for build
+    options.compilerArgs += '-Xlint:unchecked'
+}
+
+// Define custom task for generating documentation
+task generateDocs(type: Javadoc) {
+    // Define source directory for documentation
+    source = sourceSets.main.allJava
+
+    // Define destination directory for documentation
+    destinationDir = file("$buildDir/docs")
+
+    // Set additional options for documentation
+    options.links("https://docs.oracle.com/javase/8/docs/api")
+
+    // Include task in build process
+    dependsOn build
+
+    // Define output message
+    doLast {
+        println "Generated documentation at $destinationDir"
+    }
+}
+
+// Define custom task for executing application
+task runApp(type: JavaExec) {
+    // Define main class for application
+    main = application.mainClassName
+
+    // Define arguments for application
+    args '-arg1', '-arg2'
+
+    // Include task in build process
+    dependsOn build
+}
+
+// Define custom task for creating distribution
+task createDist(type: Zip) {
+    // Define base directory for distribution
+    baseName = application.mainClassName
+
+    // Define destination directory for distribution
+    destinationDir = file("$buildDir/distributions")
+
+    // Define files to be included in distribution
+    from(fileTree('src/main/resources'))
+    into('resources')
+
+    // Include custom distribution in build process
+    dependsOn customDist
+}
+
+// Configure shadow plugin for creating executable jar
+shadowJar {
+    // Define main class for jar
+    configurations = [project.configurations.compile]
+    configurations = [project.configurations.runtime]
+    archiveFileName = 'application.jar'
+
+    // Exclude specific dependencies from jar
+    exclude "ch.qos.logback:logback-classic"
+
+    // Include custom task in shadowJar
+    dependsOn runApp
+}

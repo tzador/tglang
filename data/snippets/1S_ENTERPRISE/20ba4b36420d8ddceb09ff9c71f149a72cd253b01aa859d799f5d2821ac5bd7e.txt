@@ -1,0 +1,31 @@
+&AtServer
+Procedure InvoiceRegistration(CurrentDocumentDate) 
+    // Add journal register
+    Journal = Register."Invoices";
+    // Find unprocessed invoices
+    Query = New Query;
+    Query.SetParameter("DocumentDate", CurrentDocumentDate);
+    Query.Text = "SELECT * FROM Documents.Invoice WHERE DocumentDate = &DocumentDate AND Processed = False";
+    Invoices = Query.Execute().Select();
+    // Loop through invoices
+    For Each Invoice In Invoices Do
+        // Calculate total amount
+        TotalAmount = 0;
+        For Each InvoiceLine In Invoice.Lines Do
+            // Check if line is taxable
+            If InvoiceLine.IsTaxable Then
+                // Add line amount to total
+                TotalAmount = TotalAmount + InvoiceLine.Amount;
+            EndIf;
+        EndFor;
+        // Register invoice in journal
+        JournalRecord = Journal.Add();
+        JournalRecord.Date = CurrentDocumentDate;
+        JournalRecord.Invoice = Invoice;
+        JournalRecord.TotalAmount = TotalAmount;
+        JournalRecord.Registered = True;
+        // Update invoice status
+        Invoice.Processed = True;
+        Invoice.Save();
+    EndFor;
+EndProcedure

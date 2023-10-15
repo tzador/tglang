@@ -1,0 +1,160 @@
+language
+/**
+* @title MultiSigWallet
+* @dev A contract for managing multi-signature wallets
+*/
+
+contract MultiSigWallet {
+    address[] public owners;
+    mapping (address => bool) public isOwner;
+    uint public numConfirmationsRequired;
+
+    struct Transaction {
+        address to;
+        uint value;
+        bytes data;
+        bool executed;
+    }
+
+    mapping (uint => mapping (address => bool)) public confirmations;
+    Transaction[] public transactionQueue;
+
+    event Deposit(address indexed depositor, uint256 amount);
+    event SubmitTransaction(
+        address indexed creator,
+        uint indexed transactionId,
+        address indexed to,
+        uint value,
+        bytes data
+    );
+    event ConfirmTransaction(
+        address indexed owner,
+        uint indexed transactionId
+    );
+    event ExecuteTransaction(
+        address indexed owner,
+        uint indexed transactionId
+    );
+    event RevokeConfirmation(
+        address indexed owner,
+        uint indexed transactionId
+    );
+
+    constructor(address[] memory _owners, uint _numConfirmationsRequired) public {
+        require(_owners.length > 0, "Must have at least 1 owner");
+        require(
+            _numConfirmationsRequired > 0 && _numConfirmationsRequired <= _owners.length,
+            "Num confirmations required must be between 1 and number of owners"
+        );
+
+        for (uint i=0; i<_owners.length; i++) {
+            address owner = _owners[i];
+
+            require(owner != address(0), "Invalid owner address");
+            require(!isOwner[owner], "Owner already added");
+
+            owners.push(owner);
+            isOwner[owner] = true;
+        }
+
+        numConfirmationsRequired = _numConfirmationsRequired;
+    }
+
+    /**
+    * @dev Function to deposit funds into the contract
+    */
+    function deposit() public payable {
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    /**
+    * @dev Function to create a new transaction
+    * @param _to The destination address of the transaction
+    * @param _value The amount of wei to send in the transaction
+    * @param _data The data to be included in the transaction
+    * @return The ID of the created transaction
+    */
+    function submitTransaction(address _to, uint _value, bytes memory _data) public returns (uint) {
+        require(isOwner[msg.sender], "Must be an owner to submit a transaction");
+
+        uint transactionId = transactionQueue.length;
+
+        transactionQueue.push(
+            Transaction({
+                to: _to,
+                value: _value,
+                data: _data,
+                executed: false
+            })
+        );
+
+        emit SubmitTransaction(msg.sender, transactionId, _to, _value, _data);
+
+        return transactionId;
+    }
+
+    /**
+    * @dev Function to confirm a transaction
+    * @param _transactionId The ID of the transaction to confirm
+    */
+    function confirmTransaction(uint _transactionId) public {
+        require(isOwner[msg.sender], "Must be an owner to confirm a transaction");
+        require(!confirmations[_transactionId][msg.sender], "Transaction already confirmed");
+
+        confirmations[_transactionId][msg.sender] = true;
+
+        emit ConfirmTransaction(msg.sender, _transactionId);
+    }
+
+    /**
+    * @dev Function to execute a confirmed transaction
+    * @param _transactionId The ID of the transaction to execute
+    */
+    function executeTransaction(uint _transactionId) public {
+        require(isConfirmed(_transactionId), "Transaction has not been confirmed");
+        require(!transactionQueue[_transactionId].executed, "Transaction has already been executed");
+
+        Transaction storage transaction = transactionQueue[_transactionId];
+        transaction.executed = true;
+
+        // solium-disable-next-line security/no-call-value
+        (bool success, ) = transaction.to.call.value(transaction.value)(transaction.data);
+        require(success, "Transaction execution failed");
+
+        emit ExecuteTransaction(msg.sender, _transactionId);
+    }
+
+    /**
+    * @dev Function to revoke a transaction confirmation
+    * @param _transactionId The ID of the transaction to revoke confirmation for
+    */
+    function revokeConfirmation(uint _transactionId) public {
+        require(isConfirmed(_transactionId), "Transaction has not been confirmed");
+        require(confirmations[_transactionId][msg.sender], "Transaction has not been confirmed by this owner");
+
+        confirmations[_transactionId][msg.sender] = false;
+
+        emit RevokeConfirmation(msg.sender, _transactionId);
+    }
+
+    /**
+    * @dev Internal function to check if a transaction has been confirmed
+    * @param _transactionId The ID of the transaction to check
+    * @return Whether or not the transaction has been confirmed
+    */
+    function isConfirmed(uint _transactionId) internal view returns (bool) {
+        uint confirmationCount = 0;
+
+        for (uint i=0; i<owners.length; i++) {
+            if (confirmations[_transactionId][owners[i]]) {
+                confirmationCount++;
+            }
+
+            if (confirmationCount >= numConfirmationsRequired) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}

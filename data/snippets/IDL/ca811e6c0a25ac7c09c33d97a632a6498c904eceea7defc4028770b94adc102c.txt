@@ -1,0 +1,50 @@
+pro dlm_linear, input_data, output_data, beta_matrix, ifintercept=0L
+; This function creates a linear fit using the downhole log measurements provided
+;
+; input_data: the input data array containing the independent variables (n x j)
+; output_data: the output data array containing the dependent variable (n x 1)
+; beta_matrix: an optional input parameter for initial values of the regression coefficients (j x 1)
+; ifintercept: an optional flag to include an intercept term in the fit (default = 0)
+; returns the regression coefficients (j x 1) and the predicted output data array (n x 1)
+
+; check for valid input data dimensions
+if (n_elements(input_data, 1) ne n_elements(output_data, 1)) then begin
+  message, 'Error: input and output data arrays must have the same number of data points'
+  return
+endif
+
+; initialize arrays and variables
+n = n_elements(input_data, 1)
+j = n_elements(input_data, 2)
+
+; add intercept term if specified
+if (ifintercept eq 1) then begin
+  x = replicate(1, n)
+  input_data = [x, input_data]
+  j = j + 1
+endelse
+
+; initialize beta matrix if not provided
+if (!keyword_set(beta_matrix)) then begin
+  beta_matrix = replicate(0, j)
+endelse begin
+  if (n_elements(beta_matrix, 1) ne j) then begin
+    message, 'Error: beta matrix must have ' + string(j) + ' rows'
+    return
+  endif
+endif
+
+; create design matrix
+design_matrix = fltarr(n, j)
+for i=0,j-1 do design_matrix(*,i) = input_data(*,i)
+
+; perform linear regression using normal equations method
+inverse_matrix = invert(tranpose(design_matrix)##design_matrix)
+beta_matrix = matmul(matmul(inverse_matrix, transpose(design_matrix)), output_data)
+
+; calculate predicted output data
+predicted_output_data = matmul(design_matrix, beta_matrix)
+
+; return results
+return, beta_matrix, predicted_output_data
+end

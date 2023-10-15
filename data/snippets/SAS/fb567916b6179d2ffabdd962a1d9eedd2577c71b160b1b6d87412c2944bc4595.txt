@@ -1,0 +1,113 @@
+/* This is a code for calculating the mean, median, and variance of a dataset */
+
+/* First, we define the variables we will be using */
+data datavariable;
+   set dataset;
+   /* "dataset" is the name of the dataset we will be using */
+   variable1 = 0; /* initialize variable1 with a value of 0 */
+   variable2 = 0; /* initialize variable2 with a value of 0 */
+   variable3 = 0; /* initialize variable3 with a value of 0 */
+run;
+
+/* Calculate the total number of observations in the dataset */
+proc sql;
+   select count(*) into :totalobs from dataset;
+quit;
+
+/* Calculate the sum of variable1, variable2, and variable3 */
+data sumdata;
+   set dataset (keep = variable1 variable2 variable3);
+   sumvariable = sum(variable1, variable2, variable3);
+run;
+
+/* Calculate the mean of variable1, variable2, and variable3 */
+data meandata;
+   set dataset (keep = variable1 variable2 variable3);
+   meanvariable = sumvariable / &totalobs;
+run;
+
+/* Sort the dataset in ascending order */
+proc sort data=datavariable;
+   by variable1 variable2 variable3;
+run;
+
+/* Calculate the median of variable1, variable2, and variable3 */
+data mediandata;
+   set dataset (keep = variable1 variable2 variable3);
+   /* create a variable to count the observations and initialize it with 0 */
+   obscount = 0;
+   /* loop through the dataset and increment the observation count */
+   do until (last.variable1);
+      set datavariable;
+      by variable1 variable2 variable3;
+      obscount + 1;
+   end;
+   /* if the total number of observations is odd, the median will be the middle observation */
+   if obscount mod 2 = 1 then do;
+      /* calculate the position of the middle observation */
+      medianpos = (obscount + 1) / 2;
+      /* go to the middle observation */
+      obscount = 0;
+      do until (last.variable1);
+         set datavariable;
+         by variable1 variable2 variable3;
+         obscount + 1;
+         if obscount = medianpos then do;
+            medianvariable = variable1;
+            /* stop the loop once the middle observation is found */
+            stop;
+         end;
+      end;
+   end;
+   /* if the total number of observations is even, the median will be the average of the two middle observations */
+   else do;
+      /* calculate the positions of the two middle observations */
+      medianpos1 = obscount / 2;
+      medianpos2 = (obscount + 2) / 2;
+      /* go to the first middle observation */
+      obscount = 0;
+      do until (last.variable1);
+         set datavariable;
+         by variable1 variable2 variable3;
+         obscount + 1;
+         if obscount = medianpos1 then do;
+            medianvariable = variable1;
+         end;
+      end;
+      /* go to the second middle observation */
+      obscount = 0;
+      do until (last.variable1);
+         set datavariable;
+         by variable1 variable2 variable3;
+         obscount + 1;
+         if obscount = medianpos2 then do;
+            /* calculate the average of the two middle observations */
+            medianvariable = (medianvariable + variable1) / 2;
+            /* stop the loop once the second middle observation is found */
+            stop;
+         end;
+      end;
+   end;
+   /* drop unnecessary variables */
+   drop sumvariable obscount medianpos medianpos1 medianpos2;
+run;
+
+/* Calculate the variance of variable1, variable2, and variable3 */
+data vardata;
+   set dataset (keep = variable1 variable2 variable3);
+   sumvariable = sumvariable - (&totalobs * meanvariable);
+   varvariable = (sumvariable ** 2) / (&totalobs - 1);
+run;
+
+/* Print the results for mean, median, and variance */
+proc print data=meandata noobs;
+   var meanvariable;
+run;
+
+proc print data=mediandata noobs;
+   var medianvariable;
+run;
+
+proc print data=vardata noobs;
+   var varvariable;
+run;

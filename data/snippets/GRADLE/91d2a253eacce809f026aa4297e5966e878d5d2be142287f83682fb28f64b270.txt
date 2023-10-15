@@ -1,0 +1,87 @@
+// Define a task that generates a list of all files in a specified directory
+task listFiles() {
+    // Define input variable for directory path
+    String directoryPath = "src/main/java"
+    // Use Gradle's built-in file collection to get all files in the specified directory
+    FileCollection filesToProcess = files(directoryPath)
+    // Create a task action that prints out the list of files
+    doLast {
+        println "Files in ${directoryPath}:"
+        filesToProcess.each { file ->
+            println "- ${file.path}"
+        }
+    }
+}
+
+// Define a task that generates a list of files with a certain extension in a specified directory
+task listFilesByExtension(type: JavaExec) {
+    // Specify the input directory path as a task argument
+    args "src/main/java"
+    // Specify the desired file extension as a task argument
+    args "java"
+    // Define the task action to run a Java program that will print out the list of files with the specified extension
+    main = "ListFilesByExtension"
+    classpath = sourceSets.main.runtimeClasspath
+}
+// Add the listFilesByExtension task as a dependency of the listFiles task so it will run automatically
+listFiles.dependsOn(listFilesByExtension)
+
+// Define a task that compiles all Java source files in a project
+task compileJava(type: JavaCompile) {
+    // Specify the source directory where the Java source files are located
+    source = file("src/main/java")
+    // Specify the destination directory where the compiled class files will be placed
+    destinationDir = file("build/classes/java/main")
+    // Specify the classpath for the compiled files, in this case it includes the output of the sourceSets.main.java.srcDirs task
+    classpath = sourceSets.main.java.srcDirs
+}
+
+// Define a task that packages the compiled Java classes into a jar file
+task buildJar(type: Jar) {
+    // Specify the base name for the jar file
+    baseName = "MyProject"
+    // Specify the version of the jar file
+    version = "1.0"
+    // Specify the source path for the jar file, in this case it includes the output of the compileJava task
+    from compileJava
+    // Exclude any files or directories that don't need to be included in the jar file
+    exclude "META-INF/**"
+}
+
+// Add the compileJava task as a dependency of the buildJar task so it will run automatically
+buildJar.dependsOn(compileJava)
+
+// Create a task that combines the listFiles and buildJar tasks into one task
+task buildAll() {
+    // Add the listFiles and buildJar tasks as dependencies
+    dependsOn(listFiles, buildJar)
+}
+
+// Define a task that runs all tests in a project using JUnit
+task test(type: Test) {
+    // Specify the classpath for the tests to be run against, in this case it includes the output of the sourceSets.main.runtimeClasspath task
+    classpath = sourceSets.main.runtimeClasspath
+    // Set the test classes directory to the build directory where the classes are located
+    testClassesDirs = sourceSets.main.output.classesDirs
+}
+
+// Add the test task as a dependency of the buildAll task so it will run automatically
+buildAll.dependsOn(test)
+
+// Define a task that runs the buildAll task and then deploys the build jar to a remote server
+task deploy(dependsOn: "buildAll") {
+    // Define input variables for server address and credentials
+    String serverAddress = "myserver.com"
+    String username = "admin"
+    String password = "password"
+
+    // Create a task action that deploys the build jar to the remote server using SSH
+    doLast {
+        ssh.run {
+            // Specify the command to connect to the server and copy the jar file using SCP
+            session(remotes.serverAddress, username, password) {
+                put from: buildJar.archivePath, into: "/opt/myproject"
+            }
+        }
+    }
+}

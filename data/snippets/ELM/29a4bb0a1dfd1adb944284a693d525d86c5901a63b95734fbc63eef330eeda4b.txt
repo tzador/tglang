@@ -1,0 +1,157 @@
+-- An example of a complex ELM code snippet
+
+module Main exposing (main)
+
+-- Importing necessary libraries
+import Html exposing (div, text)
+import Http
+import Json.Decode as Decode exposing (int, list, at)
+
+-- Declaring the type for our JSON response
+type alias User =
+    { id : Int
+    , name : String
+    , username : String
+    , email : String
+    , address : Address
+    , phone : String
+    , website : String
+    , company : Company
+    }
+
+-- Declaring the type for the user's address
+type alias Address =
+    { street : String
+    , suite : String
+    , city : String
+    , zipcode : String
+    , geo : Geo
+    }
+
+-- Declaring the type for the user's geo coordinates
+type alias Geo =
+    { lat : String
+    , lng : String
+    }
+
+-- Declaring the type for the user's company
+type alias Company =
+    { name : String
+    , catchPhrase : String
+    , bs : String
+    }
+
+-- Defining our initial model
+type alias Model =
+    { users : List User
+    , isLoading : Bool
+    , error : Maybe Http.Error
+    }
+
+-- Creating a union type for our possible actions
+type Action
+    = FetchUsers
+    | SetUsers (Result Http.Error (List User))
+
+-- Defining a function to map our JSON response to our User type
+decodeUser : Decode.Decoder User
+decodeUser =
+    Decode.map7 User
+        (Decode.field "id" Decode.int)
+        (Decode.field "name" Decode.string)
+        (Decode.field "username" Decode.string)
+        (Decode.field "email" Decode.string)
+        (Decode.field "address" decodeAddress)
+        (Decode.field "phone" Decode.string)
+        (Decode.field "website" Decode.string)
+        (Decode.field "company" decodeCompany)
+
+-- Defining a function to map our JSON response to our Address type
+decodeAddress : Decode.Decoder Address
+decodeAddress =
+    Decode.map5 Address
+        (Decode.field "street" Decode.string)
+        (Decode.field "suite" Decode.string)
+        (Decode.field "city" Decode.string)
+        (Decode.field "zipcode" Decode.string)
+        (Decode.field "geo" decodeGeo)
+
+-- Defining a function to map our JSON response to our Geo type
+decodeGeo : Decode.Decoder Geo
+decodeGeo =
+    Decode.map2 Geo
+        (Decode.field "lat" Decode.string)
+        (Decode.field "lng" Decode.string)
+
+-- Defining a function to map our JSON response to our Company type
+decodeCompany : Decode.Decoder Company
+decodeCompany =
+    Decode.map3 Company
+        (Decode.field "name" Decode.string)
+        (Decode.field "catchPhrase" Decode.string)
+        (Decode.field "bs" Decode.string)
+
+-- Creating an update function to handle our actions
+update : Action -> Model -> (Model, Cmd Msg)
+update action model =
+    case action of
+        FetchUsers ->
+            ( { model | isLoading = True }, getUsers )
+
+        SetUsers (Ok users) ->
+            ( { model | isLoading = False, users = users }, Cmd.none )
+
+        SetUsers (Err error) ->
+            ( { model | isLoading = False, error = Just error }, Cmd.none )
+
+-- Creating an http request to retrieve our JSON data
+getUsers : Cmd Msg
+getUsers =
+    Http.get
+        { url = "https://jsonplaceholder.typicode.com/users"
+        , expect = Http.expectJson SetUsers (Decode.list decodeUser)
+        }
+
+-- Creating a view function to display our users data
+view : Model -> Html Msg
+view model =
+    div []
+        [ if model.isLoading then
+            text "Loading users..."
+          else if model.error /= Nothing then
+            text "An error has occurred."
+          else
+            div []
+                [ for user in model.users
+                    [ div []
+                        [ text ("Name: " ++ user.name)
+                        , text ("Username: " ++ user.username)
+                        , text ("Email: " ++ user.email)
+                        , text ("Address: " ++ formatAddress user.address)
+                        , text ("Phone: " ++ user.phone)
+                        , text ("Website: " ++ user.website)
+                        , text ("Company: " ++ formatCompany user.company)
+                        ]
+                    ]
+                ]
+        ]
+
+-- Defining a function to format the user's address for display
+formatAddress : Address -> String
+formatAddress address =
+    address.street ++ " " ++ address.suite ++ ", " ++ address.city ++ ", " ++ address.zipcode
+
+-- Defining a function to format the user's company for display
+formatCompany : Company -> String
+formatCompany company =
+    company.name ++ " - " ++ company.catchPhrase ++ ", " ++ company.bs
+
+-- Initializing our program
+main : Program () Model Action
+main =
+    Html.program
+        { init = ( Model [] False Nothing, Cmd.none )
+        , update = update
+        , subscriptions = \_ -> Sub.none
+        , view = view
+        }

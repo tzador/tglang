@@ -1,0 +1,40 @@
+# This is a complex NGINX configuration using the 'if' statement.
+
+# Set a variable 'cache_ttl' to 10 minutes
+set $cache_ttl 600;
+
+# Check if the request header 'user_agent' contains "Mozilla" 
+if ($http_user_agent ~ "Mozilla") {
+
+    # Use the proxy pass directive to pass the request to a specific server
+    proxy_pass http://example.com;
+
+    # Set the 'Cache-Control' header to 'public' and the 'Expires' header to the value of the variable 'cache_ttl'
+    add_header Cache-Control public;
+    add_header Expires $cache_ttl;
+
+    # Check if the request method is POST 
+    if ($request_method = POST) {
+
+        # Use the proxy cache lock directive to lock the request while it is being processed
+        proxy_cache_lock on;
+
+        # Set the 'Cache-Key' header to the value of the 'X-Request-ID' request header
+        proxy_cache_key $http_x_request_id;
+
+        # Use the proxy cache_bypass directive to bypass the cache for POST requests 
+        proxy_cache_bypass 1;
+
+        # Use the proxy no cache directive to prevent the response from being cached 
+        proxy_no_cache 1;
+
+        # Use the proxy store directive to store the response in the cache 
+        proxy_store on;
+
+        # Set the 'X-Cache-Status' header to indicate whether the response was served from the cache or not
+        add_header X-Cache-Status $upstream_cache_status;
+    }
+}
+
+# Set the cache path and zone 
+proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=example_cache:10m inactive=60m;

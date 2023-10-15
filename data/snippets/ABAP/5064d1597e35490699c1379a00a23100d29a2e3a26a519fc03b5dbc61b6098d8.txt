@@ -1,0 +1,44 @@
+TYPES: BEGIN OF ty_material,           " Material Structure
+        plant TYPE plant,               " Plant Number
+        material TYPE material,         " Material Number
+        prd_date TYPE dats,             " Production Date
+        batch TYPE batch,               " Batch Number
+      END OF ty_material.
+
+TYPES: BEGIN OF ty_bom,                 " Bill of Materials Structure
+        parent_mat TYPE material,       " Parent Material Number
+        comp_mat TYPE material,         " Component Material Number
+        quantity TYPE gerap,            " Component Quantity
+      END OF ty_bom.
+
+TYPES: BEGIN OF ty_res_bom,             " Results BOM Structure
+        material TYPE material,         " Material Number
+        comp_quantity TYPE gerap,       " Component Quantity
+        batch TYPE batch,               " Component Batch Number
+      END OF ty_res_bom.
+
+DATA: lt_materials TYPE STANDARD TABLE OF ty_material,
+      lt_bom TYPE STANDARD TABLE OF ty_bom,
+      lt_res_bom TYPE SORTED TABLE OF ty_res_bom
+        WITH NON-UNIQUE DEFAULT KEY.
+
+SELECT plant, material, prd_date, batch         " Select materials from a specific plant
+  INTO CORRESPONDING FIELDS OF TABLE lt_materials
+  FROM mara
+  WHERE plant = '1000'.
+
+SELECT parent_mat, comp_mat, quantity     " Select BOM data for parent material
+  INTO CORRESPONDING FIELDS OF TABLE lt_bom
+  FROM stko
+  WHERE parent_mat = 'PARENT_MATERIAL_NUMBER' AND
+        plant IN ( SELECT plant FROM lt_materials ).
+
+" Loop through the BOM components and assign batch numbers
+LOOP AT lt_bom INTO DATA(ls_bom).
+  SELECT batch                      " Select batch number for specific material
+    FROM chvg
+    INTO ls_bom-linesrescomp-charge
+    WHERE material = ls_bom-comp_mat AND
+          emeng <> 0.                " Only consider batches with non-zero quantity
+  APPEND ls_bom TO lt_res_bom.
+ENDLOOP.

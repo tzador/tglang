@@ -1,0 +1,132 @@
+module Main exposing (..)
+
+import Html exposing (Html, text)
+import Browser
+
+-- Represents a custom data type for a user's account information
+type alias Account =
+    { name : String
+    , username : String
+    , password : String
+    , email : String
+    , age : Int
+    , createdDate : Date
+    }
+
+-- Represents a Task with a name, description, and status
+type alias Task =
+    { name : String
+    , description : String
+    , status : String
+    }
+
+-- Represents a List of Tasks for a specific user
+type alias TaskList =
+    { user : Account
+    , tasks : List Task
+    }
+
+-- Defines the Initial Model for the application
+type alias Model =
+    { user : Maybe Account
+    , taskLists : List TaskList
+    }
+
+-- Defines the possible actions that can be performed
+type Action
+    = Login String String
+    | Logout
+    | UpdateUser Account
+    | AddTask Task
+    | RemoveTask String String
+
+-- The initial Model for the application
+initModel : Model
+initModel =
+    Model
+        { user = Nothing
+        , taskLists = []
+        }
+
+-- The function to update the Model based on the Action performed
+update : Action -> Model -> (Model, Cmd Msg)
+update action model =
+    case action of
+        Login username password ->
+            ( { model | user = Just { name = "John Doe", username = username, password = password, email = "john.doe@email.com", age = 25, createdDate = Date.fromIsoString "2021-03-01" }
+            , taskLists = model.taskLists
+            }
+            , Cmd.none
+            )
+        
+        Logout ->
+            ( { model | user = Nothing }
+            , Cmd.none
+            )
+        
+        UpdateUser updatedUser ->
+            ( { model | user = Just updatedUser }
+            , Cmd.none
+            )
+        
+        AddTask newTask ->
+            ( { model | taskLists = addToTaskList model.user newTask model.taskLists }
+            , Cmd.none
+            )
+        
+        RemoveTask taskListName taskName ->
+            ( { model | taskLists = removeFromTaskList taskListName taskName model.taskLists }
+            , Cmd.none
+            )
+
+
+-- The function to add a new Task to a TaskList
+addToTaskList : Maybe Account -> Task -> List TaskList -> List TaskList
+addToTaskList maybeUser task taskLists =
+    case maybeUser of
+        Just user ->
+            -- Find the TaskList for the current user and add the new Task to it
+            List.map (\list -> if list.user == user then { list | tasks = task::list.tasks } else list) taskLists
+        
+        Nothing ->
+            taskLists
+
+-- The function to remove a Task from a TaskList
+removeFromTaskList : String -> String -> List TaskList -> List TaskList
+removeFromTaskList taskListName taskName taskLists =
+    -- Find the TaskList with the given name and remove the Task with the given name from it
+    List.map (\list -> if list.user.username == taskListName then { list | tasks = List.filter (\task -> task.name /= taskName) list.tasks } else list) taskLists
+
+-- View function to render the HTML for the page
+view : Model -> Html Action
+view model =
+    case model.user of
+        Nothing ->
+            Html.div []
+                [ Html.h1 [] [Html.text "Please Login"]
+                , Html.form [Html.Events.onSubmit (Login "")]
+                    [ Html.label [Html.Attributes.for "username"] [Html.text "Username"]
+                    , Html.input [ Html.Attributes.id "username", Html.Attributes.type_ "text", Html.Attributes.placeholder "Enter username" ] []
+                    , Html.label [Html.Attributes.for "password"] [Html.text "Password"]
+                    , Html.input [ Html.Attributes.id "password", Html.Attributes.type_ "password", Html.Attributes.placeholder "Enter password" ] []
+                    , Html.input [ Html.Attributes.type_ "submit" ] []
+                    ]
+                ]
+
+        Just user ->
+            Html.div []
+                [ Html.h1 [] [Html.text "Welcome, " ++ user.name ++ "!"]
+                , Html.button [ Html.Events.onClick Logout ] [ Html.text "Logout" ]
+                , Html.ul []
+                    (List.map (\task -> Html.li [] [Html.text task.name]) user.tasks)
+                ]
+
+-- Start the application with the initial Model and view function
+main : Program () Model ()
+main =
+    Browser.element
+        { init = initModel
+        , view = view
+        , update = update
+        , subscriptions = always Sub.none
+        }

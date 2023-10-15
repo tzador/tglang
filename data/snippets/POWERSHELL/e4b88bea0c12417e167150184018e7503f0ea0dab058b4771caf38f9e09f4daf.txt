@@ -1,0 +1,69 @@
+<#
+.SYNOPSIS
+This script will get the disk usage details for a list of servers and send an email report.
+
+.DESCRIPTION
+This script uses the `Get-WmiObject` cmdlet to remotely connect to a list of servers and retrieve the disk usage details for each server. It then calculates the total disk space, free space, and used space for each server and generates an email report containing this information.
+
+.PARAMETER ServerList
+A text file containing a list of server names.
+
+.EXAMPLE
+.\Get-DiskUsageReport.ps1 -ServerList C:\ServerList.txt
+
+#>
+
+# Define variables
+$ServerList = Get-Content -Path $ServerList
+$ReportDate = Get-Date -Format "MM.dd.yyyy"
+$EmailSubject = "Disk Usage Report for Servers as of $ReportDate"
+
+# Function to get disk usage details
+Function Get-DiskUsageDetails {
+Param(
+    [Parameter(Mandatory=$true)]
+    [string]$ServerName
+)
+# Get disk usage details using WMI
+$diskUsage = Get-WmiObject -Class Win32_Volume -ComputerName $ServerName | Where-Object {$_.DriveType -eq 3} | Select-Object -Property @{Name="DiskSize(GB)"; Expression={$_.Capacity/1GB -as [int]}}, @{Name="DiskFreeSpace(GB)"; Expression={$_.FreeSpace/1GB -as [int]}}, @{Name="DiskUsedSpace(GB)"; Expression={($_.Capacity-$_.FreeSpace)/1GB -as [int]}}
+# Return the disk usage details
+return $diskUsage
+}
+
+# Create array to store disk usage details for all servers
+$DiskUsageDetailsArray = @()
+
+# Loop through server list and get disk usage details for each server
+foreach ($Server in $ServerList) {
+    # Store disk usage details for current server in array
+    $DiskUsageDetailsArray += Get-DiskUsageDetails -ServerName $Server
+}
+
+# Calculate total disk space, free space, and used space for all servers
+$totalDiskSpace = ($DiskUsageDetailsArray | Measure-Object -Property "DiskSize(GB)" -Sum).Sum
+$totalFreeSpace = ($DiskUsageDetailsArray | Measure-Object -Property "DiskFreeSpace(GB)" -Sum).Sum
+$totalUsedSpace = ($DiskUsageDetailsArray | Measure-Object -Property "DiskUsedSpace(GB)" -Sum).Sum
+
+# Format the email body
+$emailBody = "<h3>Disk Usage Report for Servers as of $ReportDate</h3>
+              <table>
+              <tr>
+              <th>Server Name</th>
+              <th>Disk Size (GB)</th>
+              <th>Free Space (GB)</th>
+              <th>Used Space (GB)</th>
+              </tr>"
+
+# Loop through disk usage details for each server and add to the email body
+foreach ($diskUsage in $DiskUsageDetailsArray) {
+    $emailBody += "<tr><td>$($diskUsage.ServerName)</td><td>$($diskUsage.'DiskSize(GB)')</td><td>$($diskUsage.'DiskFreeSpace(GB)')</td><td>$($diskUsage.'DiskUsedSpace(GB)')</td></tr>"
+}
+
+$emailBody += "</table>
+               <br/>
+               <h4>Total Disk Space Across All Servers: $totalDiskSpace GB</h4>
+               <h4>Total Free Space Across All Servers: $totalFreeSpace GB</h4>
+               <h4>Total Used Space Across All Servers: $totalUsedSpace GB</h4>"
+
+# Send email report
+Send-MailMessage -To "email@example.com" -From "sender@example.com" -Subject $EmailSubject -Body $emailBody -BodyAsHtml -SmtpServer "smtp.example.com"

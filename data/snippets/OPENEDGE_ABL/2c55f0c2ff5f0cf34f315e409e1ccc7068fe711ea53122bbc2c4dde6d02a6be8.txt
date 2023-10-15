@@ -1,0 +1,83 @@
+/* This code snippet generates a report of all customer orders in the system */
+
+DEFINE VARIABLE cCustomer AS CHARACTER NO-UNDO. /* Customer code */
+
+DEFINE VARIABLE iOrderNum AS INTEGER NO-UNDO. /* Order number */
+
+DEFINE VARIABLE cOrderDate AS CHARACTER NO-UNDO. /* Order date */
+
+DEFINE VARIABLE dOrderTotal AS DECIMAL NO-UNDO FORMAT "ZZZ,ZZZ,ZZZ,ZZ9.99". /* Order total */
+
+DEFINE TEMP-TABLE ttOrder
+    FIELD cCustomer AS CHARACTER
+    FIELD iOrderNum AS INTEGER
+    FIELD cOrderDate AS CHARACTER
+    FIELD dOrderTotal AS DECIMAL.
+
+/* Open a query to retrieve all orders from the database */
+DEFINE QUERY qOrders FOR Order SCROLLING.
+
+/* Define query parameters */
+DEFINE INPUT PARAMETER pcCustomer FOR qOrders.cust-code COLUMN-LABEL "Customer Code" FORMAT "x(10)". /* Enter specific customer code or "ALL" for all customers */
+DEFINE INPUT PARAMETER pdStartDate FOR qOrders.order-date COLUMN-LABEL "Start Date" FORMAT "99/99/99". /* Enter start date for orders */
+DEFINE INPUT PARAMETER pdEndDate FOR qOrders.order-date COLUMN-LABEL "End Date" FORMAT "99/99/99". /* Enter end date for orders */
+
+/* Initialize the query with the parameters */
+INITIALIZE qOrders WITH 
+    INPUT pcCustomer
+    INPUT pdStartDate
+    INPUT pdEndDate.
+
+/* Open the query for processing */
+OPEN QUERY qOrders.
+
+/* Loop through all orders and add them to the temp-table */
+REPEAT:
+    FETCH FIRST qOrders.
+    DO WHILE AVAILABLE qOrders:
+        CREATE ttOrder.
+        ASSIGN
+            ttOrder.cCustomer = qOrders.cust-code
+            ttOrder.iOrderNum = qOrders.order-num
+            ttOrder.cOrderDate = STRING(qOrders.order-date, "99/99/99")
+            ttOrder.dOrderTotal = qOrders.order-total.
+        FETCH NEXT qOrders.
+    END.
+END.
+
+/* Close the query */
+CLOSE QUERY qOrders.
+
+/* Display the report title */
+DISPLAY
+    "Customer Orders Report"
+    WITH CENTERED WIDTH 80
+    WITH FRAME "ReportTitle".
+
+/* Initialize a handle to the temp-table*/
+DEFINE VARIABLE hTempTable AS HANDLE NO-UNDO.
+DATASET dsTempTable:READ-XML("ttOrder", hTempTable).
+
+/* Declare a report object */
+DEF VAR oReport AS COM-HANDLE NO-UNDO.
+
+/* Initialize the report object with the temp-table handle */
+CREATE "report/report.ov.ii" SET oReport.
+oReport:SET-TEMP-TABLE(hTempTable, TRUE).
+oReport:LOAD-REPORT("customer_orders_report.r".
+
+/* Set the output format */
+oReport:SET-OUTPUT-DEVICE("destination", "outputFileName.pdf", "PDF").
+
+/* Run the report */
+oReport:RUN().
+
+/* Destroy the report object */
+oReport:DELETE( ).
+
+/* Cleanup temp-table and handle */
+DATASET dsTempTable:RELEASE-HANDLE(hTempTable).
+DELETE OBJECT ttOrder.
+
+/* End of program */
+QUIT.

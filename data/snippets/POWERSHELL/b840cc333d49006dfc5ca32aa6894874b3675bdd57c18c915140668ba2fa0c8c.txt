@@ -1,0 +1,50 @@
+# A powershell script to check disk space and create a report
+# Author: John Smith
+
+# Import the module for server management
+Import-Module ServerManager
+
+# Define the array of servers to check
+$servers = @("server1", "server2", "server3")
+
+# Loop through each server in the array
+foreach ($server in $servers) {
+
+    # Get the disk space information for the server
+    $diskSpace = Get-WmiObject -ComputerName $server Win32_Volume | Where-Object { $_.DriveLetter -ne $null -and $_.DriveType -eq 3 }
+
+    # Calculate the total, used, and free space for each drive
+    $totalSpace = ($diskSpace | Measure-Object -Property Capacity -Sum).Sum
+    $usedSpace = ($diskSpace | Measure-Object -Property UsedSpace -Sum).Sum
+    $freeSpace = $totalSpace - $usedSpace
+
+    # Create a report for the server
+    $report = "$server Disk Space Report" + "`r`n`r`n"
+    $report += "Total Space: $([math]::round($totalSpace / 1GB, 2)) GB" + "`r`n"
+    $report += "Used Space: $([math]::round($usedSpace / 1GB, 2)) GB" + "`r`n"
+    $report += "Free Space: $([math]::round($freeSpace / 1GB, 2)) GB" + "`r`n`r`n"
+
+    # Output the report to the console
+    Write-Host $report
+
+    # Create a CSV file for the server report
+    $csvFile = "server_report_$server.csv"
+
+    # Check if the CSV file already exists
+    if (Test-Path $csvFile) {
+
+        # If it exists, append the report to the existing file
+        $report | Out-File -FilePath $csvFile -Append -Encoding UTF8
+    } else {
+
+        # If it doesn't exist, create a new CSV file and add the report headers
+        $report | Out-File -FilePath $csvFile -Encoding UTF8
+        "Server Name, Total Space (GB), Used Space (GB), Free Space (GB)" | Out-File -FilePath $csvFile -Append -Encoding UTF8
+    }
+
+    # Add the server report data to the CSV file
+    "$server, $([math]::round($totalSpace / 1GB, 2)), $([math]::round($usedSpace / 1GB, 2)), $([math]::round($freeSpace / 1GB, 2))" | Out-File -FilePath $csvFile -Append -Encoding UTF8
+
+    # Display a message indicating the CSV file has been created
+    Write-Host "CSV file $csvFile has been created." -ForegroundColor Green
+}

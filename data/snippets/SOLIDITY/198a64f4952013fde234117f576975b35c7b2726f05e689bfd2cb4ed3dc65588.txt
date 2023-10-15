@@ -1,0 +1,81 @@
+/**
+ * @title Escrow
+ * @dev A simple escrow contract for transferring funds between two parties
+ */
+contract Escrow {
+    address public payer; // The person who deposits funds
+    address payable public payee; // The person receiving the funds
+    address public arbitrator; // A third party to resolve any disputes
+
+    bool public payerApproved; // Indicates if the payer has approved the release of funds
+    bool public payeeApproved; // Indicates if the payee has approved the release of funds
+    uint public deposit; // The amount deposited in the escrow
+
+    /**
+     * @dev Constructor function that sets the initial addresses and deposit amount
+     * @param _payer The address of the payer
+     * @param _payee The address of the payee
+     * @param _deposit The amount to be deposited in the escrow
+     */
+    constructor(address _payer, address payable _payee, uint _deposit) public {
+        require(_payer != address(0), "Invalid payer address");
+        require(_payee != address(0), "Invalid payee address");
+
+        payer = _payer;
+        payee = _payee;
+        deposit = _deposit;
+    }
+
+    /**
+     * @dev Allows the payer to approve the release of funds
+     */
+    function approvePayer() public {
+        require(msg.sender == payer, "Only the payer can approve the release of funds");
+        require(!payerApproved, "Payer has already approved");
+
+        payerApproved = true;
+        if (payeeApproved) {
+            payee.transfer(deposit);
+        }
+    }
+
+    /**
+     * @dev Allows the payee to approve the release of funds
+     */
+    function approvePayee() public {
+        require(msg.sender == payee, "Only the payee can approve the release of funds");
+        require(!payeeApproved, "Payee has already approved");
+
+        payeeApproved = true;
+        if (payerApproved) {
+            payee.transfer(deposit);
+        }
+    }
+
+    /**
+     * @dev Allows the arbitrator to resolve any disputes and release the funds to the payee
+     */
+    function resolveDispute() public {
+        require(msg.sender == arbitrator, "Only the arbitrator can resolve disputes");
+        require(payerApproved && payeeApproved, "Both parties have not approved the release of funds");
+
+        payee.transfer(deposit);
+    }
+
+    /**
+     * @dev Allows the payer to withdraw the funds if the payee does not approve the release
+     */
+    function withdraw() public {
+        require(msg.sender == payer, "Only the payer can withdraw");
+        require(!payeeApproved, "Payee has approved the release of funds");
+
+        payer.transfer(deposit);
+    }
+
+    /**
+     * @dev Allows anyone to check the current balance of the escrow
+     */
+    function getBalance() public view returns (uint) {
+        return address(this).balance;
+    }
+}

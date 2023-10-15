@@ -1,0 +1,84 @@
+! PROGRAM TO SOLVE DIFFUSION EQUATION
+!--------------------------------------------------
+! This program solves the diffusion equation
+! using the Crank-Nicolson method.
+! The equation is:
+!                                                  dT
+!              ∂T       ∂²T           ∂²T         --- = α ----
+!              -- = α --- ----   -   ---   +   ∂t      ∂x²
+!              ∂t       ∂x²           ∂y²
+!--------------------------------------------------
+program diffusion_equation
+
+implicit none  !turns off the implicit declaration of variables
+
+! DEFINING VARIABLES
+
+integer :: nx, nt, i, j  !declare variables for grid size and counter
+real :: dx, dt, alpha    !declare variables for grid spacing and diffusion coefficient
+real, dimension(:,:), allocatable :: temp, temp_next  !declare 2D arrays for temperature and next time step
+real :: b(3), d(3), a(3), a_minus(3) !declare arrays for tridiagonal matrix coefficients
+integer :: ipiv(3)   !declare array for pivoting information
+integer :: info !declare variable for error checking in LAPACK subroutine
+
+! SETTING PARAMETERS
+
+nx = 100 !number of grid points in x-direction
+nt = 1000 !number of time steps
+dx = 0.01 !grid spacing
+dt = 0.001 !time step size
+alpha = 0.05 !diffusion coefficient
+allocate(temp(nx,nx), temp_next(nx,nx)) !allocate memory for temperature arrays
+
+! INITIALIZING TEMPERATURE ARRAY
+
+do i = 1, nx
+    do j = 1, nx
+        temp(i,j) = 0.0 !set initial temperature to 0 degrees
+    enddo
+enddo
+
+! BOUNDARY CONDITIONS
+
+temp(:,1) = 100.0 !boundary condition at x=0
+temp(:,nx) = 50.0 !boundary condition at x=1
+
+! MAIN LOOP FOR TIME STEPPING
+
+do i = 1, nt
+    ! CALCULATING TEMP AT NEXT TIME STEP
+    do j = 2, nx-1 !for interior nodes only
+        ! calculate coefficients for tridiagonal matrix
+        b(1) = alpha*dt/(2.0*dx**2)
+        b(2) = 1.0 - 2.0*alpha*dt/(dx**2)
+        b(3) = alpha*dt/(2.0*dx**2)
+        d(1) = -b(1)
+        d(2) = b(2)
+        d(3) = -b(3)
+        a(1) = -b(1)
+        a(2) = b(2)
+        a(3) = -b(3)
+        a_minus(1) = 0.0
+        a_minus(2) = b(1)
+        a_minus(3) = -b(2)
+        ! solve tridiagonal system using LAPACK subroutine
+        call dgbtrf(nx, 3, 3, a, 3, ipiv, info)
+        call dgbtrs("N", nx, 3, 3, a, 3, ipiv, temp(:,j), nx, info)
+        
+        ! update temperature at next time step
+        temp_next(j) = b(1)*temp(j-1) + b(2)*temp(j) + b(3)*temp(j+1)
+    enddo
+    
+    ! SWAPPING TEMPERATURE ARRAYS FOR NEXT TIME STEP
+    temp = temp_next
+enddo
+
+! PRINTING FINAL TEMPERATURE ARRAY
+
+do i = 1, nx
+    do j = 1, nx
+        print *, i, j, temp(i,j)
+    enddo
+enddo
+
+end program diffusion_equation

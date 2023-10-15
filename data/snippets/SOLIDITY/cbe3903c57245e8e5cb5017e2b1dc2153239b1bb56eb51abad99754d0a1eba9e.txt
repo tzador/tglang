@@ -1,0 +1,109 @@
+pragma solidity ^0.8.0;
+
+/**
+ * @title Online Marketplace Contract
+ * @dev This contract allows buyers to purchase items from sellers on the online marketplace.
+ */
+
+contract Marketplace {
+    //state variables
+    address public owner;
+    uint public itemCounter;
+    mapping(uint => Item) public items;
+    mapping(address => mapping(uint => uint)) public balances;
+    
+    //events
+    event LogPurchase(address indexed buyer, uint indexed itemId);
+    event LogRefund(address indexed seller, address indexed buyer, uint indexed itemId);
+    
+    //structs
+    struct Item {
+        uint id;
+        string name;
+        uint price;
+        address seller;
+        address buyer;
+        bool isPurchased;
+    }
+    
+    //modifiers
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the owner can call this function.");
+        _;
+    }
+    
+    //constructor function
+    constructor() {
+        owner = msg.sender;
+        itemCounter = 0;
+    }
+    
+    /**
+     * @dev Function for adding new items to the marketplace
+     * @param _name Name of the item being added
+     * @param _price Price of the item
+     */
+    function addItem(string memory _name, uint _price) public {
+        require(_price > 0, "The price must be greater than 0.");
+        
+        itemCounter++;
+        items[itemCounter] = Item(itemCounter, _name, _price, msg.sender, address(0), false);
+    }
+    
+    /**
+     * @dev Function for purchasing an item
+     * @param _itemId ID of the item being purchased
+     */
+    function purchaseItem(uint _itemId) public payable {
+        Item storage item = items[_itemId];
+        
+        require(msg.sender != item.seller, "You cannot purchase your own item.");
+        require(msg.value == item.price, "The amount sent must be equal to the item price.");
+        require(!item.isPurchased, "The item has already been purchased.");
+        
+        item.buyer = msg.sender;
+        item.isPurchased = true;
+        
+        balances[item.seller][_itemId] += item.price;
+        
+        emit LogPurchase(msg.sender, _itemId);
+    }
+    
+    /**
+     * @dev Function for refunding an item
+     * @param _itemId ID of the item being refunded
+     */
+    function refundItem(uint _itemId) public {
+        Item storage item = items[_itemId];
+        
+        require(msg.sender == item.buyer, "You are not the buyer of this item.");
+        require(item.isPurchased, "The item has not been purchased yet.");
+        
+        item.buyer.transfer(item.price);
+        balances[item.seller][_itemId] -= item.price;
+        
+        emit LogRefund(item.seller, msg.sender, _itemId);
+    }
+    
+    /**
+     * @dev Function for withdrawing funds from a specific item's balance
+     * @param _itemId ID of the item for which funds will be withdrawn
+     * @param _amount Amount of funds to be withdrawn
+     */
+    function withdrawFunds(uint _itemId, uint _amount) public {
+        require(msg.sender == items[_itemId].seller, "You are not the seller of this item.");
+        require(_amount <= balances[msg.sender][_itemId], "Insufficient balance.");
+        
+        balances[msg.sender][_itemId] -= _amount;
+        
+        msg.sender.transfer(_amount);
+    }
+    
+    /**
+     * @dev Function for changing the owner of the marketplace
+     * @param _newOwner Address of the new owner
+     */
+    function changeOwner(address _newOwner) public onlyOwner {
+        owner = _newOwner;
+    }
+}

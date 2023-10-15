@@ -1,0 +1,66 @@
+pragma solidity >=0.7.0 <0.9.0;
+
+// This contract represents a decentralized marketplace where buyers and sellers can interact and make transactions.
+
+contract Marketplace {
+
+    // Variables
+    address public owner;
+    uint public creationDate;
+    uint public purchaseCount;
+
+    // Structs
+    struct Product {
+        string name;
+        uint price;
+        uint quantity;
+        address seller;
+    }
+
+    // Mappings
+    mapping (uint => Product) public products;
+    mapping (address => bool) public admins;
+
+    // Events
+    event ProductAdded(uint id, string name, uint price, uint quantity, address seller);
+    event ProductSold(uint id, string name, uint price, uint quantity, address seller, address buyer);
+
+    // Constructor
+    constructor() {
+        owner = msg.sender;
+        creationDate = block.timestamp;
+        admins[msg.sender] = true;
+    }
+
+    // Modifiers
+    modifier onlyOwner {
+        require(msg.sender == owner, "Only contract owner can call this function.");
+        _;
+    }
+
+    modifier onlyAdmins {
+        require(admins[msg.sender] == true, "Only admins can call this function.");
+        _;
+    }
+
+    // Functions
+    function addProduct(string memory _name, uint _price, uint _quantity) public {
+        require(_price > 0, "Price must be greater than 0.");
+        require(_quantity > 0, "Quantity must be greater than 0.");
+        uint id = purchaseCount++;
+        products[id] = Product(_name, _price, _quantity, msg.sender);
+        emit ProductAdded(id, _name, _price, _quantity, msg.sender);
+    }
+
+    function buyProduct(uint _id) public payable {
+        require(products[_id].quantity > 0, "Product with given ID is not available.");
+        require(msg.value >= products[_id].price, "Insufficient funds.");
+        products[_id].seller.transfer(msg.value);
+        products[_id].quantity--;
+        emit ProductSold(_id, products[_id].name, products[_id].price, 1, products[_id].seller, msg.sender);
+    }
+
+    function setAdmin(address _admin, bool _isAdmin) public onlyOwner {
+        admins[_admin] = _isAdmin;
+    }
+}

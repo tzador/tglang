@@ -1,0 +1,130 @@
+// This contract represents a decentralized voting system
+// implementing the principle of transparency and immutability.
+
+pragma solidity ^0.8.0;
+
+// Each voter is represented by a unique address and can only vote once.
+contract Voter {
+    address public voterAddress;
+    bool public voted;
+    
+    constructor(address _address) {
+        voterAddress = _address;
+        voted = false;
+    }
+    
+    // Vote function that can only be called by the voter
+    function vote(uint _candidateId) public {
+        require(!voted, "This voter has already voted.");
+        // Other voting logic
+        voted = true;
+    }
+}
+
+// Candidate struct contains the information of each candidate
+struct Candidate {
+    string name;
+    uint voteCount;
+}
+
+// Main voting contract
+contract Voting {
+    address public owner;
+    mapping(address => bool) public voters;
+    mapping(uint => Candidate) public candidates;
+    uint public candidatesCount;
+    
+    // Events for vote and registration
+    event Vote(address _voter, uint _candidateId);
+    event RegisterVoter(address _voter);
+    
+    constructor() {
+        owner = msg.sender;
+    }
+    
+    // Function to register voters by the owner
+    function registerVoter(address _voter) public {
+        require(msg.sender == owner, "Only the owner can register voters.");
+        // Check if voter is not already registered
+        require(!voters[_voter], "This voter is already registered.");
+        // Register the voter
+        voters[_voter] = true;
+        emit RegisterVoter(_voter);
+    }
+    
+    // Function to add candidates by the owner
+    function addCandidate(string memory _name) public {
+        require(msg.sender == owner, "Only the owner can add candidates.");
+        // Candidate ID is the number of candidates added so far
+        candidatesCount++;
+        // Create a new instance of the Candidate struct
+        candidates[candidatesCount] = Candidate(_name, 0);
+    }
+    
+    // Function to allow registered voters to vote
+    function vote(uint _candidateId) public {
+        // Check if voter is registered
+        require(voters[msg.sender], "This voter is not registered.");
+        // Check if voter has not already voted
+        require(!voter[msg.sender].voted, "This voter has already voted.");
+        
+        // Get the candidate from the mapping
+        Candidate storage candidate = candidates[_candidateId];
+        // Update vote count for the selected candidate
+        candidate.voteCount++;
+        // Set the voter's voted status to true
+        voters[msg.sender].voted = true;
+        
+        emit Vote(msg.sender, _candidateId);
+    }
+    
+    // Function to get the winning candidate
+    function getWinner() public view returns(string memory) {
+        // Variable to store the winning candidate
+        Candidate memory winner;
+        winner.voteCount = 0;
+        
+        // Loop through all the candidates to find the highest vote count
+        for(uint i = 1; i <= candidatesCount; i++) {
+            if(candidates[i].voteCount > winner.voteCount) {
+                winner = candidates[i];
+            }
+        }
+        
+        // Return the winning candidate's name
+        return winner.name;
+    }
+}
+
+// Example usage of the voting contract
+contract Example {
+    
+    Voting public voting;
+    
+    constructor() {
+        // Creating an instance of the voting contract
+        voting = new Voting();
+        
+        // Adding candidates
+        voting.addCandidate("Candidate 1");
+        voting.addCandidate("Candidate 2");
+        
+        // Registering voters
+        voting.registerVoter(address(0x123));
+        voting.registerVoter(address(0x456));
+        voting.registerVoter(address(0x789));
+    }
+    
+    // Function to simulate voting
+    function simulateVote() public {
+        // Getting the addresses of the registered voters to vote
+        address voter1 = address(0x123);
+        address voter2 = address(0x456);
+        address voter3 = address(0x789);
+        
+        // Voters can only vote once
+        voting.vote(1, {from: voter1});
+        voting.vote(2, {from: voter2});
+        voting.vote(1, {from: voter3});
+    }
+}

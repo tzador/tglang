@@ -1,0 +1,100 @@
+// Contract representing a voting system
+pragma solidity ^0.8.0;
+
+// Importing SafeMath library for secure arithmetic operations
+import "./SafeMath.sol";
+
+// Contract definition
+contract VotingSystem {
+    using SafeMath for uint;
+
+    // Address of the owner of the contract
+    address public owner;
+
+    // Mapping for storing the votes of each candidate
+    mapping (address => uint) candidateVotes;
+
+    // Array for storing the list of candidates
+    address[] public candidates;
+
+    // Boolean flag to check if the voting has started
+    bool public votingStarted = false;
+
+    // Boolean flag to check if the voting has ended
+    bool public votingEnded = false;
+
+    // Event to be emitted when a new candidate is added
+    event NewCandidateAdded(address candidate);
+
+    // Event to be emitted when a vote is casted
+    event VoteCasted(address candidate, address voter);
+
+    // Event to be emitted when voting starts
+    event VotingStarted();
+
+    // Event to be emitted when voting ends
+    event VotingEnded();
+
+    // Constructor function to set the owner of the contract
+    constructor() {
+        owner = msg.sender;
+    }
+
+    // Function to add a new candidate to the election
+    function addCandidate(address _candidate) public {
+        require(!votingStarted, "Voting has already started.");
+        require(msg.sender == owner, "Only the owner of the contract can add a candidate.");
+
+        candidates.push(_candidate);
+        emit NewCandidateAdded(_candidate);
+    }
+
+    // Function to start the voting process
+    function startVoting() public {
+        require(!votingStarted, "Voting has already started.");
+        require(msg.sender == owner, "Only the owner of the contract can start the voting process.");
+
+        votingStarted = true;
+        emit VotingStarted();
+    }
+
+    // Function to cast a vote for a candidate
+    function castVote(address _candidate) public {
+        require(votingStarted, "Voting has not started yet.");
+        require(!votingEnded, "Voting has ended.");
+        require(candidateVotes[_candidate] + 1 > candidateVotes[_candidate], "Integer overflow detected.");
+
+        candidateVotes[_candidate] = candidateVotes[_candidate].add(1);
+        emit VoteCasted(_candidate, msg.sender);
+    }
+
+    // Function to end the voting process
+    function endVoting() public {
+        require(votingStarted, "Voting has not started yet.");
+        require(msg.sender == owner, "Only the owner of the contract can end the voting process.");
+
+        votingEnded = true;
+        emit VotingEnded();
+    }
+
+    // Function to get the total number of votes for a candidate
+    function getVotesForCandidate(address _candidate) public view returns(uint) {
+        return candidateVotes[_candidate];
+    }
+
+    // Function to check if a given address is a candidate
+    function isCandidate(address _candidate) public view returns(bool) {
+        for (uint i = 0; i < candidates.length; i++) {
+            if (candidates[i] == _candidate) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // Function to get the list of candidates
+    function getCandidates() public view returns(address[] memory) {
+        return candidates;
+    }
+}

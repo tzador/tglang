@@ -1,0 +1,46 @@
+* Sample GAMS code
+SETS
+i  nodes   /1*5/
+j  compressors   /1*3/
+k  pipelines   /1*7/;
+
+PARAMETERS
+cMax(i,j)  maximum compressor capacity in million cubic feet per day
+/1  3, 2 2, 3 3/
+cMin(i,j)  minimum compressor capacity (default set to 0)
+pTrans(i,k)  charge rate for transportation between nodes
+/1  2.5, 1, 1.5 2.5, 2.5 3.5, 1.5 5/
+pHold(k)  storage rate for pipelines
+;
+
+VARIABLES
+f(i,j)  flow on pipelines between nodes
+c(j)  compressor capacity used
+obj  total cost of operation;
+
+POSITIVE VARIABLES
+f
+c;
+
+EQUATIONS
+FLOWSUM(i)  sum of inflows and outflows;
+CAPACITY(j)  maximum and minimum compressor capacity;
+RATE(i,k)  charge rate for transportation and storage;
+TOTALCOST  total cost of operation;
+
+FLOWSUM(i)..
+  f(i,"in") + f(i,"out") =E= sum(k, pTrans(i,k));
+
+CAPACITY(j)..
+  cMin(j) =L= c(j) =L= cMax(j);
+
+RATE(i,k)..
+  f(i,k) =E= pTrans(i,k) + sum(j, pHold(k) * c(j));
+
+TOTALCOST..
+  obj =E= sum(j, c(j));
+
+MODEL compressorPenalty /all/
+SOLVE compressorPenalty USING MIP MINIMIZING obj;
+
+DISPLAY f.l, c.l;

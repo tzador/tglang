@@ -1,0 +1,47 @@
+http {
+    server {
+        listen 80;
+
+        location / {
+            proxy_pass https://example.com; # forward requests to example.com
+            proxy_set_header Host $host; # set the Host header as the original request
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # add the client IP address in the X-Forwarded-For header
+        }
+
+        location /api/ {
+            proxy_pass https://api.example.com; # forward requests to the API server
+            proxy_set_header Host $host; # set the Host header as the original request
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # add the client IP address in the X-Forwarded-For header
+        }
+
+        location /static/ {
+            alias /var/www/static/; # serve static files from the local directory
+            expires 7d; # cache files for 7 days
+            add_header Cache-Control "public"; # add the Cache-Control header to allow caching
+        }
+
+        location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+            root /var/www/images/; # serve image and css/js files from the local directory
+            expires max; # cache files indefinitely
+            add_header Cache-Control "public"; # add the Cache-Control header to allow caching
+        }
+
+        location = /404_not_found.html { # redirect to custom 404 page
+            return 404;
+        }
+
+        error_page 401 403 404 500 502 503 504 /error.html; # redirect to custom error page for specified error codes
+
+        location ~* \.php$ {
+            root /var/www/php-files/; # serve php files from the local directory
+            fastcgi_pass unix:/var/run/php/php7.4-fpm.sock; # pass requests to PHP-FPM
+            fastcgi_index index.php; # declare index file as index.php
+            include fastcgi_params; # include default FastCGI parameters
+        }
+
+        location = /upgrade.html { # redirect to maintenance page during upgrades
+            return 200;
+            alias /var/www/upgrade.html;
+        }
+    }
+}

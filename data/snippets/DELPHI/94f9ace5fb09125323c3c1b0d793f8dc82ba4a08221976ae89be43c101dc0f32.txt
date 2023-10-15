@@ -1,0 +1,156 @@
+unit Main;
+
+// This unit contains the main functionality of the program
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls, ExtCtrls, Buttons;
+
+type
+  // Define a record type for storing user information
+  TUserInfo = record
+    Name: string[30];
+    Age: integer;
+    Email: string[50];
+  end;
+  
+  // Define a custom exception for an invalid input
+  EInvalidInput = class(Exception);
+  
+  // Define a custom class for handling user input
+  TUserInput = class
+  private
+    // Internal variables for validation
+    FMinAge: integer;
+    FMaxAge: integer;
+    FAllowedEmailDomains: TStringList;
+    
+    // Internal method for checking email domains
+    procedure CheckEmailDomain(const AEmail: string);
+  public
+    constructor Create;
+    destructor Destroy; override;
+    
+    // Method for setting minimum and maximum age
+    procedure SetAgeRestrictions(const AMinAge, AMaxAge: integer);
+    
+    // Method for setting allowed email domains
+    procedure SetAllowedEmailDomains(const ADomains: array of string);
+    
+    // Method for getting user information
+    function GetUserInfo: TUserInfo;
+    
+    // Method for showing a message and getting user input
+    function GetInput(const AMessage: string): string;
+  end;
+  
+// Define a global variable for storing user input
+var
+  UserInput: TUserInput;
+
+implementation
+
+{$R *.dfm}
+
+// Constructor for TUserInput class
+constructor TUserInput.Create;
+begin
+  // Default values for age restrictions
+  FMinAge := 18;
+  FMaxAge := 65;
+  
+  // Initialize TStringList for allowed email domains
+  FAllowedEmailDomains := TStringList.Create;
+end;
+
+// Destructor for TUserInput class
+destructor TUserInput.Destroy;
+begin
+  // Free the TStringList variable
+  FAllowedEmailDomains.Free;
+  
+  inherited;
+end;
+
+// Method for setting age restrictions
+procedure TUserInput.SetAgeRestrictions(const AMinAge, AMaxAge: integer);
+begin
+  // Check if minimum age is greater than maximum age
+  if AMinAge > AMaxAge then
+    // Throw a custom exception
+    raise EInvalidInput.Create('Minimum age cannot be greater than maximum age.');
+  
+  // Set the internal variables
+  FMinAge := AMinAge;
+  FMaxAge := AMaxAge;
+end;
+
+// Method for setting allowed email domains
+procedure TUserInput.SetAllowedEmailDomains(const ADomains: array of string);
+var
+  i: integer;
+begin
+  // Clear the existing list of allowed email domains
+  FAllowedEmailDomains.Clear;
+  
+  // Loop through the array of domains and add them to the TStringList
+  for i := Low(ADomains) to High(ADomains) do
+    FAllowedEmailDomains.Add(ADomains[i]);
+end;
+
+// Method for checking email domains
+procedure TUserInput.CheckEmailDomain(const AEmail: string);
+var
+  i: integer;
+begin
+  // Check if the email domain is in the list of allowed domains
+  for i := 0 to FAllowedEmailDomains.Count - 1 do
+  begin
+    if Pos(FAllowedEmailDomains[i], AEmail) > 0 then
+      // Email domain is allowed, exit the method
+      Exit;
+  end;
+  
+  // If the code reaches here, the email domain is not allowed
+  raise EInvalidInput.Create('Email address is not from an allowed domain.');
+end;
+
+// Method for getting user information
+function TUserInput.GetUserInfo: TUserInfo;
+var
+  Name, Email: string;
+  Age: integer;
+begin
+  // Get user information using the GetInput function
+  Name := GetInput('Please enter your name:');
+  
+  // Raise an exception if the name is empty
+  if (Name = '') then
+    raise EInvalidInput.Create('Name cannot be empty.');
+  
+  // Get the user's age and validate it
+  Age := StrToInt(GetInput('Please enter your age:'));
+  
+  if (Age < FMinAge) or (Age > FMaxAge) then
+    raise EInvalidInput.CreateFmt('Age must be between %d and %d.', [FMinAge, FMaxAge]);
+  
+  // Get the email address and validate it
+  Email := GetInput('Please enter your email address:');
+  CheckEmailDomain(Email);
+  
+  // Create a TUserInfo record and populate it with the user's information
+  Result.Name := Name;
+  Result.Age := Age;
+  Result.Email := Email;
+end;
+
+// Method for getting user input and showing a message
+function TUserInput.GetInput(const AMessage: string): string;
+begin
+  // Show the message and get user input using the InputBox function
+  Result := InputBox('User Input', AMessage, '');
+end;
+
+end.

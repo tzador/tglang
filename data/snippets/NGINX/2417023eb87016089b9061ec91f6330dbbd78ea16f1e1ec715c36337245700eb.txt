@@ -1,0 +1,101 @@
+#Global events
+events {
+    #use epoll;
+    worker_connections 768;
+    #multi_accept
+}
+
+http {
+    include mime.types;
+
+    #user html;
+    #user_root /usr/share/nginx/html
+    access_log /var/log/nginx/access.log;
+
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    #keepalive_timeout 0;
+    keepalive_timeout 65;
+
+    #gzip on;
+    #gzip_disable “MSIE [1--6]\.(?!.*SV1)”;
+
+    server {
+        #Set the port number of this server
+        listen 80;
+
+        #Define the domain name for this server
+        server_name example.com;
+
+        #Set the root directory for this server
+        root /var/www/example.com;
+
+        # Add index.html to the list if you are using nginx as a file server
+        index index.html;
+
+        #Define an error page for 404 errors
+        error_page 404 /404.html;
+
+        #Redirect all traffic to the domain with www.
+        if ($host !~* ^www\.(.*)) {
+            rewrite ^(.*)$ https://www.$1$break;
+        }
+
+        #Define a location block for serving static files
+        location /static/ {
+            #Set the alias for the root directory
+            alias /var/www/example.com/static/;
+
+            #Adjust file permissions for security
+            #allow all;
+            #deny all;
+            #allow 127.0.0.1;
+            #allow 192.168.0.0/16;
+            #deny 192.168.1.205;
+        }
+
+        #Define a location block for proxying requests to application server
+        location / {
+            # Define the address and port of the application server
+            proxy_pass http://127.0.0.1:8000/;
+            
+            #Define the header fields to be passed to the application server
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+            #Adjust proxy settings
+            proxy_connect_timeout 90;
+            proxy_send_timeout 90;
+            proxy_read_timeout 90;
+            proxy_buffer_size 32k;
+            proxy_buffers 64 4k;
+            proxy_busy_buffers_size 64k;
+            proxy_temp_file_write_size 64k;
+
+            #Define an access control policy for the location
+            #allow all;
+            #deny all;
+            #allow 127.0.0.1;
+            #allow 192.168.0.0/16;
+            #deny 192.168.1.205;
+        }
+
+        #Define a location block for handling PHP requests
+        location ~ \.php$ {
+            #Define the address and port of the PHP-FPM server
+            fastcgi_pass 127.0.0.1:9000;
+
+            #Define the root directory for PHP files
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+
+            #Adjust fastcgi settings for security
+            #Allow only internal requests
+            fastcgi_param REMOTE_ADDR $http_x_real_ip;
+
+            #Limit the size of file uploads
+            fastcgi_param PHP_VALUE “upload_max_filesize=10M \n post_max_size=10M”;
+        }
+    }
+}

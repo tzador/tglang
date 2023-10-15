@@ -1,0 +1,74 @@
+# Set minimum CMake version
+cmake_minimum_required(VERSION 3.12)
+
+# Set project name and version
+project(MyProject VERSION 1.0)
+
+# Add source files to project
+set(SOURCES
+    src/main.cpp
+    src/utilities.cpp
+)
+
+# Add executable target
+add_executable(my_executable ${SOURCES})
+
+# Set compiler flags
+target_compile_options(my_executable PRIVATE -Wall -Wextra)
+
+# Add library target
+add_library(my_library STATIC
+    src/library.cpp
+    src/utilities.cpp
+)
+
+# Include directories with header files
+target_include_directories(my_library PUBLIC
+    ${CMAKE_SOURCE_DIR}/include
+)
+
+# Set library version
+set_target_properties(my_library PROPERTIES VERSION ${PROJECT_VERSION})
+
+# Specify the install destination for library files
+install(TARGETS my_library DESTINATION lib)
+
+# Specify the install destination for header files
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/include/ DESTINATION include)
+
+# Configure a file with variables from cmake
+configure_file(config.h.in config.h)
+
+# Add the directory containing the config.h file to the include path
+target_include_directories(my_library PUBLIC
+    ${CMAKE_BINARY_DIR}
+)
+
+# Set a custom post-build command
+add_custom_command(
+    TARGET my_executable POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+    ${CMAKE_SOURCE_DIR}/data.txt
+    ${CMAKE_BINARY_DIR}/data.txt
+    COMMENT "Copying data file to build directory"
+)
+
+# Add subdirectory for tests
+add_subdirectory(tests)
+
+# Enable C++11 features for the project
+set_property(TARGET my_library PROPERTY CXX_STANDARD 11)
+
+# Add a target to generate documentation with Doxygen
+find_package(Doxygen)
+if (DOXYGEN_FOUND)
+    # Configure the Doxygen file
+    configure_file(Doxyfile.in Doxyfile @ONLY)
+    # Add the target
+    add_custom_target(doc
+        ${DOXYGEN_EXECUTABLE} ${CMAKE_BINARY_DIR}/Doxyfile
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        COMMENT "Generating API documentation with Doxygen"
+        VERBATIM
+    )
+endif (DOXYGEN_FOUND)

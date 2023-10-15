@@ -1,0 +1,194 @@
+// Define a variable for the project name
+def projectName = "myProject"
+
+// Define a variable for the application name
+def appName = "myApp"
+
+// Define a variable for the main class
+def mainClass = "com.project.Main"
+
+// Define a task to compile the Java source files
+task compileJava(type: JavaCompile) {
+    // Set the source directory for the Java files
+    sourceSets.main.java.srcDirs = ['src']
+
+    // Set the classpath for compiling
+    classpath = configurations.compile
+
+    // Set the output directory for the compiled class files
+    destinationDir = file("${buildDir}/classes/java/main")
+
+    // Set the target JVM version
+    sourceCompatibility = "1.8"
+
+    // Set the target Java version
+    targetCompatibility = "1.8"
+}
+
+// Define a task to build the application jar
+task buildJar(type: Jar) {
+    // Set the base name of the jar
+    baseName = appName
+
+    // Set the version of the jar
+    version = "1.0.0"
+
+    // Set the source directory for the jar
+    from("${buildDir}/classes/java/main")
+
+    // Set the main class for the jar
+    manifest {
+        attributes "Main-Class": mainClass
+    }
+}
+
+// Define a task to run the application
+task run(type: JavaExec) {
+    // Set the classpath for running the application
+    classpath = sourceSets.main.runtimeClasspath
+
+    // Set the main class for running the application
+    main = mainClass
+
+    // Set the arguments for running the application
+    args "arg1", "arg2"
+}
+
+// Define a task to build the entire project
+task build (dependsOn: [compileJava, buildJar])
+
+// Define a task to clean the project
+task clean {
+    // Delete the build directory
+    delete "${buildDir}"
+}
+
+// Define a task for creating a distribution of the application
+task dist(type: Zip) {
+    // Set the base name of the zip
+    baseName = "${projectName}-distribution"
+
+    // Set the version of the zip
+    version = "1.0.0"
+
+    // Set the destination directory for the zip
+    destinationDir = file("${buildDir}/distributions")
+
+    // Include the built jar
+    from("${buildDir}/libs/${appName}-1.0.0.jar")
+
+    // Include the README file
+    from("${rootDir}/README.md")
+
+    // Include the LICENSE file
+    from("${rootDir}/LICENSE")
+
+    // Exclude any unnecessary files
+    exclude "gradlew", "gradlew.bat", ".gradle"
+}
+
+// Define a task to publish the distribution to a Maven repository
+task publishDistribution(type: PublishToMavenRepository) {
+    // Set the repository URL
+    repository = "https://repo.example.com/maven"
+
+    // Set the username for authentication
+    username = "myUsername"
+
+    // Set the password for authentication
+    password = "myPassword"
+
+    // Set the group ID for the distribution
+    group = "com.project.distribution"
+
+    // Set the artifact ID for the distribution
+    artifact = projectName
+
+    // Set the version for the distribution
+    version = "1.0.0"
+
+    // Upload the distribution
+    publication from(dist)
+}
+
+// Define a task to publish the application to a Maven repository
+task publishApplication(type: PublishToMavenRepository) {
+    // Set the repository URL
+    repository = "https://repo.example.com/maven"
+
+    // Set the username for authentication
+    username = "myUsername"
+
+    // Set the password for authentication
+    password = "myPassword"
+
+    // Set the group ID for the application
+    group = "com.project.application"
+
+    // Set the artifact ID for the application
+    artifact = appName
+
+    // Set the version for the application
+    version = "1.0.0"
+
+    // Upload the built jar
+    publication from(buildJar)
+}
+
+// Define a task to publish the project to a Maven repository
+task publish (dependsOn: [publishDistribution, publishApplication])
+
+// Define a task to deploy the distribution to a remote server
+task deploy(type: Exec) {
+    // Set the command for deploying the distribution
+    commandLine "ssh", "user@example.com", "mv ${projectName}-distribution-1.0.0.zip /opt/distributions"
+
+    // Set the working directory for the execution
+    workingDir file("${buildDir}/distributions")
+
+    // Set the execution to be optional
+    ignoreExitValue true
+}
+
+// Define a task to deploy the application to a remote server
+task deployApplication(type: Exec) {
+    // Set the command for deploying the application
+    commandLine "ssh", "user@example.com", "java -jar /opt/apps/${appName}-1.0.0.jar"
+
+    // Set the working directory for the execution
+    workingDir file("${buildDir}/libs")
+
+    // Set the execution to be optional
+    ignoreExitValue true
+}
+
+// Define a task to deploy the project to a remote server
+task deployAll (dependsOn: [deploy, deployApplication])
+
+// Define a task to deploy the project and clean up afterwards
+task deployWithCleanup (dependsOn: [deployAll, clean])
+
+// Add a build directory to the .gitignore file
+def gitIgnoreFile = file("${project.rootDir}/.gitignore")
+if (!gitIgnoreFile.text.contains(buildDir.name)) {
+    gitIgnoreFile.append("${buildDir.name}\n")
+}
+
+// Define a task to run all unit tests
+task test(type: Test) {
+    // Set the classpath for running the tests
+    classpath = sourceSets.test.runtimeClasspath
+
+    // Set the output directory for the test results
+    reports {
+        junitXml {
+            destination = file("$buildDir/test-results/junit/junit.xml")
+        }
+    }
+}
+
+// Define a task to run the project
+task myTask(dependsOn: [compileJava, buildJar, run])
+
+// Define a default task
+defaultTasks 'myTask'

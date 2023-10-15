@@ -1,0 +1,114 @@
+!This is a FORTRAN code snippet that calculates the eigenvalues of a matrix using the Jacobi method.
+
+!Define parameters and variables
+INTEGER :: n             !size of matrix
+REAL(8) :: epsilon = 1E-5 !threshold for convergence
+REAL(8), DIMENSION(:,:) :: A !matrix A
+REAL(8), DIMENSION(:) :: d !diagonal of matrix A
+REAL(8), DIMENSION(:,:) :: B !matrix B
+REAL(8), DIMENSION(:) :: s !coefficients for rotation matrix
+REAL(8), DIMENSION(:) :: v !eigenvectors
+INTEGER :: k, l, it        !iteration counters
+REAL(8) :: c, t, theta     !rotation parameters
+LOGICAL :: converged       !flag for convergence
+
+!Initialize matrix A with random values
+CALL RANDOM_NUMBER(A)
+
+!Ensure matrix A is symmetric
+DO i = 1, n
+   DO j = 1, n
+      A(j,i) = (A(i,j) + A(j,i))/2
+   END DO
+END DO
+
+!Copy matrix A to matrix B
+B = A
+
+!Initialize diagonal matrix D and identity matrix I
+d = 0.0d0
+DO i = 1, n
+   d(i) = A(i,i)
+END DO
+
+I = 0.0d0
+DO i = 1, n
+   I(i,i) = 1.0d0
+END DO
+
+
+!Begin Jacobi method
+it = 0
+converged = .FALSE.
+
+DO WHILE (.NOT. converged)
+   !Find maximum off-diagonal element in matrix A
+   DO i = 1, n-1
+      DO j = i+1, n
+         IF (ABS(A(i,j)) > ABS(A(k,l))) THEN
+            k = i
+            l = j
+         END IF
+      END DO
+   END DO
+
+   !Calculate rotation parameters
+   theta = (A(l,l) - A(k,k))/(2*A(k,l))
+   t = 1.0d0/(ABS(theta) + SQRT(theta**2 + 1.0d0))
+
+   IF (theta < 0) THEN
+      t = -t
+   END IF
+
+   c = 1.0d0/SQRT(t**2 + 1.0d0)
+   s = t*c
+
+   !Rotate matrix A and D
+   DO i = 1, n
+      IF (i /= k .AND. i /= l) THEN
+         A(i,k) = c*A(i,k) + s*A(i,l)
+         A(i,l) = c*A(i,l) - s*A(i,k)
+         A(k,i) = A(i,k)
+         A(l,i) = A(i,l)
+      END IF
+
+      d(i) = c**2*d(i) + s**2*d(i)
+   END DO
+
+   A(k,k) = d(k)
+   A(l,l) = d(l)
+   A(k,l) = 0.0d0
+   A(l,k) = 0.0d0
+
+   !Rotate matrix B and I to get eigenvectors
+   DO i = 1, n
+      v(i) = c*B(i,k) + s*B(i,l)
+      B(i,k) = v(i)
+
+      I(i,k) = c*I(i,k) + s*I(i,l)
+      I(i,l) = c*I(i,l) - s*I(i,k)
+   END DO
+
+   it = it + 1
+
+   !Check for convergence
+   IF (MAXVAL(ABS(A(A>.epsilon))) < epsilon) THEN
+      converged = .TRUE.
+   END IF
+
+END DO
+
+!Print out results
+PRINT *, "Eigenvalues:"
+DO i = 1, n
+   PRINT *, d(i)
+END DO
+
+PRINT *, "Eigenvectors:"
+DO i = 1, n
+   DO j = 1, n
+      PRINT *, I(i,j)
+   END DO
+END DO
+
+END

@@ -1,0 +1,267 @@
+server {
+    # listen on port 80
+    listen 80;
+
+    # define server name
+    server_name www.example.com;
+
+    # location block for /
+    location / {
+        
+        # set root of server
+        root /usr/share/nginx/html;
+
+        # allow GET requests
+        allowed_methods GET;
+
+        # allow all IP addresses
+        allow all;
+
+        # deny all other traffic
+        deny all;
+
+        # enable gzip compression
+        gzip on;
+
+        # set gzip compression level
+        gzip_comp_level 5;
+
+        # include default proxy parameters
+        include proxy_params;
+
+        # set custom upstream server 
+        upstream backend {
+            server 127.0.0.1:8000;
+        }
+
+        # pass requests to backend server
+        proxy_pass http://backend;
+    }
+
+    # location block for /blog
+    location /blog {
+
+        # set root of server
+        root /var/www/blog;
+
+        # set index file
+        index index.php;
+
+        # allow POST requests
+        allowed_methods POST;
+
+        # allow only specific IP addresses
+        allow 192.168.1.1;
+        allow 192.168.1.2;
+
+        # deny all other traffic
+        deny all;
+
+        # enable server-side include
+        ssi on;
+
+        # include fastcgi parameters
+        include fastcgi_params;
+
+        # set custom fastcgi parameters
+        fastcgi_param SCRIPT_FILENAME /var/www/blog/index.php;
+        fastcgi_param SCRIPT_NAME /index.php;
+        fastcgi_param PHP_VALUE "include_path=/var/www/blog/log:/var/www/blog/lib";
+
+        # set custom CGI parameters
+        fastcgi_param REMOTE_ADDR $remote_addr;
+        fastcgi_param REMOTE_PORT $remote_port;
+
+        # execute PHP scripts
+        fastcgi_pass unix:/var/run/php-fpm.sock;
+    }
+
+    # location block for /images
+    location /images {
+
+        # set root of server
+        root /var/www/images;
+
+        # enable byte-range support
+        ranges bytes;
+
+        # enable browser caching
+        add_header Cache-Control "public, max-age=3600";
+
+        # allow all IP addresses
+        allow all;
+
+        # deny all other traffic
+        deny all;
+
+        # redirect to HTTPS
+        rewrite ^(.*)$ https://www.example.com$request_uri permanent;
+    }
+
+    # location block for /admin
+    location /admin {
+
+        # set root of server
+        root /var/www/admin;
+
+        # allow PUT and DELETE requests
+        allowed_methods PUT DELETE;
+
+        # allow only specific IP addresses
+        allow 192.168.0.1;
+        allow 192.168.0.2;
+
+        # deny all other traffic
+        deny all;
+
+        # enable server-side includes
+        ssi on;
+
+        # include default fastcgi parameters
+        include fastcgi_params;
+
+        # set custom fastcgi parameters
+        fastcgi_param SCRIPT_FILENAME /var/www/admin/index.php;
+        fastcgi_param SCRIPT_NAME /index.php;
+
+        # execute PHP scripts
+        fastcgi_pass unix:/var/run/php-fpm.sock;
+    }
+
+    # location block for /static
+    location /static {
+
+        # set root of server
+        root /var/www/static;
+
+        # enable gzip compression
+        gzip on;
+
+        # set gzip compression level
+        gzip_comp_level 5;
+
+        # enable byte-range support
+        ranges bytes;
+
+        # set custom cache expiration time
+        expires 365d;
+
+        # allow all IP addresses
+        allow all;
+
+        # deny all other traffic
+        deny all;
+    }
+
+    # location block for /api
+    location /api {
+
+        # set root of server
+        root /var/www/api;
+
+        # limit available bandwidth for requests
+        limit_rate 1m;
+
+        # set access log location
+        access_log /var/log/nginx/api_access.log;
+
+        # set error log location
+        error_log /var/log/nginx/api_error.log;
+
+        # enable server-side includes
+        ssi on;
+
+        # include fastcgi parameters
+        include fastcgi_params;
+
+        # set custom fastcgi parameters
+        fastcgi_param SCRIPT_FILENAME /var/www/api/index.php;
+        fastcgi_param SCRIPT_NAME /index.php;
+
+        # execute PHP scripts
+        fastcgi_pass unix:/var/run/php-fpm.sock;
+    }
+
+    # location block for /downloads
+    location /downloads {
+
+        # set root of server
+        root /var/www/downloads;
+
+        # limit available bandwidth for requests
+        limit_rate 2m;
+
+        # enable directory listing
+        autoindex on;
+    }
+
+    # location block for /admin/
+    location /admin/ {
+
+        # redirect to specific index file
+        index admin.html;
+
+        # set root of server
+        root /var/www/admin;
+
+        # enable server-side includes
+        ssi on;
+
+        # include default fastcgi parameters
+        include fastcgi_params;
+
+        # set custom fastcgi parameters
+        fastcgi_param SCRIPT_FILENAME /var/www/admin/index.php;
+        fastcgi_param SCRIPT_NAME /index.php;
+
+        # execute PHP scripts
+        fastcgi_pass unix:/var/run/php-fpm.sock;
+    }
+
+    # location block for /includes
+    location /includes {
+
+        # set root of server
+        root /var/www/includes;
+
+        # allow all IP addresses
+        allow all;
+
+        # deny all other traffic
+        deny all;
+    }
+}
+
+# monitor server status
+location /status {
+    
+    # enable basic authentication
+    auth_basic "Restricted area";
+    auth_basic_user_file /etc/nginx/.htpasswd;
+
+    # enable server status page
+    stub_status on;
+
+    # control access to server status page
+    allow 192.168.1.1;
+    allow 192.168.1.2;
+    deny all;
+}
+
+# handle errors
+error_page 404 /errors/404.html;
+error_page 403 /errors/403.html;
+
+# prevent access to hidden files
+location ~ /\. {
+    deny all;
+}
+
+# enable gzip compression for all requests
+gzip on;
+
+# set gzip compression level
+gzip_comp_level 9;
+
+# enable server-side includes
+ssi on;

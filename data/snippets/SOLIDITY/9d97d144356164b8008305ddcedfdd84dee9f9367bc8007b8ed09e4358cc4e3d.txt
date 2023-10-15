@@ -1,0 +1,50 @@
+//This is a contract in Solidity language with multiple functions and modifiers
+//It is a simple betting contract where users can place bets and win rewards
+pragma solidity ^0.8.0;
+
+contract BettingContract {
+    //state variables
+    address public owner;
+    mapping(address => uint) public bets;
+    uint public totalBets;
+    uint public constant minimumBet = 1 ether;
+    
+    //constructor function to set the contract creator as the owner
+    constructor() {
+        owner = msg.sender;
+    }
+    
+    //modifier to restrict functions to only the contract owner
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the contract owner can call this function.");
+        _;
+    }
+    
+    //function for users to place bets
+    function placeBet() public payable {
+        require(msg.value >= minimumBet, "Bet amount must be at least 1 ether.");
+        bets[msg.sender] += msg.value;
+        totalBets += msg.value;
+    }
+
+    //function for the owner to distribute rewards to winning bets
+    function distributeRewards(address[] calldata winners, uint[] calldata rewards) public onlyOwner {
+        require(winners.length == rewards.length, "Number of winners and rewards must be equal.");
+        
+        for(uint i = 0; i < winners.length; i++) {
+            winners[i].transfer(rewards[i]);
+        }
+        
+        totalBets = 0;
+        for(uint i = 0; i < winners.length; i++) {
+            bets[winners[i]] = 0;
+        }
+    }
+    
+    //function for users to withdraw any remaining unused bets
+    function withdrawUnusedBets() public {
+        require(bets[msg.sender] > 0, "You have no bets to withdraw.");
+        payable(msg.sender).transfer(bets[msg.sender]);
+        bets[msg.sender] = 0;
+    }
+}

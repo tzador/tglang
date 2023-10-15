@@ -1,0 +1,79 @@
+const { buildSchema } = require('graphql');
+
+// Define types
+const userType = new GraphQLObjectType({
+  name: 'User',
+  fields: () => ({
+    id: { type: GraphQLID },
+    name: { type: GraphQLString },
+    email: { type: GraphQLString },
+    age: { type: GraphQLInt }
+  })
+});
+
+const postType = new GraphQLObjectType({
+  name: 'Post',
+  fields: () => ({
+    id: { type: GraphQLID },
+    title: { type: GraphQLString },
+    body: { type: GraphQLString },
+    author: { 
+      type: userType,
+     // Resolve function to get author information for the post
+      resolve(parent, args) {
+        return getUserById(parent.authorId);
+      }
+    }
+  })
+});
+
+// Define root query
+const rootQuery = new GraphQLObjectType({
+  name: 'Query',
+  fields: {
+    // Query to get single user by id
+    user: {
+      type: userType,
+      args: { id: { type: GraphQLID } },
+      // Resolve function to get user information
+      resolve(parent, args) {
+        return getUserById(args.id);
+      }
+    },
+    // Query to get all posts by a specific user
+    postsByUser: {
+      type: new GraphQLList(postType),
+      args: { userId: { type: GraphQLID } },
+      // Resolve function to get all posts by user id
+      resolve(parent, args) {
+        return getPostsByUserId(args.userId);
+      }
+    }
+  }
+});
+
+// Define mutation
+const mutation = new GraphQLObjectType({
+  name: 'Mutation',
+  fields: {
+    // Mutation to add a new user
+    addUser: {
+      type: userType,
+      args: {
+        name: { type: new GraphQLNonNull(GraphQLString) },
+        email: { type: new GraphQLNonNull(GraphQLString) },
+        age: { type: new GraphQLNonNull(GraphQLInt) }
+      },
+      // Resolve function to add new user
+      resolve(parent, args) {
+        return addUser(args.name, args.email, args.age);
+      }
+    }
+  }
+});
+
+// Create schema
+module.exports = new GraphQLSchema({
+  query: rootQuery,
+  mutation: mutation
+});

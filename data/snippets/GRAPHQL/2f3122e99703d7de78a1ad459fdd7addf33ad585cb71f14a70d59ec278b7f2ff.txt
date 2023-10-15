@@ -1,0 +1,140 @@
+// Define a schema with multiple types and fields
+const typeDefs = `
+  type Book {
+    id: ID!
+    title: String!
+    author: Author!
+    genre: String
+    description: String
+    rating: Float
+    reviews: [Review]
+  }
+
+  type Author {
+    id: ID!
+    name: String!
+    books: [Book]
+  }
+
+  type Review {
+    id: ID!
+    book: Book!
+    rating: Int!
+    comment: String!
+    reviewer: User!
+  }
+
+  type User {
+    id: ID!
+    name: String!
+    reviews: [Review]
+    favoriteGenres: [String]
+  }
+
+  type Query {
+    books: [Book]
+    authors: [Author]
+    reviews: [Review]
+    users: [User]
+  }
+
+  type Mutation {
+    addBook(title: String!, authorId: ID!, genre: String, description: String, rating: Float): Book
+    addAuthor(name: String!): Author
+    addReview(bookId: ID!, rating: Int!, comment: String!, userId: ID!): Review
+    addUser(name: String!, favoriteGenres: [String]): User
+  }
+
+  type Subscription {
+    newReview: Review
+  }
+
+  schema {
+    query: Query
+    mutation: Mutation
+    subscription: Subscription
+  }
+`;
+
+// Set up resolvers to handle data fetching and mutations
+const resolvers = {
+  Query: {
+    books: () => Book.findAll(),
+    authors: () => Author.findAll(),
+    reviews: () => Review.findAll(),
+    users: () => User.findAll()
+  },
+  Mutation: {
+    addBook: (parent, { title, authorId, genre, description, rating }) => {
+      const newBook = {
+        id: uuid(),
+        title,
+        authorId,
+        genre,
+        description,
+        rating
+      };
+      Book.push(newBook);
+      return newBook;
+    },
+    addAuthor: (parent, { name }) => {
+      const newAuthor = {
+        id: uuid(),
+        name
+      };
+      Author.push(newAuthor);
+      return newAuthor;
+    },
+    addReview: (parent, { bookId, rating, comment, userId }) => {
+      const newReview = {
+        id: uuid(),
+        bookId,
+        rating,
+        comment,
+        userId
+      };
+      Review.push(newReview);
+      return newReview;
+    },
+    addUser: (parent, { name, favoriteGenres }) => {
+      const newUser = {
+        id: uuid(),
+        name,
+        favoriteGenres
+      };
+      User.push(newUser);
+      return newUser;
+    }
+  },
+
+  Subscription: {
+    newReview: {
+      subscribe: () => pubsub.asyncIterator("NEW_REVIEW")
+    }
+  },
+
+  Book: {
+    author: (parent) => Author.find((author) => author.id === parent.authorId),
+    reviews: (parent) => Review.filter((review) => review.bookId === parent.id)
+  },
+
+  Author: {
+    books: (parent) => Book.filter((book) => book.authorId === parent.id)
+  },
+
+  Review: {
+    book: (parent) => Book.find((book) => book.id === parent.bookId),
+    reviewer: (parent) => User.find((user) => user.id === parent.userId)
+  },
+
+  User: {
+    reviews: (parent) => Review.filter((review) => review.userId === parent.id)
+  }
+}
+
+// Set up a GraphQL server with Express and Apollo Server
+const server = new ApolloServer({ typeDefs, resolvers });
+
+server.listen().then(({ url }) => {
+  console.log(`🚀 Server ready at ${url}`);
+});

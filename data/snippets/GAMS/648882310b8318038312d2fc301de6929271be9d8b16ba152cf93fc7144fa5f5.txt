@@ -1,0 +1,67 @@
+$Title Example of a Multi-Period Production Planning Problem with Inventory Constraints
+
+Sets
+    i   products        Available products
+    t   periods         Time periods at which production can occur (month)
+    s   scenarios       Possible scenarios of demand realization
+
+Parameters
+    init(i)             Initial inventory of product i
+    b(i)                Variable inventory holding cost for product i
+    cap(i,t,s)          Production capacity of product i in time t for scenario s
+    d(i,t,s)            Demand for product i in time t with scenario s
+    h(i,t,s)            Product i's holding cost per period in time t for scenario s
+    p(i,t,s)            Product i's production cost per unit in time t for scenario s
+    v(t)                Discount factor for period t
+    r_min(t)            Minimum required inventory at the end of period t
+    r_max(t)            Maximum allowed inventory at the end of period t
+
+Binary Variables
+    x(i,t,s)            Amount of product i to be produced in time t for scenario s
+    y(i,t,s)            Amount of product i to be stored at the end of period t for scenario s
+
+Positive Variable
+    obj_offer           Objective function value
+    obj_total           Total objective function value
+
+Equations
+    stock(i,t,s)        Inventory balance for product i at the end of period t
+    prod(i,t,s)         Production constraints for product i in time t for scenario s
+    cap_cons(t,s)       Production capacity constraints for all products in time t for scenario s
+    dem_cons(i,t,s)     Demand satisfaction constraints for product i in time t for scenario s
+    inv_min(t)          Minimum required inventory constraints for all products in time t
+    inv_max(t)          Maximum allowed inventory constraints for all products in time t
+    obj(t,s)            Objective function
+
+Stock(i,t,s)..
+    init(i) + sum {n $pos(y(i,n,s))} y(i,n,s)
+    =
+    b(i) * sum {m $pos(x(i,m,s))} x(i,m,s)
+    +
+    y(i,t,s)
+    -
+    d(i,t,s);
+
+Prod(i,t,s)..
+    x(i,t,s) =l= cap(i,t,s) * sum {n $pos(x(i,n,s))} x(i,n,s);
+
+Cap_Cons(t,s)..
+    sum {i} x(i,t,s) =l= sum {i} cap(i,t,s);
+
+Dem_Cons(i,t,s)..
+    d(i,t,s) =l= sum {n $pos(x(i,n,s))} x(i,n,s) + y(i,t,s);
+
+Inv_Min(t)..
+    sum {i} y(i,t,s) =g= r_min(t);
+
+Inv_Max(t)..
+    sum {i} y(i,t,s) =l= r_max(t) ;
+
+Obj(t,s)..
+    obj(t,s) = v(t) * (b(i) * sum {s} h(i,t,s) * y(i,t,s) + sum p(i,t,s) * x(i,t,s));
+
+Model multi_period_produciton /all/;
+
+Solve multi_period_produciton using cns;
+
+Display x.l, x.m, y.l, y.m;

@@ -1,0 +1,225 @@
+{ 
+  This code snippet demonstrates how to create a custom Delphi component that extends a TEdit control and adds functionality for auto-capitalization 
+  with support for multiple languages. 
+}
+unit AutoCapEdit;
+
+interface
+
+uses
+  SysUtils, Classes, Controls, StdCtrls;
+
+type
+  TAutoCapLanguage = (clEnglish, clFrench, clSpanish); 
+  { 
+    This enum defines the different languages supported by the component.
+    It will determine which words will be auto-capitalized and which won't. 
+  }
+
+type
+  TAutoCapEdit = class(TEdit)
+  private
+    FAutoCap: Boolean; 
+    { 
+      This property determines whether auto-capitalization is enabled or not. 
+    }
+    FLanguage: TAutoCapLanguage; 
+    { 
+      This property sets the language for the component. 
+    }
+  protected
+    procedure Change; override; { Changes the text after a key is pressed. }
+    procedure SetAutoCap(const Value: Boolean); 
+    { 
+      Sets the value of the AutoCap property and updates the text.
+      It also repositions the cursor based on the value.
+    }
+    procedure SetLanguage(const Value: TAutoCapLanguage); 
+    { 
+      Sets the value of the Language property and updates the text.
+      It also repositions the cursor based on the value.
+    }
+    function GetAutoCapWord(const S: string): string; 
+    { 
+      Returns the string with the first letter of each word capitalized,
+      based on the selected language.
+    }
+  published
+    property AutoCap: Boolean read FAutoCap write SetAutoCap default True; 
+    { 
+      This property is used to enable or disable the auto-capitalization feature.
+      It is set to True by default.
+    }
+    property Language: TAutoCapLanguage read FLanguage write SetLanguage default clEnglish; 
+    { 
+      This property is used to set the language for auto-capitalization.
+      English is the default language.
+    }
+  public
+    constructor Create(AOwner: TComponent); override; 
+    { 
+      Constructor for the component.
+      It sets some default properties and initializes the component. 
+    }
+    destructor Destroy; override; 
+    { 
+      Destructor for the component.
+      It frees any resources used by the component. 
+    }
+  end;
+
+procedure Register; 
+
+implementation
+
+procedure Register;
+begin
+  RegisterComponents('Samples', [TAutoCapEdit]);
+end;
+
+{ TAutoCapEdit }
+
+constructor TAutoCapEdit.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+  FAutoCap := True;
+  FLanguage := clEnglish;
+end;
+
+destructor TAutoCapEdit.Destroy;
+begin
+  { Nothing to do here. }
+  inherited Destroy;
+end;
+
+procedure TAutoCapEdit.Change;
+var
+  NewText: string;
+  TempPos: integer;
+begin
+  if AutoCap then
+  begin
+    // Get the current text and position of the cursor
+    NewText := Text;
+    TempPos := SelStart;
+    // Capitalize the words and update the text
+    NewText := GetAutoCapWord(NewText);
+    Text := NewText;
+    // Reposition the cursor
+    SelStart := TempPos;
+  end;
+end;
+
+function TAutoCapEdit.GetAutoCapWord(const S: string): string;
+var
+  i, Position: integer;
+  WordStart, WordEnd: Boolean;
+  TempWord: string;
+begin
+  Result := '';
+  WordEnd := True;
+  WordStart := True;
+  Position := 1;
+  for i := 1 to Length(S) do
+  begin
+    if (not WordEnd) and (not(TSelectChar(S[i]))) then
+    begin
+      WordEnd := True;
+      TempWord := Copy(S, WordStart, Position - WordStart);
+      if Language = clEnglish then
+        Result := Result + AnsiUpperCase(TempWord)
+      else if Language = clFrench then
+      begin
+        { 
+          In French, only the first letter of the first word is capitalized,
+          unless it's a proper noun.
+        }
+        if Position = 1 then
+          Result := Result + AnsiUpperCase(TempWord)
+        else if not IsProperNoun(TempWord) then
+          Result := Result + AnsiLowerCase(TempWord)
+        else
+          Result := Result + AnsiUpperCase(TempWord);
+      end
+      else if Language = clSpanish then
+      begin
+        { 
+          In Spanish, only the first letter of the first word is capitalized,
+          unless it's the beginning of a sentence. 
+        }
+        if Position = 1 then
+        begin
+          Result := Result + AnsiUpperCase(TempWord);
+          WordStart := False;
+        end
+        else if TempWord = '. ' then
+        begin
+          Result := Result + TempWord;
+          WordStart := True;
+        end
+        else
+        begin
+          Result := Result + AnsiLowerCase(TempWord);
+          WordStart := False;
+        end;
+      end;
+      Position := i + 1;
+    end
+    else if WordStart and TSelectChar(S[i]) then
+    begin
+      WordStart := False;
+      WordEnd := False;
+    end;
+  end;
+  if Position <= Length(S) then
+  begin
+    TempWord := Copy(S, Position, Length(S) - Position + 1);
+    if Language = clEnglish then
+      Result := Result + AnsiUpperCase(TempWord)
+    else if Language = clFrench then
+    begin
+      if not IsProperNoun(TempWord) then
+        Result := Result + AnsiLowerCase(TempWord)
+      else
+        Result := Result + AnsiUpperCase(TempWord);
+    end
+    else if Language = clSpanish then
+    begin
+      if not WordStart then
+        Result := Result + AnsiLowerCase(TempWord)
+      else
+        Result := Result + AnsiUpperCase(TempWord);
+    end;
+  end;
+end;
+
+function TAutoCapEdit.IsProperNoun(const S: string): Boolean;
+var
+  i: integer;
+begin
+  Result := True;
+  for i := 1 to Length(S) do
+  begin
+    if not TSelectChar(S[i]) then
+    begin
+      Result := False;
+      break;
+    end;
+  end;
+end;
+
+procedure TAutoCapEdit.SetAutoCap(const Value: Boolean);
+begin
+  FAutoCap := Value;
+  // Call the Change method so the text is updated with the new value
+  Change;
+end;
+
+procedure TAutoCapEdit.SetLanguage(const Value: TAutoCapLanguage);
+begin
+  FLanguage := Value;
+  // Call the Change method so the text is updated with the new language
+  Change;
+end;
+
+end.

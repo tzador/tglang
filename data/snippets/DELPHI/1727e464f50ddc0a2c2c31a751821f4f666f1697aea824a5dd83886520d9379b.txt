@@ -1,0 +1,126 @@
+unit Main;
+
+interface
+
+uses
+  System.SysUtils,
+  System.Classes,
+  System.Generics.Collections;
+
+type
+  // Define a custom exception for our application
+  EMyException = class(Exception);
+
+  // Define a record type to store data about a person
+  TPerson = record
+    Name: string;
+    Age: Integer;
+  end;
+
+  // Define a generic class to store a collection of people
+  TPersonList<T> = class(TList<T>)
+  private
+    // Internal field used for locking operations in a multithreaded environment
+    FLock: TCriticalSection;
+  public
+    // Constructor for the class
+    constructor Create;
+    // Destructor for the class
+    destructor Destroy; override;
+    // Function to add a new person to the collection
+    function AddPerson(const AName: string; const AAge: Integer): Boolean;
+    // Function to remove a person from the collection
+    function RemovePerson(const AName: string): Boolean;
+    // Function to get the average age of all people in the collection
+    function GetAverageAge: Double;
+    // Property to access the internal lock field
+    property Lock: TCriticalSection read FLock;
+  end;
+
+implementation
+
+{ TPersonList<T> }
+
+constructor TPersonList<T>.Create;
+begin
+  inherited Create;
+  // Create a new critical section for the internal lock field
+  FLock := TCriticalSection.Create;
+end;
+
+destructor TPersonList<T>.Destroy;
+begin
+  // Free the critical section when the class is destroyed
+  FLock.Free;
+  inherited Destroy;
+end;
+
+function TPersonList<T>.AddPerson(const AName: string; const AAge: Integer): Boolean;
+begin
+  // Lock the operations on the list
+  FLock.Enter;
+  try
+    // Create a new person and assign the provided values
+    var Person: TPerson;
+    Person.Name := AName;
+    Person.Age := AAge;
+    // Add the person to the list
+    Self.Add(Person);
+    Result := True;
+  finally
+    // Unlock the operations on the list
+    FLock.Leave;
+  end;
+end;
+
+function TPersonList<T>.RemovePerson(const AName: string): Boolean;
+var
+  I: Integer;
+begin
+  // Lock the operations on the list
+  FLock.Enter;
+  try
+    // Loop through the list to find the person with the provided name
+    for I := 0 to Self.Count - 1 do
+    begin
+      // Check if the current person's name matches the one we want to remove
+      if Self[I].Name = AName then
+      begin
+        // Remove the person from the list and return true
+        Self.Delete(I);
+        Result := True;
+        Exit;
+      end;
+    end;
+    // If no match was found, return false
+    Result := False;
+  finally
+    // Unlock the operations on the list
+    FLock.Leave;
+  end;
+end;
+
+function TPersonList<T>.GetAverageAge: Double;
+var
+  I: Integer;
+  TotalAge: Integer;
+begin
+  // Lock the operations on the list
+  FLock.Enter;
+  try
+    // Initialize the total age to 0
+    TotalAge := 0;
+    // Loop through the list and sum up all the ages
+    for I := 0 to Self.Count - 1 do
+    begin
+      TotalAge := TotalAge + Self[I].Age;
+    end;
+    // Calculate the average age and return it
+    Result := TotalAge / Self.Count;
+  finally
+    // Unlock the operations on the list
+    FLock.Leave;
+  end;
+end;
+
+end.

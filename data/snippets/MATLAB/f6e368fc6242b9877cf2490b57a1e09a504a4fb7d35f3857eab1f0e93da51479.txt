@@ -1,0 +1,86 @@
+%% Creating a 2D mesh and solving a PDE using FEM %%
+% Define the domain
+xmin = 0;
+xmax = 1;
+ymin = 0;
+ymax = 2;
+
+% Define the number of points in each direction
+nx = 50;
+ny = 100;
+
+% Create the mesh using the built-in function in MATLAB
+[X,Y] = meshgrid(linspace(xmin,xmax,nx), linspace(ymin,ymax,ny));
+
+% Define the boundary conditions
+u_left = 0;
+u_right = 1;
+u_top = 0;
+u_bottom = 0;
+
+% Assemble the global stiffness matrix and load vector 
+K = zeros(nx*ny,nx*ny); % Initialize global stiffness matrix
+F = zeros(nx*ny,1); % Initialize global load vector
+
+% Loop over all elements in the mesh
+for i=1:nx-1 
+    for j=1:ny-1
+        % Define the local stiffness matrix for each element
+        ke = [1/(X(i,j+1)-X(i,j)) -1/(X(i+1,j+1)-X(i+1,j)) ; -1/(Y(i+1,j)-Y(i,j)) 1/(Y(i+1,j+1)-Y(i+1,j))];
+        
+        % Define the element vertices
+        vertex_left = [X(i,j) Y(i,j)]; % bottom left vertex
+        vertex_right = [X(i+1,j) Y(i+1,j)]; % bottom right vertex
+        vertex_top = [X(i,j+1) Y(i,j+1)]; % top left vertex
+        vertex_bottom = [X(i+1,j+1) Y(i+1,j+1)]; % top right vertex
+        
+        % Calculate the element load vector based on boundary conditions
+        fe = zeros(4,1);
+        if i==1 && j==1 % bottom left element
+            fe = fe + [u_left; u_bottom; u_left; u_bottom];
+        elseif i==nx-1 && j==1 % bottom right element
+            fe = fe + [u_right; u_bottom; u_right; u_bottom];
+        elseif i==1 && j==ny-1 % top left element
+            fe = fe + [u_left; u_top; u_left; u_top];
+        elseif i==nx-1 && j==ny-1 % top right element
+            fe = fe + [u_right; u_top; u_right; u_top];
+        elseif i==1 % left boundary element
+            fe = fe + [u_left; 0; u_left; 0];
+        elseif i==nx-1 % right boundary element
+            fe = fe + [u_right; 0; u_right; 0];
+        elseif j==1 % bottom boundary element
+            fe = fe + [0; u_bottom; 0; u_bottom];
+        elseif j==ny-1 % top boundary element
+            fe = fe + [0; u_top; 0; u_top];
+        else % interior elements
+            fe = fe + [0; 0; 0; 0];
+        end
+        
+        % Assemble the local stiffness matrix into the global stiffness matrix
+        nodes = [(i-1)*ny+j (i-1)*ny+j+1 i*ny+j (i-1)*ny+j+1]; % Nodes belong to element in counter-clockwise order
+        K(nodes,nodes) = K(nodes,nodes) + ke;
+        
+        % Assemble the local load vector into the global load vector
+        F(nodes) = F(nodes) + fe;
+    end
+end
+
+% Apply the boundary conditions to the global stiffness matrix and load vector
+u = zeros(nx*ny,1); % Initialize the solution vector
+K(1:nx*ny,:) = [];
+F(1:nx*ny,:) = [];
+u(1:nx*ny,:) = [];
+K(:,1:nx*ny) = [];
+F(:,1:nx*ny) = [];
+
+% Solve for the unknowns using the FEM approach
+u = K\F;
+
+% Plot the solution as a 2D contour plot
+u = reshape(u,[ny-2,nx-2]); % Reshape the 1D vector to a 2D matrix
+figure(1)
+contourf(X(2:end-1,2:end-1),Y(2:end-1,2:end-1),u,'EdgeColor','none'); % Plot contour map without edges
+xlabel('x');
+ylabel('y'); 
+colorbar; % Show colorbar for the scale of values
+title('Solution of PDE using FEM');

@@ -1,0 +1,57 @@
+CLASS zcl_example DEFINITION.
+  PUBLIC SECTION.
+    DATA:
+      material TYPE mara-matnr,
+      description TYPE makt-maktx,
+      quantity TYPE i.
+    METHODS:
+      constructor IMPORTING material_number TYPE mara-matnr,
+      get_material_data IMPORTING material_number TYPE mara-matnr,
+      update_material_data IMPORTING material_data TYPE mara.
+  PRIVATE SECTION.
+    TYPES:
+      BEGIN OF ty_material,
+        matnr TYPE mara-matnr,
+        maktx TYPE makt-maktx,
+        menge TYPE i,
+      END OF ty_material.
+    DATA:
+      material_data TYPE ty_material.
+    METHODS:
+      validate_material_data,        
+      retrieve_material_data,
+      calculate_total_quantity.
+ENDCLASS.
+
+CLASS zcl_example IMPLEMENTATION.
+  METHOD constructor.
+    me->material = material_number.
+  ENDMETHOD.
+  METHOD get_material_data.
+    CALL FUNCTION 'BAPI_MATERIAL_GET_DETAIL'
+      EXPORTING
+        material = material_number
+      IMPORTING
+        materialdata = me->material_data.
+  ENDMETHOD.
+  METHOD update_material_data.
+    CALL FUNCTION 'BAPI_MATERIAL_SAVEDATA'
+      EXPORTING
+        materialdata = material_data.
+  ENDMETHOD.
+  METHOD validate_material_data.
+    IF material_data-menge < 0.
+      message 'Quantity cannot be negative' TYPE 'E'.
+    ENDIF.
+  ENDMETHOD.
+  METHOD retrieve_material_data.
+    SELECT SINGLE maktx FROM makt
+      INTO @me->description
+      WHERE matnr = @me->material.
+  ENDMETHOD.
+  METHOD calculate_total_quantity.
+    SELECT SUM(available_quantity) FROM mard
+      INTO @me->quantity
+      WHERE matnr = @me->material.
+  ENDMETHOD.
+ENDCLASS.

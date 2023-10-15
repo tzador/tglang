@@ -1,0 +1,70 @@
+const gql = require('graphql');
+
+// Define types
+const types = `
+  type Book {
+    id: ID!
+    title: String!
+    author: Author!
+    language: String!
+    published: Int!
+  }
+
+  type Author {
+    id: ID!
+    name: String!
+    books: [Book!]!
+  }
+`;
+
+// Define resolvers
+const resolvers = {
+  Query: {
+    getBookById: (parent, { bookId }, context) => {
+      // Query database for book with given ID
+      const book = context.db.getBookById(bookId);
+      return book;
+    },
+  },
+  Mutation: {
+    createBook: (parent, { input }, context) => {
+      // Create new book
+      const book = {
+        id: String(Math.floor(Math.random() * 100000)),
+        title: input.title,
+        author: input.author,
+        language: input.language,
+        published: input.published,
+      };
+
+      // Add book to database
+      context.db.addBook(book);
+      
+      return book;
+    },
+  },
+  Author: {
+    books: (parent, args, context) => {
+      // Get all books written by this author
+      const books = context.db.getBooksByAuthor(parent.id);
+      return books;
+    },
+  },
+};
+
+// Define schema
+const schema = gql`
+  ${types}
+
+  type Query {
+    getBookById(bookId: ID!): Book!
+  }
+
+  type Mutation {
+    createBook(input: BookInput!): Book!
+  }
+`;
+
+// Export schema and resolvers
+module.exports.schema = schema;
+module.exports.resolvers = resolvers;

@@ -1,0 +1,98 @@
+//This is a class that implements a basic enemy AI behavior
+
+class AI_Enemy extends AI_Controller;
+
+//Declare necessary variables
+var float AggroRange;
+var float AttackRange;
+var float AttackSpeed;
+var float Health;
+
+var bool bIsAggro;
+var Vector CurrentTarget;
+var Object EnemyWeapon;
+
+//Initialize variables in defaultproperties
+defaultproperties
+{
+    AggroRange=1000.0;
+    AttackRange=500.0;
+    AttackSpeed=2.0;
+    Health=100.0;
+    bIsAggro=False;
+    CurrentTarget=None;
+    EnemyWeapon=none;
+}
+
+//Set up events to handle AI behavior
+event PostBeginPlay()
+{
+    Super.PostBeginPlay();
+    SetTimer(AttackSpeed, true, 'AttackTarget');
+}
+
+//Behavior for when actor enters aggro range
+event SeePlayer(Actor Seen)
+{
+    if(Seen.IsA('PlayerPawn'))
+    {
+        bIsAggro=True;
+        CurrentTarget=Seen.Location;
+        EnemyWeapon=Spawn(class'Weapon', owner=Self, location=Self.Location);
+        //Fire weapon at target
+        if(EnemyWeapon!=None)
+        {
+            EnemyWeapon.Fire(CurrentTarget);
+        }
+    }
+}
+
+//Behavior for when actor exits aggro range
+event LostSight(Actor Lost)
+{
+    if(Lost==CurrentTarget)
+    {
+        bIsAggro=False;
+        //Stop firing weapon
+        if(EnemyWeapon!=None)
+        {
+            EnemyWeapon.StopFire();
+        }
+        CurrentTarget=None;
+        EnemyWeapon.Destroy();
+    }
+}
+
+//Attacks current target if it is still in range
+function AttackTarget()
+{
+    if(bIsAggro && VSize(CurrentTarget-Self.Location)<=AttackRange)
+    {
+        //Fire weapon at target
+        if(EnemyWeapon!=None)
+        {
+            EnemyWeapon.Fire(CurrentTarget);
+        }
+    }
+}
+
+//Take damage from an attack
+function TakeDamage(float Damage, Pawn InstigatedBy, Vector HitLocation, Vector Momentum, class<DamageType> DamageType)
+{
+    Health-=Damage;
+    if(Health<=0)
+    {
+        //Die and destroy AI controller
+        Destroy();
+        InstigatedBy.Score++;
+    }
+}
+
+//Destroy AI controller upon game end
+event Destroyed()
+{
+    Super.Destroyed();
+    GetLevel().Game.EndGame();
+}
+
+//Additional functions and behaviors can be added as needed

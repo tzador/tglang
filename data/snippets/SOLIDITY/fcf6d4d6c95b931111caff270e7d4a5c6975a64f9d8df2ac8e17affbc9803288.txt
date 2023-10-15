@@ -1,0 +1,144 @@
+/**
+ * @title EscrowContract
+ * @dev Smart contract to handle escrow transactions.
+ */
+ contract EscrowContract {
+    address public seller;
+    address public buyer;
+    address public arbiter;
+
+    uint256 public contractValue;
+
+    enum State {
+        CREATED,
+        PROCESSED,
+        RELEASED,
+        REFUNDED
+    }
+
+    State public state;
+
+    /**
+     * @dev Events to track the state of the contract.
+     */
+    event Created();
+    event Processed();
+    event Released();
+    event Refunded();
+
+    /**
+     * @dev Sets the initial state of the contract and assigns the seller, buyer and arbiter addresses.
+     * @param _seller The address of the seller.
+     * @param _buyer The address of the buyer.
+     * @param _arbiter The address of the arbiter.
+     */
+    constructor(address payable _seller, address payable _buyer, address payable _arbiter) public {
+        require(_seller != address(0), "Seller address cannot be null.");
+        require(_buyer != address(0), "Buyer address cannot be null.");
+        require(_arbiter != address(0), "Arbiter address cannot be null.");
+        require(_seller != _buyer && _seller != _arbiter, "Seller and buyer cannot have same address.");
+        require(_buyer != _arbiter, "Buyer and arbiter cannot have same address.");
+
+        seller = _seller;
+        buyer = _buyer;
+        arbiter = _arbiter;
+        state = State.CREATED;
+    }
+
+    /**
+     * @dev Functions to handle the escrow transaction process.
+     */
+
+    /**
+     * @dev Function to process the escrow transaction, transfers the contract value from buyer to contract.
+     */
+    function processEscrow() public payable {
+        require(msg.sender == buyer, "Only buyer can process the escrow transaction.");
+        require(msg.value == contractValue, "Transaction value must match contract value.");
+        require(state == State.CREATED, "Transaction already processed or not created yet.");
+
+        state = State.PROCESSED;
+        emit Processed();
+    }
+
+    /**
+     * @dev Function for the seller to release the contract value to the buyer.
+     */
+    function release() public {
+        require(msg.sender == seller, "Only seller can release funds.");
+        require(state == State.PROCESSED, "Transaction must be processed before release.");
+        
+        // Transfers the contract value from contract to buyer.
+        buyer.transfer(contractValue);
+        state = State.RELEASED;
+        emit Released();
+    }
+
+    /**
+     * @dev Function for the seller to refund the contract value to the buyer.
+     */
+    function refund() public {
+        require(msg.sender == seller, "Only seller can refund funds.");
+        require(state == State.PROCESSED, "Transaction must be processed before refund.");
+
+        // Transfers the contract value from contract to seller.
+        seller.transfer(contractValue);
+        state = State.REFUNDED;
+        emit Refunded();
+    }
+
+    /**
+     * @dev Function for the arbiter to release the contract value to the buyer in case of dispute.
+     */
+    function arbiterRelease() public {
+        require(msg.sender == arbiter, "Only arbiter can release funds.");
+        require(state == State.PROCESSED, "Transaction must be processed before release.");
+
+        // Transfers the contract value from contract to buyer.
+        buyer.transfer(contractValue);
+        state = State.RELEASED;
+        emit Released();
+    }
+
+    /**
+     * @dev Function for the arbiter to refund the contract value to the buyer in case of dispute.
+     */
+    function arbiterRefund() public {
+        require(msg.sender == arbiter, "Only arbiter can refund funds.");
+        require(state == State.PROCESSED, "Transaction must be processed before refund.");
+
+        // Transfers the contract value from contract to seller.
+        seller.transfer(contractValue);
+        state = State.REFUNDED;
+        emit Refunded();
+    }
+
+    /**
+     * @dev Function for the buyer to cancel the transaction and withdraw their funds.
+     */
+    function cancel() public {
+        require(msg.sender == buyer, "Only buyer can cancel transaction.");
+        require(state == State.CREATED, "Transaction already processed or not created yet.");
+
+        // Transfers the contract value from contract to buyer.
+        buyer.transfer(contractValue);
+        state = State.REFUNDED;
+        emit Refunded();
+    }
+
+    /**
+     * @dev Function to get the current state of the contract.
+     * @return The current state of the contract.
+     */
+    function getState() public view returns(State) {
+        return state;
+    }
+
+    /**
+     * @dev Function to get the current balance of the contract.
+     * @return The current balance of the contract.
+     */
+    function getBalance() public view returns(uint256) {
+        return address(this).balance;
+    }
+}

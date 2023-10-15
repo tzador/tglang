@@ -1,0 +1,37 @@
+{-# LANGUAGE DataKinds #-}
+module Main where
+
+import System.IO
+import Control.Concurrent
+import Control.Monad.ST
+import Control.Monad.ST.Unsafe
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Reader
+import Control.Monad.Trans.State.Lazy
+
+-- | A data type representing a tree with labeled nodes
+data Tree a = Leaf a | Node String [Tree a]
+
+-- | A function to print out a string with a newline
+printLn :: String -> IO ()
+printLn str = putStrLn str
+
+-- | A monad transformer that keeps track of the current thread ID
+type ThreadIDReaderT = ReaderT ThreadId
+
+-- | A monad transformer that allows for stateful computations
+type StateLazilyT s = StateT s
+
+-- | A helper function for creating a thread with a given function
+threadWithFunc :: ThreadId -> IO () -> IO ()
+threadWithFunc id func = forkIO (func >> getThreadId)
+
+-- | A helper function for creating a new thread and running a stateful computation on it
+threadWithState :: ThreadId -> IO () -> (s -> IO (a, s)) -> StateLazilyT s IO a
+threadWithState id func stFunc = do 
+    lift $ threadWithFunc id func
+    get >>= lift . stFunc
+    
+-- | An annotated markdown code snippet with an example usage of the code above:
+
+--

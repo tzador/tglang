@@ -1,0 +1,99 @@
+REPORT Z_DEMO.
+
+* This is a demo report in ABAP.
+
+TABLES: MARA, MARC, MARD.
+
+DATA: BEGIN OF itab OCCURS 0,
+          matnr TYPE mara-matnr,
+          werks TYPE marc-werks,
+          lgort TYPE mard-lgort,
+          END OF itab.
+
+SELECT mara~matnr marc~werks mard~lgort
+  INTO CORRESPONDING FIELDS OF TABLE itab
+  FROM mara
+  INNER JOIN marc ON mara~matnr = marc~matnr
+  INNER JOIN mard ON mara~matnr = mard~matnr.
+
+LOOP AT itab ASSIGNING FIELD-SYMBOL(<itab>).
+
+  DATA(l_mard) = VALUE mard( matnr = <itab>-matnr  " Material Number
+                            lgort = <itab>-lgort  " Storage Location
+                            werks = <itab>-werks  " Plant
+                           ).
+
+  " Check if material is available in storage location and warehouse
+  CHECK mard_ex_exist( l_mard ).
+
+  " Get material document number for the material in the warehouse
+  DATA(l_linvnum) = get_linv_number( l_mard ).
+  WRITE: / 'Material document number for Material ', <itab>-matnr,
+          ' in Warehouse ', <itab>-lgort, ' is ', l_linvnum.
+
+ENDLOOP.
+
+FORM get_linv_number
+  USING p_mard TYPE mard.
+  DATA l_linvnum TYPE linv_linvnum.
+  DATA l_msku TYPE msku.
+  DATA l_tab LIKE LINE OF msku_msku.
+
+  " Get material inbound/outbound details
+  CALL FUNCTION 'WS_LINV_OUTLIER_LIST'
+    EXPORTING
+      plant = p_mard-werks           " Plant
+      msku  = l_msku                 " Material Document Structure
+    TABLES
+      table = l_tab                  " List of Inbound/Outbound Details
+    .
+  " If there is a material inbound
+  IF l_tab IS NOT INITIAL.
+    l_linvnum = l_tab-inbound-id.
+  ELSE.
+  " If there is a material outbound
+    CALL FUNCTION 'WS_LINV_LIST'
+      EXPORTING
+        plant = p_mard-werks          " Plant
+        msku  = l_msku                " Material Document Structure
+      TABLES
+        table = l_tab                 " List of Inbound/Outbound Details
+      .
+    IF l_tab IS NOT INITIAL.
+      l_linvnum = l_tab-outbound-id.
+    ENDIF.
+  ENDIF.
+
+  " Return the material document number
+  get_linv_number = l_linvnum.
+ENDFORM.
+
+FUNCTION msku_ex_exist.
+*"---------------------------------------------------------------------*
+* !"L_FULL_MATDOCS" Performs the check of material doc. header         *
+* "----------------------------------------------------------------------*
+"*"Local interface:
+*"  IMPORTING
+*"     REFERENCE(P_HDR) TYPE  MSKU_HDR
+*"-------------------------------------------------------------------- *
+
+  DATA:  linv_line TYPE linv.
+
+  SELECT SINGLE linv FROM msku INTO linv
+    WHERE outbound_id = p_hdr-outbound_msku_id " Outbound Material Doc
+      AND inbound_id =  p_hdr-created_msku_id  " Inbound Material Doc.
+   IF sy-subrc = 0.
+     msku_ex_exist = abap_true. " Material Doc Exist.
+   ENDIF.
+ENDFUNCTION.
+
+FORM mard_ex_exist
+  USING p_mard TYPE mard.
+  DATA l_lqua TYPE lqua.
+  SELECT SINGLE lgnum FROM msku INTO l_lqua
+    WHERE matnr = p_mard-matnr " Material Number
+    AND lgort = p_mard-lgort.  " Storage Location
+   IF sy-subrc = 0.
+      mard_ex_exist = abap_true. " Material Exist.
+   ENDIF.
+ENDFORM.

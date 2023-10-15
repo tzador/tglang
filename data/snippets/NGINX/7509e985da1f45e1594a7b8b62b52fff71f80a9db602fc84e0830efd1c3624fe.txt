@@ -1,0 +1,68 @@
+# This is a basic NGINX server configuration
+
+# Set the user and group of the worker processes
+user nginx;
+worker_processes auto;
+
+# Set the error log file and log level
+error_log /var/log/nginx/error.log warn;
+
+# Start events section
+events {
+  # Set the maximum number of connections per worker process
+  worker_connections 1024;
+}
+
+# Start http section
+http {
+  # Set the mime types of the responses
+  include mime.types;
+  
+  # Set the default type
+  default_type application/octet-stream;
+
+  # Set the access log file
+  access_log /var/log/nginx/access.log;
+  
+  # Set the cache path and size
+  proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=cache:10m inactive=60m;
+
+  # Set the server section
+  server {
+    # Listen on port 80
+    listen 80;
+    # Define the domain name
+    server_name example.com;
+
+    # Set the root directory
+    root /var/www/example.com;
+
+    # Enable gzip compression
+    gzip on;
+    # Set the compression types
+    gzip_types text/plain text/css application/json;
+
+    # Define the location of the index file
+    index index.html;
+
+    # Set the proxy_cache for caching static files
+    location /static/ {
+      proxy_pass http://127.0.0.1:8000;
+      proxy_cache cache;
+      proxy_cache_key "$scheme$request_method$host$request_uri";
+      proxy_cache_valid 200 1d;
+      proxy_cache_bypass $http_pragma;
+      proxy_cache_revalidate on;
+    }
+
+    # Enable caching for specific paths
+    location ~* \.(jpg|jpeg|gif|png|svg)$ {
+      proxy_pass http://127.0.0.1:8000;
+      proxy_cache cache;
+      proxy_cache_key "$scheme$request_method$host$request_uri";
+      proxy_cache_valid 200 365d;
+      proxy_cache_bypass $http_pragma;
+      proxy_cache_revalidate on;
+    }
+  }
+}

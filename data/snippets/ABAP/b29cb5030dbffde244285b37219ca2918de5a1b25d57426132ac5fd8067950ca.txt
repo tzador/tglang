@@ -1,0 +1,62 @@
+*&---------------------------------------------------------------------*
+*& Report ZPW_GENERATE_ET_PROJECT
+*&---------------------------------------------------------------------*
+*&
+*&
+*& SAP ABAP code to generate a new ET project
+*&---------------------------------------------------------------------*
+REPORT zpw_generate_et_project.
+TABLES: sscrfields, etsinfo.
+
+*--------------------------------------------------------------------*
+* SUBROUTINE: INITIALIZE_REPORT_PARAM
+*--------------------------------------------------------------------*
+* >> initialize the parameters for the report
+*--------------------------------------------------------------------*
+START-OF-SELECTION.
+  PERFORM initialize_report_param.
+
+*--------------------------------------------------------------------*
+* SUBROUTINE: INITIALIZE_REPORT_PARAM
+*--------------------------------------------------------------------*
+FORM initialize_report_param.
+  CLEAR sscrfields.
+  CLEAR etsinfo.
+
+  SSCRFIELDS-PROGRAM = SY-REPID.
+  SSCRFIELDS-DYNNR = '1000'.
+  SSCRFIELDS-OBJECT = 'ET'.
+  SSCRFIELDS-OBJECTNAME = 'GENERATE_ET_PROJECT'.
+
+  CALL FUNCTION 'SSCR_FIELDS_MAINTAIN'
+    EXPORTING
+      DELIMITER = '|'
+      PROGRAM = sscrfields-program
+    TABLES
+      SSCRFIELDS = sscrfields
+    EXCEPTIONS
+      INCONSISTENT_UPDATE = 1
+      NO_CHANGE = 2
+      TOO_MANY_VALUES = 3.
+
+  ETSINFO-PROJNAME = SSCRFIELDS-OBJECTNAME.
+  ETSINFO-DESCRIPTION = 'New ET Project'.
+
+  CALL FUNCTION 'ZETS_GENERATE_PROJECT'
+    EXPORTING
+      I_PROJNAME = sscrfields-objectname
+      I_DESCRIPTION = etsinfo-description
+    EXCEPTIONS
+      CANCELLED = 1
+      ERROR_CREATE_PROJECT = 2
+      ERROR_CREATE_SIGNER = 3
+      ERROR_CREATE_VERIFIER = 4
+      ERROR_CREATE_AUTHOR = 5
+      ERROR_ASSIGN_PROJ_MAN = 6
+      ERROR_POPUP = 7
+      OTHERS = 8.
+
+  IF SY-SUBRC <> 0.
+    MESSAGE 'Error while generating project' TYPE 'E'.
+  ENDIF.
+ENDFORM.

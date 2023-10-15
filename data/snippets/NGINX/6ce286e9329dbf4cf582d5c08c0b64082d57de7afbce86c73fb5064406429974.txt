@@ -1,0 +1,77 @@
+# Main configuration block for the NGINX server
+server {
+  # Listening on port 80 for incoming connections
+  listen 80;
+  
+  # Server name specifies the domain name or IP address for the server
+  server_name example.com;
+
+  # Access logs for tracking requests
+  access_log /var/log/nginx/access.log;
+  
+  # Error logs for troubleshooting
+  error_log /var/log/nginx/error.log;
+
+  # Location block specifies the URL path and file location for the server
+  location / {
+    # Root directive points to the root of the server file system
+    root /var/www/html;
+    
+    # Index file to be served if no file is specified in the URL
+    index index.html;
+    
+    # Allow all HTTP methods for this location
+    allow all;
+    
+    # Security measures to prevent clickjacking attacks
+    add_header X-Frame-Options SAMEORIGIN;
+    
+    # Enable server-side caching for improved performance
+    proxy_cache_key "$scheme$request_method$host$request_uri";
+    proxy_cache_valid 200 60m;
+    proxy_cache_valid 404 5m;
+    proxy_cache_methods GET HEAD;
+    proxy_cache_bypass $http_pragma;
+    proxy_cache_revalidate on;
+  }
+  
+  # Block to handle server errors
+  error_page 500 502 503 504 /50x.html;
+  location = /50x.html {
+    root /usr/share/nginx/html;
+  }
+
+  # Block to handle client errors
+  error_page 400 401 403 404 /40x.html;
+  location = /40x.html {
+    root /usr/share/nginx/html;
+  }
+}
+
+# Virtual host configuration for a subdomain
+server {
+  # Listening on port 80 for incoming connections
+  listen 80;
+  
+  # Server name specifies the subdomain and main domain for this virtual host
+  server_name subdomain.example.com www.subdomain.example.com;
+  
+  # Root directive points to the root of the server file system for this virtual host
+  root /var/www/subdomain;
+  
+  # Index file to be served if no file is specified in the URL
+  index index.html;
+  
+  # Allow only GET HTTP method for this virtual host
+  limit_except GET {
+    deny all;
+  }
+  
+  # Enable server-side caching for improved performance
+  proxy_cache_key "$scheme$request_method$host$request_uri";
+  proxy_cache_valid 200 60m;
+  proxy_cache_valid 404 5m;
+  proxy_cache_methods GET HEAD;
+  proxy_cache_bypass $http_pragma;
+  proxy_cache_revalidate on;
+}

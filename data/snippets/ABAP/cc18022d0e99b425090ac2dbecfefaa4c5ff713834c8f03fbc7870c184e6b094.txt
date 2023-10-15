@@ -1,0 +1,48 @@
+REPORT Z_SHOW_MATERIALS.
+
+TABLES: MARA, MARC, MKPF.
+DATA: BEGIN OF itab OCCURS 0,
+      matnr TYPE mara-matnr,
+      lgort TYPE marc-lgort,
+      wbdat TYPE mkpf-wbdat,
+      quantity TYPE mkpf-zqty,
+      total TYPE p DECIMALS 2,
+      END OF itab.
+
+*SELECT data from MARA into the internal table itab.
+SELECT matnr
+       FROM mara
+       WHERE matnr = '0000000001'
+       INTO CORRESPONDING FIELDS OF TABLE itab
+       UP TO 1 ROWS.
+*SELECT data from MARC into the internal table itab.
+SELECT lgort
+       FROM marc
+       INNER JOIN mara ON mara~matnr = marc~matnr
+       WHERE mara~matnr = '0000000001'
+       INTO CORRESPONDING FIELDS OF TABLE itab
+       UP TO 1 ROWS.
+*SELECT data from MKPF into the internal table itab.
+SELECT wbdat quantity
+       FROM mkpf
+       INNER JOIN marc ON marc~lgort = mkpf~lgort
+       INNER JOIN mara ON mara~matnr = marc~matnr
+       WHERE marc~matnr = '0000000001'
+       INTO CORRESPONDING FIELDS OF TABLE itab
+       UP TO 1 ROWS.
+*calculate the total value of quantities for the selected material.
+LOOP AT itab.
+  itab-total = itab-quantity * 5.5. "assuming value is multiplied by 5.5
+ENDLOOP.
+*SORT the internal table by material number.
+SORT itab BY matnr.
+
+*Print the header.
+WRITE: / 'Material', 10 'Storage Loc.', 25 'Posting Date', 40 'Quantity',
+       55 'Total Value'.
+
+*LOOP at the internal table and print each data row.
+LOOP AT itab.
+  WRITE: / itab-matnr, 10 itab-lgort, 25 itab-wbdat, 40 itab-quantity,
+         55 itab-total.
+ENDLOOP.

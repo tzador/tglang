@@ -1,0 +1,45 @@
+http {
+
+    #load balancing
+    upstream backend {
+        server 10.10.10.1;
+        server 10.10.10.2;
+    }
+
+    server {
+
+         #set server listen port
+        listen 80;
+
+        #set server name
+        server_name example.com;
+
+        #location block for root path
+        location / {
+
+            #set proxy to backend
+            proxy_pass http://backend;
+
+            #proxy redirects up to 10 times
+            proxy_redirect     off;
+            proxy_set_header   X-Real-IP          $remote_addr;
+            proxy_set_header   X-Forwarded-For    $proxy_add_x_forwarded_for;
+            proxy_set_header   X-Forwarded-Proto  $scheme;
+        }
+
+        #location block for static assets
+        location ~* \.(jpg|jpeg|gif|png|css|js|ico)$ {
+
+            #set cache control header
+            expires 30d;
+
+            #disable caching for logged in users
+            if ($http_cookie ~* "jsessionid=([^;]+)(?:;|$)") {
+                set $no_cache 1;
+            }
+            proxy_pass http://static.backend;
+            proxy_cache_bypass $no_cache;
+            proxy_no_cache $no_cache;
+        }
+    }
+}

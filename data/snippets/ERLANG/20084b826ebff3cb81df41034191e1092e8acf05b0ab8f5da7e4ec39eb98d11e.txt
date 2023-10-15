@@ -1,0 +1,86 @@
+-module(turing_machine).
+-export([compute/2]).
+
+%% Data Structures
+-record(tape, {left=[], head=[], right=[]}).
+-record(machine, {states=[], alphabet=[], initial_state=[], accepting_states=[], transitions=[]}).
+-record(transition, {state=[], read_char=[], write_char=[], move_direction=[], next_state=}).
+
+%% Functions
+compute(Tape, Machine) ->
+    {ok, State, TapeAfter} = start_computation(Machine, Tape),
+    case State of
+        {accept, _} ->
+            io:format("Turing machine accepted the input tape.~n");
+        {reject, _} ->
+            io:format("Turing machine rejected the input tape.~n");
+        _ ->
+            io:format("Turing machine was unable to determine the outcome.~n")
+    end,
+    {State, TapeAfter, Machine}.
+
+start_computation(Machine, Tape) ->
+    case tape_to_string(Tape) of
+        [] ->
+            {ok, Machine#machine.initial_state, Tape};
+        [C|_] ->
+            case check_alphabet(C, Machine#machine.alphabet) of
+                false ->
+                    io:format("Invalid input character '~p'.~n", [C]),
+                    {error, invalid_input_char, Tape};
+                true ->
+                    {ok, State, NewTape} = compute_next_transition(Machine, C, Tape),
+                    start_computation(Machine, NewTape)
+            end
+    end.
+
+compute_next_transition(_, _, Tape={tape,left=[], right=[]}) ->
+    {accept, Tape};
+compute_next_transition(Machine, ReadChar, Tape) ->
+    case lists:keysearch(Tape, 2, Machine#machine.transitions) of
+        false ->
+            {reject, Tape};
+        {value, {NextState, WriteChar, MoveDir}, _} ->
+            NewTape = update_tape(Tape, WriteChar, MoveDir),
+            case MoveDir of
+                right ->
+                    compute_next_transition(Machine, ReadChar, NewTape);
+                left ->
+                    % Need to backtrack one step to the left before processing next symbol.
+                    NextTape = backtrack_tape(NewTape),
+                    compute_next_transition(Machine, ReadChar, NextTape)
+            end,
+            {ok, NextState, NewTape};
+        _ ->
+            {reject, Tape}
+    end.
+
+check_alphabet(Char, Alphabet) ->
+    case lists:member(Char, Alphabet) of
+        true ->
+            true;
+        false ->
+            false
+    end.
+
+update_tape(#tape{left=L, head=H, right=[]}, WriteChar, Dir) ->
+    case Dir of
+        left ->
+            NewLeft = [WriteChar|L],
+            NewHead = [],
+            NewRight = H;
+        right ->
+            NewLeft = L,
+            NewHead = [WriteChar],
+            NewRight = []
+    end,
+    #tape{left=NewLeft, head=NewHead, right=NewRight}.
+
+backtrack_tape(#tape{left=[], head=H, right=R}) ->
+    {[], Char|_} = lists:split(length(H)-1, R),
+    #tape{left=lists:reverse([Char]), head=[], right=lists:reverse(H)}.
+
+tape_to_string(#tape{left=L, head=H, right=R}) ->
+    % Representing the Turing machine tape as a string of characters.
+    % Note that we need to reverse the left and right tapes before concatenating them.
+    lists:reverse(L) ++ H ++ lists:reverse(R).

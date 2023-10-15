@@ -1,0 +1,36 @@
+//Import libraries
+import org.apache.spark.SparkContext
+import org.apache.spark.sql.hive.HiveContext
+
+//Create Spark Context
+val sc = new SparkContext("local[*]", "Example")
+
+//Create Hive Context
+val sqlContext = new HiveContext(sc)
+
+//Load data from Hive table
+val data = sqlContext.sql("SELECT * FROM tableName")
+
+//Convert data to RDD
+val rdd = data.rdd
+
+//Map each row to a tuple of (column1, column2)
+val mappedRDD = rdd.map(row => (row.getString(0), row.getInt(1)))
+
+//Filter rows where column2 is greater than 10
+val filteredRDD = mappedRDD.filter(tuple => tuple._2 > 10)
+
+//Aggregate by key and sum values
+val reducedRDD = filteredRDD.reduceByKey((a, b) => a + b)
+
+//Convert back to DataFrame
+val resultDF = reducedRDD.toDF("column1", "sum_column2")
+ 
+//Write results to Hive table
+resultDF.write.mode("overwrite").saveAsTable("agg_table")
+
+//Print results
+resultDF.show()
+
+//Stop Spark Context
+sc.stop()

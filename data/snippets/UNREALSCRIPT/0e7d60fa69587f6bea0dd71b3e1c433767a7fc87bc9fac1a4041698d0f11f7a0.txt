@@ -1,0 +1,120 @@
+// This code snippet is an example of a custom weapon class in UnrealScript, specifically for a first-person shooter game.
+
+class MyCustomWeapon extends Weapon extends Handheld;
+
+// Properties
+var() float WeaponDamage; // custom property to set the damage of the weapon
+var() float AmmoCost; // custom property to set the amount of ammo used per shot
+var() float FireRate; // custom property to set the rate of fire for the weapon
+var() float ReloadTime; // custom property to set the time it takes to reload the weapon
+var() float Spread; // custom property to set the spread of the weapon's projectiles
+
+// Internal variables
+var bool bFiring; // tracks whether the weapon is currently firing
+var float FireTimer; // tracks the time since the weapon last fired
+
+// Functions
+// Constructor function that initializes the weapon with default values
+function InitWeapon()
+{
+    WeaponDamage = 10.0;
+    AmmoCost = 1.0;
+    FireRate = 0.2;
+    ReloadTime = 2.0;
+    Spread = 1.0;
+}
+
+// Overrides the standard Fire function to implement custom behavior
+// Starts a timer to limit the rate of fire, and checks for available ammo
+simulated function bool FireWeapon(ProjectileSpawnParams Params)
+{
+    // Check if there is enough ammo to fire
+    if (Owner.AmmoCount < AmmoCost)
+    {
+        return false;
+    }
+
+    // Check if the weapon is currently firing
+    if (bFiring)
+    {
+        return false;
+    }
+
+    // Start timer for rate of fire
+    FireTimer = FireRate;
+
+    // Spawn a projectile using the owning pawn's location and rotation
+    Pawn Owner = Pawn(Outer.Pawn);
+    Owner.SpawnProjectile(Params.ProjectileClass, Owner.Location, Owner.Rotation);
+
+    // Consume ammo
+    Owner.AmmoCount -= AmmoCost;
+
+    return true;
+}
+
+// Overrides the standard Tick function to handle the rate of fire timer
+simulated event Tick(float delta)
+{
+    Super.Tick(delta);
+
+    // If the weapon is firing, decrease the timer and check for firing again
+    if (bFiring)
+    {
+        FireTimer -= delta;
+
+        // If the timer has run out, weapon can fire again
+        if (FireTimer <= 0)
+        {
+            bFiring = false;
+            FireWeapon();
+        }
+    }
+}
+
+// Handles reloading the weapon
+function ReloadWeapon()
+{
+    // Check if the weapon is currently firing or reloading
+    if (bFiring || Outer.isA('MyCustomWeapon'))
+    {
+        return false;
+    }
+
+    // Start timer for reload time
+    FireTimer = ReloadTime;
+
+    return true;
+}
+
+// Overrides the standard Drop function to drop any currently equipped ammo
+simulated function Pawn Drop(Gib name gibtype, optional Vector Momentum)
+{
+    // Spawn any remaining ammo at the weapon's location
+    Pawn Owner = Pawn(Outer.Pawn);
+    Owner.SpawnAmmo(AmmoCost, Owner.Location);
+
+    // Call the Drop function and pass in the Gib type and Momentum
+    local Actor result;
+    result = super.Drop(gibtype, Momentum);
+    return result;
+}
+
+defaultproperties
+{
+    // Set the name and HUD label for the weapon
+    Name="MyCustomWeapon"
+    HUDName="Custom Weapon"
+
+    // Set default mesh and sound assets for the weapon
+    WeaponMesh=StaticMesh'Weapons.Meshes.CustomWeapon'
+    WeaponSound=SoundCue'Weapons.Sounds.CustomWeaponSound'
+
+    // Set default ammo values
+    bAmmoNotShown=false
+    AmmoDisplayClass=class'AmmoDisplay'
+
+    // Set default collision values for the weapon
+    CollisionRadius=10.0
+    CollisionHeight=20.0
+}

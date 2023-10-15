@@ -1,0 +1,39 @@
+//This is a test circuit in VERILOG to implement a 4-bit adder with carry input and overflow detection
+
+module adder_4bit (input [3:0] A, //4-bit input A
+                    input [3:0] B, //4-bit input B
+                    input cin, //carry input
+                    output [4:0] Sum, //5-bit output Sum
+                    output cout, //carry output
+                    output overflow); //overflow output
+
+  wire [3:0] Sum_temp; //temporary sum wire for the first stage of addition
+  wire [4:1] Carry; //wires for propagating carry through each stage
+  wire overflow_temp; //temporary wire for detecting overflow
+
+  //First stage of addition
+  full_adder_1bit FA_1st(A[0], B[0], cin, Sum_temp[0], Carry[1]); //add A[0], B[0], and cin using a 1-bit full adder
+  //Subsequent stages
+  genvar i; //generate variable for loop
+  generate
+    for(i=1; i<4; i=i+1) begin: add_stages
+      full_adder_1bit FA(A[i], B[i], Carry[i], Sum_temp[i], Carry[i+1]); //add A[i], B[i], and carry from previous stage
+    end
+  endgenerate
+
+  //Final stage to get final Sum and carry-out
+  assign Sum = {overflow_temp, Sum_temp}; //leftmost bit of Sum should be overflow_temp
+  assign cout = Carry[4]; //cout is the carry from the final stage
+  assign overflow = overflow_temp | Carry[4]; //overflow occurs if either the sum of the leftmost bits overflows or the carry-output overflows
+
+endmodule
+
+//1-bit full adder module
+module full_adder_1bit (input a, //1st input
+                          input b, //2nd input
+                          input ci, //carry input
+                          output sum, //sum output
+                          output co); //carry output
+  assign sum = a ^ b ^ ci; //sum is calculated using XOR of inputs and carry input
+  assign co = (a & b) | (ci & (a ^ b)); //carry output is calculated using AND, XOR, and OR of inputs and carry input
+endmodule

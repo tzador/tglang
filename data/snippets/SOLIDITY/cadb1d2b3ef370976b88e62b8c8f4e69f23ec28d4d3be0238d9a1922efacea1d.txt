@@ -1,0 +1,74 @@
+pragma solidity 0.8.4;
+
+contract Auction {
+    // the owner of the contract
+    address payable public owner;
+    
+    // list of bidders
+    address[] public bidders;
+    
+    // mapping to store each bidder's bid amount
+    mapping(address => uint) public bids;
+    
+    // event emitted when a new bidder is added
+    event BidderAdded(address bidder);
+    
+    // event emitted when a new bid is placed
+    event NewBid(address bidder, uint amount);
+    
+    // modifier to restrict function access to only the owner
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can perform this action.");
+        _;
+    }
+    
+    // constructor to set the contract owner
+    constructor() {
+        owner = payable(msg.sender);
+    }
+    
+    // function to add a new bidder
+    function addBidder(address bidder) public onlyOwner {
+        // check if the bidder does not already exist
+        require(bids[bidder] == 0, "Bidder already exists.");
+
+        // add bidder to the list
+        bidders.push(bidder);
+
+        // emit event
+        emit BidderAdded(bidder);
+    }
+    
+    // fallback function to receive ether
+    receive() external payable {
+        // check if a valid bid amount is sent
+        require(msg.value > 0, "Bid amount must be greater than 0.");
+
+        // check if the bidder is in the list
+        require(bids[msg.sender] > 0, "Bidder does not exist.");
+
+        // update bid amount for the bidder
+        bids[msg.sender] += msg.value;
+
+        // emit event
+        emit NewBid(msg.sender, msg.value);
+    }
+    
+    // function to withdraw bid amount after the auction ends
+    function withdrawBid() public {
+        // check if the auction has ended
+        require(block.timestamp > 1632604800, "Auction has not ended yet.");
+        
+        // check if the bidder exists
+        require(bids[msg.sender] > 0, "Bidder does not exist.");
+        
+        // get bid amount
+        uint amount = bids[msg.sender];
+        
+        // reset bid amount to 0
+        bids[msg.sender] = 0;
+        
+        // transfer bid amount to the bidder
+        payable(msg.sender).transfer(amount);
+    }
+}

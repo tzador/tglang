@@ -1,0 +1,68 @@
+/* This code snippet is a Prolog program that finds the shortest path between two nodes in a directed graph.
+The code implements the Dijkstra's algorithm, using a priority queue for efficiency. */
+
+% Defining edge/3 predicate to represent the directed edges in the graph
+edge(A, B, C) :- graph(A, B, C).
+edge(A, B, C) :- graph(B, A, C).
+
+% Defining the predicate shortest_path/3 that finds the shortest path between two nodes
+% First argument is the start node, second argument is the destination node,
+% third argument is a list that will contain the shortest path
+shortest_path(Start, Dest, Path) :- 
+    % Using a helper predicate that implements the Dijkstra's algorithm
+    dijkstra(Start, Dest, [], Path).
+
+% Defining the helper predicate dijkstra/4 that implements the Dijkstra's algorithm
+% First argument is the current node being processed, second argument is the destination node,
+% third argument is the current path, fourth argument is the shortest path found so far
+dijkstra(Current, Dest, CurPath, ShortestPath) :-
+    % If current node is the destination, then the shortest path is the current path
+    Current == Dest, append([Current], CurPath, ShortestPath).
+
+dijkstra(Current, Dest, CurPath, ShortestPath) :-
+    % If current node is not the destination, find all its adjacent nodes using edge/3 predicate
+    % Sort the adjacent nodes based on minimum distance using the priority queue,
+    % Store the first adjacent node in MinNode and the rest in OtherNodes
+    findall(Next, edge(Current, Next, _), AdjNodes),
+    sort(AdjNodes, [MinNode | OtherNodes]),
+    % Calculate the distance from current node to each adjacent node
+    calculate_distances(MinNode, OtherNodes, CurPath, Dest, NewPath),
+    % Using recursion, call dijkstra/4 with updated path and shortest path found so far
+    dijkstra(MinNode, Dest, NewPath, ShortestPath).
+
+% Defining the calculate_distances/5 predicate that calculates the distance to each adjacent node
+% First argument is the current node, second argument is the list of all adjacent nodes,
+% third argument is the current path, fourth argument is the destination node,
+% fifth argument is the updated path with shortest distance
+calculate_distances(_, [], CurPath, _, CurPath).
+
+% If the current adjacent node is not already in the current path, calculate the distance from current node
+calculate_distances(Current, [Next | OtherNodes], CurPath, Dest, NewPath) :-
+    \+ member(Next, CurPath),
+    % Get the distance from current node to adjacent node using edge/3 predicate
+    edge(Current, Next, Dist),
+    % Calculate the new distance for the adjacent node by adding the distance
+    % from current node and the distance already in the path
+    NewDist is Dist + CurPath,
+    % If the adjacent node is not already in the path or it has a shorter distance, update the path
+    ( \+ member(Next, NewPath) ; \+ member(Next, NewPath), dist_pi(Next, CurDist), NewDist < CurDist ),
+    % Update the path with the adjacent node and its distance
+    append([[Next, NewDist]], NewPath, UpdatedPath),
+    % Continue calculating distances for the rest of the adjacent nodes
+    calculate_distances(Current, OtherNodes, CurPath, Dest, UpdatedPath).
+
+% Defining the dist_pi/2 predicate that finds the distance of a node from the shortest path found so far
+dist_pi(Node, Dist) :- member([Node, Dist], ShortestPath). 
+
+/* Sample input for testing:
+graph(a, b, 2).
+graph(b, c, 1).
+graph(c, d, 3).
+graph(a, d, 4).
+graph(b, d, 2).
+graph(a, e, 5).
+graph(d, e, 1).
+graph(e, f, 6).
+
+Sample output:
+Shortest path from a to f: [a, b, d, e, f] (total distance: 6) */

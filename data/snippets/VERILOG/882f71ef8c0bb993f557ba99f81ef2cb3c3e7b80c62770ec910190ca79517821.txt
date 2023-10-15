@@ -1,0 +1,114 @@
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// A Complex Verilog Code Snippet
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// This module is a simple implementation of a Finite State Machine (FSM) used to control a traffic light system.
+
+//Define module
+module FSM_traffic_light (input clk, input rst, input detect, input button, output reg red, yellow, green);
+
+//Define states of FSM
+// States: init, green, yellow, red, green_yellow
+
+enum {init, green, yellow, red, green_yellow} state;
+parameter init = 2'b00;
+parameter green = 2'b01;
+parameter yellow = 2'b10;
+parameter red = 2'b11;
+parameter green_yellow = 2'b00;
+
+//Define internal signals for FSM
+reg [1:0] current_state;
+reg [1:0] next_state;
+
+//Define combinational logic for state transitions
+always @ (current_state, detect, button)
+	begin
+		case(current_state)
+			init: //Initial state, wait for button press to start
+				begin
+					if(button == 1)
+						next_state = green; //Button pressed, transition to green state
+					else
+						next_state = init; //Button not pressed, stay in init state
+				end
+			green: //Green state, allow cars to go through
+				begin
+					if(detect == 1)
+						next_state = yellow; //Car detected, transition to yellow state
+					else
+						next_state = green; //No car detected, stay in green state
+				end
+			yellow: //Yellow state, warn cars to stop
+				begin
+					if(detect == 1)
+						next_state = red; //Car detected, transition to red state
+					else
+						next_state = green_yellow; //No car detected, transition to green_yellow state
+				end
+			red: //Red state, stop cars
+				begin
+					if(button == 0)
+						next_state = init; //Button not pressed, transition to init state
+					else if(detect == 1)
+						next_state = green_yellow; //Car detected, transition to green_yellow state
+					else
+						next_state = red; //No car detected, stay in red state
+				end
+			green_yellow: //Green and yellow state, allow pedestrians to cross
+				begin
+					if(button == 0)
+						next_state = yellow; //Button not pressed, transition to yellow state
+					else
+						next_state = init; //Button pressed, transition to init state
+				end
+		endcase
+	end
+
+//Define sequential logic for updating current state
+always @ (posedge clk, posedge rst)
+	begin
+		if(rst == 1)
+			current_state <= init; //Reset to init state
+		else
+			current_state <= next_state; //Update current state with next state
+	end
+
+//Define outputs based on current state
+always @ (current_state)
+	begin
+		case(current_state)
+			init:
+				begin
+					green = 0;
+					yellow = 0;
+					red = 1; //Init state, red light is on
+				end
+			green:
+				begin
+					green = 1; //Green state, green light is on
+					yellow = 0;
+					red = 0;
+				end
+			yellow:
+				begin
+					green = 0;
+					yellow = 1; //Yellow state, yellow light is on
+					red = 0;
+				end
+			red:
+				begin
+					green = 0;
+					yellow = 0;
+					red = 1; //Red state, red light is on
+				end
+			green_yellow:
+				begin
+					green = 1; //Green and yellow state, green light is on
+					yellow = 1; //and yellow light is on
+					red = 0;
+				end
+		endcase
+	end
+
+endmodule

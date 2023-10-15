@@ -1,0 +1,75 @@
+/* Loading Datasets */
+
+/* Creating Library named "lib" */
+libname lib "/home/Datasets";
+
+/* Reading in train data */
+data lib.train;
+    infile "train.csv" dsd missover;
+    input
+        ID $ 
+        Age
+        Sex $ 
+        Income
+        Loan_Amount
+        Default $;
+    format
+        ID $12.
+        Age 4.
+        Sex $10.
+        Income dollar15.
+        Loan_Amount dollar15.
+        Default $3.;
+run;
+
+/* Reading in test data */
+data lib.test;
+    infile "test.csv" dsd missover;
+    input
+        ID $ 
+        Age
+        Sex $ 
+        Income
+        Loan_Amount;
+    format
+        ID $12.
+        Age 4.
+        Sex $10.
+        Income dollar15.
+        Loan_Amount dollar15.;
+run;
+
+/* Combining train and test data */
+data lib.combined;
+    set lib.train lib.test;
+run;
+
+/* Creating a new variable for loan-to-income ratio */
+data lib.ratios;
+    set lib.combined;
+    LTI_Ratio = Loan_Amount / Income;
+run;
+
+/* Generating descriptive statistics */
+proc means data = lib.ratios;
+    var Age LTI_Ratio;
+run;
+
+/* Creating a new variable for log transformed age */
+data lib.log_transformed;
+  set lib.ratios;
+  if Age > 0 then log_Age = log(Age);
+  else log_Age = .;
+run;
+
+/* Preparing the data for logistic regression */
+proc logistic data = lib.log_transformed;
+    model Default (event='Yes') = Sex Age Income LTI_Ratio log_Age;
+    output out = lib.log_model p=pred_prob;
+run;
+
+/* Cross validating the model */
+proc logistic data = lib.log_transformed;
+    model Default (event='Yes') = Sex Age Income LTI_Ratio log_Age;
+    score data = lib.log_model out = lib.cross_validated;
+run;

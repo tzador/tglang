@@ -1,0 +1,32 @@
+# Define a multi-stage build with a base image
+FROM node:10 AS base
+
+# Create a working directory for the application code
+WORKDIR /app
+
+# Copy the 'package.json' and 'package-lock.json' files into the working directory
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy the rest of the application code into the working directory
+COPY . .
+
+# Define the build stage
+FROM base AS build
+
+# Use 'npm build' to create a production build of the application
+RUN npm run build
+
+# Define the production stage
+FROM nginx:alpine AS production
+
+# Copy the output of the build stage into the default nginx public directory
+COPY --from=build /app/build /usr/share/nginx/html
+
+# Expose port 80 so we can access the application
+EXPOSE 80
+
+# Define the command to start the nginx server when the container is run
+CMD ["nginx", "-g", "daemon off;"]

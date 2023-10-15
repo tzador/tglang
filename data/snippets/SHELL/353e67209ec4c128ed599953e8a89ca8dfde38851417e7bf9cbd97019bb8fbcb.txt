@@ -1,0 +1,79 @@
+#!/bin/bash
+
+# This script checks the system resources and prints out a report 
+# of any potential issues or errors
+# This is a long and complex code snippet that utilizes multiple bash commands 
+# and functions to generate the report
+
+
+
+# Function to check CPU usage
+function check_cpu_usage() {
+  # Utilize the 'top' command to retrieve the current CPU usage
+  top -b -n 1 -d 1 | grep "Cpu(s)" > cpu_usage.txt
+  
+  # Parse the output to get the CPU usage percentage
+  cpu=$(cat cpu_usage.txt | awk '{print $2}')
+  cpu=$(echo $cpu | sed 's/\..*//')
+  
+  # Check for high CPU usage (above 80%) and print out potential issue if found
+  if [ $cpu -gt 80 ]; then
+    echo "WARNING: High CPU usage detected. Please investigate further."
+  else
+    echo "CPU usage is within normal range."
+  fi
+}
+
+# Function to check memory usage
+function check_memory_usage() {
+  # Utilize the 'free' command to retrieve the current memory usage
+  free -m | grep "Mem:" > memory_usage.txt
+  
+  # Parse the output to get the used and total memory in megabytes
+  used=$(cat memory_usage.txt | awk '{print $3}')
+  total=$(cat memory_usage.txt | awk '{print $2}')
+  
+  # Check if memory usage is above 90% and print out potential issue if found
+  ratio=$(echo "scale=2; $used/$total*100" | bc)
+  
+  if [ $(echo "$ratio > 90" | bc -l) ]; then
+    echo "WARNING: High memory usage detected. Please investigate further."
+  else
+    echo "Memory usage is within normal range."
+  fi
+}
+
+# Function to check disk usage for the root directory
+function check_disk_usage() {
+  # Utilize the 'df' command to retrieve the current disk usage for root directory
+  df -h / > disk_usage.txt
+  
+  # Parse the output to get the percentage of disk usage
+  percentage=$(cat disk_usage.txt | awk '{print $5}' | tail -n1 | sed 's/%//')
+  
+  # Check if disk usage is above 80% and print out potential issue if found
+  if [ $percentage -gt 80 ]; then
+    echo "WARNING: High disk usage for root directory detected. Please investigate further."
+  else
+    echo "Disk usage for root directory is within normal range."
+  fi
+}
+
+# Function to check for any error log messages
+function check_error_logs() {
+  # Utilize the 'grep' command to search for any error logs in the sys log file
+  grep -i "error" /var/log/syslog > error_logs.txt
+  
+  # Check if any error logs were found and print out potential issue if found
+  if [ -s "error_logs.txt" ]; then
+    echo "WARNING: Error logs were found in the sys log file. Please investigate further."
+  else
+    echo "No error logs were found in the sys log file."
+  fi
+}
+
+# Call all the functions to generate the report
+check_cpu_usage
+check_memory_usage
+check_disk_usage
+check_error_logs

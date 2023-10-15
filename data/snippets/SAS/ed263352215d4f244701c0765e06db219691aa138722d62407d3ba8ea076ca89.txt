@@ -1,0 +1,43 @@
+* Define the libraries to be used for the data;
+
+libname HR 'C:\Users\Documents\HR_data'; 
+libname FINANCE 'C:\Users\Documents\Finance_data'; 
+
+* Create a temporary data set with the desired variables from HR data;
+
+data temp_data;
+	set HR.employee_info (keep = employee_id gender age salary);
+
+* Sort the data by age in descending order;
+proc sort data = temp_data;
+	by descending age;
+
+* Merge the data set with the finance data set by employee_id;
+data merged_data;
+	merge temp_data (in = a) finance.financial_info (in = b);
+	by employee_id;
+
+* Calculate the mean salary for each gender;
+proc means data = merged_data noprint;
+	class gender;
+	var salary;
+	output out = mean_data mean = avg_salary;
+
+* Create a new variable for age category;
+data final_data;
+	set mean_data;
+	if age <= 30 then age_category = 'Age 30 and below';
+	else if 31 <= age <= 40 then age_category = 'Age 31-40';
+	else if 41 <= age <= 50 then age_category = 'Age 41-50';
+	else if age >= 51 then age_category = 'Age 51 and above';
+
+* Create a bar chart of average salary by age category;
+proc sgplot data = final_data;
+	title 'Average Salary by Age Category';
+	vbar age_category / response = avg_salary;
+
+* Export the final data to a CSV file;
+proc export data = final_data
+	outfile = 'C:\Users\Documents\final_data.csv'
+	dbms = csv;
+run;

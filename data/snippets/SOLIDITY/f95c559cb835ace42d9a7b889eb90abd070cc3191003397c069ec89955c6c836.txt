@@ -1,0 +1,95 @@
+// This contract implements a basic lottery system
+pragma solidity ^0.8.0;
+
+contract Lottery {
+    // Variables to store information about lottery
+    address public owner;
+    address public winner;
+    uint public jackpot;
+    uint public numTickets;
+    bool public lotteryOver;
+    uint[] public ticketNumbers;
+    
+    // Events to emit when certain actions are taken
+    event NewTicketBought(uint ticketNumber);
+    event LotteryWon(address winner);
+    event JackpotIncreased(uint jackpot);
+    event LotteryClosed();
+
+    // Constructor function to initialize variables
+    constructor() {
+        owner = msg.sender;
+        jackpot = 0;
+        numTickets = 0;
+        lotteryOver = false;
+    }
+    
+    // Function to buy a lottery ticket
+    function buyTicket(uint ticketNumber) public payable {
+        require(!lotteryOver, "Lottery is closed.");
+        require(msg.value == 1 ether, "Please send 1 ether with ticket purchase.");
+        require(ticketNumber > 0 && ticketNumber < 100000, "Ticket number must be between 1 and 100000.");
+        
+        // Check if ticket number has already been bought
+        for (uint i = 0; i < ticketNumbers.length; i++) {
+            require(ticketNumber != ticketNumbers[i], "This ticket number has already been purchased.");
+        }
+
+        // Add ticket number to list of bought tickets and increase jackpot
+        ticketNumbers.push(ticketNumber);
+        jackpot += msg.value;
+        numTickets++;
+        
+        // Emit event to announce new ticket bought
+        emit NewTicketBought(ticketNumber);
+        
+        // Check if this ticket was the winning ticket
+        if (ticketNumber == generateWinningTicket()) {
+            // Set lottery as over and declare winner
+            lotteryOver = true;
+            winner = msg.sender;
+            
+            // Emit event to announce winner
+            emit LotteryWon(winner);
+            
+            // Transfer jackpot to winner
+            winner.transfer(jackpot);
+            
+            // Emit event to announce closure of lottery
+            emit LotteryClosed();
+        }
+        else {
+            // Increase jackpot by 1/10th of ticket price
+            jackpot += msg.value / 10;
+            
+            // Emit event to announce increase in jackpot
+            emit JackpotIncreased(jackpot);
+        }
+    }
+    
+    // Internal function to generate winning ticket number
+    function generateWinningTicket() internal view returns (uint) {
+        // Get current block number as seed for random number generator
+        uint seed = block.number;
+        
+        // Use modulus operation to narrow down winning ticket number
+        uint winningNumber = (seed % 100000) + 1;
+        
+        return winningNumber;
+    }
+    
+    // Function to close lottery and allow owner to withdraw remaining funds
+    function closeLottery() public {
+        require(msg.sender == owner, "Only the owner can close the lottery.");
+        require(!lotteryOver, "Lottery is already closed.");
+        
+        // Mark lottery as closed
+        lotteryOver = true;
+        
+        // Transfer remaining funds to owner
+        owner.transfer(address(this).balance);
+        
+        // Emit event to announce closure of lottery
+        emit LotteryClosed();
+    }
+}

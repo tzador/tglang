@@ -1,0 +1,75 @@
+pragma solidity ^0.6.0;
+
+// Importing OpenZeppelin's SafeMath library
+import "@openzeppelin/contracts/math/SafeMath.sol";
+
+contract Token {
+    using SafeMath for uint256;
+    
+    string public name;  // Name of the token
+    string public symbol;  // Symbol of the token
+    uint8 public decimals;  // Decimal places for token
+    
+    uint256 private _totalSupply;  // Total supply of the token
+    mapping(address => uint256) private _balances;  // Mapping of user addresses to their corresponding balances
+    mapping(address => mapping(address => uint256)) private _allowed;  // Mapping of user addresses to mappings of allowed addresses and corresponding allowances
+    
+    // Event emitted when a transfer is executed
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    
+    // Event emitted when an approval is set for a transfer
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    
+    constructor(string memory _name, string memory _symbol, uint8 _decimals, uint256 _initialSupply) public {
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+        _totalSupply = _initialSupply;
+        _balances[msg.sender] = _totalSupply;  // Assign initial supply to contract creator
+    }
+    
+    function totalSupply() public view returns (uint256) {
+        return _totalSupply;
+    }
+    
+    function balanceOf(address _owner) public view returns (uint256) {
+        return _balances[_owner];
+    }
+    
+    function transfer(address _to, uint256 _amount) public returns (bool) {
+        require(_to != address(0), "Transfer to zero address is not allowed");
+        require(_balances[msg.sender] >= _amount, "Insufficient balance");
+        
+        _balances[msg.sender] = _balances[msg.sender].sub(_amount);  // Subtract amount from sender's balance
+        _balances[_to] = _balances[_to].add(_amount);  // Add amount to recipient's balance
+        emit Transfer(msg.sender, _to, _amount);
+        
+        return true;
+    }
+    
+    function approve(address _spender, uint256 _amount) public returns (bool) {
+        require(_spender != address(0), "Approval to zero address is not allowed");
+        
+        _allowed[msg.sender][_spender] = _amount;  // Set allowance for spender from sender
+        emit Approval(msg.sender, _spender, _amount);
+        
+        return true;
+    }
+    
+    function transferFrom(address _from, address _to, uint256 _amount) public returns (bool) {
+        require(_to != address(0), "Transfer to zero address is not allowed");
+        require(_balances[_from] >= _amount, "Insufficient balance");
+        require(_allowed[_from][msg.sender] >= _amount, "Insufficient allowance");
+        
+        _balances[_from] = _balances[_from].sub(_amount);  // Subtract amount from sender's balance
+        _balances[_to] = _balances[_to].add(_amount);  // Add amount to recipient's balance
+        _allowed[_from][msg.sender] = _allowed[_from][msg.sender].sub(_amount);  // Subtract amount from sender's allowance
+        emit Transfer(_from, _to, _amount);
+        
+        return true;
+    }
+    
+    function allowance(address _owner, address _spender) public view returns (uint256) {
+        return _allowed[_owner][_spender];
+    }
+}

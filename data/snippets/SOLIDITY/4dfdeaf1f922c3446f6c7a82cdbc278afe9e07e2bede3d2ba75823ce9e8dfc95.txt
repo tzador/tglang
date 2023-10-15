@@ -1,0 +1,69 @@
+/**
+@title Crowdsale
+This contract manages the crowdsale of a token.
+*/
+contract Crowdsale {
+    // state variables
+    address public wallet; // wallet to receive funds
+    uint256 public rate; // conversion rate from ETH to tokens
+    uint256 public weiRaised; // total amount of wei raised
+    bool public isPaused; // flag to pause the crowdsale
+
+    // events
+    event TokensPurchased(address indexed purchaser, address indexed beneficiary, uint256 weiAmount, uint256 tokenAmount);
+
+    // constructor
+    constructor(address _wallet, uint256 _rate) public {
+        require(_wallet != address(0)); // wallet cannot be null
+        require(_rate > 0); // rate must be greater than 0
+        
+        // initialize state variables
+        wallet = _wallet;
+        rate = _rate;
+        isPaused = false;
+    }
+    
+    // functions
+    /**
+    @dev Function to start or resume the crowdsale
+    */
+    function startCrowdsale() external onlyOwner {
+        isPaused = false;
+    }
+    
+    /**
+    @dev Function to pause the crowdsale
+    */
+    function pauseCrowdsale() external onlyOwner {
+        isPaused = true;
+    }
+    
+    /**
+    @dev Function to purchase tokens during the crowdsale
+    @param _beneficiary Address of the beneficiary receiving the tokens
+    */
+    function purchaseTokens(address _beneficiary) public payable {
+        require(_beneficiary != address(0)); // beneficiary cannot be null
+        require(!isPaused); // crowdsale must not be paused
+        require(msg.value > 0); // must send ETH to purchase tokens
+        
+        // calculate token amount to be received
+        uint256 tokenAmount = msg.value * rate;
+        
+        // increment wei raised
+        weiRaised = weiRaised + msg.value;
+        
+        // transfer tokens to beneficiary
+        token.transfer(_beneficiary, tokenAmount);
+        
+        // emit TokensPurchased event
+        emit TokensPurchased(msg.sender, _beneficiary, msg.value, tokenAmount);
+    }
+    
+    /**
+    @dev Function to withdraw ETH from the contract to the wallet
+    */
+    function withdraw() external onlyOwner {
+        wallet.transfer(address(this).balance);
+    }
+}

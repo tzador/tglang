@@ -1,0 +1,61 @@
+Variables
+    x(i)         Decision variables for production quantities;
+    y(j)         Decision variables for shipment quantities;
+    z(k)         Binary decision variables for shipping routes;
+
+Binary variable z;
+Integer variable x;
+Continuous variable y;
+
+Constraint
+    sel(i) .. sum(j, y(i,j)) =g= x(i)                                 "production decision";
+    ship(j)$(capacity(j)) .. sum(i, y(i,j)) =l= capacity(j) * z(j)     "shipment decision";
+    max_con .. sum(k, z(k)) =l= max_ship_route                         "maximum number of shipping routes allowed";
+
+Equation
+    demand(j) .. sum(i, y(i,j)) =e= demand(j);         "meeting demand at warehouses";
+    balance(i) .. x(i) =e= sum(j, y(i,j));             "supply equals demand at production facilities";
+    ship_limit(j) .. sum(i, y(i,j)) =l= capacity(j);  "limit on total shipments from warehouses";
+    objfun .. z(k) =g= x(i) + y(j) + z(k);           "maximizing the number of shipping routes"
+
+Model transport /all/;
+
+Parameter
+    costs(i,j)
+        "transport costs in thousands of dollars per case per thousand miles"
+        / seattle.newyork      2,	"Seattle to New York"
+	  newyork.chicago      1.5,	"New York to Chicago"
+	  chicago.topeka       1,	"Chicago to Topeka"  /,
+	demand(j)
+	  "demand at warehouses in cases"
+	  / newyork  80
+	    chicago  100
+	    topeka   40 /,
+	capacity(j)
+	  "warehouse capacities in cases"
+	  / newyork  100
+	    chicago  100
+	    topeka   100 /;
+
+Option optcr=0;  %disables the lower bound report
+
+Positive variable objfun, sel, ship;
+
+objfun.. sel    =g= 1;
+sel..    objfun  =e= 1;
+Option limrow=0,limcol=0;
+
+Variable objfun, x(i), y(j), z(k);
+equation
+   cost_op          Equation for the total costs
+   meet_demand_op   Equation for meeting the demand at warehouses
+   balance_op       Equation for ensuring supply equals demand at production facilities
+   ship_limit_op    Equation for limiting total shipments from warehouses;
+   
+cost_op .. objfun =e= costs(i,j)*x.y ;
+
+meet_demand_op .. sum(i,x.y(i,j)) =e= demand(j);
+
+balance_op .. sum(i, y(i,j)) =e= x(i) ;
+
+ship_limit_op .. sum(j, y(i,j)) =l= capacity(j);

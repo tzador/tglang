@@ -1,0 +1,66 @@
+defmodule User do
+  @moduledoc """
+  This module contains functions related to user data.
+  """
+
+  @type user_info :: %{
+    name: String.t(),
+    age: non_neg_integer()
+  }
+
+  @type friends :: [user_info()]
+
+  def get_user_info(name) do
+    case Database.query(name) do
+      {:ok, %User{name: name, age: age}} -> %{
+        name: name,
+        age: age
+      }
+      _ ->
+        IO.puts "User not found."
+        nil
+    end
+  end
+
+  def update_user_info(user, age) when is_map(user) and is_integer(age) do
+    if Map.has_key?(user, :name) do
+      case Database.update_user(age) do
+        {:ok, user_info} -> %{
+          name: Map.get(user_info, :name),
+          age: age
+        }
+        _ ->
+          IO.puts "Failed to update user info."
+          user
+      end
+    else
+      IO.puts "User does not have a name."
+      user
+    end
+  end
+
+  def add_friend(user, friend) when is_map(user) and is_map(friend) do
+    if Map.has_key?(user, :name) do
+      case Database.add_friend(user, friend) do
+        {:ok, _} ->
+          case List.keyfind(user[:name], 1, friend[:friends]) do
+            nil ->
+              %{
+                name: Map.get(user, :name),
+                age: Map.get(user, :age),
+                friends: [friend]
+              }
+            _ ->
+              IO.puts "User is already friends with this person."
+              user
+          end
+        _ ->
+          IO.puts "Failed to add friend."
+          user
+      end
+    else
+      IO.puts "User does not have a name."
+      user
+    end
+  end
+end

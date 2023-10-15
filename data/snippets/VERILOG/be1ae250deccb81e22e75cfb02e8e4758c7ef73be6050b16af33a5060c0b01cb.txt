@@ -1,0 +1,80 @@
+// This is a Verilog code snippet used for designing a control unit for a simple processor
+module control_unit (input wire clk, rst,
+                     input wire [7:0] op_code,
+                     output reg [2:0] state,
+                     output reg reg_write, data_write, // defining output registers 
+                     output reg [3:0] alu_op_code,
+                     output reg branch, mem_read, mem_write, mem_to_reg,
+                     output reg alu_src, reg_dest, jump,
+                     output reg [3:0] instruction_set);
+
+always @(posedge clk or negedge rst) begin // defining flip-flop always block
+    if (!rst) begin
+        state <= 0; // reset state to 0
+        reg_write <= 0;
+        data_write <= 0;
+        alu_op_code <= 0;
+        branch <= 0;
+        mem_read <= 0;
+        mem_write <= 0;
+        mem_to_reg <= 0;
+        alu_src <= 0;
+        reg_dest <= 0;
+        jump <= 0;
+        instruction_set <= 0;
+    end
+    else begin
+        case (state) // defining case statement for state machine
+            0: begin // initial state
+                instruction_set <= op_code;
+                state <= 1; // transition to next state
+            end
+            1: begin // instruction decode state
+                case (instruction_set) // defining case statement for instruction set
+                    4'd0: begin // instruction code for no operation
+                        state <= 2; // transition to next state
+                    end
+                    4'd1: begin // instruction code for load immediate
+                        state <= 3; // transition to next state
+                        reg_dest <= 1; // set register destination control signal
+                        alu_src <= 1; // set ALU source control signal
+                    end
+                    4'd2: begin // instruction code for store immediate
+                        state <= 4; // transition to next state
+                        data_write <= 1; // set data write control signal
+                    end
+                    4'd3: begin // instruction code for add
+                        state <= 5; // transition to next state
+                        reg_dest <= 1; // set register destination control signal
+                        alu_src <= 0; // set ALU source control signal
+                        alu_op_code <= 4'b0010; // set ALU operation code to addition
+                    end
+                endcase
+            end
+            2: begin // no operation state
+                instruction_set <= 4'b0; // reset instruction set
+                state <= 0; // transition back to initial state
+            end
+            3: begin // load immediate state
+                state <= 0; // transition back to initial state
+            end
+            4: begin // store immediate state
+                state <= 0; // transition back to initial state
+            end
+            5: begin // add state
+                state <= 6; // transition to next state
+                alu_op_code <= 4'b0011; // set ALU operation code to addition with carry
+            end
+            6: begin // addition with carry state
+                state <= 7; // transition to next state
+                reg_write <= 1; // set register write control signal
+                alu_src <= 0; // set ALU source control signal
+                alu_op_code <= 4'b0011; // set ALU operation code to addition with carry
+            end
+            7: begin // addition with carry and register write state
+                state <= 0; // transition back to initial state
+            end
+        endcase
+    end
+end
+endmodule

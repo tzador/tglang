@@ -1,0 +1,121 @@
+// Solidity smart contract for a decentralized voting system with voter authentication using modifiers
+
+// Importing necessary modules
+pragma solidity ^0.8.0;
+import "github.com/provable-things/ethereum-api/provableAPI_0.8.sol";
+
+// Defining the contract
+contract VotingSystem is usingProvable{
+    
+    // Struct representing a voter
+    struct Voter{
+        uint weight; // weight is accumulated by delegation
+        bool voted;  // if true, that person already voted
+        bool authenticated; // if true, that person is authenticated to vote
+        uint8 vote;   // index of the voted proposal
+        address delegate; // person delegated to
+    }
+    
+    // Struct representing a proposal
+    struct Proposal{
+        string name;   // short name (up to 32 bytes)
+        uint voteCount; // number of accumulated votes
+    }
+  
+    
+    // Global variables
+    address public chairperson; // address of contract creator
+    mapping(address => Voter) public voters; // mapping of addresses to voters
+    Proposal[] public proposals; // array of proposals
+    
+    // Events that will be emitted on changes
+    event Authentication(address voterAddress, string message);
+    event Vote(address voterAddress, uint proposalIndex);
+    event Delegate(address voterAddress, address delegateAddress);
+    
+    // Modifiers for functions
+    // Modifier to check if caller is the chairperson
+    modifier onlyChairperson(){
+        require(msg.sender == chairperson, "Only chairperson can call this function.");
+        _;
+    }
+    
+    // Modifier to check if voter is authenticated
+    modifier onlyAuthenticated(){
+        require(voters[msg.sender].authenticated == true, "You are not authenticated to vote.");
+        _;
+    }
+    
+    // Constructor function 
+    constructor() {
+        chairperson = msg.sender; // set creator of contract as chairperson
+    }
+    
+    // Function to register a voter and give them weight
+    function registerVoter(address voter) public onlyChairperson {
+        require(!voters[voter].voted, "Voter already voted."); // check if voter already voted
+        require(voters[voter].weight == 0, "Voter is already registered."); // check if voter is already registered
+        voters[voter].weight = 1; // give weight of 1 to voter
+        voters[voter].authenticated = false; // set authenticated status to false
+    }
+    
+    // Function for voters to authenticate themselves
+    function authenticate() public {
+        require(!voters[msg.sender].voted, "You already voted."); // check if voter already voted
+        require(!voters[msg.sender].authenticated, "You are already authenticated."); // check if voter is already authenticated
+        uint256 QUERY_EXECUTION_DELAY = 0;
+        uint256 GAS_FOR_CALLBACK = 200000;
+        bytes32 queryId = provable_newRandomDSQuery(QUERY_EXECUTION_DELAY, 0, GAS_FOR_CALLBACK);
+        emit Authentication(msg.sender, "Waiting for authentication."); // emit Authentication event
+    }
+    
+    // Function for voters to submit their vote
+    function submitVote(uint proposalIndex) public onlyAuthenticated {
+        Voter storage sender = voters[msg.sender];
+        require(sender.voted == false, "Already voted.");
+        sender.voted = true;
+        sender.vote = proposalIndex;
+        proposals[proposalIndex].voteCount += sender.weight;
+        emit Vote(msg.sender, proposalIndex); // emit Vote event
+    }
+    
+    // Function for voters to delegate their vote to someone else
+    function delegate(address to) public onlyAuthenticated {
+        require(voters[msg.sender].voted == false, "You already voted.");
+        
+        // check if delegation won't create a loop
+        require(to != msg.sender, "Self-delegation is not allowed.");
+        
+        // check if there is a delegation loop
+        while (voters[to].delegate != address(0)) { 
+            to = voters[to].delegate;
+            require(to != msg.sender, "Found loop in delegation chain.");
+        }
+        
+        // Set the delegate
+        voters[msg.sender].voted = true;
+        voters[msg.sender].delegate = to;
+        Voter storage delegate = voters[to];
+        
+        // If delegate already voted, add to vote count
+        if (delegate.voted) {
+            proposals[delegate.vote].voteCount += voters[msg.sender].weight;
+        } else { // If delegate has not yet voted, add weight to delegate
+            delegate.weight += voters[msg.sender].weight;
+        }
+        
+        // Emit Delegate event
+        emit Delegate(msg.sender, to);
+    }
+    
+    // Function to get the winning proposal
+    function getWinningProposal() public view returns (uint winningProposalIndex){
+        uint winningVoteCount = 0; // Variable to store highest vote count
+        for (uint prop = 0; prop < proposals.length; prop++){ // Loop through all proposals
+            if (proposals[prop].voteCount > winningVoteCount){ // Compare vote count with current highest
+                winningVoteCount = proposals[prop].voteCount; // Update highest vote count
+                winningProposalIndex = prop; // Update winning proposal index
+            }
+        }
+    }
+}

@@ -1,0 +1,80 @@
+/*
+ * This is a complex gradle build script that includes multiple tasks, dependencies, and plugins.
+ */
+
+plugins {
+    // This plugin will help us generate code coverage reports
+    id 'jacoco'
+}
+
+// Define source sets for our project
+sourceSets {
+    main {
+        // Set the source directory to src/main/java
+        java.srcDir 'src/main/java'
+    }
+    test {
+        // Set the source directory to src/test/java
+        java.srcDir 'src/test/java'
+        // Add a dependency to our main source set
+        compileClasspath += main.output
+    }
+}
+
+// Define our java tasks
+tasks.withType(JavaCompile) {
+    // Set the source compatibility to Java 8
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    // Add a classpath dependency
+    classpath = sourceSets.main.output + sourceSets.test.output
+}
+
+// Define a task to run our unit tests
+task runTests(type: Test) {
+    // Set the source directory to src/test/java
+    testSrcDir 'src/test/java'
+    // Add a dependency to our main source set
+    classpath = sourceSets.main.output + sourceSets.test.output
+    // Set the code coverage report file
+    reports.junitXml.destination = "$buildDir/reports/tests/junit-report.xml"
+    // Define system properties for our tests
+    systemProperties = [
+        'propertyName': 'propertyValue'
+    ]
+}
+
+// Define a task to generate code coverage reports
+task generateCoverageReport(type: JacocoReport, dependsOn: 'test') {
+    // Set the source directories for our project
+    sourceDirectories = files(sourceSets.main.allSource.srcDirs)
+    // Set the execution data file
+    executionData = fileTree(projectDir).include("**/*.exec")
+    // Set the output file for our coverage report
+    reports {
+        xml.enabled true
+        html.enabled true
+        // Define the output directory for our html coverage report
+        html.destination "$buildDir/reports/codeCoverage"
+    }
+}
+
+// Define a task to create a jar of our project
+task createJar(type: Jar, dependsOn: generateCoverageReport) {
+    // Set the name of our jar file
+    archiveName 'my-project.jar'
+    // Set the destination directory for our jar file
+    destinationDir "$buildDir/libs"
+    // Add all files from our source set as source files for the jar
+    from sourceSets.main.allSource
+    // Specify the manifest for our jar
+    manifest {
+        attributes 'Implementation-Version': version
+    }
+}
+
+// Set default build task to createJar
+defaultTasks 'createJar'
+
+/*
+ * END OF BUILD SCRIPT
+ */

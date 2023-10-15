@@ -1,0 +1,73 @@
+%% This is a Prolog program for finding the shortest path between two nodes in a graph
+:- dynamic shortest_path/3.
+% The shortest_path predicate dynamically stores the shortest path between two nodes
+
+% edge/3 defines the edges in the graph between two nodes and their corresponding weights
+edge(1,2,5).
+edge(2,3,4).
+edge(3,4,9).
+edge(4,5,7).
+edge(2,6,10).
+edge(6,7,4).
+edge(7,5,4).
+
+% path/3 defines a path between two nodes and its corresponding weight
+path(A, B, Weight) :-
+    edge(A, B, Weight).
+path(A, B, Weight) :-
+    edge(B, A, Weight).
+
+% shortest_path/3 finds the shortest path between two nodes through recursion and stores it in dynamic memory
+shortest_path(A, B, Path) :-
+    shortest_path(A, B, Path, []).
+% The shortest_path/4 predicate is used for storing the shortest path in the fourth argument
+shortest_path(A, B, Path, Visited) :-
+    % Checks if the current node is already in the visited nodes list to prevent infinite loops
+    not(member(A, Visited)),
+    % Checks if there is a direct path between A and B
+    path(A, B, Weight),
+    % Updates the shortest path in dynamic memory
+    update_shortest_path(A, B, [A, B], Weight),
+    % Checks if the recursion has reached the target node
+    B \= Path.
+shortest_path(A, B, Path, Visited) :-
+    % Checks if the current node is already in the visited nodes list to prevent infinite loops
+    not(member(A, Visited)),
+    % Checks if there is a path between A and C, where C is not in the visited nodes list
+    path(A, C, Weight),
+    % Checks if the recursion has reached the target node
+    C \= B,
+    % Appends C to the visited nodes list
+    append(Visited, [A], NewVisited),
+    % Recursively calls shortest_path with C as the new current node
+    shortest_path(C, B, Path, NewVisited).
+
+% update_shortest_path/4 updates the shortest path in dynamic memory if it is shorter than the previously stored path
+update_shortest_path(A, B, Path, Weight) :-
+    % Checks if there is already a stored shortest path between A and B
+    shortest_path(A, B, OldPath),
+    % Checks if the new path is shorter than the previously stored path
+    length(Path, NewWeight),
+    length(OldPath, OldWeight),
+    NewWeight < OldWeight,
+    % Replaces the old path with the new, shorter path
+    retract(shortest_path(A, B, OldPath)),
+    asserta(shortest_path(A, B, Path)).
+
+% shortest_path_length/3 calculates the length of the shortest path between two nodes
+shortest_path_length(A, B, Length) :-
+    shortest_path(A, B, Path),
+    % Calls length/2 to get the length of the shortest path
+    length(Path, Length).
+
+% shortest_path_weight/3 calculates the weight of the shortest path between two nodes
+shortest_path_weight(A, B, Weight) :-
+    shortest_path(A, B, Path),
+    % Sums the weights of the edges in the shortest path using foldl
+    foldl(sum_weights, Path, 0, Weight).
+% sum_weights/3 is used by foldl to sum up the weights of the edges in the shortest path
+sum_weights(Node, Acc, Weight) :-
+    edge(Node, NextNode, Weight),
+    NewAcc is Acc + Weight,
+    % Ensures that the next node in the path is accessible from the current node
+    member(NextNode, Path).

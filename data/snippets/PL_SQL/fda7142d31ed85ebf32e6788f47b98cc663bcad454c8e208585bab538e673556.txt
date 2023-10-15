@@ -1,0 +1,37 @@
+CREATE OR REPLACE PROCEDURE delete_expired_accounts
+AS
+    -- This procedure deletes any accounts that have expired
+    -- Get current date
+    v_current_date DATE := SYSDATE;
+BEGIN
+    -- Cursor to retrieve expired accounts
+    CURSOR c_expired_accounts(p_date IN DATE) IS 
+        SELECT *
+        FROM accounts
+        WHERE expiration_date < p_date;
+
+    -- Variables for loop
+    v_id accounts.id%TYPE;
+    v_account_number accounts.account_number%TYPE;
+    v_balance accounts.balance%TYPE;
+BEGIN
+    -- Loop through expired accounts and delete
+    FOR expired_account IN c_expired_accounts(v_current_date) LOOP
+        -- Get account information
+        v_id := expired_account.id;
+        v_account_number := expired_account.account_number;
+        v_balance := expired_account.balance;
+
+        -- Delete account
+        DELETE FROM accounts
+        WHERE id = v_id;
+
+        -- Log deleted account information
+        INSERT INTO deleted_accounts (id, account_number, balance)
+        VALUES (v_id, v_account_number, v_balance);
+
+        -- Commit changes
+        COMMIT;
+    END LOOP;
+END;
+/

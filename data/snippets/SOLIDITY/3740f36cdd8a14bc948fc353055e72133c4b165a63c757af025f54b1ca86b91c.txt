@@ -1,0 +1,68 @@
+pragma solidity >=0.6.0;
+// An Inheritance contract
+contract Owned {
+    address public owner;
+
+    constructor() public {
+        owner = msg.sender;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the contract owner can call this function.");
+        _;
+    }
+}
+
+// A Purchase contract
+contract Purchase is Owned {
+    modifier onlyAfter(uint _time) {
+        require(now >= _time, "Function can only be called after the specified time.");
+        _;
+    }
+
+    modifier costs(uint _amount) {
+        require(msg.value >= _amount, "Minimum amount sent does not cover the cost of the function.");
+        _;
+    }
+}
+
+// A Marketplace contract that inherits from Owned and uses modifiers from Purchase
+// The contract allows users to purchase items by sending ether
+contract Marketplace is Owned, Purchase {
+    mapping(address => bool) public registeredBuyers;
+    mapping(address => uint) public buyerBalances;
+    uint public totalBalance;
+    uint public price;
+
+    // Initializing totalBalance and price
+    constructor(uint _price) public {
+        totalBalance = 0;
+        price = _price;
+    }
+
+    // Register a new buyer
+    function register(address buyer) public onlyOwner {
+        registeredBuyers[buyer] = true;
+        buyerBalances[buyer] = 0;
+    }
+
+    // Buy an item
+    function buy() public payable onlyAfter(1609459200) costs(price) {
+        require(registeredBuyers[msg.sender], "You need to be a registered buyer to purchase items.");
+        
+        totalBalance += msg.value;
+        buyerBalances[msg.sender] += msg.value;
+    }
+
+    // Withdraw funds
+    function withdraw() public onlyOwner {
+        owner.transfer(totalBalance);
+        totalBalance = 0;
+    }
+
+    // Returns the remaining balance of a buyer
+    function viewBalance() public view returns(uint) {
+        require(registeredBuyers[msg.sender], "You need to be a registered buyer to view your balance.");
+        return buyerBalances[msg.sender];
+    }
+}

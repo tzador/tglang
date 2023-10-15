@@ -1,0 +1,50 @@
+REPORT Z_CHECK_PRICES.
+
+* This program checks the prices of products based on input materials and vendors.
+
+DATA: materials TYPE TABLE OF MATNR, " table to store input materials
+      vendors TYPE TABLE OF LIFNR, " table to store input vendors
+      prices TYPE TABLE OF VKM_01, " table to store prices for materials and vendors
+      output_mat_vend TYPE TABLE OF ZM_VEND_PRICE. " table to store final output of material, vendor and price
+
+* Selection screen to input materials and vendors
+SELECTION-SCREEN: BEGIN OF BLOCK mat_vend WITH FRAME TITLE text-s01.
+PARAMETERS: p_materials TYPE materials, " input for materials
+            p_vendors TYPE vendors. " input for vendors
+SELECTION-SCREEN: END OF BLOCK mat_vend.
+
+* Data definition for internal table to store final output
+DATA: BEGIN OF it_final,
+        material TYPE materials, " material
+        vendor TYPE vendors, " vendor
+        price TYPE prices, " price
+      END OF it_final.
+
+* Fetch prices for input materials and vendors from database
+SELECT matnr lifnr vkorg vkgrp vtweg FROM vkv4 INTO TABLE prices WHERE
+             matnr IN materials
+             AND lifnr IN vendors.
+			 
+* Loop through input materials and vendors
+LOOP AT materials INTO DATA(material).
+  LOOP AT vendors INTO DATA(vendor).
+    CLEAR: it_final.
+    it_final-material = material.
+    it_final-vendor = vendor.
+* Compare prices for current material and vendor from database
+    LOOP AT prices INTO DATA(price) WHERE matnr = material AND lifnr = vendor.
+      it_final-price = price.
+* Append final output to internal table
+      APPEND it_final TO output_mat_vend.
+    ENDLOOP.
+  ENDLOOP.
+ENDLOOP.
+
+* Sort output based on vendor and material
+SORT output_mat_vend BY vendor, material.
+
+* Output final results to the screen
+WRITE: / 'Material', 20 'Vendor', 35 'Price'.
+LOOP AT output_mat_vend INTO DATA(final).
+  WRITE: / final-material, 20 final-vendor, 35 final-price.
+ENDLOOP.

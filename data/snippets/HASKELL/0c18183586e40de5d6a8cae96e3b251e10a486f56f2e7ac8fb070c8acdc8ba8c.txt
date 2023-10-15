@@ -1,0 +1,44 @@
+{-# LANGUAGE DataKinds, GADTs, TypeOperators #-}
+
+module TypeSafeArrays where
+
+import Prelude hiding (replicate)
+
+-- | A type-safe representation of the length of a list.
+data Nat = Z    -- ^ Zero
+         | S Nat -- ^ Successor of a natural number
+
+-- | Type-safe list
+data Vec n a where
+    Empty :: Vec Z a
+    Cons :: a -> Vec n a -> Vec (S n) a
+
+-- | Append two type-safe lists
+append :: Vec n a -> Vec m a -> Vec (n + m) a
+append Empty ys = ys
+append (Cons x xs) ys = Cons x (append xs ys)
+
+-- | Generate a type-safe list of the given length with a default value
+replicate :: Sing n -> a -> Vec n a
+replicate SZ _ = Empty
+replicate (SS n) x = Cons x (replicate n x)
+
+-- | Singleton type
+data Sing n where
+    SZ :: Sing Z
+    SS :: Sing n -> Sing (S n)
+
+-- | Index into a type-safe list
+index :: Vec n a -> Sing m -> a
+index (Cons x _)  SZ      = x
+index (Cons _ xs) (SS m)  = index xs m
+
+-- | Map a function over a type-safe list
+map :: (a -> b) -> Vec n a -> Vec n b
+map _ Empty = Empty
+map f (Cons x xs) = Cons (f x) (map f xs)
+
+-- | Fold a function over a type-safe list
+foldl :: (b -> a -> b) -> b -> Vec n a -> b
+foldl _ z Empty = z
+foldl f z (Cons x xs) = foldl f (f z x) xs

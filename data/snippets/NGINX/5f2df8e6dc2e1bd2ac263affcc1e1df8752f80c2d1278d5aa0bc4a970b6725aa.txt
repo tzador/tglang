@@ -1,0 +1,59 @@
+# Defining upstream servers
+upstream backend {
+    server backend1.example.com weight=5;
+    server backend2.example.com;
+    server unix:/tmp/backend3;
+    server backup1.example.com backup;
+}
+
+server {
+    listen 80; # Listening on port 80
+
+    # Setting up location for static files
+    location /static/ {
+        alias /var/www/static/;
+    }
+
+    # Setting up location for API endpoints
+    location /api/ {
+        proxy_pass http://backend/api/;
+    }
+
+    # Setting up location for user authentication
+    location /auth/ {
+        proxy_pass http://auth_server/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # Setting up reverse proxy for websocket connection
+    location /ws/ {
+        proxy_pass http://backend/ws/;
+        proxy_http_version 1.1; # Enabling HTTP/2 support
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_read_timeout 86400; # Setting longer timeout for websocket
+    }
+    
+    # Setting up caching for certain file types
+    location ~* .(jpg|jpeg|png|gif|ico|css|js)$ {
+        expires 30d; # Caching files for 30 days
+        add_header Cache-Control "public";
+    }
+    
+    # Setting up rate limiting for API requests
+    limit_req zone=api burst=5 nodelay;
+    limit_req_status 429;
+    
+    # Setting up SSL certificate and redirecting to HTTPS
+    listen 443 ssl;
+    ssl_certificate /etc/nginx/certs/example.crt;
+    ssl_certificate_key /etc/nginx/certs/example.key;
+    server_name example.com;
+    return 301 https://$server_name$request_uri;
+    
+    # Setting up gzip compression for response
+    gzip on;
+    gzip_types text/plain text/css application/json;
+    gzip_vary on;
+}

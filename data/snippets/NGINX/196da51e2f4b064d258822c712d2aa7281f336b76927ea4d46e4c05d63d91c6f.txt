@@ -1,0 +1,95 @@
+server {
+
+    # Server configuration block for HTTP requests to example.com
+
+    server_name example.com;
+
+    # Listen on port 80 and serve files from the 'public_html' directory
+    listen 80;
+    root /var/www/html/example.com/public_html;
+
+    # Enable gzip compression for faster page loads
+    gzip on;
+    gzip_types text/plain text/css application/json;
+    
+    # Redirect all requests to the https version of the site
+    if ($scheme = http) {
+        return 301 https://$server_name$request_uri;
+    }
+    
+    # Enable HTTP2 for improved performance
+    http2_push_preload on;
+    
+    # Allow access only to certain IP addresses
+    allow 192.168.1.1;
+    deny all;
+
+    # Location block for handling PHP files
+    location ~ \.php$ {
+        # Pass the request to the FastCGI server listening on port 9000
+        fastcgi_pass 127.0.0.1:9000;
+        # Set the document root for PHP files
+        root /var/www/html/example.com/public_html;
+        # Set the SCRIPT_FILENAME variable for PHP files
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        # Handle timeout and other FastCGI errors
+        include fastcgi_params;
+    }
+
+    # Configuration block for the WordPress site
+    location /wp-admin/ {
+        # Limit access to the admin area to a specific IP address
+        allow 192.168.1.1;
+        deny all;
+    }
+
+    # Configure caching for static files
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+        expires 1d;
+        add_header Cache-Control "public, must-revalidate";
+    }
+
+    # Deny access to hidden files and directories
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # Default location for all other requests
+    location / {
+        # Add trailing slash to the end of the URL
+        rewrite ^([^.]*[^/])$ $1/ permanent;
+        # Handle pretty URLs for WordPress
+        try_files $uri $uri/ /index.php?$args;
+    }
+
+    # Enable server-side caching
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=cache:10m inactive=60m;
+    proxy_cache_key "$scheme$request_method$host$request_uri";
+
+    # Pass requests to the PHP handler for non-wordpress files
+    # Pass all WordPress requests to the front-end controller
+    location ~ \.php$ {
+        fastcgi_split_path_info ^(/wp)(/.*)$;
+        fastcgi_pass unix:/run/php/php7.4-fpm.sock;
+        fastcgi_index index.php;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root/$fastcgi_script_name;
+        fastcgi_param PATH_INFO $fastcgi_path_info;
+        fastcgi_param PATH_TRANSLATED $document_root$fastcgi_path_info;
+    }
+
+    # Cache dynamic content for improved performance
+    location /wp-admin/admin-ajax.php {
+        proxy_cache cache;
+        proxy_cache_bypass $http_pragma;
+        proxy_cache_revalidate on;
+        proxy_cache_use_stale error timeout invalid_header updating http_500 http_502 http_503 http_504;
+        proxy_cache_lock on;
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+        proxy_cache_valid 200 302 60m;
+        proxy_cache_valid 404 30s;
+        add_header X-Cache $upstream_cache_status;
+    }
+}

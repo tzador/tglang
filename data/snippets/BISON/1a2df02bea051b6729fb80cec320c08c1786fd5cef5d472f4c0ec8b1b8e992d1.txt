@@ -1,0 +1,98 @@
+%{
+    /* BISON file for a mini calculator */
+    
+    #include <stdio.h>
+    #include <stdlib.h>
+    extern int yylex(); // extern function declaration
+    extern char *yytext; // extern variable declaration
+    
+    #define NUMBER 257 // token for number
+    #define VARIABLE 258 // token for variable
+    #define EQUALS 259 // token for equals sign
+    
+    int variables[26]; // array to hold variables from 'a' to 'z'
+    
+    // function to get variable index from token
+    int var_index(char c){
+        int index;
+        if(islower(c)){
+            index = c - 'a'; // converting lowercase letters to index value (0-25)
+        } else{
+            index = c - 'A'; // converting uppercase letters to index value (0-25)
+        }
+        return index;
+    }
+%}
+
+/* defining grammar rules */
+%token NUMBER VARIABLE EQUALS
+%left '+' '-' // left associativity for addition and subtraction
+%left '*' '/' // left associativity for multiplication and division
+%left '^' // left associativity for exponentiation
+%start equation // starting rule for the grammar
+
+%%
+
+equation:
+    VAR EQUALS exp { // rule to handle variable assignment
+        variables[var_index($1[0])] = $3; // assigns value to variable's index in array
+    }
+    | exp
+
+exp:
+    exp '+' exp { $$ = $1 + $3; } // rule to handle addition
+    | exp '-' exp { $$ = $1 - $3; } // rule to handle subtraction
+    | exp '*' exp { $$ = $1 * $3; } // rule to handle multiplication
+    | exp '/' exp { $$ = $1 / $3; } // rule to handle division
+    | exp '^' exp { $$ = pow($1, $3); } // rule to handle exponentiation
+    | NUMBER { $$ = atoi($1); } // rule to handle numbers
+    | VARIABLE { $$ = variables[var_index($1[0])]; } // rule to handle variables
+    ;
+
+%%
+
+// yylex() function to get tokens from input
+int yylex(){
+    int c;
+    while((c = getchar()) == ' ' || c == '\t') // ignoring whitespace characters
+        ;
+    // handling variable inputs
+    if(isalpha(c)){
+        yytext[0] = c;
+        return VARIABLE;
+    }
+    // handling number inputs
+    if(isdigit(c)){
+        int i = 0;
+        yytext[i] = c;
+        while(isdigit(c = getchar())){ // looping until non-digit character is found
+            yytext[++i] = c; // storing digits to yytext array
+        }
+        yytext[i+1] = '\0'; // adding null character at the end
+        return NUMBER;
+    }
+    return c;
+}
+
+// yyparse() function to parse the tokens and generate output
+int yyparse(){
+    int token;
+    while(token = yylex()){ // looping until end of input is reached or error is encountered
+        if(token == NUMBER){ // parsing and printing numbers
+            printf("Number: %s\n", yytext);
+        } else if(token == VARIABLE){ // parsing and printing variables
+            printf("Variable: %c\n", yytext[0]);
+        } else if(token == EQUALS){ // parsing and printing equals sign
+            printf("Equals sign\n");
+        } else{
+            printf("Error: invalid token\n"); // printing error message for invalid tokens
+            return -1; // returning error value
+        }
+    }
+    return 0; // returning success value
+}
+
+int main(){
+    yyparse(); // calling yyparse() function
+    return 0;
+}

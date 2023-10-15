@@ -1,0 +1,64 @@
+{-# LANGUAGE MultiWayIf #-} -- Enables the use of multi-way if statements
+
+-- | Custom data type representing a binary tree
+data Tree a = Empty | Node a (Tree a) (Tree a) deriving (Show, Eq) 
+
+-- | Function to insert a value into a binary tree
+insert :: Ord a => a -> Tree a -> Tree a
+insert x Empty = Node x Empty Empty
+insert x (Node val left right) = 
+    if x < val
+        then Node val (insert x left) right -- Value goes to the left subtree if less than current node's value
+    else if x > val
+        then Node val left (insert x right) -- Value goes to the right subtree if greater than current node's value
+    else
+        Node val left right -- Value is already in the tree, no duplicate insertion
+
+-- | Function to check if a value exists in a binary tree
+exists :: Ord a => a -> Tree a -> Bool
+exists x Empty = False
+exists x (Node val left right) =
+    if x < val
+        then exists x left -- Check left subtree if value is less than current node
+    else if x > val
+        then exists x right -- Check right subtree if value is greater than current node
+    else
+        True -- Value is equal to current node, exists in tree
+
+-- | Function to delete a value from a binary tree
+delete :: Ord a => a -> Tree a -> Tree a
+delete x Empty = Empty
+delete x (Node val left right) =
+    if x < val
+        then Node val (delete x left) right -- Delete value from left subtree if less than current node's value
+    else if x > val
+        then Node val left (delete x right) -- Delete value from right subtree if greater than current node's value
+    else
+        case (left, right) of
+            (Empty, Empty) -> Empty -- If current node is a leaf, delete it
+            (Empty, _) -> right -- If left subtree is empty, replace current node with right subtree
+            (_, Empty) -> left -- If right subtree is empty, replace current node with left subtree
+            otherwise -> let 
+                            (val', right') = findMin right -- Find minimum value in right subtree
+                            in Node val' left (delete val' right') -- Replace current node with minimum value and deleted right subtree
+
+-- | Function to find the minimum value in a tree and return both the value and the updated tree
+findMin :: Ord a => Tree a -> (a, Tree a)
+findMin (Node val Empty right) = (val, right)
+findMin (Node val left right) = let
+                                    (val', left') = findMin left -- Find minimum value in left subtree
+                                    in (val', Node val left' right) -- Return minimum value and updated tree
+
+
+{- Test case:
+*Main> let nums = foldr insert Empty [5, 3, 7, 1, 4, 6, 9] -- Create a binary tree with values 5, 3, 7, 1, 4, 6, 9
+*Main> exists 4 nums -- Check if value 4 exists in the tree
+True
+*Main> nums -- Print the tree
+Node 5 (Node 3 (Node 1 Empty Empty) (Node 4 Empty Empty)) (Node 7 (Node 6 Empty Empty) (Node 9 Empty Empty))
+*Main> let nums' = delete 4 nums -- Delete value 4 from the tree
+*Main> exists 4 nums' -- Check if value 4 still exists in the tree
+False
+*Main> nums' -- Print the updated tree
+Node 5 (Node 3 (Node 1 Empty Empty) Empty) (Node 7 (Node 6 Empty Empty) (Node 9 Empty Empty))
+-}

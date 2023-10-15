@@ -1,0 +1,29 @@
+-module(chat_server).
+-export([start/0, stop/0, broadcast/2, handle_message/3]).
+
+%%% The chat server module serves as a central hub for all incoming messages
+%%% and broadcasts them to all connected clients.
+
+%%% start function starts the server and creates a process for handling incoming messages
+%%% @spec start() -> pid()
+start() ->
+    spawn(fun() -> handle_message([]) end).
+
+%%% stop function terminates the server process and stops the chat server
+%%% @spec stop() -> ok
+stop() ->
+    exit(whereis(chat_server), shutdown).
+
+%%% broadcast function sends a message to all connected clients
+%%% @spec broadcast(atom(), term()) -> ok
+broadcast(Tag, Message) ->
+    [P ! {Tag, Message} || P <- registered()].
+
+%%% handle_message function waits for incoming messages and broadcasts them to all connected clients
+%%% @spec handle_message(list()) -> ok
+handle_message(Messages) ->
+    receive
+        {From, Message} ->
+            broadcast(chat, {From, Message}),
+            handle_message([Message | Messages])
+    end.

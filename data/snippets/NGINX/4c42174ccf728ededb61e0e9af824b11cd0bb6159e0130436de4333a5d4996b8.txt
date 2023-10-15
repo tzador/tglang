@@ -1,0 +1,72 @@
+server {
+    # Set server name
+    server_name example.com;
+    
+    # Configure SSL
+    listen 443 ssl;
+    ssl_certificate /path/to/certificate;
+    ssl_certificate_key /path/to/certificate/key;
+    
+    # Configure gzip compression
+    gzip on;
+    gzip_types text/plain application/xml;
+    
+    # Set cache
+    location ~* \.(css|js|png|jpg|jpeg|gif|ico|svg)$ {
+        # Define cache parameters
+        expires max;
+        add_header Cache-Control "public";
+        
+        # Enable cache
+        proxy_cache_path /path/to/cache levels=1:2 keys_zone=cache_one:10m inactive=60m;
+        
+        # Set cache key
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+        
+        # Set cache handler
+        proxy_cache cache_one;
+        proxy_cache_valid 200 60m;
+        proxy_cache_valid 404 5m;
+        
+        # Set cache bypass
+        proxy_cache_bypass $http_pragma;
+        proxy_no_cache $http_pragma;
+    }
+    
+    # Set reverse proxy
+    location / {
+        # Set proxy parameters
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+    
+    # Set error pages
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+    
+    # Configure custom logging
+    access_log /var/log/nginx/example.com_access.log combined;
+    error_log /var/log/nginx/example.com_error.log;
+    
+    # Set server optimizations
+    client_max_body_size 10m;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 15;
+    
+    # Enable server caching
+    proxy_cache_key "$scheme$request_method$host$request_uri";
+    proxy_cache_lock on;
+    proxy_cache_revalidate on;
+    proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+
+}
+
+server {
+    # Set server name for www subdomain
+    server_name www.example.com;
+    
+    # Redirect to main domain
+    return 301 $scheme://example.com$request_uri;
+}

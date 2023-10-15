@@ -1,0 +1,45 @@
+defmodule Authentication do # defines a module named Authentication
+
+  @moduledoc """
+  This module handles user authentication using bcrypt hashing algorithm and JWTs
+  """ # module documentation
+
+  require Logger # requires the Logger library for debugging
+
+  # function to generate a salted hash using bcrypt
+  defp generate_hash(password, salt \\ "") do # private function
+    argon2 = Comeonin.Bcrypt # assigns the Comeonin.Bcrypt library to a variable
+    text = to_string(password) |> comeonin.hash # converts the password to string and generates the hash using comeonin library
+    text <> "-" <> salt |> argon2.add_salt # adds the salt to the hash
+  end
+
+  # function to verify if a password matches the hash
+  defp verify_hash(password, hash) do # private function
+    argon2 = Comeonin.Bcrypt # assigns the Comeonin.Bcrypt library to a variable
+    [text, salt] = String.split(hash, "-") # splits the hash into text and salt
+    text = to_string(password) |> comeonin.hash # converts the password to string and generates the hash using comeonin library
+    argon2.check_pass(text, hash) # compares the generated hash with the provided hash
+  end
+
+  # function to generate JWT token
+  defp generate_token(user_id) do # private function
+    quote do
+      token = {:jwt, ~s{MySuperSecretKey}}
+      Phoenix.Token.sign(ExpertApi.Endpoint, "user-auth", %{"user_id" => unquote(user_id)}) # generates a token with user_id as payload using Phoenix.Token library
+      |> Map.put(:aud, unquote(Utils.get_pref("jwt_audience"))) # sets the audience of the JWT token
+      token
+    end
+  end
+
+  # function to verify JWT token
+  defp verify_token(token) do # private function
+    [aud, claims] = to_string(token) |> Phoenix.Token.verify("user-auth", ~s{MySuperSecretKey}) # verifies the token and extracts the audience and claims
+    case aud == unquote(Utils.get_pref("jwt_audience")) do # checks if the audience is valid
+      true -> # if valid, return the extracted claims
+        claims
+      false -> # if invalid, log an error and return nil
+        Logger.error("Invalid JWT token audience")
+        nil
+    end
+  end
+end

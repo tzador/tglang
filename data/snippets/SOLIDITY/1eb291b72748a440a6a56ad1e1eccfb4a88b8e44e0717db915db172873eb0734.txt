@@ -1,0 +1,200 @@
+/**
+    @title MultiSignatureWallet
+    @dev Contract for managing multi-signature wallets
+ */
+contract MultiSignatureWallet {
+    // Variables
+    address[] public owners; // Array of wallet owners
+    uint256 public numConfirmationsRequired; // Number of required confirmations for a transaction
+    mapping(address => bool) public isOwner; // Mapping to track wallet owners
+    mapping(address => bool) public isConfirmed; // Mapping to track confirmed owners for a transaction
+    mapping(address => uint256) public currentNonce; // Mapping to track latest nonce for each owner
+    mapping(address => mapping(uint256 => bytes32)) public signedMessageHashes; // Mapping to track signed message hash for each nonce and owner
+    mapping(uint256 => Transaction) public transactions; // Mapping to track all transactions
+    mapping(address => mapping(uint256 => bool)) public hasExecuted; // Mapping to track executed transactions for each owner and nonce
+
+    // Struct for Transactions
+    struct Transaction {
+        address initiator; // Address of the transaction initiator
+        address destination; // Address of the transaction destination
+        uint256 value; // Amount to be transferred in the transaction
+        bytes data; // Data payload for the transaction
+        bool executed; // Boolean to track if the transaction has been executed
+    }
+
+    // Events
+    event Deposit(address indexed sender, uint256 value); // Event to be emitted when funds are deposited
+    event TransactionCreated(uint256 indexed nonce, address indexed initiator, address indexed destination, uint256 value, bytes data); // Event to be emitted when a new transaction is created
+    event OwnerAdded(address indexed newOwner); // Event to be emitted when a new owner is added to the wallet
+    event OwnerRemoved(address indexed removedOwner); // Event to be emitted when an owner is removed from the wallet
+    event Confirmation(address indexed owner, uint256 indexed nonce); // Event to be emitted when an owner confirms a transaction
+    event Execution(uint256 indexed nonce, address indexed destination, uint256 value, bytes data); // Event to be emitted when a transaction is executed
+    event RevokeConfirmation(address indexed owner, uint256 indexed nonce); // Event to be emitted when an owner revokes their confirmation for a transaction
+
+    // Modifiers
+    modifier onlyOwner() {
+        require(isOwner[msg.sender] == true, "Sender is not a wallet owner");
+        _;
+    }
+
+    modifier transactionExists(uint256 _nonce) {
+        require(transactions[_nonce].initiator != address(0), "Transaction does not exist");
+        _;
+    }
+
+    modifier notExecuted(uint256 _nonce) {
+        require(transactions[_nonce].executed == false, "Transaction has already been executed");
+        _;
+    }
+
+    modifier notConfirmed(uint256 _nonce) {
+        require(isConfirmed[msg.sender] == false, "Owner has already confirmed this transaction");
+        _;
+    }
+
+    modifier hasEnoughConfirmations(uint256 _nonce) {
+        require(getConfirmationCount(_nonce) >= numConfirmationsRequired, "Transaction does not have enough confirmations");
+        _;
+    }
+
+    modifier correctSignature(address _signer, uint256 _nonce, bytes32 _hash, bytes _signature) {
+        require(_signer == ecrecover(_hash, parseSignature(_signature)[0], parseSignature(_signature)[1], parseSignature(_signature)[2]), "Signature is not from the correct signer");
+        require(isOwner[_signer] == true, "Signer is not a wallet owner");
+        require(getNonce(_signer) == _nonce, "Nonce is incorrect");
+        require(isConfirmed[_signer] == false, "Owner has already confirmed this transaction");
+        _;
+    }
+
+    // Constructor function
+    constructor(address[] _owners, uint256 _numConfirmationsRequired) public {
+        require(_owners.length > 0, "Wallet must have at least one owner");
+        require(_numConfirmationsRequired > 0 && _numConfirmationsRequired <= _owners.length, "Invalid number of required confirmations");
+        for (uint256 i = 0; i < _owners.length; i++) {
+            require(_owners[i] != address(0), "Invalid owner address");
+            isOwner[_owners[i]] = true;
+            owners.push(_owners[i]);
+        }
+        numConfirmationsRequired = _numConfirmationsRequired;
+    }
+
+    // Fallback function
+    function () external payable {
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    /**
+        @dev Function to create a new transaction
+        @param _destination Address of the transaction destination
+        @param _value Amount to be transferred in the transaction
+        @param _data Data payload for the transaction
+     */
+    function createTransaction(address _destination, uint256 _value, bytes _data) public onlyOwner {
+        require(_destination != address(0), "Invalid transaction destination");
+        uint256 nonce = getNonce(msg.sender);
+        transactions[nonce] = Transaction(msg.sender, _destination, _value, _data, false);
+        emit TransactionCreated(nonce, msg.sender, _destination, _value, _data);
+    }
+
+    /**
+        @dev Function to add a new owner to the wallet
+        @param _newOwner Address of the new owner to be added
+     */
+    function addOwner(address _newOwner) public onlyOwner {
+        require(_newOwner != address(0), "Invalid owner address");
+        require(isOwner[_newOwner] == false, "Address is already a wallet owner");
+        isOwner[_newOwner] = true;
+        owners.push(_newOwner);
+        emit OwnerAdded(_newOwner);
+    }
+
+    /**
+        @dev Function to remove an owner from the wallet
+        @param _owner Address of the owner to be removed
+     */
+    function removeOwner(address _owner) public onlyOwner {
+        require(_owner != address(0), "Invalid owner address");
+        require(isOwner[_owner] == true, "Address is not a wallet owner");
+        require(owners.length > 1, "Cannot remove last owner");
+        isOwner[_owner] = false;
+        for (uint256 i = 0; i < owners.length; i++) {
+            if (owners[i] == _owner) {
+                owners[i] = owners[owners.length - 1];
+                break;
+            }
+        }
+        owners.pop();
+        emit OwnerRemoved(_owner);
+    }
+
+    /**
+        @dev Function for owners to confirm a transaction
+        @param _nonce Nonce of the transaction to be confirmed
+        @param _hash Hash of the signed message
+        @param _signature Signature of the signed message
+     */
+    function confirmTransaction(uint256 _nonce, bytes32 _hash, bytes _signature) public onlyOwner transactionExists(_nonce) notExecuted(_nonce) notConfirmed(_nonce) correctSignature(msg.sender, _nonce, _hash, _signature) {
+        transactions[_nonce].executed = true;
+        isConfirmed[msg.sender] = true;
+        emit Confirmation(msg.sender, _nonce);
+        if (getConfirmationCount(_nonce) == numConfirmationsRequired) {
+            executeTransaction(_nonce);
+        }
+    }
+
+    /**
+        @dev Function to revoke an owner's confirmation for a pending transaction
+        @param _nonce Nonce of the transaction to be revoked
+     */
+    function revokeConfirmation(uint256 _nonce) public onlyOwner transactionExists(_nonce) notExecuted(_nonce) hasEnoughConfirmations(_nonce) {
+        isConfirmed[msg.sender] = false;
+        emit RevokeConfirmation(msg.sender, _nonce);
+    }
+
+    /**
+        @dev Function to execute a pending transaction
+        @param _nonce Nonce of the transaction to be executed
+     */
+    function executeTransaction(uint256 _nonce) private hasEnoughConfirmations(_nonce) {
+        transactions[_nonce].destination.transfer(transactions[_nonce].value);
+        emit Execution(_nonce, transactions[_nonce].destination, transactions[_nonce].value, transactions[_nonce].data);
+        transactions[_nonce].executed = true;
+        for (uint256 i = 0; i < owners.length; i++) {
+            isConfirmed[owners[i]] = false;
+        }
+    }
+
+    /**
+        @dev Function to get the number of confirmations for a pending transaction
+        @param _nonce Nonce of the transaction
+        @return Number of confirmations for the transaction
+     */
+    function getConfirmationCount(uint256 _nonce) public view returns (uint256 count) {
+        for (uint256 i = 0; i < owners.length; i++) {
+            if (isConfirmed[owners[i]] == true && hasExecuted[owners[i]][_nonce] == false) {
+                count++;
+            }
+        }
+    }
+
+    /**
+        @dev Function to get the nonce for a specific owner
+        @param _owner Address of the owner
+        @return Latest nonce for the owner
+     */
+    function getNonce(address _owner) public view returns (uint256 nonce) {
+        nonce = currentNonce[_owner];
+    }
+
+    /**
+        @dev Function to parse a signature into its components
+        @param _signature Signature to be parsed
+        @return Array of the signature components ([v, r, s])
+     */
+    function parseSignature(bytes _signature) private pure returns (uint8[] memory sig) {
+        sig = new uint8[](65);
+        for (uint8 i = 0; i < 65; i++) {
+            sig[i] = uint8(_signature[i]);
+        }
+
+    }
+}

@@ -1,0 +1,152 @@
+/* Initialize Enemy class
+ * This class controls the behavior and attributes of enemies in the game
+ */
+
+class Enemy extends Pawn
+    /* Properties */
+    var name; //holds the name of the enemy
+    var health; //current health of the enemy
+    var maxHealth; //maximum health the enemy can have
+    var speed; //movement speed of the enemy
+    var damage; //amount of damage the enemy can deal
+    var type; //type of enemy (e.g. melee, ranged, boss)
+
+    /* Functions */
+    function BeginPlay()
+    {
+        //Call parent function
+        Super.BeginPlay();
+
+        //Set default values
+        name = "Enemy";
+        health = 100;
+        maxHealth = 100;
+        speed = 5;
+        damage = 10;
+        type = "Melee";
+    }
+
+    /* Move towards player
+     * @param delta - the time between frames
+     */
+    function MoveTowardsPlayer(delta)
+    {
+        //Get player's current location
+        local PlayerController pc;
+        pc = Level.GetLocalPlayerController();
+        local Vector playerLocation;
+        playerLocation = pc.Pawn.Location;
+
+        //Calculate direction to move towards player
+        local Vector direction;
+        direction = Vector(playerLocation - Location);
+        direction.Z = 0;
+        direction = direction.SafeNormal();
+
+        //Move the enemy towards player at its set speed
+        Acceleration = direction * speed;
+    }
+
+    /* Take damage
+     * @param amount - the amount of damage to take
+     */
+    function TakeDamage(int amount)
+    {
+        //Reduce health by given amount
+        health -= amount;
+
+        //Check if enemy is still alive
+        if (health <= 0)
+        {
+            //Destroy this enemy
+            Level.DestroyActor(self);
+        }
+    }
+
+    /* Attack player
+     * @param player - the player being attacked
+     */
+    function Attack(class PlayerPawn player)
+    {
+        //Check if player is within attack range
+        local Vector directionToPlayer;
+        directionToPlayer = Vector(player.Location - Location);
+        if (directionToPlayer.SizeSquared() <= ((50 * 50) * (50 * 50)))
+        {
+            //Deal damage to player
+            player.TakeDamage(damage);
+        }
+    }
+    
+    /* Functions for spawning specific types of enemies */
+    
+    /* Spawns a melee enemy at the given location
+     * @param spawnLocation - the location to spawn the enemy at
+     */
+    function SpawnMeleeEnemy(Vector spawnLocation)
+    {
+        local Enemy newEnemy;
+        
+        //Spawn enemy at given location
+        newEnemy = spawn(class'Enemy', none, "", spawnLocation);
+        
+        //Set enemy's type to melee
+        newEnemy.type = "Melee";
+    }
+    
+    /* Spawns a ranged enemy at the given location
+     * @param spawnLocation - the location to spawn the enemy at
+     */
+    function SpawnRangedEnemy(Vector spawnLocation)
+    {
+        local Enemy newEnemy;
+        
+        //Spawn enemy at given location
+        newEnemy = spawn(class'Enemy', none, "", spawnLocation);
+        
+        //Set enemy's type to ranged
+        newEnemy.type = "Ranged";
+    }
+    
+    /* Boss enemy class, inherits from Enemy */
+    class Boss extends Enemy
+    {
+        /* Override BeginPlay function to set unique properties */
+        function BeginPlay()
+        {
+            //Call parent function
+            Super.BeginPlay();
+            
+            //Set boss specific properties
+            name = "Boss";
+            health = 500;
+            maxHealth = 500;
+            speed = 10;
+            damage = 20;
+            type = "Boss";
+        }
+        
+        /* Override TakeDamage function to add boss specific behavior */
+        function TakeDamage(int amount)
+        {
+            //Apply damage reduction for boss
+            amount = amount / 2;
+            
+            //Call parent function
+            Super.TakeDamage(amount);
+        }
+        
+        /* Override Attack function to add boss specific behavior */
+        function Attack(class PlayerPawn player)
+        {
+            //Check if player is within attack range
+            local Vector directionToPlayer;
+            directionToPlayer = Vector(player.Location - Location);
+            if (directionToPlayer.SizeSquared() <= ((100 * 100) * (100 * 100)))
+            {
+                //Deal increased damage to player
+                player.TakeDamage(damage * 2);
+            }
+        }
+    }
+}

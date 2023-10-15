@@ -1,0 +1,123 @@
+%{
+#include <stdio.h> //Include standard input/output library
+#define INITIAL 0 //Define a constant for initial value
+%}
+
+/*Declare tokens used in the grammar as integers*/
+%token <iValue> INTEGER
+%token <sValue> STRING
+%token ANY_TYPE
+
+/*Define start symbol and grammar rules*/
+%start Program
+Program : DeclarationList
+        | DeclarationList Program
+        ;
+
+DeclarationList : Declaration
+                | DeclarationList Declaration
+                ;
+
+Declaration : INTEGER_VAR
+            | STRING_VAR
+            ;
+
+INTEGER_VAR : INTEGER ID '=' INTEGER { printf("Integer variable declaration: %d\n", $1); }
+            ;
+
+STRING_VAR : STRING ID '=' STRING { printf("String variable declaration: %s\n", $1); }
+           ;
+
+ANY_TYPE : ID '=' ANY_TYPE { printf("Assigning value to variable: %s\n", $1); }
+         ;
+
+ID : [a-zA-Z]+
+   ;
+
+INTEGER : [0-9]+
+        ;
+
+STRING : '"' [a-zA-Z0-9 ]+ '"'
+       ;
+
+%%
+
+/*Printing error message if unknown token is encountered*/
+void yyerror (char *s)
+{
+  fprintf (stderr, "%s\n", s);
+}
+
+/*Main function to call the parser and initiate parsing*/
+int main (void)
+{
+  printf("Enter program:\n"); //Prompt user to enter program
+  yyparse(); //Calls the parser
+  return 0; //Return 0 to indicate successful execution
+}
+
+/*Lexical analyzer function to scan tokens from input*/
+int yylex (void)
+{
+  int c = getchar(); //Get character from standard input
+
+  /*Check for end of input stream*/
+  if (feof(stdin)) return 0;
+
+  /*Skip white space characters*/
+  while (isspace(c))
+    c = getchar();
+
+  /*Check for tokens and return corresponding token code*/
+  if (c == '+' || c == '-' || c == '*' || c == '/')
+    return c;
+
+  if (isdigit(c))
+    {
+      ungetc(c, stdin); //Put character back in input stream
+      scanf("%d", &yylval.iValue); //Scan integer and store in yylval
+      return INTEGER; //Return token code for integer
+    }
+
+  if (isalpha(c))
+    {
+      char id[25]; //Buffer to store identifier
+      int i = 0; //Counter variable
+
+      id[i] = c; //Add first character to buffer
+
+      /*Loop through characters and add to buffer until whitespace or special character is encountered*/
+      while ((c = getchar()) != ' ' && c != '+' && c != '-' && c != '*' && c != '/')
+	{
+	  i++; //Increment counter
+	  id[i] = c; //Add character to buffer
+	}
+      id[i] = '\0'; //Add null terminator to indicate end of string
+
+      ungetc(c, stdin); //Put character back in input stream
+      yylval.sValue = id; //Store identifier in yylval
+      return ID; //Return token code for identifier
+    }
+
+  if(c == '"')
+    {
+      char string[50]; //Buffer to store string
+      int i = 0; //Counter variable
+
+      string[i] = c; //Add first quotation mark to buffer
+
+      /*Loop through characters and add to buffer until closing quotation mark is encountered*/
+      while ((c = getchar()) != '"')
+	{
+	  i++; //Increment counter
+	  string[i] = c; //Add character to buffer
+	}
+      string[i+1] = '\0'; //Add null terminator to indicate end of string
+
+      yylval.sValue = string; //Store string in yylval
+      return STRING; //Return token code for string
+    }
+
+  /*If no token is found, return error*/
+  yyerror("Unknown token");
+}

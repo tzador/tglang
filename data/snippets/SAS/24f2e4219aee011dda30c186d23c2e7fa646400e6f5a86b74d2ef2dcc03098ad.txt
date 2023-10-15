@@ -1,0 +1,53 @@
+/* This is a SAS code snippet for creating a predictive model using generalized linear models */
+
+/* Importing data from a CSV file */
+DATA orders;
+	INFILE '/data/orders.csv' DLM=',' FIRSTOBS=2;
+	LENGTH Customer_ID 8.
+		Product_Category $20.
+		Product_Name $50.
+		Quantity 8.
+		Order_Date $10.;
+	INPUT Customer_ID Product_Category Product_Name Quantity Order_Date;
+
+/* Data Cleaning */
+DATA orders_clean;
+	SET orders;
+	FORMAT Order_Date DATE9.;
+	RUN;
+
+/* Exploratory Data Analysis */
+PROC FREQ data=orders_clean;
+	TABLES Product_Category / MISSING NOCUM NOCOL NOPERCENT NOROW NOFREQ;
+	FORMAT COUNT w.d;
+RUN;
+
+/* Encoding categorical variables */
+DATA orders_encoded;
+	SET orders_clean;
+	FORMAT Order_Date DATE9.;
+	IF Product_Category = 'Electronics' THEN Electronics = 1; /* creating dummy variables */
+	ELSE Electronics = 0;
+	IF Product_Category = 'Clothing' THEN Clothing = 1;
+	ELSE Clothing = 0;
+	IF Product_Category = 'Beauty' THEN Beauty = 1;
+	ELSE Beauty = 0;
+RUN;
+
+/* Splitting data into training and testing sets */
+PROC SURVEYSELECT data=orders_encoded out=orders_train out=orders_test
+	n=( SELECT 100000; ) /* 100,000 observations selected for training */
+	method=SRS; /* Simple Random Sampling */
+RUN;
+
+/* Building the model using GLM procedure */
+PROC GLM data=orders_train;
+	CLASS Electronics Clothing Beauty / PARAM=GLM;
+	MODEL Quantity = Electronics Clothing Beauty;
+	OUTPUT out=predicted ORDER=PRED(Predicted_Qty);
+RUN;
+
+/* Evaluating the model */
+PROC ROCCURVE data=orders_test;
+	VAR PRED;
+	RUN;

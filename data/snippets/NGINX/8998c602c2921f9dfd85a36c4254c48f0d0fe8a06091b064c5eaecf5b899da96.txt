@@ -1,0 +1,138 @@
+#user directive sets user and user group used by worker processes worker_processes auto; 
+#The number of worker processes should be set to the number of CPU cores on your server
+
+events {
+  #Sets how much connections Worker Processes will accept. 
+  #The number of connections is limited by the OS if worker_connections is defined by setrlimit system call
+  worker_connections 1024;
+}
+
+http {
+  #Activates and defines multi-versioned Perl
+  perl_cgi_cache on;
+
+  #Include configuration files with extra settings for PHP, Wordpress and etc.
+  include /etc/nginx/conf.d/*.conf;
+
+  #Sets the maximum of opened files. It's important when working with large amount of clients
+  worker_rlimit_nofile 20000;
+
+  #Sets the number of connections between the browser and NGINX for keep-alive connections
+  keepalive_timeout 20s;
+
+  #Enables or disables automatic rewrite of "https://" in a proxied Location header field. The value can be "off" (default) or "on"
+  #Note that only the scheme of the URL is changed (e.g. http:// to https://).
+  proxy_redirect off;
+
+  #Specifies the maximum number of requests that can be served through a keep-alive connection
+  keepalive_requests 1000;
+
+  #Sets the bucket size for the server names hash tables. Setting this value to a larger number alleviates the DNS resolution 
+  #processing. Setting this value to a smaller one instigates the opposite effect, but may also negatively affect worker efficiency
+  server_names_hash_bucket_size 64;
+
+  #Sets the cache size for of client request body. The first argument sets a buffer size
+  #The maximum size of buffer should be set to the size of the largest request body
+  client_body_buffer_size 10K;
+
+  #Defines conditions under which the amount of disk space used by a cache will be checked before storing a response to it
+  proxy_cache_bypass $http_pragma;
+
+  #Excludes types from caching Check proxy_no_cache for more details
+  proxy_cache_bypass expire;
+
+  #Find a root set of the file system for a received request
+  include virtual.conf;
+
+  #Defines a cache key
+  set $cache_key "$scheme$request_method$host$uri$is_args$args";
+
+  #Handle errors for all server blocks
+  error_page 404 /error/404.html;
+  location /error/ {
+      internal;
+      alias /var/www/error/;
+  }
+
+  #Defines default server
+  server {
+    listen 80 default_server;
+    server_name _;
+
+    #Sets cache time for static files
+    expires 1h;
+
+    #Sets buffer size and timeouts
+    proxy_buffer_size 128k;
+    proxy_buffers 4 256k;
+    proxy_busy_buffers_size 256k;
+
+    #Sets the Content-Type of a response to a specified content type
+    default_type application/octet-stream;
+
+    #Sets the length for internal and client error log message
+    log_format 'Message sent: $message';
+    rewrite_log on;
+
+    #Sets error codes and the associated URI to return instead
+    error_page 404 /not_found.html;
+    error_page 500 502 503 504 /internal_500.html;
+
+    #Sets client timeouts
+    client_body_timeout 10s;
+    client_header_timeout 10s;
+    keepalive_timeout 60s;
+    send_timeout 120s;
+
+    #Sets cache time for html files
+    location ~* .(html|css|gif|jpg|jpeg|zip|txt|js)$ {
+        root /usr/share/nginx/html;
+        expires max;
+    }
+
+    #Cache settings for video files
+    location ~ .(mp4|flv)$ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    #Sets cache time for xml and json files, as well as specific file extensions
+    location ~* .(xml|json|mp3)$ {
+        expires 7d;
+    }
+
+    #Sets cache time for PHP generated files, disables gzip compression
+    location ~ .php$ {
+        include /etc/nginx/fastcgi_params;
+        fastcgi_pass unix:/var/run/php-fpm/php-fpm.sock;
+
+        #Sets proxy caching and disables gzip compression
+        proxy_cache ONE;
+        proxy_set_header Accept-Encoding "";
+
+        #Enables caching and sets cache length for specific sets of URI
+        proxy_cache_valid 200 5m;
+        proxy_cache_valid 404 1m;
+
+        #Enables per-request caching
+        proxy_cache_bypass $http_pragma;
+        proxy_cache_revalidate on;
+
+        #Sets the maximum number and size of temporary files valued in the buffer used for reading
+        fastcgi_buffer_size 128k;
+        fastcgi_buffers 4 256k;
+        fastcgi_busy_buffers_size 256k;
+    }
+
+    #Sets cached file location and configuration settings for requests to specific URI
+    location /files/ {
+        proxy_cache_path /var/cache/one levels=1:2 keys_zone=one:30m inactive=1d max_size=500m;
+        proxy_temp_path /var/cache/tmp;
+    }
+
+    #Ignore gzip compression from backend server
+    location /forum/ {
+        proxy_pass http://forum.example.com;
+        proxy_ignore_headers Set-Cookie;
+    }
+  }
+}

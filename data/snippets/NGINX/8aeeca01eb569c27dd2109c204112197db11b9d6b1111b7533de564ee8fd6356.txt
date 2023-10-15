@@ -1,0 +1,81 @@
+# Server block to redirect HTTP requests to HTTPS
+server {
+    listen 80; # Listen for HTTP requests on port 80
+    server_name example.com www.example.com; # Define the server names
+    
+    # Define the location block for the root path of the server
+    location / {
+        # Permanent redirect to the HTTPS version of the URL
+        return 301 https://$server_name$request_uri;
+    }
+}
+
+# Server block for the HTTPS version of the website
+server {
+    listen 443 ssl; # Listen for HTTPS requests on port 443
+    server_name example.com; # Define the server name
+    
+    # Specify the SSL certificate and key files
+    ssl_certificate /etc/nginx/ssl/example.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/example.com.key;
+    
+    # Define which protocols and ciphers should be used for secure connections
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
+    ssl_prefer_server_ciphers on;
+    
+    # Enable HTTP Strict Transport Security to force HTTPS usage
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+    
+    # Define the location block for the root path of the server
+    location / {
+        # Specify the root directory of the server and index file
+        root /var/www/example.com;
+        index index.html;
+        
+        # Enable caching for static files
+        expires 1d;
+        add_header Cache-Control "public";
+        
+        # Protect against cross-site scripting attacks
+        add_header X-XSS-Protection "1; mode=block";
+        
+        # Enable gzip compression for faster content delivery
+        gzip on;
+        gzip_min_length 1000;
+        gzip_types application/javascript text/css text/plain;
+    }
+    
+    # Define the location block for serving static files
+    location /static/ {
+        alias /var/www/example.com/static/;
+        
+        # Enable caching for static files
+        expires 1d;
+        add_header Cache-Control "public";
+        
+        # Protect against cross-site scripting attacks
+        add_header X-XSS-Protection "1; mode=block";
+        
+        # Enable gzip compression for faster content delivery
+        gzip on;
+        gzip_min_length 1000;
+        gzip_types application/javascript text/css text/plain;
+    }
+    
+    # Define the location block for handling PHP requests
+    location ~ \.php$ {
+        # Specify the root directory of PHP files and index file
+        root /var/www/example.com;
+        try_files $uri =404;
+        
+        # Connect to FastCGI process manager running on port 9000
+        fastcgi_pass unix:/var/run/php/php7.4-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include fastcgi_params;
+        
+        # Protect against cross-site scripting attacks
+        add_header X-XSS-Protection "1; mode=block";
+    }
+}

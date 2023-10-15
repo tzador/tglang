@@ -1,0 +1,60 @@
+/* This is a SAS macro that creates a table with summary statistics for a given dataset */
+%macro summary_stats(dataset);
+    /* Create a new data set to store summary statistics */
+    data summary;
+        /* Use SQL SELECT INTO syntax to query dataset and calculate summary statistics */
+        /* Code adapted from https://analytics.ncsu.edu/sesug/2005/SD09-Stinson.pdf */
+        select count(*) as count_var,
+               min(&dataset.) as min_var,
+               max(&dataset.) as max_var,
+               mean(&dataset.) as mean_var,
+               median(&dataset.) as median_var,
+               std(&dataset.) as std_var
+        /* Specify dataset to be queried */
+        from &dataset.;
+    quit;
+    
+    /* Create a macro variable with dataset name in title case */
+    %let dataset_title = %sysfunc(propcase(&dataset.));
+    
+    /* Run PROC UNIVARIATE to create a formatted summary of statistics */
+    /* Code adapted from https://support.sas.com/resources/papers/proceedings/proceedings/sugi30/185-30.pdf */
+    proc univariate data=&dataset.;
+        /* Use ODS to store output in designated file */
+        ods output summary=summary_stats;
+        /* Use VAR statement to specify variables to analyze */
+        var &dataset.;
+    run;
+    
+    /* Print title */
+    title "Summary Statistics for &dataset_title.";
+    /* Print asterisks to create line of separation */
+    title2 "*****************************************************";
+    
+    /* Create PROC PRINT step to output results */
+    proc print data=summary_stats noobs;
+        /* Use BY statement to print results for each variable separately */
+        by variable;
+        /* Specify formatting for output of variables */
+        format count_var comma8.;
+        format min_var max_var dollar12.;
+        format mean_var median_var std_var percent7.;
+        /* Print variable names for easier identification */
+        label count_var='Number of Observations'
+              min_var='Minimum'
+              max_var='Maximum'
+              mean_var='Mean'
+              median_var='Median'
+              std_var='Standard Deviation';
+    run;
+    
+    /* Delete temporary data set */
+    proc datasets library=work nolist;
+        /* Specify name of temporary data set */
+        delete summary;
+    quit;
+    
+    /* Clear macro variables */
+    %symdel &dataset.;
+    %symdel dataset_title;
+%mend;

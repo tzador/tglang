@@ -1,0 +1,184 @@
+# NGINX default configuration file
+# This file contains settings and directives for the NGINX web server
+
+# Creating a new server block to handle requests to a specific domain
+server {
+    # Listen on port 80 for HTTP requests
+    listen 80;
+
+    # Specify the domain name to handle requests for
+    server_name example.com;
+
+    # Define the root directory for this server block
+    root /var/www/example.com;
+
+    # Enable gzip compression for faster delivery of static files
+    gzip on;
+
+    # Set cache control headers for static files
+    location ~* \.(css|js|png|jpg|jpeg|gif|ico)$ {
+        expires 1y;
+        add_header Cache-Control "public";
+    }
+
+    # Specify the error pages to use for different HTTP response codes
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+
+    # Disable hotlinking protection for this server block
+    location / {
+        valid_referers none blocked example.com *.example.com;
+        if ($invalid_referer) {
+            return 403;
+        }
+    }
+
+    # Specify the location of the index file for this server block
+    index index.php index.html index.htm;
+
+    # Define rules for handling PHP files
+    location ~ \.php$ {
+        # Pass the PHP scripts to a fastcgi server listening on 127.0.0.1:9000
+        fastcgi_pass 127.0.0.1:9000;
+
+        # Set the root directory for the PHP files
+        root /var/www/example.com;
+
+        # Specify the type of files to process as PHP scripts
+        include fastcgi_params;
+
+        # Set additional parameters for the fastcgi server
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+
+    # Specify the location of static files to serve directly
+    location /static/ {
+        alias /var/www/example.com/static/;
+    }
+
+    # Enable caching for certain file types to improve performance
+    location ~* \.(js|css|jpg|jpeg|gif|png|svg)$ {
+        expires 14d;
+    }
+
+    # Enable rate limiting to prevent excessive requests from a single IP
+    location /api/ {
+        limit_req zone=api burst=5;
+    }
+}
+
+# Activating the specified server block for incoming requests
+# All requests not matching a specific server block will be handled by the default server block
+server {
+    # Listen on port 80 for HTTP requests
+    listen 80 default_server;
+
+    # Specify the default server name
+    server_name _;
+
+    # Return a 444 error if a request is made to this server block
+    location / {
+        return 444;
+    }
+}
+
+# Virtual host configuration for another domain
+server {
+    # Listen on port 443 for HTTPS requests
+    listen 443 ssl;
+
+    # Specify the domain name to handle requests for
+    server_name example2.com;
+
+    # Define the root directory for this server block
+    root /var/www/example2.com;
+
+    # Enable gzip compression for faster delivery of static files
+    gzip on;
+
+    # Set cache control headers for static files
+    location ~* \.(css|js|png|jpg|jpeg|gif|ico)$ {
+        expires 1y;
+        add_header Cache-Control "public";
+    }
+
+    # Specify the error pages to use for different HTTP response codes
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+
+    # Specify the location of the index file for this server block
+    index index.php index.html index.htm;
+
+    # Define rules for handling PHP files
+    location ~ \.php$ {
+        # Pass the PHP scripts to a fastcgi server listening on 127.0.0.1:9000
+        fastcgi_pass 127.0.0.1:9000;
+
+        # Set the root directory for the PHP files
+        root /var/www/example2.com;
+
+        # Specify the type of files to process as PHP scripts
+        include fastcgi_params;
+
+        # Set additional parameters for the fastcgi server
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+
+    # Specify the location of static files to serve directly
+    location /static/ {
+        alias /var/www/example2.com/static/;
+    }
+
+    # Enable caching for certain file types to improve performance
+    location ~* \.(js|css|jpg|jpeg|gif|png|svg)$ {
+        expires 14d;
+    }
+
+    # Enable rate limiting to prevent excessive requests from a single IP
+    location /api/ {
+        limit_req zone=api burst=5;
+    }
+
+    # Configure SSL settings for this server block
+    ssl_certificate /etc/nginx/ssl/example2.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/example2.com.key;
+    ssl_protocols TLSv1.2;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers "EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH";
+
+    # Enable OCSP stapling for improved performance and security
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    resolver 8.8.8.8 8.8.4.4;
+    ssl_trusted_certificate /etc/nginx/ssl/ca-certs.pem;
+}
+
+# Additional security measures for all server blocks
+# Preventing access to hidden files and directories
+location ~ /\. {
+    deny all;
+}
+
+# Preventing access to important files and directories
+location ~ ^/(config|private|common|upload)/ {
+    deny all;
+}
+
+# Preventing access to PHP files in the document root of a server block
+location ~* /.*\.php$ {
+    deny all;
+}
+
+# Preventing access to known vulnerability files
+location ~* \.(htaccess|htpasswd|sql|ini|log|sh|bash)$ {
+    deny all;
+}
+
+# Blocking specific user agents known for malicious activity
+if ($http_user_agent ~* (blackhat|semalt|scraping|wordpress|yandex|baidu|maui|sogou|Spamwhatever) ) {
+    return 403;
+}
+
+# Blocking requests from certain IP addresses or IP ranges
+deny 1.2.3.4;
+deny 5.6.7.0/24;

@@ -1,0 +1,192 @@
++ [SCRIPT] // Define the script object
+  store(&keymanweb, { // Store the KeymanWeb engine's namespace
+    name: "KeymanWeb",
+    object: {
+      version: ["10", "0", "1012", "0"],
+      build: ["515"],
+      globalKeyboardIDs: [
+        "deva",
+        "english",
+        "francien",
+        "frabelg",
+        "khmer"
+      ],
+      activeKeyboardID: "francien",
+      activeSubKey: 0,
+      defaultKeyboards: [
+        {
+          langID: "en",
+          localName: "English",
+          localRegion: "US",
+          livesUnderCountry: "US"
+        },
+        {
+          langID: "fr",
+          localName: "Français",
+          localRegion: "FR",
+          livesUnderCountry: "FR"
+        }
+      ],
+      timeoutID: null,
+      secStateBool: false
+    },
+    exec: function(script, direct){ // Execute the script function
+      script(&keymanweb, direct);
+    },
+    _Debug: function(msg){
+      console.log("[KeymanWeb] " + msg); // Prints the debug message to console
+    },
+    _Trace: function(msg){
+      console.log("[KeymanWeb] Trace: " + msg); // Prints the trace message to console
+    }
+  });
+
+  // Define the interface object
+  store(&keymanwebInterface, {
+    name: "KeymanWeb Interface",
+    functions: {
+      getKeyboard: function(){ // Function to get the active keyboard
+        return &keymanweb.object.globalKeyboardIDs[keymanweb.object.activeSubKey];
+      },
+      setKeyboard: function(id){ // Function to set the active keyboard
+        var lastID = keymanweb.object.activeKeyboardID;
+        if(keymanweb.object.activeKeyboardID !== id && keymanweb.init){ // If the active keyboard is not the same as the new one
+          keymanweb.object.activeKeyboardID = id;
+          keymanweb._Debug("Active Keyboard set to " + keymanweb.object.activeKeyboardID);
+          keymanweb.object.activeSubKey = keymanweb.object.globalKeyboardIDs.indexOf(id);
+        }
+        if(keymanweb.object.activeKeyboardID !== lastID && !keymanweb.inhibit){
+          if(keymanweb.object.activeKeyboardID === "default"){
+            setLocalStorage("startKeyman", 0);
+          } else {
+            clearLocalStorage("startKeyman");
+          }
+        }
+        return keymanweb.object.activeKeyboardID;
+      }
+    }
+  });
+
+  // Define the editor object
+  store(&keymanwebEditor, {
+    name: "KeymanWeb Editor",
+    target: null,
+    oskPage: null,
+    controller: null,
+    cssLoading: null,
+    tapfoc: null,
+    inputReffed: false,
+    showKeyInspector: null,
+    oscShow: false,
+    kc: "",
+    hl: "",
+    deepFocus: false,
+    activeElement: null,
+    textareaHover: false,
+    focusLast: false,
+    customVKLayer: null,
+    customVKMap: null,
+    input: function(elem){ // Function to set the target element for the editor
+      elem.addEventListener("input", function(){keymanweb._Debug("iud");});
+      keymanwebEditor.target = elem;
+      return keymanwebEditor.target;
+    },
+    BL: function(field){ // Function to return the active element
+      var route = true;
+      if(ham(field)){
+        if(keymanwebEditor.showKeyInspector){
+          if(keymanwebEditor.oskShow){
+            keymanwebEditor.oskPage.fieldControl = !keymanwebEditor.customVKMap ? field : keymanwebEditor.customVKMap;
+          }
+        } else if(document.activeElement !== keymanwebEditor.activeElement || !keymanwebEditor.inputReffed){
+          keymanwebEditor.input(keymanwebEditor.activeElement = field);
+          keymanwebEditor.oskPage.fieldControl = field;
+        }
+        keymanweb.interface.setKeyboard("default");
+        keymanwebEditor.focusLast = false;
+      }
+      return route;
+    },
+    q: function(){
+      field = unloadDocumentBody();
+      if-unless (keymanwebEditor.activeElement) {
+        keymanwebEditor.activeElement = field.body;
+      }
+      keymanwebEditor.oskPage.fieldControl = field();
+    }
+  });
+
+  // Define the engine object
+  store(&keymanwebEngine, {
+    name: "KeymanWeb Engine",
+    dependencyLoaded: false,
+    dynCallKeyObserver: {
+
+      // Object to handle when the user's device connects to the internet
+      onDynCall() {
+        var networkRequest = new XMLHttpRequest();
+        networkRequest.onreadystatechange = function(){
+          if(networkRequest.readyState === XMLHttpRequest.DONE && networkRequest.status === 200){ // If the request was successful
+            // Check if the current version matches the server version
+            if(JSON.parse(networkRequest.responseText)[0] === keymanweb.object.version){ 
+              // If the current build is not the latest build
+              if(JSON.parse(networkRequest.responseText)[1] !== keymanweb.object.build[0]){ 
+                keymanweb._Debug("KeymanWeb engine not updated.");
+              } else {
+                keymanweb._Debug("KeymanWeb engine updated.");
+              }
+            } else {
+              if(JSON.parse(networkRequest.responseText)[2] > keymanweb.object.version[2]){ // If the server version is higher than the current version
+                keymanweb._Debug("KeymanWeb engine updated.");
+              } else {
+                keymanweb._Debug("KeymanWeb engine not updated.");
+              }
+            }
+            
+          } else if(networkRequest.status === 404){ // If the request was unsuccessful
+            keymanweb._Debug("Could not reach server.");
+          }
+        };
+        networkRequest.open("GET", "http://keymanweb.com/uploads/update.pac", true);
+        networkRequest.send(null);
+      }
+
+    }
+  });
+  
+// Function to initialize the KeymanWeb engine and set the active keyboard to the default keyboard
+function initKeymanWeb() {
+  keymanweb.init = true;
+  keymanweb._Debug("KeymanWeb init.");
+  keymanweb.interface.setKeyboard("default");
+  return;
+}
+
+// Call the initKeymanWeb function to initialize the engine
+keymanwebEngine.init();
+
+// Function to handle the dynamic call
+function dynCall(){
+  keymanwebEngine.onDynCall();
+}
+
+// Function to get the current active element
+function getActiveElement(){
+  var activeElem = document.activeElement;
+  return activeElem;
+}
+
+// Function to set the active element
+function setActiveElement(elem){
+  document.activeElement = elem;
+  return;
+}
+
+// Call the dynamic call function
+dynCall();
+
+// Get the active element and set it as the target for the editor 
+var activeElement = getActiveElement();
+if(activeElement){
+  keymanwebEditor.target = activeElement;
+}

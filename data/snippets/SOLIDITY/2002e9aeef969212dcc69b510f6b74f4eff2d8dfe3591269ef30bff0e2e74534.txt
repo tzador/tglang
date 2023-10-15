@@ -1,0 +1,76 @@
+//an example contract implementing the ERC721 token standard with a multi-token minting function
+
+//declare the contract
+contract MyNFT is ERC721 {
+
+    //use SafeMath library for safe numerical operations
+    using SafeMath for uint256;
+
+    //structure to hold token information
+    struct Token {
+        uint256 tokenId; //unique ID of the token
+        address owner; //the address of the current owner of the token
+        string tokenUri; //URI containing metadata of the token
+    }
+
+    //an array to store all the tokens created
+    Token[] private tokens;
+
+    //mapping to keep track of token ownership
+    mapping(uint256 => address) private tokenOwners;
+
+    //event to be emitted when a new token is minted
+    event TokenMinted(address indexed owner, uint256 indexed tokenId, string tokenUri);
+
+    //initialize the contract with a name and symbol for the tokens
+    constructor() ERC721("MyNFT", "MNFT") {}
+
+    //function to mint a new token
+    function mintToken(string memory _tokenUri) public {
+        //generate a unique token ID
+        uint256 newTokenId = uint256(keccak256(abi.encodePacked(msg.sender, block.timestamp)));
+
+        //create a new Token struct with the token information
+        Token memory newToken = Token({
+            tokenId: newTokenId,
+            owner: msg.sender,
+            tokenUri: _tokenUri
+        });
+
+        //push the new Token to the tokens array
+        tokens.push(newToken);
+
+        //assign the token ID to the sender's address in the mapping
+        tokenOwners[newTokenId] = msg.sender;
+
+        //emit an event to notify others of the new token
+        emit TokenMinted(msg.sender, newTokenId, _tokenUri);
+    }
+
+    //function to check if a given token exists
+    function tokenExists(uint256 _tokenId) public view returns (bool) {
+        //check if the token ID is less than the total number of tokens
+        if(_tokenId < tokens.length) {
+            return true;
+        }
+        //if the token ID is greater than the total number of tokens, return false
+        return false;
+    }
+
+    //function to transfer a token from the owner to a new recipient
+    function transferToken(address _to, uint256 _tokenId) public {
+        //check if the token exists and is owned by the sender
+        require(tokenExists(_tokenId) && tokenOwners[_tokenId] == msg.sender, "Token does not exist or you are not the owner.");
+
+        //transfer the token by updating the owner in the mapping
+        tokenOwners[_tokenId] = _to;
+
+        //emit an event to notify others of the token transfer
+        emit Transfer(msg.sender, _to, _tokenId);
+    }
+
+    //function to return the total number of tokens created
+    function totalTokens() public view returns (uint256) {
+        return tokens.length;
+    }
+}

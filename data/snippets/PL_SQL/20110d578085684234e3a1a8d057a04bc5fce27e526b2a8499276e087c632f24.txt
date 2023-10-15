@@ -1,0 +1,57 @@
+CREATE TABLE employees (
+    employee_id NUMBER(5) PRIMARY KEY,
+    employee_name VARCHAR2(50) NOT NULL,
+    job_title VARCHAR2(50) NOT NULL,
+    department_id NUMBER(4),
+    date_hired DATE
+);
+
+CREATE TABLE departments (
+    department_id NUMBER(4) PRIMARY KEY,
+    department_name VARCHAR2(50) NOT NULL,
+    manager_id NUMBER(5),
+    location_id NUMBER(4)
+);
+
+CREATE TABLE salaries (
+    salary_id NUMBER(5) PRIMARY KEY,
+    employee_id NUMBER(5) NOT NULL,
+    salary_amount NUMBER(10,2) NOT NULL,
+    start_date DATE,
+    end_date DATE,
+    CONSTRAINT fk_employees FOREIGN KEY (employee_id)
+    REFERENCES employees (employee_id)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE performance_reviews (
+    review_id NUMBER(5) PRIMARY KEY,
+    employee_id NUMBER(5) NOT NULL,
+    review_date DATE NOT NULL,
+    rating NUMBER(3),
+    review_notes VARCHAR2(500),
+    CONSTRAINT fk_employees FOREIGN KEY (employee_id)
+    REFERENCES employees (employee_id)
+        ON DELETE CASCADE
+);
+
+CREATE OR REPLACE PROCEDURE calculate_bonus (
+    p_employee_id IN NUMBER,
+    p_review_date IN DATE,
+    p_rating IN NUMBER)
+IS
+    bonus_amount NUMBER(10,2);
+BEGIN
+    SELECT salary_amount * p_rating * 0.2
+    INTO bonus_amount
+    FROM salaries
+    JOIN performance_reviews ON salaries.employee_id = performance_reviews.employee_id
+    WHERE salaries.employee_id = p_employee_id
+    AND performance_reviews.review_date = p_review_date;
+
+    UPDATE salaries
+    SET salary_amount = salary_amount + bonus_amount
+    WHERE employee_id = p_employee_id;
+
+    COMMIT;
+END;

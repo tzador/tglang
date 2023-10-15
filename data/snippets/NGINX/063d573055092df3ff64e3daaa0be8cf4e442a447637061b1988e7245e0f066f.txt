@@ -1,0 +1,79 @@
+server {
+    # Listen on port 80
+    listen 80;
+
+    # Listen on port 443 with SSL
+    listen 443 ssl;
+
+    # Set the server name to example.com
+    server_name example.com;
+
+    # Configure SSL certificates
+    ssl_certificate /path/to/cert;
+    ssl_certificate_key /path/to/key;
+
+    # Enable gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json;
+
+    # Set the root directory for the server
+    root /var/www/example.com;
+
+    # Configure reverse proxy to backend server
+    location /api/ {
+        proxy_pass http://localhost:8000;
+    }
+
+    # Configure caching for certain file types
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    # Configure basic authentication for specific directories
+    location /admin/ {
+        auth_basic "Restricted";
+        auth_basic_user_file /path/to/password/file;
+    }
+
+    # Enable server-side caching
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=example:10m inactive=60m;
+    proxy_cache_key "$scheme$request_method$host$request_uri";
+    proxy_cache_valid 200 60m;
+
+    # Serve hidden files
+    location ~ /\. {
+        access_log off;
+        log_not_found off;
+        deny all;
+    }
+
+    # Prevent access to sensitive files
+    location ~* \.(htaccess|htpasswd|ini|log|sh)$ {
+        deny all;
+    }
+
+    # Redirect requests to HTTPS
+    if ($scheme != "https") {
+        return 301 https://$host$request_uri;
+    }
+
+    # Enable HTTP/2
+    http2_max_field_size 16k;
+    http2_max_header_size 16k;
+    http2_max_requests 100;
+
+    # Disable server signature
+    server_tokens off;
+
+    # Configure response headers
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-XSS-Protection "1; mode=block";
+    add_header X-Content-Type-Options "nosniff";
+    add_header Referrer-Policy "same-origin";
+
+    # Deny requests with suspicious headers
+    if ($http_x_forwarded_for = "") {
+        return 403;
+    }
+}

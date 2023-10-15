@@ -1,0 +1,74 @@
+pragma solidity >=0.4.22 <0.9.0;
+//contract for creating and managing a decentralized marketplace
+contract Marketplace {
+    //state variables
+    address public owner; //stores address of marketplace owner
+    mapping(address => Item[]) public sellerItems; //stores items for each seller
+    Item[] public allItems; //stores all items in the marketplace
+    uint public totalPrice; //stores the total sales revenue of the marketplace
+    uint[] public soldItems; //stores the ids of all sold items
+
+    //struct for items
+    struct Item {
+        uint id;
+        string name;
+        uint price;
+        address payable seller;
+        bool sold;
+    }
+
+    //events for tracking the creation and sale of items
+    event ItemAdded(uint id, string name, uint price);
+    event ItemSold(uint id, string name, uint price, address payable seller);
+
+    //constructor function
+    constructor() {
+        owner = msg.sender; //sets the owner of the marketplace as the contract deployer
+    }
+
+    //function for adding new items to the marketplace
+    function addNewItem(string memory _name, uint _price) public {
+        require(msg.sender == owner, "Only the owner can add items."); //restricts the ability to add items to only the owner
+        uint id = allItems.length; //auto-generates the item id
+        Item memory newItem = Item(id, _name, _price, msg.sender, false); //creates a new item object
+        allItems.push(newItem); //adds the new item to the allItems array
+        sellerItems[msg.sender].push(newItem); //adds the new item to the sellerItems mapping
+        emit ItemAdded(id, _name, _price); //emits an event for tracking new items added
+    }
+
+    //function for buying an item
+    function buyItem(uint _id) public payable {
+        require(_id < allItems.length, "Item does not exist."); //checks if the item id is valid
+        Item storage item = allItems[_id]; //creates a reference to the item object in storage
+        require(!item.sold, "Item is already sold."); //checks if the item is still available
+        require(msg.value == item.price, "Incorrect payment amount."); //checks if the correct payment amount was made
+        item.sold = true; //marks the item as sold
+        sellerItems[item.seller][item.id].sold = true; //marks the corresponding item in the sellerItems mapping as sold
+        totalPrice += item.price; //adds the price of the item to the total revenue of the marketplace
+        soldItems.push(item.id); //adds the id of the sold item to the soldItems array
+        item.seller.transfer(msg.value); //transfers the payment to the seller
+        emit ItemSold(item.id, item.name, item.price, item.seller); //emits an event for tracking the sale of the item
+    }
+
+    //fallback function to reject any ether sent to the contract
+    fallback() external payable {
+        revert("This contract does not accept direct payments.");
+    }
+
+    //function for getting the details of an item
+    function getItem(uint _id) public view returns (uint, string memory, uint, address, bool) {
+        require(_id < allItems.length, "Item does not exist."); //checks if the item id is valid
+        Item memory item = allItems[_id]; //creates a memory object of the item
+        return (item.id, item.name, item.price, item.seller, item.sold); //returns the item details
+    }
+
+    //function for getting the total number of items in the marketplace
+    function getTotalItems() public view returns (uint) {
+        return allItems.length;
+    }
+
+    //function for getting the total number of sold items in the marketplace
+    function getTotalSoldItems() public view returns (uint) {
+        return soldItems.length;
+    }
+}

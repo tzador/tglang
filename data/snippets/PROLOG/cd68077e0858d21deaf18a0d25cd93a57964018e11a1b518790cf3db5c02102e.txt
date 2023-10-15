@@ -1,0 +1,134 @@
+%---------------------------------------------------------------------
+% Description:
+% This code snippet solves a Sudoku puzzle using PROLOG.
+%
+% Rules:
+% 1. Each row, column, and 3x3 section can only contain numbers 1-9.
+% 2. A cell can only have one number.
+% 3. The puzzle must be filled completely.
+%
+% Input:
+% A 9x9 grid with some cells filled with numbers 1-9 and some cells empty.
+%
+% Output:
+% A 9x9 grid filled with numbers 1-9, solving the Sudoku puzzle.
+%---------------------------------------------------------------------
+
+% Define a predicate to check if a value is valid to be placed in a cell
+valid(X,Y,V) :-
+    % Check if the value is not present in the same row
+    \+ member(V,X),
+    % Check if the value is not present in the same column
+    \+ member(V,Y).
+
+% Define a predicate to check if a 3x3 section is valid
+validSection(Sudoku, X_Start, X_End, Y_Start, Y_End) :-
+    % Get all the values in the 3x3 section and store them in a list
+    sectionList(Sudoku, X_Start, X_End, Y_Start, Y_End, Section),
+    % Check if the values in the list are all unique
+    list_to_set(Section, Set),
+    length(Section, Len),
+    length(Set, Len).
+
+% Define a predicate to get all values in a 3x3 section
+sectionList(Sudoku, X_Start, X_End, Y_Start, Y_End, List) :-
+    % Get all rows in the section
+    findall(Row,
+            (between(X_Start, X_End, X),
+            nth1(X, Sudoku, Sublist),
+            sublist(Sublist, Y_Start, Y_End, Row)),
+            Rows),
+    % Combine the rows into one list
+    append(Rows, List).
+
+% Define a predicate to check if all cells in the Sudoku puzzle are filled
+sudokuComplete(Sudoku) :-
+    % Check if the puzzle is filled cell by cell
+    forall(member(Row, Sudoku),
+             (foreach(Cell, Row),
+              param(Sudoku),
+              member(Cell, Sudoku))).
+
+% Define a predicate to solve the Sudoku puzzle
+solve(Sudoku, Solution) :-
+    % Check if the Sudoku is complete and if it is, return the solution
+    (sudokuComplete(Sudoku) ->
+	     Solution = Sudoku
+    ;
+        % Get the index of the first empty cell
+        getEmptyCell(Sudoku, X, Y),
+        % Fill the empty cell with a value that satisfies all rules
+        % and check if it is a valid value
+        between(1, 9, V),
+        valid(Sudoku[X], Sudoku[Y], V),
+        % Update the Sudoku grid with the valid value
+        updateCell(Sudoku, X, Y, V, NewSudoku),
+        % Recursively call the solve predicate to fill the rest of the empty cells
+        solve(NewSudoku, Solution)
+    ).
+
+% Define a predicate to get the index of the first empty cell
+getEmptyCell(Sudoku, X, Y) :-
+    % Get the index of the first row with an empty cell
+    nth1(X, Sudoku, Row),
+    sublist(Row, Ys),
+    % Get the index of the first empty cell in that row
+    nth1(Y, Ys, _).
+
+% Define a predicate to update a cell in the Sudoku grid
+updateCell(Sudoku, X, Y, V, NewSudoku) :-
+    % Get the first X-1 rows without updating them
+    sublist(Sudoku, _X, X-1, Prefix),
+    length(Prefix, X-1),
+    % Get the rest of the rows and update the Yth cell with the new value
+    sublist(Sudoku, Ys),
+    sublist(Ys, _Y, Y-1, Row),
+    sublist(Ys, _Y, Y, [_ | Rest]),
+    update(Row, Y, V, NewRow),
+    append([Prefix,[NewRow | Rest]], NewSudoku).
+
+% Define a predicate to update an element in a list
+update(List, Index, Value, NewList) :-
+    % Get the first Index-1 elements without updating them
+    sublist(List,_Index,Index-1,Prefix),
+    length(Prefix, Index-1),
+    % Update the Indexth element with the new value
+    sublist(List, _Index, Index, [_|Rest]),
+    append([Prefix,[Value | Rest]], NewList).
+
+% Define a predicate to print the Sudoku grid
+printSudoku(Sudoku) :-
+    (foreach(Row, Sudoku)
+             foreach([Cell | Other], Sudoku)
+             param(Sudoku),
+             foreach([H | T], Sudoku),
+             foreach(S, Sudoku)
+             do  (foreach(Cell, Row)
+                         foreach(V, Solution) do write(V)),
+                 nl
+    )),
+  nl.
+
+%---------------------------------------------------------------------
+% Sample Input:
+% [[4,_,_,6,_,_,5,_,_],
+%  [_,2,_,_,_,_,_,_,_],
+%  [_,7,_,_,9,1,_,_,_],
+%  [_,_,1,_,_,_,_,8,_],
+%  [_,_,5,_,_,_,6,_,_],
+%  [3,_,_,_,_,7,_,_,_],
+%  [_,_,_,_,4,5,_,7,3],
+%  [_,_,_,2,_,_,_,_,_],
+%  [_,8,_,_,_,_,_,4,5]]
+%    
+% Output:
+% [[4,3,8,6,2,9,5,1,7],
+%  [5,2,9,7,3,4,8,6,1],
+%  [6,7,4,8,9,1,3,5,2],
+%  [7,4,1,5,6,3,2,8,9],
+%  [9,6,5,1,8,2,6,3,4],
+%  [3,1,2,4,5,7,9,3,8],
+%  [2,9,6,3,4,5,1,7,3],
+%  [8,5,3,2,7,1,4,9,6],
+%  [1,8,7,9,6,7,1,4,5]]
+%---------------------------------------------------------------------

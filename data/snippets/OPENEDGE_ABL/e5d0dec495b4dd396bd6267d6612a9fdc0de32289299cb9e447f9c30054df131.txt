@@ -1,0 +1,56 @@
+/* This code snippet demonstrates how to read a large file in OpenEdge ABL */
+
+/* Variable declaration */
+DEFINE VARIABLE char AS CHARACTER NO-UNDO.
+DEFINE VARIABLE sp100mb AS SERIAL, NO-UNDO.
+DEFINE VARIABLE rc AS LOGICAL, NO-UNDO.
+DEFINE VARIABLE l ErrorCode AS INTEGER.
+
+/* Open the file for reading */
+INPUT FROM VALUE("largefile.txt").
+IF NOT AVAILABLE INPUT THEN DO:
+    MESSAGE "Error: Unable to open file for reading." VIEW-AS ALERT-BOX.
+    RETURN.
+END.
+
+/* Set a starting point for reading */
+sp100mb = SERIAL(10*1024*1024). /* Start at 10 MB */
+rc = INPUT:SEEK(sp100mb).
+
+/* Loop through the file until end of file reached */
+DO WHILE NOT ENDKEY INPUT:
+    /* Read the next 100 MB of data */
+    rc = INPUT:GET-STRING(INPUT-VALUE, sp100mb, char).
+    IF NOT rc THEN DO:
+        l = INPUT:ERROR:
+        IF l > 0 THEN DO:
+            MESSAGE "Error reading file, error code:" l VIEW-AS ALERT-BOX.
+            RETURN.
+        END.
+    END.
+
+    /* Perform action on the data read */
+    /* Code goes here... */
+
+    /* Set a new starting point for the next read */
+    sp100mb = sp100mb + SERIAL(10*1024*1024). /* Move forward 10 MB */
+    rc = INPUT:SEEK(sp100mb).
+END. /* End of loop */
+
+/* Close the file */
+INPUT CLOSE.
+
+/* Output any remaining data */
+IF rc = FALSE THEN DO:
+    rc = INPUT:GET-STRING(INPUT-VALUE, SERIAL(0), char). /* Get the remaining data */
+    IF NOT rc THEN DO:
+        l = INPUT:ERROR.
+        IF l > 0 THEN DO:
+            MESSAGE "Error reading file, error code:" l VIEW-AS ALERT-BOX.
+            RETURN.
+        END.
+    END.
+END.
+ 
+/* Display message when complete */
+MESSAGE "File successfully read." VIEW-AS ALERT-BOX.

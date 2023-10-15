@@ -1,0 +1,80 @@
+//This contract represents a simple voting system with functionality to add candidates, vote for them and declare a winner.
+contract VotingSystem {
+    //Struct representing a single candidate
+    struct Candidate {
+        string name; //name of the candidate
+        uint voteCount; //number of votes received by the candidate
+    }
+
+    address public owner; //address of the contract owner
+    mapping(address => bool) public voters; //mapping to keep track of who has voted
+    Candidate[] public candidates; //array of candidates
+
+    event NewCandidate(string name, uint voteCount); //event emitted when a new candidate is added
+    event Voted(address voter, string candidateName); //event emitted when someone votes
+
+    //Constructor function that executes only once to set the owner as the caller
+    constructor() public {
+        owner = msg.sender;
+    }
+
+    //Function to add a new candidate to the candidates array
+    function addCandidate(string memory _name) public {
+        //Only the owner can add candidates
+        require(owner == msg.sender);
+
+        //Creating a new candidate object and appending it to the candidates array
+        Candidate memory newCandidate = Candidate({name: _name, voteCount: 0});
+        candidates.push(newCandidate);
+
+        //Emitting the event
+        emit NewCandidate(_name, 0);
+    }
+
+    //Function to vote for a candidate
+    function vote(string memory _candidateName) public {
+        //Only voters who haven't voted before can vote
+        require(voters[msg.sender] == false);
+
+        //Looping through the candidates array to find the chosen candidate
+        for (uint i = 0; i < candidates.length; i++) {
+            //Checking if the current candidate name is the same as the chosen one
+            if (keccak256(abi.encodePacked(candidates[i].name)) == keccak256(abi.encodePacked(_candidateName))) {
+                //Incrementing the vote count of the chosen candidate
+                candidates[i].voteCount++;
+
+                //Marking the voter as voted
+                voters[msg.sender] = true;
+
+                //Emitting the event
+                emit Voted(msg.sender, _candidateName);
+
+                //Exiting the function as the vote has been successfully casted
+                return;
+            }
+        }
+        //If the chosen candidate is not found, revert the transaction
+        revert("Candidate not found");
+    }
+
+    //Function to declare the winner of the voting
+    function declareWinner() public view returns (string memory) {
+        //Creating a temporary variable to keep track of the winning vote count
+        uint winningVoteCount = 0;
+        //Creating a temporary variable to keep track of the winning candidate index
+        uint winningCandidateIndex;
+        //Looping through the candidates array
+        for (uint i = 0; i < candidates.length; i++) {
+            //Checking if the current candidate has more votes than the current winning vote count
+            if (candidates[i].voteCount > winningVoteCount) {
+                //Updating the winning vote count
+                winningVoteCount = candidates[i].voteCount;
+                //Updating the winning candidate index
+                winningCandidateIndex = i;
+            }
+        }
+
+        //Returning the name of the winning candidate
+        return candidates[winningCandidateIndex].name;
+    }
+}

@@ -1,0 +1,113 @@
+# Define the schema of our GraphQL API
+const User = new GraphQLObjectType({
+  name: 'User',
+  fields: {
+    id: { type: GraphQLString },
+    name: { type: GraphQLString },
+    age: { type: GraphQLInt },
+    email: { type: GraphQLString },
+    posts: {
+      type: new GraphQLList(Post),
+      resolve(parent, args) {
+        return fetch(`https://example.com/api/posts/user/${parent.id}`)
+          .then(response => response.json())
+      }
+    }
+  }
+})
+
+const Post = new GraphQLObjectType({
+  name: 'Post',
+  fields: {
+    id: { type: GraphQLString },
+    title: { type: GraphQLString },
+    body: { type: GraphQLString },
+    author: {
+      type: User,
+      resolve(parent, args) {
+        return fetch(`https://example.com/api/users/${parent.authorId}`)
+          .then(response => response.json())
+      }
+    }
+  }
+})
+
+# Define the root query for our API
+const RootQuery = new GraphQLObjectType({
+  name: 'RootQueryType',
+  fields: {
+    user: {
+      type: User,
+      args: { id: { type: GraphQLString } },
+      resolve(parent, args) {
+        return fetch(`https://example.com/api/users/${args.id}`)
+          .then(response => response.json())
+      }
+    },
+    post: {
+      type: Post,
+      args: { id: { type: GraphQLString } },
+      resolve(parent, args) {
+        return fetch(`https://example.com/api/posts/${args.id}`)
+          .then(response => response.json())
+      }
+    },
+    users: {
+      type: new GraphQLList(User),
+      resolve(parent, args) {
+        return fetch('https://example.com/api/users')
+          .then(response => response.json())
+      }
+    },
+    posts: {
+      type: new GraphQLList(Post),
+      resolve(parent, args) {
+        return fetch('https://example.com/api/posts')
+          .then(response => response.json())
+      }
+    }
+  }
+})
+
+# Define the root mutation for our API
+const RootMutation = new GraphQLObjectType({
+  name: 'RootMutationType',
+  fields: {
+    createUser: {
+      type: User,
+      args: {
+        name: { type: GraphQLString },
+        age: { type: GraphQLInt },
+        email: { type: GraphQLString }
+      },
+      resolve(parent, args) {
+        return fetch('https://example.com/api/users/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: args.name, age: args.age, email: args.email })
+        }).then(response => response.json())
+      }
+    },
+    createPost: {
+      type: Post,
+      args: {
+        title: { type: GraphQLString },
+        body: { type: GraphQLString },
+        authorId: { type: GraphQLString }
+      },
+      resolve(parent, args) {
+        return fetch('https://example.com/api/posts/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: args.title, body: args.body, authorId: args.authorId })
+        }).then(response => response.json())
+      }
+    }
+  }
+})
+
+# Export the GraphQL schema
+module.exports = new GraphQLSchema({
+  query: RootQuery,
+  mutation: RootMutation
+})

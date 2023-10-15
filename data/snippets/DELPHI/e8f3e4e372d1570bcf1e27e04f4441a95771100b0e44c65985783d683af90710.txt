@@ -1,0 +1,131 @@
+interface
+
+uses
+  System.SysUtils, System.Classes, Vcl.Controls, Vcl.Forms, Vcl.Graphics,
+  Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.ComCtrls;
+
+type
+  ///<summary>
+  /// This class represents a custom button control that has an additional icon
+  /// displayed on top of the text.
+  ///</summary>
+  TCustomIconButton = class(TCustomButton)
+  private
+    FIcon: TIcon;
+    FIconPosition: TIconPosition;
+    procedure SetIcon(const Value: TIcon);
+    procedure SetIconPosition(const Value: TIconPosition);
+  protected
+    procedure Paint; override;
+    procedure Loaded; override;
+    function GetDefaultIcon: TIcon; virtual;
+  public
+    constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
+  published
+    ///<summary>
+    /// The icon to be displayed on the button.
+    ///</summary>
+    property Icon: TIcon read FIcon write SetIcon;
+    ///<summary>
+    /// The position of the icon relative to the button's text.
+    ///</summary>
+    property IconPosition: TIconPosition read FIconPosition write SetIconPosition default ipLeft;
+    ///<summary>
+    /// The caption of the button.
+    ///</summary>
+    property Caption;
+    ///<summary>
+    /// Specifies whether the button is enabled or disabled.
+    ///</summary>
+    property Enabled;
+    ///<summary>
+    /// Specifies the action that is executed when the button is clicked.
+    ///</summary>
+    property OnClick;
+  end;
+  
+implementation
+
+constructor TCustomIconButton.Create(AOwner: TComponent);
+begin
+  inherited;
+  FIconPosition := ipLeft;
+  FIcon := GetDefaultIcon;
+end;
+
+destructor TCustomIconButton.Destroy;
+begin
+  FIcon.Free;
+  inherited;
+end;
+
+function TCustomIconButton.GetDefaultIcon: TIcon;
+begin
+  // Default icon can be loaded from a resource or set to a specific file path
+  Result := TIcon.Create;
+  Result.LoadFromFile('default_icon.ico');
+end;
+
+procedure TCustomIconButton.Loaded;
+begin
+  inherited;
+  // Reload the icon if the component is being loaded from a form
+  if csLoading in ComponentState then
+    FIcon := GetDefaultIcon;
+end;
+
+procedure TCustomIconButton.Paint;
+var
+  IconRect: TRect;
+  TextRect: TRect;
+  CaptionWidth: Integer;
+begin
+  inherited;
+  
+  // Get the rectangle where the button's icon will be drawn
+  case FIconPosition of
+    ipLeft:
+    begin
+      IconRect := Rect(3, 0, Height - 3, Height);
+      TextRect := Rect(Height + 3, 0, ClientWidth, Height);
+    end;
+    ipRight:
+    begin
+      IconRect := Rect(ClientWidth - (Height - 3), 0, ClientWidth, Height);
+      TextRect := Rect(0, 0, ClientWidth - Height - 3, Height);
+    end;
+    ipTop:
+    begin
+      IconRect := Rect(0, 3, ClientWidth, Height - 3);
+      TextRect := Rect(0, Height + 3, ClientWidth, Height);
+    end;
+    ipBottom:
+    begin
+      IconRect := Rect(0, Height - (Height - 3), ClientWidth, Height);
+      TextRect := Rect(0, 0, ClientWidth, Height - Height - 3);
+    end;
+  end;
+  
+  // Draw the icon
+  Canvas.Draw(IconRect.Left, IconRect.Top, FIcon);
+  
+  // Draw the button's caption
+  CaptionWidth := Canvas.TextWidth(Caption);
+  Canvas.Brush.Style := bsClear;
+  Canvas.TextRect(TextRect, CaptionWidth, 0, Caption);
+end;
+
+procedure TCustomIconButton.SetIcon(const Value: TIcon);
+begin
+  FIcon.Assign(Value);
+end;
+
+procedure TCustomIconButton.SetIconPosition(const Value: TIconPosition);
+begin
+  if FIconPosition <> Value then
+  begin
+    FIconPosition := Value;
+    Invalidate; // Redraw the button
+  end;
+end

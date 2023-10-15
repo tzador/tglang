@@ -1,0 +1,93 @@
+const { ApolloServer, gql } = require('apollo-server');
+const typeDefs = gql`
+  type Query {
+    posts: [Post]
+    post(id: ID!): Post
+  }
+
+  type Post {
+    id: ID!
+    title: String!
+    content: String!
+    author: User
+    comments: [Comment]
+  }
+
+  type User {
+    id: ID!
+    name: String!
+  }
+
+  type Comment {
+    id: ID!
+    content: String!
+    author: User
+    post: Post
+  }
+
+  type Mutation {
+    addPost(title: String!, content: String!, authorId: ID!): Post
+    updatePost(id: ID!, title: String, content: String): Post
+    deletePost(id: ID!): String
+  }
+`;
+const resolvers = {
+  Query: {
+    posts: () => posts,
+    post: (parent, args) => posts.find(post => post.id === args.id)
+  },
+  Mutation: {
+    addPost: (parent, args) => {
+      const post = { 
+        id: posts.length + 1, 
+        title: args.title, 
+        content: args.content,
+        authorId: args.authorId
+      };
+      posts.push(post);
+      return post;
+    },
+    updatePost: (parent, args) => {
+      const index = posts.findIndex(post => post.id === args.id);
+      const updatedPost = { ...posts[index], ...args };
+      posts[index] = updatedPost;
+      return updatedPost;
+    },
+    deletePost: (parent, args) => {
+      const index = posts.findIndex(post => post.id === args.id);
+      posts.splice(index, 1);
+      return "Post has been successfully deleted.";
+    },
+  },
+  Post: {
+    author: (parent) => users.find(user => user.id === parent.authorId),
+    comments: (parent) => comments.filter(comment => comment.postId === parent.id),
+  },
+  Comment: {
+    author: (parent) => users.find(user => user.id === parent.authorId),
+    post: (parent) => posts.find(post => post.id === parent.postId),
+  }
+};
+const server = new ApolloServer({ typeDefs, resolvers });
+server.listen().then(({ url }) => {
+  console.log(`Server ready at ${url}`);
+});
+
+// Example GraphQL query:
+// query {
+//   post(id: "1") {
+//     id
+//     title
+//     content
+//     author {
+//       name
+//     }
+//     comments {
+//       id
+//       content
+//       author {
+//         name
+//       }
+//     }
+//   }
+// }

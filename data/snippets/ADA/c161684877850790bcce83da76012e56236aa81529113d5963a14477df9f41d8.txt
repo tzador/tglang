@@ -1,0 +1,118 @@
+-- This is a code snippet demonstrating a generic queue implementation in ADA
+
+generic
+  type Queue_Type is private; -- Generic type for the queue
+  type Item_Type is private; -- Generic type for the items in the queue
+  with function "=" (A, B : Item_Type) return Boolean is
+    (A = B); -- Operator overloading for Item_Type
+
+package Queue_Package is
+
+  -- Types for queue and queue node
+  type Queue is private;
+
+  type Queue_Node;
+  type Queue_Node_Access is access Queue_Node;
+
+  -- Properties of the queue
+  function Size (Q : Queue) return Natural; -- Returns size of the queue
+  function Is_Empty (Q : Queue) return Boolean; -- Checks if queue is empty
+  function Is_Full (Q : Queue) return Boolean; -- Checks if queue is full
+  function Front (Q : Queue) return Item_Type; -- Returns item at the front of queue
+
+  -- Operations on queue
+  procedure Enqueue (Q : in out Queue; Item : in Item_Type); -- Adds item to rear of queue
+  function Dequeue (Q : in out Queue) return Item_Type; -- Removes and returns from front of queue
+  procedure Clear (Q : in out Queue); -- Clears the queue
+
+private
+  -- Implementation details of the queue
+  type Queue_Node is record
+    Data : Item_Type;
+    Next : Queue_Node_Access;
+  end record;
+
+  type Queue is record
+    Front : Queue_Node_Access;
+    Rear : Queue_Node_Access;
+    Count : Natural := 0;
+  end record;
+
+end Queue_Package;
+
+package body Queue_Package is
+
+  -- Functions for queue properties and operations
+  function Size (Q : Queue) return Natural is
+  begin
+    return Q.Count;
+  end Size;
+
+  function Is_Empty (Q : Queue) return Boolean is
+  begin
+    return Q.Count = 0;
+  end Is_Empty;
+
+  function Is_Full (Q : Queue) return Boolean is
+    (Size (Q) = 255); -- Max size of queue
+  end Is_Full;
+
+  function Front (Q : Queue) return Item_Type is
+  begin
+    if Is_Empty (Q) then
+      raise Program_Error;
+    else
+      return Q.Front.Data;
+    end if;
+  end Front;
+
+  procedure Enqueue (Q : in out Queue; Item : in Item_Type) is
+    New_Node : Queue_Node_Access := new Queue_Node;
+  begin
+    New_Node.Data := Item;
+    New_Node.Next := null;
+
+    if Is_Full (Q) then
+      raise Program_Error;
+    elsif Is_Empty (Q) then
+      Q.Front := New_Node;
+      Q.Rear := New_Node;
+    else
+      Q.Rear.Next := New_Node;
+      Q.Rear := New_Node;
+    end if;
+
+    Q.Count := Q.Count + 1;
+  end Enqueue;
+
+  function Dequeue (Q : in out Queue) return Item_Type is
+    Temp : Item_Type;
+    Temp_Node : Queue_Node_Access;
+  begin
+    if Is_Empty (Q) then
+      raise Program_Error;
+    else
+      Temp := Q.Front.Data;
+      Temp_Node := Q.Front;
+
+      if Q.Front = Q.Rear then -- Queue only has one element
+        Q.Front := null;
+        Q.Rear := null;
+      else -- Queue has multiple elements
+        Q.Front := Q.Front.Next;
+      end if;
+
+      Q.Count := Q.Count - 1;
+      Temp_Node.Free;
+      return Temp;
+    end if;
+  end Dequeue;
+
+  procedure Clear (Q : in out Queue) is
+  begin
+    while not Is_Empty (Q) loop
+      Dequeue (Q);
+    end loop;
+  end Clear;
+
+end Queue_Package;

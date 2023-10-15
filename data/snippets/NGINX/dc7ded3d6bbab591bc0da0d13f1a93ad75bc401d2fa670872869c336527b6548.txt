@@ -1,0 +1,71 @@
+# This snippet is used to configure a reverse proxy on NGINX server.
+
+# Defines the upstream server.
+upstream backend {
+  server 127.0.0.1:8000;  # local server running on port 8000
+  server 127.0.0.1:8001;  # local server running on port 8001
+  server 10.10.10.10:8000;  # external server running on port 8000
+}
+
+# Defines the server block that will listen for requests.
+server {
+  listen 80; # listens on port 80
+
+  # Defines the location block for requests starting with '/api'.
+  location /api {
+    proxy_pass http://backend;  # forwards requests to defined upstream server
+    proxy_http_version 1.1;  # enables HTTP/1.1 for the proxy
+    proxy_set_header Upgrade $http_upgrade;  # allows WebSocket connections
+    proxy_set_header Connection 'upgrade';  # allows WebSocket connections
+    proxy_set_header Host $host;  # defines the host of the request
+    proxy_cache_bypass $http_upgrade;  # ensures compatibility with caching
+    proxy_set_header X-Real-IP $remote_addr;  # sets client's real IP
+    proxy_set_header X-Forwarded-For $remote_addr;  # sets client's real IP
+    proxy_set_header X-Forwarded-Proto $scheme;  # sets protocol used by client
+    proxy_set_header X-Forwarded-Host $host;  # sets original host requested
+    proxy_set_header X-Forwarded-Port $server_port;  # sets original port requested
+  }
+
+  # Defines the location block for requests starting with '/static'.
+  location /static {
+    root /var/www/example.com;  # defines the root directory for static files
+    try_files $uri $uri/ =404;  # tries to find the requested file
+  }
+
+  # Defines the location block for requests starting with '/images'.
+  location /images/ {
+    root /var/www/example.com;  # defines the root directory for static files
+    expires 1d;  # sets caching time for images to 1 day
+  }
+
+  # Defines the location block for requests starting with '/downloads'.
+  location /downloads/ {
+    # only allows GET requests
+    if ($request_method !~ ^GET$){
+      return 405;  # returns a method not allowed error
+    }
+
+    root /var/ftp/downloads;  # defines the root directory for downloads
+    autoindex on;  # enables directory listing
+  }
+
+  # Defines the location block for requests starting with '/admin'.
+  location /admin/ {
+    # restricts this location to requests from local network or users with proper credentials
+    allow 192.168.0.0/24;
+    allow 10.0.0.0/8;
+    deny all;
+  }
+
+  # Defines the location block for requests starting with '/blog'.
+  location /blog/ {
+    # Uses a regular expression to capture part of the requested URL and pass it to the proxy.
+    # For example, a request to '/blog/2020/01/01/my-post' will be proxied to 'http://backend/blog/my-post'.
+    rewrite ^/blog/(\d{4}/\d{2}/\d{2}/)([a-zA-Z0-9\-]+)$ http://backend/blog/$2;
+
+    # Defines the proxy pass for the modified request.
+    proxy_pass http://backend;
+
+    # Other proxy configurations can be added here.
+  }
+}

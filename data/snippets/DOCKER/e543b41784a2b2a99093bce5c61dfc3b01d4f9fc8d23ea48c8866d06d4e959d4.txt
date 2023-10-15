@@ -1,0 +1,20 @@
+# This is a sample Dockerfile for a Node.js application
+# It uses a multi-stage build to create a smaller final image
+# with only the necessary dependencies and code.
+
+### STAGE 1: Build ###
+FROM node:12-alpine AS build
+WORKDIR /usr/src/app
+COPY package*.json ./
+RUN apk update && apk add --no-cache make gcc g++ python # install build dependencies
+RUN npm install # install Node.js dependencies
+COPY . .
+RUN npm run build # build the application
+
+### STAGE 2: Run ###
+FROM node:12-alpine
+WORKDIR /usr/src/app
+COPY --from=build /usr/src/app/package*.json ./
+RUN npm install --only=production # install only production dependencies
+COPY --from=build /usr/src/app/dist ./dist # copy built files from previous stage
+CMD [ "node", "index.js" ]

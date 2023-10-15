@@ -1,0 +1,77 @@
+{-# LANGUAGE FlexibleInstances #-}
+
+module Main where
+
+import Data.List (intercalate)
+import Data.Maybe (listToMaybe)
+
+-- Type class for abstracting the concept of a "combinable" value
+class Combinable a where
+  combine :: a -> a -> a
+
+-- Custom data type for a mathematical expression with different possible operations
+data Expression = Value Int
+                | Addition Expression Expression
+                | Subtraction Expression Expression
+                | Multiplication Expression Expression
+                | Division Expression Expression
+
+-- Implementation of 'Combinable' type class for 'Expression'
+-- This will allow any Expression type to be combined with the 'combine' function
+instance Combinable Expression where
+  -- Helper function to simplify expressions by combining them recursively
+  simplify :: Expression -> Expression
+  simplify (Value n) = Value n
+  simplify (Addition e1 e2) = Addition (simplify e1) (simplify e2)
+  simplify (Subtraction e1 e2) = Subtraction (simplify e1) (simplify e2)
+  simplify (Multiplication e1 e2) = Multiplication (simplify e1) (simplify e2)
+  simplify (Division e1 e2) = Division (simplify e1) (simplify e2)
+  -- Override the 'combine' function based on the type of operation
+  combine :: Expression -> Expression -> Expression
+  combine (Value n1) (Value n2) = Value $ n1 + n2
+  combine (Addition e1 e2) (Addition e3 e4) = Addition (combine e1 e3) (combine e2 e4)
+  combine (Subtraction e1 e2) (Subtraction e3 e4) = Subtraction (combine e1 e3) (combine e2 e4)
+  combine (Multiplication e1 e2) (Multiplication e3 e4) = Multiplication (combine e1 e3) (combine e2 e4)
+  combine (Division e1 e2) (Division e3 e4) = Division (combine e1 e3) (combine e2 e4)
+
+-- Helper function to convert an 'Expression' to a string
+expressionToString :: Expression -> String
+expressionToString (Value n) = show n
+expressionToString (Addition e1 e2) = "(" ++ expressionToString e1 ++ " + " ++ expressionToString e2 ++ ")"
+expressionToString (Subtraction e1 e2) = "(" ++ expressionToString e1 ++ " - " ++ expressionToString e2 ++ ")"
+expressionToString (Multiplication e1 e2) = "(" ++ expressionToString e1 ++ " * " ++ expressionToString e2 ++ ")"
+expressionToString (Division e1 e2) = "(" ++ expressionToString e1 ++ " / " ++ expressionToString e2 ++ ")"
+
+-- Helper function to evaluate an 'Expression' and return the result
+evaluate :: Expression -> Maybe Int
+evaluate (Value n) = Just n
+evaluate (Addition e1 e2) = listToMaybe [n1 + n2 | n1 <- nums1, n2 <- nums2]
+  where
+    nums1 = evaluate e1
+    nums2 = evaluate e2
+evaluate (Subtraction e1 e2) = listToMaybe [n1 - n2 | n1 <- nums1, n2 <- nums2]
+  where
+    nums1 = evaluate e1
+    nums2 = evaluate e2
+evaluate (Multiplication e1 e2) = listToMaybe [n1 * n2 | n1 <- nums1, n2 <- nums2]
+  where
+    nums1 = evaluate e1
+    nums2 = evaluate e2
+evaluate (Division e1 e2) = listToMaybe [n1 `div` n2 | n1 <- nums1, n2 <- nums2, n2 /= 0]
+  where
+    nums1 = evaluate e1
+    nums2 = evaluate e2
+
+-- Main function for demonstration purposes
+main :: IO ()
+main = do
+  putStrLn "Enter two expressions to combine:"
+  exprString1 <- getLine
+  exprString2 <- getLine
+  let expr1 = read exprString1 :: Expression
+  let expr2 = read exprString2 :: Expression
+  let combined = combine expr1 expr2
+  putStrLn $ "The combined expression is: " ++ expressionToString combined
+  case evaluate combined of
+    Just result -> putStrLn $ "The evaluated result is: " ++ show result
+    Nothing -> putStrLn "The expression is invalid."

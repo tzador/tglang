@@ -1,0 +1,135 @@
+// This code snippet is an example of creating a custom game mode in UnrealScript
+
+// Define the custom game mode class
+class MyCustomGameMode expands GameInfo;
+
+// Declare necessary variables
+var array<PlayerStart> MySpawnPoints;
+var int MaxPlayers;
+
+// Set default values
+DefaultProperties
+{
+    MaxPlayers=16;
+}
+
+// Override the PreLogin function to handle determining player team assignment
+// and player replication info
+function PreLogin(string Options, string Address, out string OutError)
+{
+    // Call the parent PreLogin function
+    local string Error;
+    Super.PreLogin(Options, Address, Error);
+    
+    // Parse the player options
+    local PlayerOptions PO;
+    PO.ParseOptions(Options);
+    
+    // Check if the player has specified a team
+    if (PO.SpecifiedTeam != 255)
+    {
+        // Check if the team is full
+        if (GetTeamSize(PO.SpecifiedTeam) >= MaxPlayers / NUM_TEAMS)
+        {
+            // Set an error if the team is full
+            OutError = "Team is full";
+            log("Error: Team is full");
+            return;
+        }
+        else
+        {
+            // Add the player to the specified team
+            AddPlayerToTeam(PO.PlayerID, PO.SpecifiedTeam);
+        }
+    }
+    else
+    {
+        // Check which team has less players and assign the player to that team
+        if (GetTeamSize(0) < GetTeamSize(1))
+        {
+            AddPlayerToTeam(PO.PlayerID, 0);
+        }
+        else
+        {
+            AddPlayerToTeam(PO.PlayerID, 1);
+        }
+    }
+    
+    // Set the player replication info based on the team they were assigned to
+    if (PlayerReplicationInfo(PO.PlayerID) != None)
+    {
+        PlayerReplicationInfo(PO.PlayerID).Team = Player(PO.PlayerID).Team;
+    }
+}
+
+// Override the PostLogin function to handle player spawning
+function PostLogin(PlayerController NewPlayer)
+{
+    // Call the parent PostLogin function
+    Super.PostLogin(NewPlayer);
+    
+    // Determine which spawn points are available for the player's team
+    local array<PlayerStart> AvailableSpawnPoints;
+    for (Iterator ActorItr = Class<PlayerStart>.StaticClass.CreateIterator(); ActorItr; ++ActorItr)
+    {
+        local PlayerStart SpawnPoint;
+        SpawnPoint = PlayerStart(ActorItr.obj);
+        if (!SpawnPoint.bDisabled && (SpawnPoint.PlayerStartTag == "" || StrCmp(SpawnPoint.PlayerStartTag,"COMMON") == 0) && SpawnPoint.PlayerStartTeam == NewPlayer.PlayerReplicationInfo.Team)
+        {
+            AvailableSpawnPoints.AddItem(SpawnPoint);
+        }
+    }
+    
+    // If there are no available spawn points, use the default spawn point
+    if (AvailableSpawnPoints.Length == 0)
+    {
+        AvailableSpawnPoints.AddItem(Level.FindPlayerStart("", "", NewPlayer.PlayerReplicationInfo.Team));
+    }
+    
+    // Randomly select a spawn point from the available options
+    local PlayerStart SpawnLocation;
+    SpawnLocation = AvailableSpawnPoints[Rand(AvailableSpawnPoints.Length)];
+    
+    // Tell the player to respawn at the selected spawn point
+    NewPlayer.client.GotoState('PlayerRestart');
+    if ( NewPlayer.Character != None )
+    {
+        NewPlayer.Character.Destroy();
+    }
+    NewPlayer.serverGotoState('Dead');
+    NewPlayer.ServerSetDeathLocation(SpawnLocation.Location,SpawnLocation.Rotation, SpawnLocation.CameraStyle);
+    NewPlayer.Pawn.SetLocation(SpawnLocation.Location);
+    NewPlayer.Pawn.SetRotation(SpawnLocation.Rotation);
+}
+
+// Override the ScoreKill function to handle custom score calculations
+function ScoreKill(PlayerController Killer, PlayerController Victim)
+{
+    // Call the parent ScoreKill function
+    Super.ScoreKill(Killer, Victim);
+    
+    // Award additional points to the killer
+    Killer.Score += 1;
+    Killer.ClientMessage("You scored an additional point for the kill!");
+}
+
+// Override the EndGame function to handle displaying custom end game messages
+function EndGame(string Reason)
+{
+    // Call the parent EndGame function
+    Super.EndGame(Reason);
+    
+    // Display a custom message based on the reason for ending the game
+    if (Reason == 'Red')
+    {
+        WorldInfo.Game.Broadcast("The red team has won!");
+    }
+    else if (Reason == 'Blue')
+    {
+        WorldInfo.Game.Broadcast("The blue team has won!");
+    }
+    else if (Reason == 'Tie')
+    {
+        WorldInfo.Game.Broadcast("The game ended in a tie!");
+    }
+}

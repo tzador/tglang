@@ -1,0 +1,46 @@
+SET PROD /ALUMINUM, STEEL, IRON/; 
+SET DEMAND /A, B, C, D/;
+SET PATH /A.B, A.C, A.D, B.C, B.D, C.D/;
+PARAMETERS
+COST(PROD) 'Unit production cost'
+/ALUMINUM 4
+STEEL 3
+IRON 5 /
+
+DEMAND(D)
+/A 25
+B 30
+C 20
+D 35/;
+
+ALIAS(PROD,i); ALIAS(PATH,j);
+
+TABLE TRANSPORT(PROD,PATH) 'Transportation cost per unit'
+/ A.B A.C A.D B.C B.D C.D /
+ALUMINUM 3 2 4 5 6 4
+STEEL 2 4 1 3 5 2
+IRON 3 3 5 2 4 3;
+
+VARIABLES
+X(PROD,PATH) 'Units transported'
+OBJ 'Total cost';
+
+POSITIVE VARIABLE X;
+
+EQUATIONS
+COSTDEF 'Define total cost'
+BALANCE(PROD) 'Production balance'
+DEMANDMEET(DEMAND) 'Demand satisfaction'
+TRANCOST(PROD) 'Transportation cost definition';
+
+COSTDEF.. OBJ =E= SUM((i,j), TRANSPORT(i,j)*X(i,j));
+
+BALANCE(i).. SUM(j,X(i,j)) =E= PROD(i);
+
+DEMANDMEET(d).. SUM((i,j)|PATH(j,d)$(ORD(PATH(j,d))< = ORD(d)), X(i,j)) =G= DEMAND(d);
+
+TRANCOST(i).. SUM(j|PATH(i,j), X(i,j)) =L= COST(i);
+
+MODEL TRANSPORT /costdef, balance, demandmeet, trancost/;
+
+SOLVE TRANSPORT USING LP MINIMIZING OBJ;

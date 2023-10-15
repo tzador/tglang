@@ -1,0 +1,72 @@
+-module(validate).
+
+-export([string_to_list/1,
+        list_to_binary/1,
+        atom_to_binary/1,
+        decode_url_component/1,
+        replace/3,
+        parse_qs_length/1,
+        find_values/2,
+        get_json_object/2]).
+
+%% Convert a string to a list of characters
+%% supported by Erlang's string module
+string_to_list(Data) ->
+    lists:map(fun(X) ->
+                case X of
+                    <<_:128, "UTF-8">> ->
+                        erlang:binary_to_list(X);
+                    <<_:32, " Latin-1">> ->
+                        erlang:binary_to_list(X);
+                    _ ->
+                        erlang:binary_to_list(X)
+                end
+            end, Data).
+
+%% Convert a list to a binary
+list_to_binary(List) ->
+    erlang:list_to_binary(List).
+
+%% Convert an atom to a binary
+atom_to_binary(Atom) ->
+    erlang:term_to_binary(Atom).
+
+%% Decode a URL component and return a binary
+decode_url_component(Component) ->
+    case inet_parse:decode_url_component(Component) of
+        ok ->
+            ok;
+        {error, invalid} ->
+            invalid
+    end.
+
+%% Replace all occurrences of a pattern with a given replacement in a binary
+replace(Binary, Pattern, Replacement) ->
+    erlang:binary_replace(Binary, Pattern, Replacement).
+
+%% Calculate the length of a string in URL encoded form
+parse_qs_length(Query) ->
+    length(glurk:encoded_string(Query)).
+
+%% Retrieve a list of values associated with a given key in a URL query string
+find_values(Key, Query) ->
+    case glurk:parse_qs(Query) of
+        {ok, ParsedQuery} ->
+            lists:flatten([lists:filtermap(fun({K, V}) ->
+                                                case K of
+                                                    {R, String} when R == Key; true -> V;
+                                                    _ -> null
+                                                end
+                                            end, ParsedQuery)]);
+        error ->
+            error
+    end.
+
+%% Get a specific object from a JSON string
+get_json_object(JSON, Path) ->
+    case jiffy:decode(JSON) of
+        {ok, Decoded} ->
+            jiffy:get(Path, Decoded);
+        error ->
+            error
+    end.

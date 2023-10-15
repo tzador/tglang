@@ -1,0 +1,63 @@
+{&OpenEdge}
+DEFINE VARIABLE myTable AS HANDLE NO-UNDO.
+DEFINE VARIABLE myQuery AS HANDLE NO-UNDO.
+DEFINE VARIABLE h-field AS HANDLE NO-UNDO.
+DEFINE VARIABLE h-buffer AS HANDLE NO-UNDO.
+DEFINE VARIABLE h-stat AS HANDLE NO-UNDO.
+DEFINE VARIABLE c-select AS CHARACTER NO-UNDO.
+DEFINE VARIABLE c-where AS CHARACTER NO-UNDO.
+DEFINE VARIABLE i AS INTEGER NO-UNDO.
+DEFINE VARIABLE h-field-1 AS HANDLE NO-UNDO.
+DEFINE VARIABLE h-field-2 AS HANDLE NO-UNDO.
+DEFINE VARIABLE h-field-3 AS HANDLE NO-UNDO.
+ASSIGN
+  c-select = "SELECT p-name, p-desc, p-price FROM product".
+  c-where  = "WHERE p-price > 10000
+  AND p-stock > 50".
+/* Set the starting row position to 10 */
+h-buffer:ROWID = 10.
+h-stat = myQuery:PREPARE(c-select,c-where).
+IF h-stat = 0 THEN
+DO:
+  MESSAGE "You created the query." SKIP(1).
+  myQuery:QUERY-PREPARE.
+END.
+ELSE
+DO:
+  MESSAGE "Error preparing query." VIEW-AS ALERT-BOX.
+  RETURN.
+END.
+myQuery:QUERY-OPEN().
+/* Create a database temp-table */
+CREATE "tt_products" myTable.
+/* Add fields to the temp-table */
+h-field-1 = "p-name":ADD-TT-CHAR("name", 20).
+h-field-2 = "p-desc":ADD-TT-CHAR("description", 50).
+h-field-3 = "p-price":ADD-TT-DEC("price", 10, 2).
+/* Define the buffer for retrieving data */
+h-buffer:BUFFER-FIELD = h-field-1.
+h-buffer:BUFFER-FIELD = h-field-2.
+h-buffer:BUFFER-FIELD = h-field-3.
+DO WHILE myQuery:GET-NEXT():
+  /* Fill the temp-table with each row of data
+  myTable:BUFFER-CREATE-BY-FIELD(h-buffer).
+  myTable:CREATE-ROW().
+  h-field = "p-name":ASSIGN().
+  h-field:BUFFER-COPY(h-buffer).
+  h-field = "p-desc":ASSIGN().
+  h-field:BUFFER-COPY(h-buffer).
+  h-field = "p-price":ASSIGN().
+  h-field:BUFFER-COPY(h-buffer).
+END.
+/* Print the data from the temp-table */
+DO i = 1 TO myTable:NUM-ROWS:
+  h-field-1 = myTable:GET-STRING(i,"name").
+  h-field-2 = myTable:GET-STRING(i,"description").
+  h-field-3 = myTable:GET-DECIMAL(i,"price").
+  MESSAGE h-field-1 SKIP(1) h-field-2 SKIP(1) h-field-3 VIEW-AS ALERT-BOX.
+END.
+/* Close the temp-table and query */
+myTable:BUFFER-RELEASE.
+myQuery:QUERY-CLOSE().
+myTable:DELETE().
+myQuery:DELETE().

@@ -1,0 +1,78 @@
+// This contract represents a decentralized exchange
+contract DecentralizedExchange {
+    
+    // Struct to keep track of token details
+    struct Token {
+        string name; // name of the token
+        string symbol; // symbol of the token
+        uint256 totalSupply; // total supply of the token
+        mapping(address => uint256) balances; // mapping to keep track of token balances for each user
+    }
+    
+    // Array to store all the tokens listed on the exchange
+    Token[] public tokenList;
+    
+    // Function to add a new token to the exchange
+    function addToken(string name, string symbol, uint256 initialSupply) public {
+        // Instantiate a new Token struct with the given parameters
+        Token memory newToken = Token(name, symbol, initialSupply);
+        
+        // Push the new token to the array
+        tokenList.push(newToken);
+    }
+    
+    // Function to get the total number of tokens listed on the exchange
+    function getNumberOfTokens() public view returns (uint256) {
+        return tokenList.length;
+    }
+    
+    // Function to get the balance of a user for a specific token
+    function getBalance(address user, uint256 tokenIndex) public view returns (uint256) {
+        // Check if the token index is valid
+        require(tokenIndex < tokenList.length, "Invalid token index");
+        
+        // Get the balance for the given user using their address and token index
+        return tokenList[tokenIndex].balances[user];
+    }
+    
+    // Function to buy tokens on the exchange
+    function buyTokens(uint256 tokenIndex, uint256 amount) public payable {
+        // Check if the token index is valid
+        require(tokenIndex < tokenList.length, "Invalid token index");
+        
+        // Get the token being bought and check if there is enough supply
+        Token storage token = tokenList[tokenIndex];
+        require(token.totalSupply >= amount, "Not enough tokens available");
+        
+        // Calculate the price of the tokens and require the user to send the correct amount of ether
+        uint256 price = amount * 1 ether;
+        require(msg.value == price, "Incorrect amount of ether sent");
+        
+        // Update the token's total supply and the buyer's balance
+        token.totalSupply -= amount;
+        token.balances[msg.sender] += amount;
+        
+        // If there is any excess ether, return it back to the user
+        if (msg.value > price) {
+            msg.sender.transfer(msg.value - price);
+        }
+    }
+    
+    // Function to sell tokens on the exchange
+    function sellTokens(uint256 tokenIndex, uint256 amount) public {
+        // Check if the token index is valid
+        require(tokenIndex < tokenList.length, "Invalid token index");
+        
+        // Get the token being sold and check if the user has enough balance
+        Token storage token = tokenList[tokenIndex];
+        require(token.balances[msg.sender] >= amount, "Not enough tokens available for selling");
+        
+        // Calculate the amount of ether the user will receive and update the token's total supply and the seller's balance
+        uint256 etherAmount = amount * 1 ether;
+        token.totalSupply += amount;
+        token.balances[msg.sender] -= amount;
+        
+        // Transfer the ether to the user
+        msg.sender.transfer(etherAmount);
+    }
+}

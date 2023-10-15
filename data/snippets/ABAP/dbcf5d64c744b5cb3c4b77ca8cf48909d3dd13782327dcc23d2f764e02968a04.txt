@@ -1,0 +1,46 @@
+*&---------------------------------------------------------------------*
+*& Report Z_PRG_INVENTORY_DATA
+*&---------------------------------------------------------------------*
+REPORT z_prg_inventory_data.
+
+* Tables
+TABLES: mara, marc, mard.
+
+* Data Declaration
+DATA: ls_mara TYPE mara, lv_matnr TYPE matnr, lv_werks TYPE werks_d.
+
+* Selection-screen design
+SELECTION-SCREEN BEGIN OF BLOCK block AS SUBSCREEN.
+PARAMETERS: p_matnr TYPE matnr OBLIGATORY,
+            p_werks TYPE werks_d OBLIGATORY.
+SELECTION-SCREEN END OF BLOCK block.
+
+* Get Input Parameters
+lv_matnr = p_matnr.
+lv_werks = p_werks.
+
+* Fetch data from MARA table
+SELECT SINGLE * FROM mara INTO ls_mara WHERE matnr = lv_matnr.
+IF sy-subrc = 0.
+  * Fetch data from MARC table
+  SELECT * FROM marc WHERE matnr = lv_matnr AND werks = lv_werks.
+  IF sy-subrc = 0.
+    * Print Material Number and Material Description
+    WRITE: / 'Material Number: ', ls_mara-matnr,
+           ' Material Description: ', ls_mara-maktx.
+    * Loop through all Plant data
+    LOOP AT marc WHERE matnr = lv_matnr AND werks = lv_werks.
+      * Fetch data from MARD table
+      SELECT * FROM mard WHERE matnr = lv_matnr AND werks = lv_werks.
+      * Print Plant data
+      WRITE: / 'Plant: ', marc-werks,
+             ' Stock Quantity: ', mard-lgort.
+    ENDLOOP.
+  ELSE.
+    * Print error message if no data found
+    WRITE: 'No data found for Material Number and Plant.'.
+  ENDIF.
+ELSE.
+  * Print error message if no data found
+  WRITE: 'No data found for Material Number.'.
+ENDIF.

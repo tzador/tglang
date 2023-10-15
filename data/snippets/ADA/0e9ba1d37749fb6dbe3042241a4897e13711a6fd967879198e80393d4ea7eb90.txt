@@ -1,0 +1,123 @@
+--    This is a comment in ADA code
+
+WITH Ada.Unchecked_Deallocation;
+
+--    This is a library package declaration
+
+PACKAGE Memory_Manager IS
+  TYPE Int_Array IS ARRAY (Positive RANGE <>) OF Integer;
+
+  -- This type represents an array of integers
+
+  FUNCTION Allocate(Length : Positive) RETURN Int_Array;
+  --  This function takes in a positive length and returns an array of integers
+
+  PROCEDURE Deallocate(Array : IN OUT Int_Array);
+  --  This procedure frees the memory allocated for the integer array
+
+private
+  TYPE Memory_Block IS RECORD
+    Data : Int_Array;
+    Next : ACCESS Memory_Block;
+  END RECORD;
+
+  Next_Free : Memory_Block;
+  -- This record declaration holds the data and a pointer to the next block of memory
+
+  PROCEDURE Free_Memory;
+  --  This procedure checks for any unused memory blocks and frees them
+
+  PROCEDURE Allocate_Memory(Block : OUT Memory_Block; Length : Positive);
+  -- This procedure allocates memory for a new block of data
+
+  PROCEDURE Init_Block(Block : IN OUT Memory_Block; Length : Positive);
+  --  This procedure initializes the memory block
+
+END Memory_Manager;
+
+-- This is the end of the Memory_Manager package declaration
+
+PACKAGE BODY Memory_Manager IS
+
+  FUNCTION Allocate(Length : Positive) RETURN Int_Array IS
+    block_Ptr : Memory_Block;
+    block_Data : Int_Array;
+  BEGIN
+    IF Next_Free = NULL THEN
+      Allocate_Memory(Next_Free, Length);
+    END IF;
+
+    block_Data := Next_Free.Data;
+    block_Ptr := Next_Free.Next;
+
+    Free_Memory;
+
+    RETURN block_Data;
+  END Allocate;
+
+  PROCEDURE Deallocate(Array : IN OUT Int_Array) IS
+    block_Ptr : Memory_Block;
+  BEGIN
+    block_Ptr := Next_Free;
+    Next_Free := NEW Memory_Block;
+    Next_Free.Data := Array;
+    Next_Free.Next := block_Ptr;
+  END Deallocate;
+
+  PROCEDURE Allocate_Memory(Block : OUT Memory_Block; Length : Positive) IS
+    i : Positive;
+  BEGIN
+    Init_Block(Block, Length);
+
+    Block.Next := Next_Free.Next;
+    Next_Free := Block;
+
+    FOR i IN 1..Length LOOP
+      Unchecked_Assign(Block.Data(i), 0);
+    END LOOP;
+  END Allocate_Memory;
+
+  PROCEDURE Free_Memory IS
+    block_Ptr, temp : Memory_Block;
+  BEGIN
+    block_Ptr := Next_Free;
+    temp := NULL;
+
+    WHILE block_Ptr /= NULL LOOP
+      IF block_Ptr.Data'Length = 0 THEN
+        temp := block_Ptr;
+        block_Ptr := block_Ptr.Next;
+        Ada.Unchecked_Deallocation(temp, temp'Discriminant);
+      ELSE
+        EXIT;
+      END IF;
+    END LOOP;
+  END Free_Memory;
+
+  PROCEDURE Init_Block(Block : IN OUT Memory_Block; Length : Positive) IS
+  BEGIN
+    Block.Data := Int_Array(1..Length);
+    Block.Next := NULL;
+  END Init_Block;
+
+END Memory_Manager;
+
+-- This is the end of the Memory_Manager package body
+
+WITH Ada.Text_IO;
+WITH Memory_Manager;
+
+--  This is the main program that utilizes the Memory_Manager package
+
+PROCEDURE Main IS
+  myArray : Memory_Manager.Int_Array;
+BEGIN
+  myArray := Memory_Manager.Allocate(10);
+
+  FOR i IN myArray'Range LOOP
+    myArray(i) := i * 2;
+    Ada.Text_IO.Put_Line("Element " & i & " of myArray: " & myArray(i)'Img);
+  END LOOP;
+
+  Memory_Manager.Deallocate(myArray);
+END Main;

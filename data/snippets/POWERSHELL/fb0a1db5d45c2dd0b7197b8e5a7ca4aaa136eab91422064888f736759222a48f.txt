@@ -1,0 +1,25 @@
+# Import Active Directory module
+Import-Module ActiveDirectory
+
+# Get current date and time
+$currentTime = Get-Date
+
+# Set a variable for file path
+$filePath = "C:\Users\Username\Desktop\userlist.txt"
+
+# Get all users in specified active directory group and add to userlist.txt
+Get-ADGroupMember -Identity "Sales Department" | Select-Object -ExpandProperty SamAccountName >> $filePath
+
+# Loop through all users in userlist.txt and get their last password set date
+foreach ($user in Get-Content $filePath) {
+    $pwdDate = Get-ADUser -Identity $user -Properties PasswordLastSet | Select-Object -ExpandProperty PasswordLastSet
+
+    # Calculate the number of days since last password reset
+    $daysSinceReset = ($currentTime - $pwdDate).Days
+
+    # If the password was last reset more than 90 days ago, reset the password
+    if ($daysSinceReset -gt 90) {
+        Set-ADAccountPassword -Identity $user -Reset -NewPassword (ConvertTo-SecureString -AsPlainText "P@ssw0rd" -Force)
+        Write-Output "The password for user $user has been reset."
+    }
+}

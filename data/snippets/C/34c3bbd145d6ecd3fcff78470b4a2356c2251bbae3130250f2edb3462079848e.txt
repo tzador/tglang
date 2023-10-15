@@ -1,0 +1,69 @@
+//This code snippet generates a random number using the Mersenne Twister algorithm
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <time.h>
+
+//Constants for the Mersenne Twister algorithm
+#define MT_N 624 //degree of recurrence
+#define MT_M 397 //middle word
+#define MT_MATRIX_A 0x9908b0dfUL //constant vector a
+#define MT_UPPER_MASK 0x80000000UL //most significant w-r bits
+#define MT_LOWER_MASK 0x7fffffffUL //least significant r bits
+
+//Structure for the Mersenne Twister state
+typedef struct{
+    uint32_t mt[MT_N];
+    int mti;
+} mt_state;
+
+//Global state variable for the Mersenne Twister
+mt_state state;
+
+//Initialize the state of the Mersenne Twister
+void mt_seed(uint32_t seed){
+    state.mt[0] = seed;
+    for(state.mti = 1; state.mti < MT_N; state.mti++){
+        state.mt[state.mti] = (MT_MATRIX_A * (state.mt[state.mti - 1] ^ (state.mt[state.mti - 1] >> 30)) + state.mti);
+    }
+}
+
+//Generate a random number using the Mersenne Twister
+uint32_t mt_rand(){
+    //Generate 624 numbers at once
+    if(state.mti == MT_N){
+        int i;
+        for(i = 0; i < MT_N; i++){
+            uint32_t y = (state.mt[i] & MT_UPPER_MASK) | (state.mt[(i + 1) % MT_N] & MT_LOWER_MASK);
+            state.mt[i] = state.mt[(i + MT_M) % MT_N] ^ (y >> 1);
+            if(y % 2 != 0){
+                state.mt[i] ^= MT_MATRIX_A;
+            }
+        }
+        state.mti = 0;
+    }
+
+    //Tempering to improve lower bit randomness
+    uint32_t y = state.mt[state.mti++];
+    y ^= (y >> 11);
+    y ^= (y << 7) & 0x9d2c5680UL;
+    y ^= (y << 15) & 0xefc60000UL;
+    y ^= (y >> 18);
+
+    return y;
+}
+
+//Main function
+int main(){
+    //Seed the Mersenne Twister with current time
+    mt_seed((uint32_t) time(NULL));
+
+    //Generate 10 random numbers
+    int i;
+    for(i = 0; i < 10; i++){
+        printf("%u\n", mt_rand());
+    }
+
+    return 0;
+}

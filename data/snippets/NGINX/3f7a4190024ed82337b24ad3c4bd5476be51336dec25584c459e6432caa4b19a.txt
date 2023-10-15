@@ -1,0 +1,71 @@
+# This code snippet configures the NGINX server to listen on port 80 and serve the index.html file
+server {
+    listen 80; #listen on port 80
+    server_name mydomain.com; #server name is set to mydomain.com
+
+    root /var/www/html/mydomain.com; #root directory for the domain
+
+    # set default index file
+    index index.html; 
+
+    # Configure NGINX to handle HTTP requests 
+    location / {
+        try_files $uri $uri/ =404; #try to find the requested file in the root directory
+    }
+
+    # Set up error pages 
+    error_page 404 /404.html; #error page for 404 errors (file not found)
+    error_page 500 502 503 504 /50x.html; #error page for server errors
+
+    # Handle requests for static files
+    location ~* \.(css|js|jpg|jpeg|gif|png|ico)$ {
+        expires 30d; #set caching time for static files to 30 days
+    }
+
+    # Protect against common vulnerabilities
+    # Deny access to hidden files and directories
+    location ~ /\. {
+        deny all; #deny access to hidden files and directories
+        access_log off; #disable logging for these requests
+        log_not_found off; #disable 404 error logging for these requests
+    }
+
+    # Set up gzip compression for better performance
+    # Enable compression for all responses
+    gzip on; #enable gzip compression
+    # Set compression level, level ranges from 1 to 9 (1 being the least compression and 9 being the most)
+    gzip_comp_level 3; #set compression level to 3
+    # Set types of files to be compressed, includes text, fonts, and json types
+    gzip_types text/plain text/css application/json application/x-javascript text/xml application/xml application/xml+rss text/javascript application/javascript font/ttf font/opentype application/vnd.ms-fontobject; #specify types of files to be compressed
+    # Enable caching of compressed files
+    gzip_static on; #enable caching of compressed files
+    # Set buffer size for compression in memory
+    gzip_buffers 16 8k; #set buffer size for compression to 16 and 8k respectively
+    # Set minimum size for compression to occur (here, set to 256 bytes)
+    gzip_min_length 256; #set minimum size for compression to occur
+
+    # Redirect all requests to HTTPS
+    server {
+        listen 443 ssl; #listen on port 443 for HTTPS requests
+        server_name mydomain.com; #server name is set to mydomain.com
+
+        # Configure SSL certificate and keys
+        ssl_certificate /etc/ssl/certs/ssl-cert-snakeoil.pem; #path to SSL certificate
+        ssl_certificate_key /etc/ssl/private/ssl-cert-snakeoil.key; #path to SSL key
+
+        # Set up basic security headers
+        add_header X-Frame-Options "SAMEORIGIN"; #enable same-origin policy for framing
+        add_header X-XSS-Protection "1; mode=block"; #enable XSS protection
+        add_header X-Content-Type-Options "nosniff"; #prevent browsers from guessing file types
+        # Enable HTTP Strict Transport Security to force HTTPS connections
+        # Set preload option to true if you want to enforce HTTPS connections for all future requests
+        add_header Strict-Transport-Security "max-age=15768000; includeSubdomains; preload"; #enable HSTS header for 6 months
+
+        # Enable OCSP stapling to improve security
+        ssl_stapling on; #enable OCSP stapling
+        # Set cache time for OCSP responses to 1 hour
+        ssl_stapling_verify on; #enable OCSP verification
+        # Validate certificate chain
+        ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt; #path to trusted CA certificates
+    }
+}

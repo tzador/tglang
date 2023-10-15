@@ -1,0 +1,73 @@
+;; Resource Estimation Algorithm
+pro resource_estimation, data
+  ;; Declare variables
+  string data
+  integer i, j, n, k
+  double accuracy
+  double sum, average, variance
+
+  ;; Convert data to array
+  data_array = stringtotoken(data, ",")
+
+  ;; Calculate number of data points
+  n = n_elements(data_array)
+
+  ;; Calculate initial guesses
+  theta_0 = max(data_array) / 2
+  theta_1 = 0.5
+
+  ;; Initialize residual array
+  residual = indgen(n)
+
+  ;; Calculate residuals
+  for i = 0, n-1 do begin
+    residual[i] = data_array[i] - theta_0 - theta_1 * i
+  endfor
+
+  ;; Calculate sum of squared residuals
+  res_sum = total(residual^2)
+
+  ;; Define function to calculate variance
+  func_var = function(theta_0, theta_1)
+    temp = 0
+    for j = 0, n-1 do begin
+      temp = temp + (data_array[j] - theta_0 - theta_1 * j)^2
+    endfor
+    return, temp
+
+  ;; Set initial guesses for theta_0 and theta_1
+  range = [0.1, 2.0]
+  theta_0 = theta_0 + randomn(seed=1, range=range)
+  theta_1 = theta_1 + randomn(seed=2, range=range)
+
+  ;; Initialize iteration counter and accuracy threshold
+  k = 0
+  accuracy = 1e-7
+
+  ;; Perform iterations until accuracy is reached
+  while (func_var(theta_0, theta_1) > accuracy) do begin
+    ;; Update theta_0 and theta_1 using gradient descent
+    theta_0 = theta_0 - 0.001 * n / res_sum * sum(residual)
+    theta_1 = theta_1 - 0.001 * n / res_sum * sum(residual * indgen(n))
+
+    ;; Update residual array
+    residual = indgen(n)
+    for i = 0, n-1 do begin
+      residual[i] = data_array[i] - theta_0 - theta_1 * i
+    endfor
+
+    ;; Update sum of squared residuals
+    res_sum = total(residual^2)
+
+    ;; Update iteration counter
+    k = k + 1
+  endwhile
+
+  ;; Calculate final variance
+  variance = func_var(theta_0, theta_1) / n
+
+  ;; Print output
+  printf, "Estimated Theta_0: %f", theta_0
+  printf, "Estimated Theta_1: %f", theta_1
+  printf, "Estimated Variance: %f", variance
+end

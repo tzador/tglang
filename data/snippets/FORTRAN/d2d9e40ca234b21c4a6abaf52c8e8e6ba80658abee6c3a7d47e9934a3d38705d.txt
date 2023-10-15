@@ -1,0 +1,68 @@
+! This code performs Gaussian elimination on a matrix using partial pivoting
+! Initialize variables
+INTEGER :: N, I, J, K, P
+REAL :: AMAX, TEMP
+REAL, DIMENSION(:,:), ALLOCATABLE :: A, B, L
+
+! Read number of equations and initialize matrices
+READ*, N
+ALLOCATE(A(N,N),B(N,1),L(N,N))
+
+! A represents the coefficient matrix, B represents the constant matrix, L represents the lower triangular matrix
+! Populate matrices with input values
+DO I = 1, N  
+    DO J = 1, N
+        READ*, A(I,J)
+    END DO
+    READ*, B(I,1)
+END DO
+
+! Start Gaussian elimination
+DO K = 1, N-1 ! Loop through columns
+    AMAX = ABS(A(K,K)) ! Initialize maximum value
+    P = K ! P will keep track of the row with the maximum value
+
+    DO I = K+1, N
+        IF (ABS(A(I,K)) > AMAX) THEN ! If a larger value is found
+            AMAX = ABS(A(I,K))
+            P = I ! Update P with row index
+        END IF
+    END DO
+
+    IF (P /= K) THEN ! If the maximum value is not in the current row
+        DO J = K, N ! Swap rows P and K in matrix A
+            TEMP = A(K,J)
+            A(K,J) = A(P,J)
+            A(P,J) = TEMP
+        END DO
+        TEMP = B(K,1) ! Swap corresponding rows in matrix B
+        B(K,1) = B(P,1)
+        B(P,1) = TEMP
+    END IF
+
+    DO I = K+1, N ! Perform elimination on rows below K
+        L(I,K) = A(I,K)/A(K,K) ! Populate lower triangular matrix
+        DO J = K, N
+            A(I,J) = A(I,J)-L(I,K)*A(K,J) ! Update coefficient matrix
+        END DO
+        B(I,1) = B(I,1)-L(I,K)*B(K,1) ! Update constant matrix
+    END DO
+END DO
+
+! Solve for x by back substitution
+B(N,1) = B(N,1)/A(N,N) ! Initialize last value of x
+DO I = N-1, 1, -1 ! Loop through rows in reverse order
+    TEMP = B(I,1) ! Start with constant matrix value
+    DO J = I+1, N
+        TEMP = TEMP-L(I,J)*B(J,1) ! Subtract previous x values
+    END DO
+    B(I,1) = TEMP/A(I,I) 
+END DO
+
+! Print solution vector x
+DO I = 1, N
+    PRINT*, "x", I, " = ", B(I,1)
+END DO
+
+! Deallocate memory
+DEALLOCATE(A,B,L)

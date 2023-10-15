@@ -1,0 +1,96 @@
+module Main exposing (main)
+
+import Html exposing (div, text)
+import Html.Attributes exposing (style)
+import Json.Decode exposing (Decoder, int, string)
+import Http
+import Json.Decode.Extra as Dec
+
+
+-- DATA --
+
+type alias Model =
+    { count : Int
+    , greeting : String
+    }
+
+
+initialModel : Model
+initialModel =
+    { count = 0
+    , greeting = "Hello"
+    }
+
+
+-- UPDATE --
+
+type Msg
+    = Increment Int
+    | GetLocation (Result Http.Error String)
+
+
+update : Msg -> Model -> (Model, Cmd Msg)
+update msg model =
+    case msg of
+        Increment val ->
+            ( { model | count = model.count + val }, Cmd.none )
+
+        GetLocation (Ok response) ->
+            let
+                locationDecoder : Decoder String
+                locationDecoder =
+                    Dec.at ["iss_position", "latitude"] string
+
+                latDecoder : Decoder Float
+                latDecoder =
+                    Dec.map (String.toFloat >> Result.withDefault 0.0) locationDecoder
+
+                result =
+                    case Json.Decode.decodeString latDecoder response of
+                        Ok latitude ->
+                            model.greeting ++ " there at " ++ String.fromFloat latitude ++ " degrees latitude"
+
+                        Err error ->
+                            "Something went wrong when getting the location: " ++ error
+            in
+                ( { model | greeting = result }, Cmd.none )
+
+        GetLocation _ ->
+            ( { model | greeting = "Something went wrong when getting the location." }, Cmd.none )
+
+
+-- VIEW --
+
+view : Model -> Html Msg
+view model =
+    div
+        [ style
+            [ ( "font-size", "20px" )
+            , ( "margin", "10px" )
+            ]
+        ]
+        [ div []
+            [ text model.greeting
+            ]
+        , div []
+            [ text (String.fromInt model.count)
+            ]
+        , div
+            [ style
+                [ ( "font-style", "italic" )
+                ]
+            ]
+            [ text "This is a complex code snippet in ELM." ]
+        ]
+
+
+-- MAIN --
+
+main : Program () Model Msg
+main =
+    Html.program
+        { init = (initialModel, Cmd.none)
+        , update = update
+        , subscriptions = \_ -> Sub.none
+        , view = view
+        }

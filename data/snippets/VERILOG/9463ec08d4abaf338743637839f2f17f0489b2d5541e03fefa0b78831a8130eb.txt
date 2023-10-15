@@ -1,0 +1,132 @@
+// This code snippet is a Viterbi decoder implemented in Verilog
+// It takes in a received bit sequence and outputs the most likely original bit sequence based on the Viterbi algorithm
+
+// Define module for Viterbi decoder
+module viterbi_decoder(
+  input [7:0] received_bits, // input bit sequence
+  output reg [7:0] original_bits // output original bit sequence
+);
+
+// Internal variables used in the Viterbi decoder
+reg [7:0] path[127:0]; // stores the best previous path to each state
+reg [2:0] best_path_index; // stores the index of the best previous path
+reg [3:0] state[127:0]; // stores the state transition information
+reg [1:0] metric_history[127:0][7:0]; // stores the accumulated path metrics
+reg [3:0] survivor_bits[127:0]; // stores the survivor bits for each state
+reg [1:0] metric_0, metric_1, metric_2, metric_3; // metrics for transitioning to each state
+reg [2:0] input_bit; // stores the most recent input bit
+reg [3:0] previous_best_path_index; // stores the best previous path index
+reg [7:0] previous_original_bits; // stores the previous original bit sequence
+reg [127:0] path_temp; // temporary variable for storing the best path
+reg [7:0] original_bits_temp; // temporary variable for storing the original bit sequence
+
+// State transition information for each state in the Viterbi decoder
+always @(*) begin
+  // State 00
+  state[0] = 1;
+  state[1] = 3;
+  state[2] = 0;
+  state[3] = 2;
+
+  // State 01
+  state[4] = 0;
+  state[5] = 2;
+  state[6] = 0;
+  state[7] = 2;
+
+  // State 10
+  state[8] = 1;
+  state[9] = 3;
+  state[10] = 2;
+  state[11] = 0;
+
+  // State 11
+  state[12] = 0;
+  state[13] = 2;
+  state[14] = 2;
+  state[15] = 0;
+end
+
+// Metric updates for each state transition based on input bit
+always @(*) begin
+  if(input_bit == 0) begin
+    // Metric update for transitioning to state 00
+    metric_0 = metric_history[previous_best_path_index][0] + 1;
+
+    // Metric update for transitioning to state 01
+    metric_1 = metric_history[previous_best_path_index][1] + 1;
+
+    // Metric update for transitioning to state 10
+    metric_2 = metric_history[previous_best_path_index][2] + 3;
+
+    // Metric update for transitioning to state 11
+    metric_3 = metric_history[previous_best_path_index][3] + 3;
+  end
+  else begin
+    // Metric update for transitioning to state 00
+    metric_0 = metric_history[previous_best_path_index][0] + 3;
+
+    // Metric update for transitioning to state 01
+    metric_1 = metric_history[previous_best_path_index][1] + 3;
+
+    // Metric update for transitioning to state 10
+    metric_2 = metric_history[previous_best_path_index][2] + 1;
+
+    // Metric update for transitioning to state 11
+    metric_3 = metric_history[previous_best_path_index][3] + 1;
+  end
+end
+
+// Viterbi algorithm implementation
+always @(*) begin
+  for(i = 0; i < 128; i = i + 1) begin
+    // Calculate best path index for current state
+    if(metric_0 < metric_1 && metric_0 < metric_2 && metric_0 < metric_3)
+      best_path_index = 0;
+    else if(metric_1 < metric_2 && metric_1 < metric_3)
+      best_path_index = 1;
+    else if(metric_2 < metric_3)
+      best_path_index = 2;
+    else
+      best_path_index = 3;
+
+    // Calculate the most likely survivor bits for the current state
+    survivor_bits[i] = previous_best_path_index[best_path_index];
+
+    // Update accumulated path metrics for each state based on transitions from previous state
+    if(state[i] == 0) begin
+      metric_history[i][0] = metric_0;
+      metric_history[i][1] = metric_2;
+      metric_history[i][2] = metric_0;
+      metric_history[i][3] = metric_2;
+    end
+    else if(state[i] == 1) begin
+      metric_history[i][0] = metric_1;
+      metric_history[i][1] = metric_3;
+      metric_history[i][2] = metric_1;
+      metric_history[i][3] = metric_3;
+    end
+    else if(state[i] == 2) begin
+      metric_history[i][0] = metric_0;
+      metric_history[i][1] = metric_2;
+      metric_history[i][2] = metric_0;
+      metric_history[i][3] = metric_2;
+    end
+    else begin
+      metric_history[i][0] = metric_1;
+      metric_history[i][1] = metric_3;
+      metric_history[i][2] = metric_1;
+      metric_history[i][3] = metric_3;
+    end
+
+    // Update previous best path index and original bit sequence
+    previous_best_path_index = best_path_index;
+    previous_original_bits = original_bits;
+
+    // Update path and original bit sequence for current state
+    path[i] = path_temp[previous_best_path_index];
+    original_bits[i] = original_bits_temp[previous_best_path_index];
+  end
+end
+
+endmodule

@@ -1,0 +1,37 @@
+;.Commitment Structure
+struct commitment {
+    string buyer;
+    string seller;
+    double amount;
+    int timeframe;
+    boolean fulfilled;
+}
+;
+;.Function to update fulfillment status
+pro update_commitment, commitment_record
+;**Input**: commitment_record- a pre-defined structure containing buyer, seller, amount, timeframe, and fulfillment status
+;**Output**: none
+;.Set up for error handling
+on_error, off_stop
+;.Open transactional database connection
+db_transaction_begin, [DB_NAME]
+;.Set up SQL statement to update fulfillment status
+sql = "UPDATE commitments SET fulfilled=true WHERE buyer='" + commitment_record.buyer + "' AND seller='" + commitment_record.seller + "' AND amount=" + commitment_record.amount + " AND timeframe=" + commitment_record.timeframe
+;.Execute SQL statement
+db_execute, sql
+;.Check if any rows were affected by update
+rows_updated = db_result_count()
+;.If no rows were updated, raise an error
+if (rows_updated eq 0) then begin
+    message, "No matching commitment found in database. Please check inputs.", /info
+    errstring = "No matching commitment found"
+    !error_state = 1
+end
+;.Close database connection
+db_transaction_commit
+;.Error handling
+error_handler:
+    print, "[IDL database error] " + errstring
+    db_transaction_commit
+return
+end

@@ -1,0 +1,76 @@
+{-# LANGUAGE FlexibleContexts #-}
+import qualified Data.Text as T
+import Text.Megaparsec hiding (Label)
+import Text.Megaparsec.Char
+import Text.Megaparsec.Char.Lexer
+import Text.Megaparsec.Error
+import Text.Megaparsec.Expr
+import Text.Megaparsec.Pos
+import Text.Megaparsec.Prim
+import Text.Megaparsec.ShowToken
+import Text.Megaparsec.Stream
+import Text.Megaparsec.Term
+
+type Parser = Text.Megaparsec.Parsec Void T.Text
+
+data Label
+  = LabelA T.Text
+  | LabelB T.Text
+  | LabelC T.Text
+  deriving (Eq, Show)
+
+data Expression
+  = NumE T.Text
+  | AddE Expression Expression
+  | MultE Expression Expression
+  | LabelE Label
+  deriving (Eq, Show)
+
+num :: Parser T.Text
+num = takeWhile1P Nothing isDigitChar <?> "number"
+
+label :: Parser Label
+label = choice
+  [ LabelA <$> (labelA *> labelName)
+  , LabelB <$> (labelB *> labelName)
+  , LabelC <$> (labelC *> labelName)
+  ] <?> "label"
+  where
+    labelA = symbol "LABEL_A"
+    labelB = symbol "LABEL_B"
+    labelC = symbol "LABEL_C"
+    labelName    = T.pack <$> (symbol "foo" <|> symbol "bar" <|> symbol "baz")
+
+expr :: Parser Expression
+expr = makeExprParser term table <?> "expression"
+  where
+    term = parens expr <|> numE <|> labelE
+    table = [ [ InfixL (AddE <$ symbol "+")
+              , InfixL (MultE <$ symbol "*")
+              ]
+            ]
+
+numE :: Parser Expression
+numE = NumE <$> num
+
+labelE :: Parser Expression
+labelE = LabelE <$> label
+
+parseExpression :: T.Text -> Either T.Text Expression
+parseExpression input =
+  case parse (spaceConsumer *> expr <* eof) "" input of
+    Left err -> Left (T.pack (parseErrorPretty err))
+    Right val -> Right val
+
+spaceConsumer :: Parser ()
+spaceConsumer =
+  L.space
+    space1
+    (L.skipLineComment "#")
+    (L.skipBlockCommentNested "(*" "*)")
+
+symbol :: T.Text -> Parser T.Text
+symbol = L.symbol spaceConsumer
+
+runParser :: Parser a -> T.Text -> Either T.Text a
+runParser p = parse (spaceConsumer *> p <* eof) ""

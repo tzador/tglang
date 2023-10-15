@@ -1,0 +1,79 @@
+// Declaring a GraphQL schema
+const typeDefs = ` 
+  type User {
+    id: ID!
+    name: String
+    age: Int
+    friends: [User]
+  }
+
+  type Query {
+    user(id: ID!): User!
+    users: [User!]!
+  }
+
+  type Mutation {
+    createUser(name: String!, age: Int): User!
+    updateUser(id: ID!, name: String!, age: Int): User!
+    deleteUser(id: ID!): User!
+  }
+`;
+
+// Defining resolvers to handle incoming queries and mutations
+const resolvers = {
+  Query: {
+    // Resolver function for the "user" query
+    user: (parent, args, context) => {
+      const { id } = args;
+      const { users } = context;
+      return users.find(user => user.id === id);
+    },
+    // Resolver function for the "users" query
+    users: (parent, args, context) => context.users,
+  },
+  Mutation: {
+    // Resolver function for the "createUser" mutation
+    createUser: (parent, args, context) => {
+      const { name, age } = args;
+      // Create a new user object with the given arguments
+      const newUser = { id: Date.now().toString(), name, age };
+      // Add the new user to the array of users in context
+      context.users.push(newUser);
+      // Return the newly created user
+      return newUser;
+    },
+    // Resolver function for the "updateUser" mutation
+    updateUser: (parent, args, context) => {
+      const { id, name, age } = args;
+      // Find the index of the user to be updated in the array
+      const index = context.users.findIndex(user => user.id === id);
+      // Update the user's name and age if the index is found
+      if (index >= 0) {
+        context.users[index].name = name;
+        context.users[index].age = age;
+      }
+      // Return the updated user
+      return context.users[index];
+    },
+    // Resolver function for the "deleteUser" mutation
+    deleteUser: (parent, args, context) => {
+      const { id } = args;
+      // Find the index of the user to be deleted in the array
+      const index = context.users.findIndex(user => user.id === id);
+      // Remove the user from the array if the index is found
+      if (index >= 0) {
+        return context.users.splice(index, 1)[0];
+      }
+      // If the index is not found, return an error
+      throw new Error('User not found.');
+    },
+  },
+};
+
+// Initialize ApolloServer and pass in the schema and resolvers
+const server = new ApolloServer({ typeDefs, resolvers });
+
+// Start the server
+server.listen().then(({ url }) => {
+  console.log(`🚀 Server ready at ${url}`)
+});

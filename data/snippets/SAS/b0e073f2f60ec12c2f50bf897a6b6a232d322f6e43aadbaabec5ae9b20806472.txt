@@ -1,0 +1,109 @@
+/***************************** DATA PREPROCESSING ***************************/
+* This snippet shows how to preprocess data in SAS for machine learning tasks;
+
+/*----------------------- IMPORTING DATA FROM EXTERNAL SOURCE ----------------*/
+
+/* First, we need to set up a library to store our data */
+libname mydata 'C:\Users\UserName\Data';
+
+/* Now, we can import our data from a CSV file */
+data mydata.liver;
+infile "C:\Users\UserName\Data\liver_data.csv" delimiter=','; /* specify file path and delimiter */
+input Age FBC LDH ESR Albumin LDH;
+run;
+
+/*------------------------- DATA EXPLORATION AND CLEANING -----------------------*/
+
+/* Summarize the data to check for missing values and general overview */
+proc contents data=mydata.liver; /* specify the dataset name */
+run;
+
+/* Check for any missing values */
+proc freq data=mydata.liver; /* specify the dataset name */
+tables _all_; /* use _all_ to check all variables */
+run;
+
+/* Replace any missing values with the mean of the variable */
+proc stdize data=mydata.liver method=mean out=mydata.liver; /* specify dataset and method */
+run;
+
+/*-------------------------- FEATURE ENGINEERING -------------------------------*/
+
+/* Create new variable: ALT Ratio = ALT / (AST + ALP) */
+data mydata.liver;
+set mydata.liver; /* specify dataset name */
+ALT_Ratio = ALT / (AST + ALP); /* use arithmetic operation to create new variable */
+run;
+
+/*------------------------- FEATURE SELECTION ----------------------------------*/
+
+/* Use PROC VARCLUS to identify correlated variables and select the most important ones */
+proc varclus data=mydata.liver;
+title 'Variable Clustering';
+run;
+
+/* Use PROC CORR to calculate the correlation matrix and select the variables with highest correlation to the target variable */
+proc corr data=mydata.liver
+           nodetails
+           outp=mydata.liver_corr; /* specify output dataset name */
+   var Age FBC LDH ESR Albumin LDH ALT_Ratio; /* specify variables to include in correlation matrix */
+run;
+
+/* Select the variables with highest correlation to the target variable */
+proc sql;
+create table mydata.liver_selected as
+   select *
+       from mydata.liver_corr
+       where ABS(CORR) > 0.3 /* specify correlation threshold */
+       order by CORR DESC; /* order variables by descending correlation */
+quit;
+
+/*--------------------------- DATA PARTITIONING -------------------------------*/
+
+/* Split the data into training and testing sets for model development */
+data mydata.train mydata.test; /* specify names for training and testing datasets */
+set mydata.liver_selected; /* specify dataset to be split */
+if rand('uniform') < 0.7 then output mydata.train; /* 70% of data goes into training set */
+else output mydata.test; /* 30% of data goes into testing set */
+run;
+
+/*--------------------------- DATA SCALING ------------------------------------*/
+
+/* Scale the data using the Standardization method to make sure all variables are on the same scale */
+proc stdize data=mydata.train out=mydata.train_scaled std mean=0 var=1 reponly; /* specify input and output datasets, specify method, and exclude categorical variables */
+var Age FBC LDH ESR Albumin LDH ALT_Ratio; /* specify variables to be scaled */
+run;
+
+/* Scale the testing set using the parameters from the training set */
+proc means data=mydata.train_scaled std mean; /* calculate the mean and standard deviation of the scaled variables */
+run;
+
+proc stdize data=mydata.test out=mydata.test_scaled std mean=mean_ var=std_rescale; /* specify input and output datasets, specify method, and use mean and standard deviation from training set */
+var Age FBC LDH ESR Albumin LDH ALT_Ratio; /* specify variables to be scaled */
+run;
+
+/*----------------------------- DATA TRANSFORMATION ----------------------------*/
+
+/* Create new variable: Log-transformed ALT (natural logarithm) */
+data mydata.train_scaled;
+set mydata.train_scaled;
+ALT_Log = log(ALT); /* use logarithmic function to create new variable */
+keep ALT_Log; /* keep only the new variable */
+run;
+
+/* Create new variable: Square-transformed Age */
+data mydata.train_scaled;
+set mydata.train_scaled;
+Age_Sq = Age * Age; /* use arithmetic operation to create new variable */
+keep Age_Sq; /* keep only the new variable */
+run;
+
+/*------------------------- FINAL DATA FOR MODELING ----------------------------*/
+
+/* Create a final dataset with all selected, scaled, and transformed variables for modeling */
+data mydata.final;
+merge mydata.train_scaled mydata.train_scaled ALT_Log Age_Sq; /* merge all relevant datasets */
+by ALT_Log; /* specify common variable */
+run;
+
+/*--------------------------- END OF DATA PREPROCESSING -------------------------*/

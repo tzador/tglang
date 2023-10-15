@@ -1,0 +1,189 @@
+/* simple arithmetic grammar */
+
+%{
+#include <stdio.h>
+
+/* declare functions for parser to call */
+int yylex();
+void yyerror(char *);
+
+%}
+
+/* lexical analyzer regular definitions */
+/* note that an identifier begins with a letter or _ and is followed by any number of letters, digits, or _'s */
+digit [0-9]
+letter [a-zA-Z]
+id ({letter}|_)(({letter}|_|{digit})*)
+integer {digit}+
+float_id {integer}+\.{digit}+ | {integer}*\.{digit}+
+
+%%
+
+program: /* empty definition */ 
+	| LINE program
+	;
+
+LINE: /* empty definition */
+	| expr EOL
+	| print EOL
+	;
+
+expr: /* empty definition */
+	| TERM
+	| expr ADD_OP TERM
+	;
+
+TERM: atom
+	| TERM MULT_OP atom
+	;
+
+atom: id
+	| integer
+	| float_id
+	| '-' atom
+	| '(' expr ')'
+	;
+
+ADD_OP: '+' | '-'
+MULT_OP: '*' | '/'
+
+EOL: '\n';
+
+print: PRINT expr
+	;
+
+PRINT: "print" | "printf";
+
+%%
+
+int main(void){
+	/* call the parser */
+	yyparse();
+	return 0;
+}
+
+/* function to handle syntax errors */
+void yyerror(char *s) {
+	printf("Syntax error: %s\n", s);
+}
+
+/* function to get the next token from lexer */
+int yylex() {
+	int c;
+
+	/* skip whitespace */
+	while ((c = getchar()) == ' ') ;
+
+	/* return EOL token if newline */
+	if (c == '\n')
+		return EOL;
+
+	/* return ADD_OP token if plus or minus */
+	if (c == '+' || c == '-')
+		return c;
+
+	/* return MULT_OP token if multiply or divide */
+	if (c == '*' || c == '/')
+		return c;
+
+	/* return PRINT token if print or printf keyword */
+	if (c == 'p') {
+		c = getchar();
+		if (c == 'r') {
+			c = getchar();
+			if (c == 'i') {
+				c = getchar();
+				if (c == 'n') {
+					c = getchar();
+					if (c == 't') {
+						return PRINT;
+					}
+				} else if (c == 'n') {
+					c = getchar();
+					if (c == 't') {
+						c = getchar();
+						if (c == 'f') {
+							return PRINT;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	/* return integer token if starts with a digit */
+	if (c >= '0' && c <= '9') {
+		while (c >= '0' && c <= '9')
+			c = getchar();
+		return integer;
+	}
+
+	/* return id token if starts with a letter or _ */
+	if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
+		while ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || (c >= '0' && c <= '9'))
+			c = getchar();
+		return id;
+	}
+
+	/* return float_id token if starts with a digit or . */
+	if ((c >= '0' && c <= '9') || c == '.') {
+		int decimal_point_count = 0;
+		if (c == '.') {
+			decimal_point_count++;
+			c = getchar();
+		}
+		while ((c >= '0' && c <= '9') || c == '.') {
+			if (c == '.')
+				decimal_point_count++;
+			c = getchar();
+		}
+		/* if more than one decimal point, not a float_id */
+		if (decimal_point_count > 1) {
+			yyerror("Incorrect float identifier.");
+		}
+		/* if ends with a ., not a float_id */
+		else if (c == '.') {
+			yyerror("Incorrect float identifier.");
+		}
+		/* if ends with an E, not a float_id */
+		else if (c == 'E') {
+			yyerror("Incorrect float identifier.");
+		}
+		/* if ends with a -, not a float_id */
+		else if (c == '-') {
+			yyerror("Incorrect float identifier.");
+		}
+		/* if ends with a +, not a float_id */
+		else if (c == '+') {
+			yyerror("Incorrect float identifier.");
+		}
+		/* if ends with whitespace, not a float_id */
+		else if (c == ' ') {
+			yyerror("Incorrect float identifier.");
+		}
+		/* if ends with \n, return EOL */
+		else if (c == '\n') {
+			ungetc(c, stdin);
+			return EOL;
+		}
+		/* if ends with an operator, return respective token */
+		else if (c == '+' || c == '-' || c == '*' || c == '/') {
+			ungetc(c, stdin);
+			return (int)c;
+		}
+		/* otherwise, return float_id token */
+		else {
+			ungetc(c, stdin);
+			return float_id;
+		}
+	}
+
+	/* if reached EOF, return 0 */
+	if (c == EOF)
+		return 0;
+	
+	/* if none of the above, error */
+	yyerror("Invalid token.");
+
+	return 0;
+}

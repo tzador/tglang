@@ -1,0 +1,197 @@
+/** 
+ * @title Token
+ * @dev Implements ERC-20 Token Standard 
+ */
+ 
+pragma solidity ^0.8.0;
+
+/**
+ * @title SafeMath
+ * @dev Math operations with safety checks that revert on error
+ */
+ library SafeMath {
+     
+    function add(uint a, uint b) internal pure returns (uint) {
+        uint c = a + b;
+        require(c >= a, "SafeMath: addition overflow");
+        
+        return c;
+    }
+    
+    function sub(uint a, uint b) internal pure returns (uint) {
+        require(b <= a, "SafeMath: subtraction overflow");
+        uint c = a - b;
+        
+        return c;
+    }
+    
+    function mul(uint a, uint b) internal pure returns (uint) {
+        if (a == 0) {
+            return 0;
+        }
+        
+        uint c = a * b;
+        require(c / a == b, "SafeMath: multiplication overflow");
+        
+        return c;
+    }
+    
+    function div(uint a, uint b) internal pure returns (uint) {
+        require(b > 0, "SafeMath: division by zero");
+        uint c = a / b;
+        
+        return c;
+    }
+}
+
+/** 
+ * @title Owned
+ * @dev Base contract with an owner
+ */
+contract Owned {
+    address public owner;
+    address public newOwner;
+    
+    event OwnershipTransferred(address indexed _from, address indexed _to);
+    
+    constructor() public {
+        owner = msg.sender;
+    }
+    
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this function");
+        _;
+    }
+    
+    function transferOwnership(address _newOwner) public onlyOwner {
+        require(_newOwner != address(0), "Owner address cannot be 0x0 address");
+        newOwner = _newOwner;
+    }
+    
+    function acceptOwnership() public {
+        require(msg.sender == newOwner, "Only new owner can accept ownership");
+        emit OwnershipTransferred(owner, newOwner);
+        owner = newOwner;
+        newOwner = address(0);
+    }
+}
+
+/** 
+ * @title Token
+ * @dev Base contract with an owner that can be transferable
+ */
+contract Token is Owned {
+    using SafeMath for uint;
+    
+    string public symbol;
+    string public name;
+    uint8 public decimals;
+    uint public totalSupply;
+    
+    mapping(address => uint) balances;
+    mapping(address => mapping(address => uint)) allowed;
+    
+    /**
+     * @dev Triggered when tokens are transferred
+     */
+    event Transfer(address indexed _from, address indexed _to, uint _value);
+    
+    /**
+     * @dev Triggered when approval is given to another address
+     */
+    event Approval(address indexed _owner, address indexed _spender, uint _value);
+    
+    /**
+     * @dev Constructor function to initialize token
+     * @param _symbol The symbol of the token
+     * @param _name The name of the token
+     * @param _decimals The number of decimals for the token
+     * @param _totalSupply The total supply of the token
+     * @param _owner The address of the initial owner of the token
+     */
+     
+     constructor(string memory _symbol, string memory _name, uint8 _decimals, uint _totalSupply, address _owner) public {
+         symbol = _symbol;
+         name = _name;
+         decimals = _decimals;
+         totalSupply = _totalSupply;
+         owner = _owner;
+         
+         balances[_owner] = _totalSupply;
+     }
+     
+     /**
+      * @dev Get the balance of an address
+      * @param _owner The address to query the balance of
+      * @return The balance of the specified address
+      */
+    function balanceOf(address _owner) public view returns (uint) {
+        return balances[_owner];
+    }
+    
+    /**
+     * @dev Transfer tokens from one address to another
+     * @param _to The address to transfer to
+     * @param _value The amount of tokens to transfer
+     * @return Whether the transfer was successful or not
+     */
+    function transfer(address _to, uint _value) public returns (bool) {
+        require(_to != address(0), "Transfer address cannot be 0x0 address");
+        require(_value <= balances[msg.sender], "Insufficient balance");
+        
+        balances[msg.sender] = balances[msg.sender].sub(_value);
+        balances[_to] = balances[_to].add(_value);
+        
+        emit Transfer(msg.sender, _to, _value);
+        
+        return true;
+    }
+    
+    /**
+     * @dev Transfer tokens from one address to another on the behalf of user
+     * @param _from The address which you want to send tokens from
+     * @param _to The address to transfer to
+     * @param _value The amount of tokens to transfer
+     * @return Whether the transfer was successful or not
+     */
+    function transferFrom(address _from, address _to, uint _value) public returns (bool) {
+        require(_to != address(0), "Transfer address cannot be 0x0 address");
+        require(_value <= balances[_from], "Insufficient balance");
+        require(_value <= allowed[_from][msg.sender], "Allowance exceeded");
+        
+        balances[_from] = balances[_from].sub(_value);
+        balances[_to] = balances[_to].add(_value);
+        allowed[_from][msg.sender] = allowed[_from][msg.sender].sub(_value);
+        
+        emit Transfer(_from, _to, _value);
+        
+        return true;
+    }
+    
+    /**
+     * @dev Approve another address to spend an amount of tokens on your behalf
+     * @param _spender The address which you want to approve
+     * @param _value The amount of tokens to be approved
+     * @return Whether the approval was successful or not
+     */
+    function approve(address _spender, uint _value) public returns (bool) {
+        require(_spender != address(0), "Spender address cannot be 0x0 address");
+        
+        allowed[msg.sender][_spender] = _value;
+        
+        emit Approval(msg.sender, _spender, _value);
+        
+        return true;
+    }
+    
+    /**
+     * @dev Get the allowance of an address on behalf of the owner
+     * @param _owner The address to query the allowance of
+     * @param _spender The address which approval was provided for
+     * @return The allowance of the specified address
+     */
+    function allowance(address _owner, address _spender) public view returns (uint) {
+        return allowed[_owner][_spender];
+    }
+    
+}

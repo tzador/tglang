@@ -1,0 +1,42 @@
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeFamilies #-}
+
+-- A generic container that can hold any type of value
+data Container where
+  Container :: a -> Container
+
+-- A type family that maps types to a list containing itself
+type family List a where
+  List Int = [Int]
+  List Char = [Char]
+  List Double = [Double]
+  List Bool = [Bool]
+  List a = [a]
+
+-- A data type representing a directed acyclic graph
+data DAG a where
+  -- A data constructor for a vertex in the graph
+  V :: a -> [DAG a] -> DAG a 
+  -- A data constructor for an edge in the graph
+  E :: DAG a -> DAG a -> DAG a
+
+-- A function that performs a topological sort on a DAG and returns a list of vertices in order
+topologicalSort :: DAG a -> [a]
+topologicalSort (V a ds) = a : concatMap topologicalSort ds
+topologicalSort (E u v) = topologicalSort u ++ topologicalSort v
+
+-- A function that maps a function over each element in a list and flattens the result
+mapAndFlatten :: (a -> List b) -> [a] -> [b]
+mapAndFlatten f [] = []
+mapAndFlatten f (x:xs) = f x ++ mapAndFlatten f xs
+
+-- A function that takes in a list of Containers and returns a list of the values in the containers
+getValues :: [Container] -> [a]
+getValues xs = mapAndFlatten (\(Container x) -> [x]) xs
+
+-- A function that adds two lists element-wise using a binary operator
+zipWith' :: (a -> b -> c) -> [a] -> [b] -> [c]
+zipWith' f [] _ = []
+zipWith' f _ [] = []
+zipWith' f (x:xs) (y:ys) = f x y : zipWith' f xs ys

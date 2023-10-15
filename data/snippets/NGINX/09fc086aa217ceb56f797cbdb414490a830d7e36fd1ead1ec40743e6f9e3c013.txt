@@ -1,0 +1,76 @@
+# server block for example.com
+server {
+    #listen on port 80
+    listen 80;
+
+    #server name is example.com
+    server_name example.com;
+
+    #set root directory for static files
+    root /var/www/example.com;
+
+    #enable gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json;
+
+    #location block for handling requests to /about page
+    location /about {
+        #try to find and serve the requested file
+        try_files $uri $uri/ /about/index.html;
+
+        #allow only GET requests
+        if ($request_method != GET) {
+            return 405;
+        }
+    }
+
+    #location block for handling requests to /blog page
+    location /blog {
+        #proxy pass to blog.example.com
+        proxy_pass http://blog.example.com;
+
+        #set proxy headers for caching
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        #enable caching for 24 hours
+        expires 24h;
+    }
+
+    #location block for handling requests to /api endpoint
+    location /api {
+        #proxy pass to internal API at 127.0.0.1:8000
+        proxy_pass http://127.0.0.1:8000;
+
+        #set proxy headers for authentication
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header X-Forwarded-For $remote_addr;
+    }
+
+    #error handling for 404 errors
+    error_page 404 /404.html;
+    location = /404.html {
+        internal;
+        root /var/www/example.com;
+    }
+
+    #allow for handling PHP scripts
+    location ~ \.php$ {
+        #set php-fpm upstream server
+        fastcgi_pass unix:/run/php/php7.4-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+
+    #enable SSL with Let's Encrypt
+    listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    #enable http2 for faster performance
+    http2_push_preload on;
+    http2_max_concurrent_streams 200;
+}

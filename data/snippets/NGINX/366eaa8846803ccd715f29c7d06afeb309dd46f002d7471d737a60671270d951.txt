@@ -1,0 +1,59 @@
+#Example NGINX config file for a reverse proxy server
+
+#Basic global configuration options
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+error_log /var/log/nginx/error.log;
+
+#Defines the maximum file descriptors that can be opened by this process
+worker_rlimit_nofile 8192;
+
+#Event module configuration
+events {
+        worker_connections 4096; #Defines the maximum number of connections per worker process
+        multi_accept on; #Allows the worker process to accept all new connections at one time
+}
+
+#HTTP module configuration
+http {
+        #Default mime type
+        default_type application/octet-stream;
+
+        #Log format to use for access logs
+        log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                        '$status $body_bytes_sent "$http_referer" '
+                        '"$http_user_agent" "$http_x_forwarded_for"';
+
+        #Access log file location
+        access_log /var/log/nginx/access.log main;
+
+        #List of file types to gzip if possible
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+        #Reverse proxy server configuration
+        server {
+                #Listen on port 80
+                listen 80;
+                #Server name
+                server_name example.com;
+
+                #Reverse proxy location
+                location / {
+                        #Proxy pass to the server with IP 192.168.1.100 on port 8080
+                        proxy_pass http://192.168.1.100:8080/;
+                        #Enables the buffering of responses from the proxied server
+                        proxy_buffering on;
+                        #Sets the buffer size for reading the first part of the response from the proxied server
+                        proxy_buffer_size 4k;
+                        #Defines a timeout for establishing a connection with a proxied server
+                        proxy_connect_timeout 30s;
+                        #Defines a timeout for transmitting a request to a proxied server
+                        proxy_send_timeout 30s;
+                        #Defines a timeout for reading a response from a proxied server
+                        proxy_read_timeout 30s;
+                }
+        }
+
+        #Additional configuration for other reverse proxy servers can be added here
+}

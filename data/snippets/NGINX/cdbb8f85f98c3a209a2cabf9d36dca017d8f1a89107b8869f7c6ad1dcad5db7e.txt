@@ -1,0 +1,65 @@
+# This is a long and complex code snippet in NGINX
+# It includes multiple server configurations and directives
+
+# Create a virtual server for HTTP requests on port 80
+server {
+  listen 80;
+  server_name example.com;
+
+  # Set the root directory for the server
+  root /var/www/example/;
+
+  # Enable gzip compression for all file types
+  gzip on;
+  gzip_comp_level 5;
+  gzip_types text/plain text/css application/javascript image/*;
+
+  # Set expires headers for better caching
+  location ~* \.(jpg|jpeg|gif|png)$ {
+    expires 30d;
+  }
+
+  # Redirect HTTP requests to HTTPS
+  location / {
+    return 301 https://$server_name$request_uri;
+  }
+}
+
+# Redirect all HTTP requests to HTTPS
+server {
+  listen 80 default_server;
+  return 301 https://$host$request_uri;
+}
+
+# Create a virtual server for HTTPS requests on port 443
+server {
+  listen 443 ssl;
+  server_name example.com;
+
+  # Set the root directory for the server
+  root /var/www/example/;
+
+  # Enable SSL and set the certificate and key locations
+  ssl on;
+  ssl_certificate /etc/ssl/certs/example.com.crt;
+  ssl_certificate_key /etc/ssl/private/example.com.key;
+
+  # Enable strict transport security
+  add_header Strict-Transport-Security "max-age=31536000" always;
+
+  location / {
+    # Serve static files directly without passing to the proxy
+    try_files $uri $uri/ /index.html;
+
+    # Enable caching for static files
+    expires 1h;
+    add_header Cache-Control "public";
+
+    # Proxy requests to the Node.js app running on port 3000
+    proxy_pass http://127.0.0.1:3000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Real-IP $remote_addr;
+  }
+}

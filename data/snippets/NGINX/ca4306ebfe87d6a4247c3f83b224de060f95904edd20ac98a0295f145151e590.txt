@@ -1,0 +1,42 @@
+server {
+  listen 80; // Start listening for requests on port 80
+
+  server_name example.com; // Specify the domain name for this server block
+
+  location / {
+    proxy_pass http://localhost:8080; // Forward requests to port 8080
+    proxy_set_header Host $host; // Set the Host header based on the host value in the request
+    proxy_set_header X-Real-IP $remote_addr; // Set the X-Real-IP header based on the client's IP address
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; // Set the X-Forwarded-For header with the client's IP address
+    proxy_set_header X-Forwarded-Proto $scheme; // Set the X-Forwarded-Proto header based on the scheme of the request (http or https)
+  }
+
+  location /static/ { // Create a block for handling static files
+    alias /var/www/example.com/static/; // Specify the path to the static files
+    autoindex on; // Enable directory listings for this location
+  }
+
+  location ~ \.gif$ { // Create a regex match for files ending in .gif
+    root /var/www/example.com/images/; // Specify the root directory for the matched files
+    expires 30d; // Set the cache expiration for these files to 30 days
+    add_header Cache-Control public; // Add a Cache-Control header to be sent to the client
+  }
+
+  error_page 404 /404.html; // Define a custom error page for 404 errors
+
+  location = /404.html { // Create a location block for handling the custom error page
+    internal; // Only serve this page internally
+    root /var/www/example.com/html/; // Specify the root directory for the error page
+  }
+
+  location = /50x.html { // Create a location block for handling 50x errors
+    internal; // Only serve this page internally
+    root /var/www/example.com/html/; // Specify the root directory for the error page
+  }
+
+  location ~ \.php$ { // Create a regex match for files ending in .php
+    fastcgi_pass 127.0.0.1:9000; // Specify the address for the FastCGI server
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; // Set the SCRIPT_FILENAME parameter for the FastCGI server
+    include fastcgi_params; // Include the default FastCGI parameters
+  }
+}

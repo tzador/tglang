@@ -1,0 +1,79 @@
+<#
+.SYNOPSIS
+This script compares two sets of files using the Create Date, Last Write Date, and File Size.
+#>
+
+#Create an empty dictionary to store the results
+$compareResults = @{}
+
+#Define the file paths of the first set of files
+$firstSetPath = "C:\Files\FirstSet"
+#Define the file paths of the second set of files
+$secondSetPath = "C:\Files\SecondSet"
+
+#Retrieve the list of files in the first set
+$firstSetFiles = Get-ChildItem $firstSetPath
+#Retrieve the list of files in the second set
+$secondSetFiles = Get-ChildItem $secondSetPath
+
+#Loop through each file in the first set
+foreach ($firstSetFile in $firstSetFiles) {
+    #Retrieve file details from the first set
+    $firstSetDate = $firstSetFile.CreationTime
+    $firstSetSize = $firstSetFile.Length
+    $firstSetName = $firstSetFile.Name
+
+    #Create a custom object to store the file details
+    $firstSetFileDetails = New-Object psobject -Property @{
+        Name = $firstSetName
+        Date = $firstSetDate
+        Size = $firstSetSize
+    }
+
+    #Add the custom object to the dictionary with the file name as the key
+    $compareResults[$firstSetName] = $firstSetFileDetails
+}
+
+#Loop through each file in the second set
+foreach ($secondSetFile in $secondSetFiles) {
+    #Retrieve file details from the second set
+    $secondSetDate = $secondSetFile.CreationTime
+    $secondSetSize = $secondSetFile.Length
+    $secondSetName = $secondSetFile.Name
+
+    #Check if the file is already in the dictionary
+    if ($compareResults.ContainsKey($secondSetName)) {
+        #Retrieve the custom object from the dictionary
+        $firstSetFileDetails = $compareResults[$secondSetName]
+        #Add the second set file details to the custom object
+        $firstSetFileDetails | Add-Member -Name "Second Set Date" -Value $secondSetDate -Force
+        $firstSetFileDetails | Add-Member -Name "Second Set Size" -Value $secondSetSize -Force
+    }
+    else {
+        #Create a custom object to store the file details
+        $secondSetFileDetails = New-Object psobject -Property @{
+            Name = $secondSetName
+            Date = ""
+            Size = ""
+            "Second Set Date" = $secondSetDate
+            "Second Set Size" = $secondSetSize
+        }
+
+        #Add the custom object to the dictionary with the file name as the key
+        $compareResults[$secondSetName] = $secondSetFileDetails
+    }
+}
+
+#Output the results in a table format
+$compareResults.GetEnumerator() | Select-Object @{Label="File Name";Expression={$_.Key}}, "Date", "Second Set Date", "Size", "Second Set Size" | Format-Table
+
+#Output any discrepancies between the two sets of files
+foreach ($result in $compareResults.GetEnumerator()) {
+    #Check if the Date and Size are the same for both sets
+    if ($result.Value.Date -ne $result.Value."Second Set Date" -or $result.Value.Size -ne $result.Value."Second Set Size") {
+        Write-Output "Discrepancy found in $($result.Key)"
+        #Add a comment to explain the discrepancy
+        Write-Output "Date: $($result.Value.Date) vs. $($result.Value."Second Set Date")"
+        Write-Output "Size: $($result.Value.Size) vs. $($result.Value."Second Set Size")"
+    }
+}

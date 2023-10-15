@@ -1,0 +1,64 @@
+*
+* Generate list of customer names and total sales for a given date range
+REPORT Z_REPORT_CUSTOMER_SALES.
+
+* Declare variables and structures
+TABLES: KNA1, VBAK, VBAP, vbuk.
+TYPES: BEGIN OF ty_sales_data,
+        customer TYPE kna1-kunnr,
+        sales TYPE vbap-netwr,
+      END OF ty_sales_data.
+DATA: lv_date_from TYPE dats,
+      lv_date_to   TYPE dats,
+      lt_sales_data TYPE STANDARD TABLE OF ty_sales_data, " Sales data table
+      lt_customer_names TYPE STANDARD TABLE OF kna1-kunnr, " Customer names table
+      ls_sales_data TYPE ty_sales_data,
+      ls_customer_names TYPE kna1.
+FIELD-SYMBOLS: <ls_customer> TYPE kna1,
+               <ls_sales> TYPE vbap.
+
+* Input selection screen for date range
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE text-001.
+PARAMETERS: p_date_from TYPE dats,
+            p_date_to   TYPE dats.
+SELECTION-SCREEN END OF BLOCK b1.
+
+* Initialization event
+INITIALIZATION.
+  p_date_from = sy-datum - 30. " Default date range of past 30 days
+  p_date_to   = sy-datum.
+
+* Start of selection event
+START-OF-SELECTION.
+  lv_date_from = p_date_from.
+  lv_date_to = p_date_to.
+
+* Inner join on tables VBAK and VBAP to get sales data within date range
+  SELECT kunnr netwr
+    FROM vbak AS v
+    JOIN vbap AS i ON i.vbeln = v.vbeln
+    INTO TABLE lt_sales_data
+    WHERE vaudt >= lv_date_from
+          AND vaudt <= lv_date_to.
+
+* Loop through sales data table to get customer names
+LOOP AT lt_sales_data
+    INTO ls_sales_data.
+  SELECT name1
+    FROM kna1
+    INTO TABLE lt_customer_names
+    WHERE kunnr = ls_sales_data-customer.
+
+  LOOP AT lt_customer_names ASSIGNING <ls_customer>.
+    ls_sales_data-customer = <ls_customer>.
+  ENDLOOP.
+ENDLOOP.
+
+* Output report
+  WRITE: / 'Customer', 20 'Total Sales'.
+  LOOP AT lt_sales_data INTO ls_sales_data.
+    CONTINUE.
+  ENDLOOP.
+
+* End of program
+END-OF-SELECTION.

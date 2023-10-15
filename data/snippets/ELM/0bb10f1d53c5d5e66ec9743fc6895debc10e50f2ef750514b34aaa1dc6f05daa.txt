@@ -1,0 +1,96 @@
+port module Main exposing (..)
+
+import Html exposing (Html)
+import Html.Attributes exposing (style)
+import Html.Events exposing (onClick, onInput)
+import Json.Decode as Decode exposing (Decoder, int, string, oneOf, field, at, maybe)
+
+-- Model
+type alias Model =
+    { num1 : Int
+    , num2 : Int
+    , result : Maybe Int
+    }
+
+initialModel : Model
+initialModel =
+    { num1 = 0
+    , num2 = 0
+    , result = Nothing
+    }
+
+-- Msg
+type Msg
+    = UpdateNum1 String
+    | UpdateNum2 String
+    | Calculate
+
+-- Update
+update : Msg -> Model -> Model
+update msg model =
+    case msg of
+        UpdateNum1 str ->
+            { model | num1 = String.toInt str |> Maybe.withDefault 0 }
+
+        UpdateNum2 str ->
+            { model | num2 = String.toInt str |> Maybe.withDefault 0 }
+
+        Calculate ->
+            { model | result = Just (model.num1 + model.num2) }
+
+-- View
+view : Model -> Html Msg
+view model =
+    let
+        inputStyle =
+            [ style "width" "50px"
+            , style "border" "1px solid black"
+            , style "margin" "10px"
+            ]
+    in
+    Html.div []
+        [ Html.input [ onInput UpdateNum1 ] []
+        , Html.input [ onInput UpdateNum2 ] []
+        , Html.button [ onClick Calculate ] [ Html.text "Calculate" ]
+        , case model.result of
+            Just x ->
+                Html.div [] [ Html.text (toString x) ]
+
+            Nothing ->
+                Html.div [] []
+        ]
+
+-- Subscriptions
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    Sub.none
+
+-- Decoders
+decoder : Decoder Model
+decoder =
+    Decode.succeed initialModel
+        |> Decode.andMap (field "num1" int)
+        |> Decode.andMap (field "num2" int)
+        |> Decode.andMap (at ["result"] (maybe int))
+        |> Decode.map2 Tuple.first
+
+-- Json HTTP request
+fetchJson : (Result Http.Error Model -> msg) -> Cmd msg
+fetchJson msg =
+    let
+        url =
+            "https://jsonplaceholder.typicode.com/todos/1" -- fake endpoint
+    in
+    Http.get decoder url
+        |> Http.toTask
+        |> Task.andThen (\result -> Task.perform (Http.Error "Fetch error") msg result)
+
+-- Main
+main : Program () Model Msg
+main =
+    Html.program
+        { init = (initialModel, fetchJson (UpdateNum1 "1"))
+        , view = view
+        , update = update
+        , subscriptions = subscriptions
+        }

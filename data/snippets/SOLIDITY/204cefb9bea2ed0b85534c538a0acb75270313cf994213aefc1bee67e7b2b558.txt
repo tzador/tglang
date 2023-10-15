@@ -1,0 +1,86 @@
+/// @title ERC20 standard token implementation
+/// @notice Allows for the creation and management of ERC20 standard tokens
+contract ERC20Token {
+
+    string public name; //Variable to hold the token's name
+    string public symbol; //Variable to hold the token's symbol
+    uint8 public decimals; //Variable to hold the decimal places of the token
+    uint public totalSupply; //Variable to hold the total supply of the token
+
+    //Mapping to keep track of the balance of each address
+    mapping(address => uint) public balanceOf;
+
+    //Mapping to keep track of the approved allowance for each address
+    mapping(address => mapping(address => uint)) public allowance;
+
+    //Event that is emitted when a transfer occurs
+    event Transfer(address indexed from, address indexed to, uint value);
+
+    //Event that is emitted when an approval for allowance occurs
+    event Approval(address indexed owner, address indexed spender, uint value);
+
+    //Constructor function to initialize the token with a name, symbol, decimal places and initial supply
+    constructor(string memory _name, string memory _symbol, uint8 _decimals, uint _initialSupply) public {
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+        totalSupply = _initialSupply;
+        balanceOf[msg.sender] = _initialSupply; //Assign the initial supply to the creator's address
+    }
+
+    //Function to transfer tokens from one address to another
+    function transfer(address _to, uint _value) public returns (bool) {
+        require(_to != address(0)); //Ensure the transfer is not to the zero address
+        require(_value > 0); //Ensure the value to be transferred is greater than 0
+        require(balanceOf[msg.sender] >= _value); //Ensure the sender has enough balance to transfer
+        balanceOf[msg.sender] -= _value; //Subtract the transfered value from the sender's balance
+        balanceOf[_to] += _value; //Add the transfered value to the receiver's balance
+        emit Transfer(msg.sender, _to, _value); //Emit the transfer event
+        return true;
+    }
+
+    //Function to approve an allowance for another address to spend on sender's behalf
+    function approve(address _spender, uint _value) public returns (bool) {
+        require(_spender != address(0)); //Ensure the allowance is not approved for the zero address
+        require(_value > 0); //Ensure the allowed value is greater than 0
+        allowance[msg.sender][_spender] = _value; //Assign the allowed value to the mapping
+        emit Approval(msg.sender, _spender, _value); //Emit the approval event
+        return true;
+    }
+
+    //Function to transfer tokens from one address to another using an approved allowance
+    function transferFrom(address _from, address _to, uint _value) public returns (bool) {
+        require(_from != address(0) && _to != address(0)); //Ensure the transfer is not to or from the zero address
+        require(_value > 0); //Ensure the value to be transferred is greater than 0
+        require(balanceOf[_from] >= _value); //Ensure the sender has enough balance to transfer
+        require(allowance[_from][msg.sender] >= _value); //Ensure the sender has enough allowance from the approved address
+        balanceOf[_from] -= _value; //Subtract the transfered value from the sender's balance
+        balanceOf[_to] += _value; //Add the transfered value to the receiver's balance
+        allowance[_from][msg.sender] -= _value; //Reduce the approved allowance from the sender's address
+        emit Transfer(_from, _to, _value); //Emit the transfer event
+        return true;
+    }
+
+    //Function to increase the allowance for an approved address
+    function increaseApproval(address _spender, uint _addedValue) public returns (bool) {
+        require(_spender != address(0)); //Ensure the allowance is not increased for the zero address
+        require(_addedValue > 0); //Ensure the added allowance value is greater than 0
+        allowance[msg.sender][_spender] += _addedValue; //Add the added allowance value to the existing allowance
+        emit Approval(msg.sender, _spender, allowance[msg.sender][_spender]); //Emit the approval event
+        return true;
+    }
+
+    //Function to decrease the allowance for an approved address
+    function decreaseApproval(address _spender, uint _subtractedValue) public returns (bool) {
+        require(_spender != address(0)); //Ensure the allowance is not decreased for the zero address
+        require(_subtractedValue > 0 && _subtractedValue <= allowance[msg.sender][_spender]); //Ensure the decreased allowance value is greater than 0 and not more than the existing allowance
+        allowance[msg.sender][_spender] -= _subtractedValue; //Subtract the decreased allowance value from the existing allowance
+        emit Approval(msg.sender, _spender, allowance[msg.sender][_spender]); //Emit the approval event
+        return true;
+    }
+    
+    //Fallback function to reject any incoming ether
+    function () external payable {
+        revert(); //Revert any incoming transactions
+    }
+}

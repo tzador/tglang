@@ -1,0 +1,384 @@
+/**
+ * @title ERC721NonFungibleContract
+ * @dev Provides a basic implementation of ERC721 Non-Fungible token with metadata and
+ * ability to transfer, approve, and set approval for all tokens.
+ */
+
+// Import required libraries and interfaces
+import "./IERC721.sol";
+import "./IERC721Receiver.sol";
+import "./SafeMath.sol";
+import "./Address.sol";
+import "./Strings.sol";
+import "./ERC165.sol";
+
+// Define contract
+contract ERC721NonFungibleContract is ERC165, IERC721 {
+
+    using SafeMath for uint256;
+    using Address for address;
+    using Strings for uint256;
+
+    // Define mapping to track ownership of tokens
+    mapping (uint256 => address) private _tokenOwner;
+
+    // Define mapping to track approved addresses for each token
+    mapping (uint256 => address) private _tokenApprovals;
+
+    // Define mapping to track approved addresses for all tokens an owner has
+    mapping (address => mapping (address => bool)) private _operatorApprovals;
+
+    // Define array to store all tokens
+    uint256[] private _tokens;
+
+    // Define mapping to store metadata for each token
+    mapping (uint256 => string) private _tokenURIs;
+
+    // Add ERC721 interface
+    constructor () public {
+        _registerInterface(InterfaceId_ERC721);
+    }
+
+    /**
+     * @dev Mint a new token with given metadata and assign to specified address.
+     * @param to Address to assign the new token to.
+     * @param tokenId ID of the new token.
+     * @param tokenURI URI of the metadata for the new token.
+     */
+    function _mint(address to, uint256 tokenId, string tokenURI) internal {
+        require(to != address(0), "ERC721: mint to the zero address");
+        require(!_exists(tokenId), "ERC721: token already minted");
+
+        // Add new token to owner's list of tokens and set token owner
+        _tokenOwner[tokenId] = to;
+        _tokens.push(tokenId);
+
+        // Set metadata for the new token
+        _setTokenURI(tokenId, tokenURI);
+
+        // Emit event for minted token
+        emit Transfer(address(0), to, tokenId);
+    }
+
+    /**
+     * @dev Burn an existing token and remove from token owner's list of tokens.
+     * @param tokenId ID of the token to burn.
+     */
+    function _burn(uint256 tokenId) internal {
+        address owner = _tokenOwner[tokenId];
+
+        // Check if token is owned by msg.sender or is properly approved
+        require(_isApprovedOrOwner(msg.sender, tokenId), "ERC721: burn caller is not owner nor approved");
+
+        // Clear approvals for the token
+        _clearApproval(tokenId);
+
+        // Remove token from owner's list of tokens
+        _removeTokenFromOwnerList(owner, tokenId);
+
+        // Remove token from list of all tokens
+        _removeTokenFromTokensList(tokenId);
+
+        // Emit event for burned token
+        emit Transfer(owner, address(0), tokenId);
+    }
+
+    /**
+     * @dev Check if token exists.
+     * @param tokenId ID of the token to check.
+     * @return True if token exists, false otherwise.
+     */
+    function _exists(uint256 tokenId) internal view returns (bool) {
+        return _tokenOwner[tokenId] != address(0);
+    }
+
+    /**
+     * @dev Clear approval for given token.
+     * @param tokenId ID of the token to clear approval for.
+     */
+    function _clearApproval(uint256 tokenId) private {
+        if (_tokenApprovals[tokenId] != address(0)) {
+            _tokenApprovals[tokenId] = address(0);
+        }
+    }
+
+    /**
+     * @dev Remove given token from owner's list of tokens.
+     * @param owner Address of the owner of the token.
+     * @param tokenId ID of the token to remove.
+     */
+    function _removeTokenFromOwnerList(address owner, uint256 tokenId) private {
+        // Get list of tokens owned by given address
+        uint256[] storage ownedTokens = _ownedTokens[owner];
+
+        // Loop through list of tokens and find index of the token to be removed
+        for (uint256 i = 0; i < ownedTokens.length; i++) {
+            if (ownedTokens[i] == tokenId) {
+                // Replace token to be removed with last token in the list
+                ownedTokens[i] = ownedTokens[ownedTokens.length - 1];
+
+                // Remove last token from list
+                ownedTokens.length--;
+
+                // Break out of loop once token is found
+                break;
+            }
+        }
+    }
+
+    /**
+     * @dev Remove given token from list of all tokens.
+     * @param tokenId ID of the token to remove.
+     */
+    function _removeTokenFromTokensList(uint256 tokenId) private {
+        // Get list of all tokens
+        uint256[] storage allTokens = _tokens;
+
+        // Loop through list of all tokens and find index of the token to be removed
+        for (uint256 i = 0; i < allTokens.length; i++) {
+            if (allTokens[i] == tokenId) {
+                // Replace token to be removed with last token in the list
+                allTokens[i] = allTokens[allTokens.length - 1];
+
+                // Remove last token from list
+                allTokens.length--;
+
+                // Break out of loop once token is found
+                break;
+            }
+        }
+    }
+
+    /**
+     * @dev Approve given address to transfer given token.
+     * @param to Address to approve for the given token.
+     * @param tokenId ID of the token to approve.
+     */
+    function _approve(address to, uint256 tokenId) private {
+        _tokenApprovals[tokenId] = to;
+
+        // Emit event for token approval
+        emit Approval(msg.sender, to, tokenId);
+    }
+
+    /**
+     * @dev Set approval for all tokens owned by given address.
+     * @param to Address to set approval for.
+     * @param approved True to set approval, false to revoke approval.
+     */
+    function _setApprovalForAll(address to, bool approved) private {
+        _operatorApprovals[msg.sender][to] = approved;
+
+        // Emit event for approval for all tokens
+        emit ApprovalForAll(msg.sender, to, approved);
+    }
+
+    /**
+     * @dev Check if given address is approved for given token.
+     * @param spender Address to check approval for.
+     * @param tokenId ID of the token to check.
+     * @return True if address is approved, false otherwise.
+     */
+    function _isApprovedOrOwner(address spender, uint256 tokenId) internal view returns (bool) {
+        // Get token owner
+        address owner = _tokenOwner[tokenId];
+
+        // Check if spender is token owner or has been approved for the token
+        return (spender == owner || spender == _tokenApprovals[tokenId] || _operatorApprovals[owner][spender]);
+    }
+
+    /**
+     * @dev Set metadata for given token.
+     * @param tokenId ID of the token to set metadata for.
+     * @param tokenURI URI of the metadata to set.
+     */
+    function _setTokenURI(uint256 tokenId, string tokenURI) internal {
+        // Set metadata for token
+        _tokenURIs[tokenId] = tokenURI;
+    }
+
+    /**
+     * @dev Get metadata for given token.
+     * @param tokenId ID of the token to get metadata for.
+     * @return URI of the metadata for the token.
+     */
+    function tokenURI(uint256 tokenId) external view returns (string) {
+        return _tokenURIs[tokenId];
+    }
+
+    // Implement ERC721 methods
+
+    /**
+     * @dev Check if given address owns given token.
+     * @param owner Address to check.
+     * @param tokenId ID of the token to check.
+     * @return True if address owns token, false otherwise.
+     */
+    function balanceOf(address owner) public view returns (uint256) {
+        require(owner != address(0), "ERC721: balance query for the zero address");
+        return _ownedTokens[owner].length;
+    }
+
+    /**
+     * @dev Check if given address is approved to transfer given token.
+     * @param tokenId ID of the token to check.
+     * @return Address approved to transfer token.
+     */
+    function getApproved(uint256 tokenId) public view returns (address) {
+        require(_exists(tokenId), "ERC721: approved query for nonexistent token");
+        return _tokenApprovals[tokenId];
+    }
+
+    /**
+     * @dev Check if given address is approved to transfer all tokens owned by another address.
+     * @param owner Address to check.
+     * @param operator Address to check approval for.
+     * @return True if operator is approved for all tokens owned by owner, false otherwise.
+     */
+    function isApprovedForAll(address owner, address operator) public view returns (bool) {
+        return _operatorApprovals[owner][operator];
+    }
+
+    /**
+     * @dev Transfer given token from one address to another.
+     * @param from Address sending the token.
+     * @param to Address receiving the token.
+     * @param tokenId ID of the token to transfer.
+     */
+    function transferFrom(address from, address to, uint256 tokenId) external {
+        // Make sure that the message sender is either the token owner or has been approved to transfer the token
+        require(_isApprovedOrOwner(msg.sender, tokenId), "ERC721: transfer caller is not owner nor approved");
+
+        // Transfer token to new owner
+        _transfer(from, to, tokenId);
+    }
+
+    /**
+     * @dev Approve given address to transfer given token.
+     * @param to Address to approve for the given token.
+     * @param tokenId ID of the token to approve.
+     */
+    function approve(address to, uint256 tokenId) external {
+        // Make sure that the address approving the token is the token owner
+        require(_owns(msg.sender, tokenId), "ERC721: approve caller is not owner");
+
+        // Approve given address for the token
+        _approve(to, tokenId);
+    }
+
+    /**
+     * @dev Set approval for all tokens owned by sender.
+     * @param to Address to set approval for.
+     * @param approved True to set approval, false to revoke.
+     */
+    function setApprovalForAll(address to, bool approved) external {
+        // Set approval for all tokens owned by sender
+        _setApprovalForAll(to, approved);
+    }
+
+    /**
+     * @dev Get token owner.
+     * @param tokenId ID of the token to get the owner for.
+     * @return Address of the token owner.
+     */
+    function ownerOf(uint256 tokenId) external view returns (address) {
+        require(_exists(tokenId), "ERC721: owner query for nonexistent token");
+        return _tokenOwner[tokenId];
+    }
+
+    // Non-ERC721 methods
+
+    /**
+     * @dev Get list of tokens owned by given address.
+     * @param owner Address to get tokens for.
+     * @return List of tokens owned by given address.
+     */
+    function tokensOf(address owner) public view returns (uint256[] memory) {
+        return _ownedTokens[owner];
+    }
+
+    /**
+     * @dev Get list of all tokens.
+     * @return List of all tokens.
+     */
+    function allTokens() public view returns (uint256[] memory) {
+        return _tokens;
+    }
+
+    /**
+     * @dev Check if given address owns given token.
+     * @param owner Address to check.
+     * @param tokenId ID of the token to check.
+     * @return True if address owns token, false otherwise.
+     */
+    function _owns(address owner, uint256 tokenId) private view returns (bool) {
+        return (_tokenOwner[tokenId] == owner);
+    }
+
+    /**
+     * @dev Transfer given token from one address to another.
+     * @param from Address sending the token.
+     * @param to Address receiving the token.
+     * @param tokenId ID of the token to transfer.
+     */
+    function _transfer(address from, address to, uint256 tokenId) private {
+        // Make sure that the token is owned by the sender and the new owner is not the zero address
+        require(from == _tokenOwner[tokenId], "ERC721: transfer of token that is not own");
+        require(to != address(0), "ERC721: transfer to the zero address");
+
+        // Clear approvals and transfer token to new owner
+        _clearApproval(tokenId);
+        _removeTokenFromOwnerList(from, tokenId);
+        _addTokenToOwnerList(to, tokenId);
+        _tokenOwner[tokenId] = to;
+
+        // Emit event for transfer
+        emit Transfer(from, to, tokenId);
+    }
+
+    /**
+     * @dev Add given token to owner's list of tokens.
+     * @param owner Address of the owner to add token to.
+     * @param tokenId ID of the token to add.
+     */
+    function _addTokenToOwnerList(address owner, uint256 tokenId) private {
+        // Make sure that the owner does not already own the token
+        require(!_owns(owner, tokenId), "ERC721: token already owned by this address");
+
+        // Add token to owner's list of tokens
+        _ownedTokens[owner].push(tokenId);
+    }
+
+
+    // ERC721 metadata methods
+
+    /**
+     * @dev Check if contract is ERC721 compliant.
+     * @param interfaceId ID of the interface to check for.
+     * @return True if contract implements given interface, false otherwise.
+     */
+    function supportsInterface(bytes4 interfaceId) external view returns (bool) {
+        return interfaceId == InterfaceId_ERC721 || interfaceId == InterfaceId_ERC721Enumerable;
+    }
+
+    /**
+     * @dev Get token name.
+     * @return Name of the token.
+     */
+    function name() external pure returns (string) {
+        return "Non-Fungible Token";
+    }
+
+    /**
+     * @dev Get token symbol.
+     * @return Symbol of the token.
+     */
+    function symbol() external pure returns (string) {
+        return "NFT";
+    }
+
+    /**
+     * @dev Get total number of tokens.
+     * @return Total number of tokens.
+     */
+    function totalSupply() external view returns (uint

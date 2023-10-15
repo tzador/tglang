@@ -1,0 +1,40 @@
+# This code snippet adds a new user to a Windows Active Directory domain and sets their permissions
+
+# Import the Active Directory module
+Import-Module ActiveDirectory
+
+# Set variables for user information
+$firstName = "John"
+$lastName = "Doe"
+$domain = "example.com"
+
+# Generate a random password for the new user and prompt for confirmation
+$password = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 10)
+Write-Host "The password for the new user is $password"
+$confirm = Read-Host "Please confirm the password:"
+
+# Verify that the password is confirmed
+if ($password -ne $confirm) {
+    Write-Error "Passwords do not match"
+    exit
+}
+
+# Create the new user account in the domain
+New-ADUser -Name "$firstName $lastName" `
+           -GivenName $firstName `
+           -Surname $lastName `
+           -SamAccountName $firstName[0]+$lastName `
+           -UserPrincipalName ($firstName[0]+$lastName+"@"+$domain) `
+           -AccountPassword (ConvertTo-SecureString $password -AsPlainText -Force) `
+           -Enabled $true
+
+# Add the new user to the desired group
+Add-ADGroupMember -Identity "PowerShell Users" `
+                  -Members "$firstName $lastName"
+
+# Set permissions for the new user on a specific file or folder
+$folderPath = "C:\Documents"
+$Acl = Get-Acl $folderPath
+$Ar = New-Object System.Security.AccessControl.FileSystemAccessRule("$firstName $lastName","FullControl","Allow")
+$Acl.SetAccessRule($Ar)
+Set-Acl $folderPath $Acl

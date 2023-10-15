@@ -1,0 +1,53 @@
+public class AccountToContactController {
+    // declare variables for storing data
+    List<Account> accList;
+    List<Contact> conList;
+    
+    // create method to query and link accounts and contacts
+    public void linkAccountsAndContacts (List<Account> accList, List<Contact> conList) {
+        // create map to store account name and associated contacts
+        Map<String, List<Contact>> accToConMap = new Map<String, List<Contact>>();
+        
+        // loop through accounts and add to map with empty list of contacts
+        for (Account acc : accList) {
+            accToConMap.put(acc.Name, new List<Contact>());
+        }
+        
+        // loop through contacts and add to map under appropriate account name
+        for (Contact con : conList) {
+            accToConMap.get(con.AccountId).add(con);
+        }
+        
+        // create new list to store linked records
+        List<AccountToContact__c> links = new List<AccountToContact__c>();
+        
+        // loop through map and create new linked records for each account and its contacts
+        for (String accName : accToConMap.keySet()) {
+            AccountToContact__c link = new AccountToContact__c();
+            link.Account__c = accList[0].Id;
+
+            // loop through contacts and add to linked record
+            for (Contact con : accToConMap.get(accName)) {
+                link.Contacts__c += con.Id + ';';
+            }
+
+            // add linked record to list
+            links.add(link);
+        }
+        
+        // insert the new linked records
+        insert links;
+        
+        // display success message
+        System.debug('Linked records created: ' + links.size());
+    }
+}
+
+// create trigger to call account to contact controller and link new records on account creation
+trigger AccountTrigger on Account (after insert) {
+    // create instance of account to contact controller
+    AccountToContactController controller = new AccountToContactController();
+    
+    // call link accounts and contacts method from controller
+    controller.linkAccountsAndContacts(trigger.new, new List<Contact>());
+}

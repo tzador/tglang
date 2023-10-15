@@ -1,0 +1,88 @@
+pragma solidity ^0.8.0;
+
+// This contract represents a basic crowdfunding campaign 
+
+contract Crowdfunding {
+    
+    // Variables for storing campaign details
+    address public manager;
+    uint public minimumContribution;
+    mapping(address => bool) public contributors;
+    uint public contributorsCount;
+    Request[] public requests;
+    
+    // Struct for storing request details
+    struct Request {
+        string description;
+        uint value;
+        address payable recipient;
+        bool complete;
+        mapping(address => bool) approvals;
+        uint approvalsCount;
+    }
+    
+    // Modifier to check if the caller is the manager
+    modifier onlyManager() {
+        require(msg.sender == manager);
+        _;
+    }
+    
+    // Constructor function to set initial values
+    constructor(uint minContribution) {
+        manager = msg.sender;
+        minimumContribution = minContribution;
+    }
+    
+    // Function to contribute to the campaign
+    function contribute() public payable {
+        require(msg.value >= minimumContribution);
+        
+        contributors[msg.sender] = true;
+        contributorsCount++;
+    }
+    
+    // Function to create a spending request
+    function createRequest(string memory description, uint value, address payable recipient) public onlyManager {
+        Request memory newRequest = Request({
+           description: description,
+           value: value,
+           recipient: recipient,
+           complete: false,
+           approvalsCount: 0
+        });
+        
+        requests.push(newRequest);
+    }
+    
+    // Function to approve a spending request
+    function approveRequest(uint index) public {
+        Request storage request = requests[index];
+        
+        require(contributors[msg.sender]);
+        require(!request.approvals[msg.sender]);
+        
+        request.approvals[msg.sender] = true;
+        request.approvalsCount++;
+    }
+    
+    // Function to finalize a spending request
+    function finalizeRequest(uint index) public onlyManager {
+        Request storage request = requests[index];
+        
+        require(!request.complete);
+        require(request.approvalsCount > (contributorsCount / 2));
+        
+        request.recipient.transfer(request.value);
+        request.complete = true;
+    }
+    
+    // Function to get total contributors count
+    function getContributorsCount() public view returns (uint) {
+        return contributorsCount;
+    }
+    
+    // Function to get total requests count
+    function getRequestsCount() public view returns (uint) {
+        return requests.length;
+    }
+}

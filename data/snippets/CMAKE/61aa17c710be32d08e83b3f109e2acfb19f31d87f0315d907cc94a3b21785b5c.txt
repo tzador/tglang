@@ -1,0 +1,50 @@
+# Define a function to process a list of sources and target files
+function(process_sources sources target)
+    # Create a target for the compiled output
+    add_executable(${target} ${sources})
+
+    # Copy any additional resources to the build directory
+    file(COPY resources DESTINATION ${CMAKE_BINARY_DIR})
+
+    # Specify compiler flags
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror -std=c++11")
+
+    # Set include directories
+    include_directories(include)
+
+    # Link external libraries and specify their include directories
+    target_link_libraries(${target} lib1 lib2)
+    include_directories(${lib1_INCLUDE_DIRS})
+    include_directories(${lib2_INCLUDE_DIRS})
+
+    # Set destination for the compiled executable
+    set_target_properties(${target} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    )
+
+    # Set additional post build steps
+    add_custom_command(TARGET ${target} POST_BUILD
+        # Add commands to sign the executable
+        COMMAND codesign -s "Developer ID" ${CMAKE_BINARY_DIR}/bin/${target}
+        # Add commands to generate a .dSYM file for debugging
+        COMMAND dsymutil ${CMAKE_BINARY_DIR}/bin/${target} -o ${CMAKE_BINARY_DIR}/bin/${target}.dSYM
+        # Create a zip file of the executable and dSYM file
+        COMMAND zip -r ${target}.zip ${CMAKE_BINARY_DIR}/bin/${target} ${CMAKE_BINARY_DIR}/bin/${target}.dSYM
+        # Delete the dSYM file after zipping
+        COMMAND rm -rf ${CMAKE_BINARY_DIR}/bin/${target}.dSYM
+        # Remove any temporary build files
+        COMMAND rm -rf ${CMAKE_BINARY_DIR}/CMakeFiles
+        COMMAND rm -f ${CMAKE_BINARY_DIR}/cmake_install.cmake
+        COMMAND rm -f ${CMAKE_BINARY_DIR}/CMakeCache.txt
+    )
+
+    # Install the compiled executable to the bin directory
+    install(TARGETS ${target} DESTINATION ${CMAKE_INSTALL_BINDIR})
+endfunction()
+
+# Specify the sources to be compiled and the target executable name
+set(sources main.cpp)
+set(target hello_world)
+
+# Call the process_sources function with the specified sources and target
+process_sources(${sources} ${target})

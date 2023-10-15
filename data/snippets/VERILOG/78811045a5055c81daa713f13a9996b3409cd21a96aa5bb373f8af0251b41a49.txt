@@ -1,0 +1,77 @@
+//-----------------------------------------------------
+// Module Name: Memory Controller
+// Function: Manages data transfer between processor and memory
+// Inputs: CLK - system clock
+//		   mem_addr - memory address from processor
+//		   mem_data_in - data to be written to memory
+//		   write_en - write enable signal from processor
+// Outputs: mem_data_out - data read from memory
+//		   mem_ack - acknowledgement signal
+//-----------------------------------------------------
+module mem_controller(CLK, mem_addr, mem_data_in, write_en, mem_data_out, mem_ack);
+
+	// Input and output port declarations
+	input CLK;
+	input [7:0] mem_addr;
+	input [7:0] mem_data_in;
+	output reg [7:0] mem_data_out;
+	output reg mem_ack;
+
+	// Internal registers for address and data storage
+	reg [7:0] addr_reg;
+	reg [7:0] data_reg;
+
+	// Counter for memory address
+	reg [7:0] mem_cnt;
+
+	// State machine for controlling memory operations
+	reg [1:0] state;
+	localparam READ = 2'b00;
+	localparam WRITE = 2'b01;
+	localparam ACK = 2'b10;
+
+	// System clock edge detection for synchronous operation
+	always@(posedge CLK) begin 
+		// On positive clock edge, store input address and set state to READ
+		addr_reg <= mem_addr;
+		state <= READ;
+	end
+
+	// Logic for memory operation states
+	always@(state) begin
+		case(state)
+			READ: begin
+				// Set memory address counter to input address
+				mem_cnt <= mem_addr; 
+				// Output data from memory at input address
+				mem_data_out <= data_reg; 
+				// Set acknowledgement signal high to indicate successful read
+				mem_ack <= 1'b1;
+				// Transition to ACK state
+				state <= ACK;
+			end
+			WRITE: begin
+				// Output data from input port to memory at input address
+				data_reg <= mem_data_in; 
+				// Set acknowledgement signal high to indicate successful write
+				mem_ack <= 1'b1;
+				// Transition to ACK state
+				state <= ACK;
+			end
+			ACK: begin
+				// Wait for a positive clock edge before transitioning back to READ state
+				state <= READ;
+			end
+		endcase
+	end
+
+	// Write enable logic for controlling write state
+	always@(posedge CLK) begin
+		if(write_en == 1'b1) begin
+			// If write enable signal is high, change state to WRITE
+			state <= WRITE;
+		end
+	end
+
+endmodule
+//-----------------------------------------------------

@@ -1,0 +1,79 @@
+//Example of a complex smart contract in Solidity
+
+//Smart contract to handle a crowdfunding campaign
+
+pragma solidity ^0.8.0;
+
+contract Crowdfunding {
+    //Variables
+    address public owner; //Address of the campaign owner
+    uint public goal; //Fundraising goal
+    uint public deadline; //Deadline for the campaign
+    uint public raisedAmount = 0; //Amount raised so far
+    mapping(address => uint) public contributors; //Mapping to keep track of contributions
+    address[] public contributorsArray; //Array of contributor addresses
+    bool public closed = false; //Flag to track if campaign is closed
+    bool public goalReached = false; //Flag to track if goal has been reached
+
+    //Events
+    event NewContribution(address contributor, uint amount);
+    event GoalReached(uint totalAmount);
+    event CampaignClosed(bool closed);
+
+    //Constructor function
+    constructor(uint _goal, uint _deadline) {
+        owner = msg.sender; //Set the owner as the address deploying the contract
+        goal = _goal;
+        deadline = block.timestamp + (_deadline * 1 minutes); //Set the deadline in minutes from the current block timestamp
+    }
+
+    //Modifier that only allows the owner of the contract to call a function
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this function.");
+        _;
+    }
+
+    //Function to contribute to the campaign
+    function contribute() public payable {
+        require(!closed, "Campaign is closed.");
+        require(msg.value > 0, "Contribution must be greater than 0.");
+
+        contributors[msg.sender] += msg.value; //Add contribution to mapping
+        raisedAmount += msg.value; //Update total raised amount
+
+        if (contributors[msg.sender] == 0) {
+            contributorsArray.push(msg.sender); //Add new contributor address to array
+        }
+
+        emit NewContribution(msg.sender, msg.value); //Emit event to notify of new contribution
+
+        //Check if fundraising goal has been reached
+        if (raisedAmount >= goal) {
+            goalReached = true;
+            emit GoalReached(raisedAmount);
+        }
+    }
+
+    //Function for the owner to withdraw funds when goal is reached
+    function withdraw() public onlyOwner {
+        require(goalReached, "Campaign goal has not been reached.");
+        require(!closed, "Campaign is closed.");
+
+        //Transfer entire balance to owner
+        payable(owner).transfer(address(this).balance);
+    }
+
+    //Function to close the campaign before the deadline
+    function closeCampaign() public onlyOwner {
+        require(!closed, "Campaign is already closed.");
+        require(block.timestamp >= deadline, "Deadline has not been reached yet.");
+
+        closed = true;
+        emit CampaignClosed(true);
+    }
+
+    //Fallback function to accept ETH contributions
+    receive() external payable {
+        contribute();
+    }
+}

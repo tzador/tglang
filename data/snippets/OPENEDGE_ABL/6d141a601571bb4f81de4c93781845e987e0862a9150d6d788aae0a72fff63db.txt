@@ -1,0 +1,67 @@
+{ Preprocess Goal: This program is used to query a database and display results in a formatted table }
+
+/* Define variables for database connection */
+
+DEFINE VARIABLE cDBName AS CHARACTER NO-UNDO INIT "my_database".
+DEFINE VARIABLE hDBHandle AS HANDLE NO-UNDO.
+
+/* Connect to database */
+
+CONNECT cDBName
+    ON ERROR UNDO, RETURN hDBHandle.
+
+/* Define variables for query and result set */
+
+DEFINE VARIABLE cQuery AS CHARACTER NO-UNDO.
+DEFINE VARIABLE hQueryHandle AS HANDLE NO-UNDO.
+DEFINE VARIABLE hResultHandle AS HANDLE NO-UNDO.
+
+/* Construct SQL query */
+
+ASSIGN cQuery =
+    "SELECT * FROM my_table WHERE status = 'Active' AND region = 'North America'".
+
+/* Prepare and execute the query */
+
+PREPARE hQueryHandle FROM cQuery.
+
+EXECUTE hQueryHandle
+    ON ERROR UNDO, THROW OUTPUT hResultHandle.
+
+/* Check for error */
+
+IF ERROR-STATUS:ERROR OR ERROR-STATUS:NUM-MESSAGES > 0 THEN DO:
+    /* Error occurred, display error message */
+    MESSAGE ERROR-STATUS:GET-MESSAGE(1) VIEW-AS ALERT-BOX.
+END.
+
+/* Loop through result set and display in a formatted table */
+
+REPEAT:
+
+    /* Get next row from result set */
+    GET NEXT hResultHandle NO-ERROR.
+
+    /* Check for end of result set */
+    IF ERROR-STATUS:ERROR THEN LEAVE.
+
+    /* Assign values to variables */
+    ASSIGN
+        iId = hResultHandle["id"],
+        cName = hResultHandle["name"],
+        dStartDate = hResultHandle["start_date"].
+
+    /* Format and display data in a table */
+    DISPLAY
+        "ID:" SKIP,
+        iId FORMAT ">>>,>>>,>>9" SKIP,
+        "Name:" SKIP,
+        cName FORMAT "x(20)" SKIP,
+        "Start Date:" SKIP,
+        dStartDate FORMAT "99/99/9999" WITH FRAME fTable.
+
+END.
+
+/* Close database connection */
+
+DISCONNECT ALL.

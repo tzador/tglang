@@ -1,0 +1,64 @@
+/* This code snippet performs a multi-variate analysis of a dataset using the GLM procedure */ 
+
+/* Step 1: Import the dataset */ 
+proc import datafile = "sample_data.csv"
+    out = dataset;
+    delimiter = ",";
+    getnames = yes;
+run;
+
+/* Step 2: Sort the dataset by a specified variable */ 
+proc sort data = dataset
+    out = sorted_dataset;
+    by variable;
+
+/* Step 3: Create new variables using the existing ones */ 
+data new_dataset;
+    set sorted_dataset;
+    /* Create a new variable 'total' by adding two existing variables 'var1' and 'var2' */ 
+    total = var1 + var2;
+    /* Create a new variable 'average' by dividing the total by the number of observations */ 
+    average = total / _n_;
+run;
+
+/* Step 4: Run a GLM analysis on the new dataset */ 
+proc glm data = new_dataset;
+    /* Specify the dependent variable and independent variables */ 
+    class dependent_var variable1 variable2;
+    model dependent_var = variable1 variable2;
+    /* Set the significance level */ 
+    alpha = .05;
+    /* Print regression diagnostics and residual plots */ 
+    output out = glm_out rstudent;
+run;
+
+/* Step 5: Save the results in a new dataset */ 
+data results;
+    set glm_out;
+    /* Rename the variables for clarity */ 
+    rename dependent_var = y
+        variable1 = x1
+        variable2 = x2
+        glm_predicted = predicted_y
+        glm_residual = residual;
+run;
+
+/* Step 6: Export the results as a CSV file */ 
+proc export data = results
+    outfile = "glm_results.csv"
+    dbms = csv replace;
+run;
+
+/* Step 7: Print a summary of the GLM analysis */ 
+proc means data = glm_out;
+    /* Calculate the mean, standard deviation, and minimum and maximum values of the residuals */ 
+    var predicted y residual;
+run;
+
+/* Step 8: Create a graphical representation of the regression line */ 
+proc sgplot data = results;
+    /* Plot the predicted values against the actual values */ 
+    scatter x = y y = predicted_y;
+    /* Add a regression line to the plot */ 
+    series x = y y = predicted_y;
+run;

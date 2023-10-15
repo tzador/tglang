@@ -1,0 +1,62 @@
+# Set an external URL
+set $external_url https://www.example.com;
+
+# Configure server block
+server {
+    listen 80; # Listen on port 80
+    server_name example.com; # Set server name
+    rewrite ^ https://$server_name$request_uri? permanent; # Rewrite to secure version of site
+}
+
+# Configure server block for secure version 
+server {
+    listen 443 ssl; # Listen on port 443 with SSL
+    server_name example.com; # Set server name
+    ssl_certificate /path/to/certificate.crt; # SSL certificate path
+    ssl_certificate_key /path/to/private_key.key; # Private key path
+    include /path/to/options-ssl-nginx.conf; # Include SSL options file
+
+    location / {
+            proxy_pass $external_url; # Proxy URL to external site
+    }
+}
+
+# Set the number of workers
+worker_processes auto; # Automatically set number of processes based on system resources
+
+# Set file descriptors limit
+worker_rlimit_nofile 65535; # Set maximum number of file descriptors
+
+# Configure basic HTTP settings
+http {
+    include /etc/nginx/mime-types; # Include MIME types
+    default_type application/octet-stream; # Set default file type
+
+    # Set file caching
+    open_file_cache max=10000 inactive=60s; # Cache 10000 files for 60 seconds
+    open_file_cache_valid 70s; # Keep cached files valid for 70 seconds
+    open_file_cache_min_uses 2; # Minimum number of uses to keep a file cached
+    open_file_cache_errors on; # Cache files that return errors
+
+    # Set server names hash bucket
+    server_names_hash_bucket_size 64; # Set size of hash bucket
+
+    # Set compression settings
+    gzip on; # Enable gzip compression
+    gzip_vary on; # Enable varying levels of compression
+    gzip_comp_level 6; # Set compression level to 6 (highest)
+    gzip_min_length 1000; # Set minimum file size for compression to be applied
+    gzip_types text/plain text/css image/jpeg image/png text/js text/xml application/javascript application/xml+rss; # Compress specific file types
+}
+
+# Configure multi-processing module (MPM) for handling requests
+events {
+    use epoll; # Use epoll MPM
+
+    # Configure connection options
+    worker_connections 1024; # Set maximum number of connections for each worker
+    connection_pool_size 2048; # Set maximum size of connection pool
+    request_pool_size 4k; # Set size of request pool
+    output_buffers 1 32k; # Set output buffers
+    postpone_output 1460; # Postpone sending data to client until enough data is collected
+}

@@ -1,0 +1,78 @@
+// Contract to manage a decentralized marketplace
+contract Marketplace {
+  // Variables
+  address public owner; // Stores the address of the owner of the marketplace
+  uint256 public productCount = 0; // Stores the current number of products in the marketplace
+  mapping(uint256 => Product) public products; // Maps product id to product details
+  mapping(address => bool) public admins; // Stores a list of addresses that have admin privileges
+  uint256 private constant listingFee = 0.001 ether; // The fee required to list a product
+  uint256 private constant commission = 10; // The percentage of commission charged by the marketplace on each transaction
+
+  // Struct to store product details
+  struct Product {
+    uint256 id; // Unique ID of the product
+    string name; // Name of the product
+    string description; // Description of the product
+    uint256 price; // Price of the product in wei
+    address payable seller; // Address of the seller
+    bool sold; // Boolean to track if the product has been sold
+  }
+
+  // Events
+  event ProductCreated(
+    uint256 id,
+    string name,
+    string description,
+    uint256 price,
+    address payable seller,
+    bool sold
+  ); // Event triggered when a new product is created in the marketplace
+
+  event ProductSold(
+    uint256 id,
+    string name,
+    address buyer
+  ); // Event triggered when a product is sold
+
+  event NewAdminAdded(
+    address admin
+  ); // Event triggered when a new admin is added to the marketplace
+
+  // Constructor
+  constructor() public {
+    owner = msg.sender;
+    admins[msg.sender] = true; // The owner is automatically granted admin privileges
+  }
+
+  // Modifier for admin-only functions
+  modifier onlyAdmin() {
+    require(admins[msg.sender] == true, "You do not have admin privileges");
+    _;
+  }
+
+  // Function to add a new admin to the marketplace
+  function addAdmin(address _adminAddress) public onlyAdmin {
+    admins[_adminAddress] = true;
+    emit NewAdminAdded(_adminAddress);
+  }
+
+  // Function to create a new product in the marketplace
+  function createProduct(string memory _name, string memory _description, uint256 _price) public payable {
+    require(msg.value == listingFee, "You must send the correct listing fee");
+    require(_name.length > 0 && _description.length > 0 && _price > 0, "Invalid product details");
+    productCount ++;
+    products[productCount] = Product(productCount, _name, _description, _price, msg.sender, false);
+    emit ProductCreated(productCount, _name, _description, _price, msg.sender, false);
+  }
+
+  // Function to purchase a product from the marketplace
+  function purchaseProduct(uint256 _productId) public payable {
+    require(products[_productId].id > 0 && products[_productId].sold == false, "Product does not exist or has already been sold");
+    require(msg.value == products[_productId].price, "You must send the correct amount of Ether");
+    products[_productId].sold = true;
+    products[_productId].seller.transfer(msg.value);
+    uint256 commissionAmount = (msg.value * commission) / 100; // Calculate the commission amount
+    owner.transfer(commissionAmount); // Send the commission to the marketplace owner
+    emit ProductSold(products[_productId].id, products[_productId].name, msg.sender);
+  }
+}

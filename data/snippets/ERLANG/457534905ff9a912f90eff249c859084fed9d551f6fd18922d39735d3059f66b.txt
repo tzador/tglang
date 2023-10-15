@@ -1,0 +1,55 @@
+-module(shell_microservice). %% defining a module with the name 'shell_microservice'
+-export([start/0, run/0, stop/0]). %% exporting three functions start, run, and stop
+
+%% defining the start function, which is the entry point of the microservice
+start() -> %% defining clauses for the function
+    init_state(), %% calling the init_state function to initialize the microservice's state
+    spawn(fun() -> run() end). %% spawning a process that calls the run function
+
+%% defining the run function, which handles the main functionality of the microservice
+run() ->
+    receive %% using the receive keyword to handle incoming messages
+        {execute, Command} -> %% pattern matching for incoming messages with the format {execute, Command}
+            %% executing the given command using the os:cmd/1 function
+            Response = os:cmd(Command),
+            %% sending the response back to the sender using the send/2 function
+            sender() ! {execute_response, Response},
+            run(); %% recursively calling the run function to handle more messages
+        stop -> %% pattern matching for the stop message
+            stop() %% calling the stop function
+    end.
+
+%% defining the stop function, which handles the termination of the microservice
+stop() ->
+    %% stopping the process with the current PID using the exit/2 function
+    exit(self(), stopped).
+
+%% defining the init_state function, which initializes the microservice's state
+init_state() ->
+    %% creating an empty map to store state data
+    State = #{},
+    %% registering the microservice with the name 'shell' using the register/2 function
+    register(shell, self()),
+    %% calling the init_logger function to initialize the microservice's logger
+    init_logger(),
+    %% returning the initialized state to be used by the microservice
+    State.
+
+%% defining the init_logger function, which initializes the microservice's logger
+init_logger() ->
+    %% creating a new log file using the file:open/2 function
+    {ok, LogFile} = file:open("shell.log", [write, delayed_write]),
+    %% creating a new logger using the lager:register_logger/3 function
+    lager:register_logger(shell_logger, [{file, LogFile}]).
+
+%% defining the sender function, which gets the PID of the last process that sent a message to the current process
+sender() ->
+    SomePid = self(), %% getting the current process's PID
+    receive %% using the receive keyword to handle incoming messages
+        Any -> %% pattern matching for any incoming message
+            %% storing the PID of the sender in the SomePid variable
+            SomePid = Any,
+            sender(); %% recursively calling the sender function to get the next message sender's PID
+        _ -> %% pattern matching for any non-matching message
+            SomePid %% returning the last stored sender's PID
+    end.

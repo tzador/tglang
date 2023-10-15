@@ -1,0 +1,92 @@
+/* This code snippet generates a data set with simulated sales data for a retail store */
+
+/* Create an empty data set with variables for product, date, and sales */ 
+data sales_data;
+    length product $20. date 8. sales 8.;
+    format date mmddyy10.;
+run;
+
+/* Generate random data for 100 products and 365 days */
+/* Each product has a random starting sales value between 500 and 1000 */
+/* Daily sales for each product will vary between +/- 10% of the starting sales value */
+/* Sales data will be for a 1-year period, starting on January 1st */
+do i = 1 to 100; /* Loop through 100 products */
+    product = cats('Product', i); /* Create product name */
+    do date = '01jan2020'd to '31dec2020'd; /* Loop through 365 days */
+        if _n_ = 1 then do; /* Get random starting sales value for each product */
+            sales_start = floor(rand('uniform') * 500) + 500; /* Random starting sales between 500 and 1000 */
+        end;
+        /* Generate daily sales using the starting sales value and a random multiplier between 0.9 and 1.1 */
+        sales = sales_start * rand('uniform', 0.9, 1.1);
+        output; /* Output data set row for each product and date */
+    end;
+end;
+drop i sales_start; /* Drop temporary variables */
+
+/* Sort data by product in ascending order and then by date in descending order */
+proc sort data = sales_data; 
+    by product date;
+run;
+
+/* Calculate cumulative sales by product */
+proc means data = sales_data nway noprint;
+    class product;
+    var sales;
+    output out = sales_cumulative (drop = _type_ rename = (sales = cumulative_sales)) sum =;
+run;
+
+/* Merge the cumulative sales data back onto the original data set */
+data sales_data;
+    merge sales_data sales_cumulative;
+    by product;
+run;
+
+/* Calculate the percent change in sales from previous day for each product */
+/* If there is no previous day (first day of sales), the percent change will be missing */
+data sales_data;
+    set sales_data;
+    by product;
+    lag_sales = lag(sales);
+    if first.product then pct_change = .; /* Set missing value for first day */
+    else pct_change = (sales - lag_sales)/lag_sales; /* Calculate percent change from previous day */
+    drop lag_sales; /* Drop temporary variable */
+run;
+
+/* Create a macro to plot the sales data for a given product */
+%macro plot_sales(prod);
+    /* Filter data by product and keep only necessary variables */
+    data &prod._sales;
+        set sales_data;
+        where product = "&prod";
+        keep date sales cumulative_sales pct_change;
+    run;
+    
+    /* Create plot of sales over time */
+    title "Sales Data for &prod";
+    proc sgplot data = &prod._sales;
+        series x = date y = sales;
+        refline 0 / axis = y;
+        xaxis label = "Date";
+        yaxis label = "Daily Sales";
+    run;
+    
+    /* Create plot of cumulative sales over time */
+    title "Cumulative Sales Data for &prod";
+    proc sgplot data = &prod._sales;
+        series x = date y = cumulative_sales;
+        xaxis label = "Date";
+        yaxis label = "Cumulative Sales";
+    run;
+    
+    /* Create plot of percent change in sales over time */
+    title "Percent Change in Daily Sales for &prod";
+    proc sgplot data = &prod._sales;
+        series x = date y = pct_change;
+        refline 0 / axis = y;
+        xaxis label = "Date";
+        yaxis label = "Percent Change";
+    run;
+%mend;
+
+/* Call the macro for a specific product */
+%plot_sales(Product1);

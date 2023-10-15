@@ -1,0 +1,47 @@
+defmodule User do
+  @moduledoc """
+  This module represents a user in the system.
+  """
+
+  @primary_key {:id, :integer}
+  use Ecto.Schema
+  import Ecto.Changeset
+
+  schema "users" do
+    field :name, :string
+    field :age, :integer
+    field :email, :string, unique: true
+    field :encrypted_password, :string
+
+    timestamps()
+  end
+
+  @doc """
+  Builds a changeset based on the `%User{}` struct and params.
+  """
+  @spec changeset(User.t(), map()) :: Ecto.Changeset.t()
+  def changeset(user, params) do
+    user
+    |> cast(params, [:name, :age, :email])
+    |> validate_required([:name, :age, :email])
+    |> unique_constraint(:email)
+    |> validate_format(:email, ~r/@/)
+    |> put_pass_hash()
+  end
+
+  @doc """
+  Generate a password hash for the given password.
+  """
+  @spec put_pass_hash(Encoding.t(), binary()) :: Ecto.Changeset.t()
+  def put_pass_hash(changeset, pass) do
+    case pass do
+      nil ->
+        changeset
+      _ ->
+        pass_hash =
+          Comeonin.Bcrypt.hash_pwd_salt(pass)
+          |> Base.encode64()
+        put_change(changeset, :encrypted_password, pass_hash)
+    end
+  end
+end

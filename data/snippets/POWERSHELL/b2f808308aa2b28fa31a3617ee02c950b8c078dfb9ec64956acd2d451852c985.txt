@@ -1,0 +1,37 @@
+Function Get-DiskSpace {
+    <#
+    .SYNOPSIS
+    This function gets the disk space information for all drives on a computer.
+
+    .PARAMETER ComputerName
+    The name of the computer to retrieve the disk space information from.
+
+    .EXAMPLE
+    Get-DiskSpace -ComputerName "PC1"
+    #>
+
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true,
+        ValueFromPipelineByPropertyName=$true,
+        Position=0)]
+        [ValidateNotNullOrEmpty()]
+        [String]$ComputerName
+    )
+
+    Process {
+        $disks = Get-WmiObject Win32_LogicalDisk -Filter "DriveType=3" -ComputerName $ComputerName
+        $diskSpace = @()
+        foreach ($disk in $disks) {
+            $drive = New-Object -TypeName PSObject -Property @{
+                "Drive" = $disk.DeviceID
+                "Size (GB)" = "{0:N1}" -f ($disk.Size/1GB)
+                "Free Space (GB)" = "{0:N1}" -f ($disk.FreeSpace/1GB)
+                "Free Space (%)" = "{0:P0}" -f ($disk.FreeSpace/$disk.Space*100)
+                "Used Space (GB)" = "{0:N1}" -f (($disk.Size - $disk.FreeSpace)/1GB)
+            }
+            $diskSpace += $drive
+        }
+        $diskSpace | Format-Table -AutoSize
+    }
+}

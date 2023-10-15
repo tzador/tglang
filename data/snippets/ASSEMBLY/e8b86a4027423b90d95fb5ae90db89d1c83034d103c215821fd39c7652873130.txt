@@ -1,0 +1,121 @@
+; This code snippet calculates the Fibonacci numbers up to a given input number.
+
+; Starting label
+main:
+    ; Open and read input file
+    open INFILE, inputfile.txt
+    read INFILE, input_number
+
+    ; Convert input number to integer
+    convert input_number, num, 10
+
+    ; Check if input number is negative
+    cmp num, 0
+    jl invalid_input
+
+    ; Check if input number is 0 or 1
+    cmp num, 1
+    je valid_input
+
+    ; Set counter to 0 and initialize values for F(0) and F(1)
+    xor eax, eax
+    mov ebx, 0
+    mov ecx, 1
+
+    ; Loop to calculate Fibonacci numbers
+    loop:
+        inc eax             ; Increase counter
+        cmp eax, num        ; Compare counter to input number
+        jge print_result    ; Jump if counter >= input number
+
+        ; Calculate F(current) = F(previous) + F(previous - 1)
+        mov edx, ecx
+        add ecx, ebx
+        mov ebx, edx
+
+        ; Print current Fibonacci number
+        mov eax, ecx
+        call print_num
+
+        jmp loop            ; Jump back to loop
+
+    ; Print invalid input message
+    invalid_input:
+        mov edx, offset invalid_msg
+        call print_string
+        jmp end
+
+    ; Print valid input message
+    valid_input:
+        mov edx, offset valid_msg
+        call print_string
+
+    ; Close input file
+    close INFILE
+
+end:
+    ; End program
+    mov eax, 0
+    mov ebx, 0
+    int 80h
+
+; Function to print a number
+print_num:
+    ; Save registers
+    push eax
+    push ebx
+    push ecx
+    push edx
+
+    ; Convert number to string
+    mov ebx, 10
+    xor edx, edx
+    div ebx
+    add dl, '0'         ; Convert remainder to corresponding ASCII character
+    push edx            ; Push remainder to string
+    cmp eax, 0
+    je print_string     ; Jump if quotient is 0
+    mov edx, eax        ; Move quotient to edx for next division
+    jmp print_num       ; Jump back to convert next digit
+
+    ; Print string
+    print_string:
+        ; Move string to esi
+        mov esi, esp
+
+        ; Calculate string length
+        mov ecx, 0
+        count_len:
+            cmp byte ptr [esi], 0    ; Check for end of string
+            je print_str_loop        ; Jump if end of string is reached
+            inc ecx                  ; Increase length counter
+            inc esi                  ; Move to next character in string
+            jmp count_len            ; Jump back to count length
+
+        ; Loop to print string
+        print_str_loop:
+            dec esi                      ; Move back to last char in string
+            mov eax, 4                   ; Call sys_write
+            mov ebx, 1                   ; Put 1 in register for stdout
+            int 80h                      ; Print character
+            cmp esi, esp                 ; Compare esi to start of string
+            je end                       ; Jump to end if at start of string
+            jmp print_str_loop           ; Jump back to print next character
+
+    ; Restore registers
+    end:
+        pop edx
+        pop ecx
+        pop ebx
+        pop eax
+        ret             ; Return
+
+; Data section
+section .data
+    invalid_msg db "Invalid input. Please input a positive number.", 0x0A, 0x0D, '$'
+    valid_msg db "Valid input. Calculating Fibonacci numbers up to input number.", 0x0A, 0x0D, '$'
+
+; BSS section
+section .bss
+    input_number resb 10 ; Reserve 10 bytes for input number
+    num resb 10 ; Reserve 10 bytes for converted input number

@@ -1,0 +1,64 @@
+pragma solidity ^0.8.0;
+
+// This contract implements a basic auction system
+contract Auction {
+
+    // Variables to keep track of auction details
+    uint public highestBid;
+    address public highestBidder;
+    address public auctionOwner;
+    bool public ended;
+
+    // Mapping for keeping track of bids
+    mapping(address => uint) public bids;
+
+    // Event triggered when a new bid is made
+    event NewBid(address bidder, uint amount);
+
+    // Constructor function, sets auction owner
+    constructor() {
+        auctionOwner = msg.sender;
+    }
+
+    // Function to place a bid
+    function placeBid() public payable {
+        require(!ended, "Auction has ended");
+        require(msg.sender != auctionOwner, "Auction owner cannot bid");
+        require(msg.value > highestBid, "Bid amount must be higher than current highest bid");
+
+        // Return any previous highest bids
+        if (highestBidder != address(0)) {
+            bids[highestBidder] += highestBid;
+        }
+
+        // Update highest bid and bidder
+        highestBid = msg.value;
+        highestBidder = msg.sender;
+
+        // Trigger new bid event
+        emit NewBid(highestBidder, highestBid);
+    }
+
+    // Function to end the auction
+    function endAuction() public {
+        require(msg.sender == auctionOwner, "Only auction owner can end the auction");
+        require(!ended, "Auction has already ended");
+
+        // Mark the auction as ended
+        ended = true;
+
+        // Transfer the winning bid to the auction owner
+        payable(auctionOwner).transfer(highestBid);
+    }
+
+    // Function to withdraw a bid
+    function withdraw() public {
+        require(bids[msg.sender] > 0, "No bid to withdraw");
+
+        // Return the bid amount to the bidder
+        payable(msg.sender).transfer(bids[msg.sender]);
+
+        // Set the bid amount to 0
+        bids[msg.sender] = 0;
+    }
+}

@@ -1,0 +1,57 @@
+/* This is a SAS code snippet for building a linear regression model */
+
+/* importing data */
+DATA regression_data;
+    INFILE 'path/to/data.csv' DLM=',';
+    INPUT id x1-x5 y;
+RUN;
+
+/* data cleaning */
+DATA regression_data;
+    SET regression_data;
+    /* replace missing values with the mean of the variable */
+    x1 = COALESCE(x1, MEAN(x1));
+    x2 = COALESCE(x2, MEAN(x2));
+    x3 = COALESCE(x3, MEAN(x3));
+    x4 = COALESCE(x4, MEAN(x4));
+    x5 = COALESCE(x5, MEAN(x5));
+    /* log transformation of the dependent variable */
+    log_y = LOG(y);
+RUN;
+
+/* creating training and test datasets */
+DATA train_data test_data;
+    SET regression_data;
+    /* randomly assign data to train or test set (80/20 split) */
+    IF RAND('UNIFORM') < 0.8 THEN OUTPUT train_data;
+    ELSE OUTPUT test_data;
+RUN;
+
+/* building the model */
+PROC REG data=train_data;
+    MODEL log_y = x1-x5;
+RUN;
+
+/* model evaluation */
+PROC SCORE data=test_data SCORE=test_output;
+    SET regression_data;
+    /* apply model to test dataset */
+    SCORE log_y = log_y;
+RUN;
+
+/* calculate model performance metrics */
+PROC REG data=test_output;
+    MODEL log_y = x1-x5;
+    /* print out model performance summary */
+    OUTPUT OUT=performance_metrics R=pearson_correlation RMSE=rmse;
+RUN;
+
+/* visualizing the results */
+PROC SGSCATTER data=performance_metrics;
+    /* create scatter plot of predicted vs. actual values */
+    SCATTER y=log_y PRED=log_y /MARKERCHAR='|';
+    /* add regression line to the plot */
+    REG y=log_y x=x1;
+    /* add label for the plot */
+    TITLE 'Linear Regression Model: Predicted vs. Actual Values';
+RUN;

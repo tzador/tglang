@@ -1,0 +1,52 @@
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DataKinds #-}
+{-# OPTIONS_GHC -Wall -fno-warn-tabs #-}
+
+module Gcd where
+
+import GHC.TypeLits
+
+-- | The type-level representation of natural numbers.
+data Nat
+    = Zero
+    | Succ Nat
+
+infixl 6 :-
+-- | A type-level minus operator.
+-- If the first argument is greater than or equal to the second,
+-- its result is a natural number. Otherwise, it causes a type error.
+type (:-) :: Nat -> Nat -> Nat
+type family m :- n where
+    m :- Zero = m
+    ('Succ m) :- ('Succ n) = m :- n
+
+-- | A type-level divisor operator.
+-- If the first argument is divisible by the second, its result is a natural
+-- number. Otherwise, it causes a type error.
+type Div :: Nat -> Nat -> Nat
+type family m `Div` n where
+    m `Div` Zero = TypeError ('Text "Division by zero")
+    m `Div` ('Succ n) = DivResult m ('Succ n)
+
+type DivResult :: Nat -> Nat -> Nat
+type family DivResult m n where
+    DivResult ('Succ ('Succ m)) ('Succ ('Succ n)) = 1 'Succ DivResult m n
+    DivResult ('Succ n) ('Succ ('Succ m)) = 1 'Succ DivResult n ('Succ m)
+    DivResult ('Succ m) ('Succ n) = DivResult m n
+    DivResult _ _ = 'Zero
+
+-- | A type-level modulus operator.
+-- Its result is the remainder of the division.
+-- If the first argument is divisible by the second, its result is a natural
+-- number. Otherwise, it causes a type error.
+type Mod :: Nat -> Nat -> Nat
+type family m `Mod` n where
+    m `Mod` n = ModResult m n
+
+type ModResult :: Nat -> Nat -> Nat
+type family ModResult m n where
+    ModResult ('Succ ('Succ m)) ('Succ ('Succ n)) = ModResult m n
+    ModResult ('Succ n) ('Succ ('Succ m)) = ModResult n ('Succ m)
+    ModResult ('Succ ('Succ m)) ('Succ n) = 'Succ m
+    ModResult ('Succ m) ('Succ n) = m `Mod` n
+    ModResult m n = m

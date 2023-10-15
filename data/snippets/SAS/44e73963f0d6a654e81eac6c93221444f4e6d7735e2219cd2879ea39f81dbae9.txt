@@ -1,0 +1,64 @@
+/* This program calculates the mean and standard deviation for the variables Age and Income from the input dataset.
+The input dataset should contain at least two variables named Age and Income. */
+
+/* Define macro variables for input and output file paths: */
+%let input_data = C:\Users\input_data.csv;
+%let output_data = C:\Users\output_data.csv;
+
+/* Import the input dataset using PROC IMPORT: */
+proc import datafile = "&input_data."
+	out = work.input
+	dbms = csv replace;
+run;
+
+/* Assign variables Age and Income from input dataset to macro variables: */
+%let age_var = Age;
+%let income_var = Income;
+
+/* Calculate Mean and Standard Deviation using PROC MEANS: */
+proc means data = work.input mean stddev;
+	var &age_var. &income_var.;
+run;
+
+/*Create a summary report with calculated values for mean and standard deviation: */
+data summary;
+	/* Create dataset from PROC MEANS output: */
+	set summary nobs = n;
+
+	/* Create and print variable labels for mean and standard deviation: */
+	if _n_ = 1 then do;
+		label
+			&age_var. = "Mean Age"
+			&income_var. = "Mean Income"
+			&age_var._stddev_ = "Standard Deviation of Age"
+			&income_var._stddev_ = "Standard Deviation of Income";
+	end;
+
+	/* Calculate Total Number of Observations in input dataset: */
+	total_obs = n;
+
+	/* Rename variables: */
+	rename
+		&age_var. = mean_age
+		&income_var. = mean_income
+		&age_var._stddev_ = age_stddev
+		&income_var._stddev_ = income_stddev;
+
+	/* Round calculated values to two decimal places: */
+	format mean_age mean_income 2.;
+	format age_stddev income_stddev 2.;
+
+	/* Print summary report with calculated values: */
+	putlog "Total Number of Observations = " total_obs;
+	putlog "Mean Age = " mean_age;
+	putlog "Mean Income = " mean_income;
+	putlog "Standard Deviation of Age = " age_stddev;
+	putlog "Standard Deviation of Income = " income_stddev;
+run;
+
+/* Export the summary report to a csv file using PROC EXPORT: */
+proc export data = summary
+	outfile = "&output_data."
+	dbms = csv
+	rename = yes;
+run;

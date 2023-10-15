@@ -1,0 +1,45 @@
+$ontext
+This code snippet is using GAMS language to solve a multi-objective optimization problem.
+$offtext
+
+set i 'resources' /r1*r10/;
+set j 'goals' /g1*g5/;
+
+Parameters
+    a(i) 'resource costs'
+    b(j) 'goal weights'
+    c(i,j) 'correlation coefficients';
+
+Alias (i,j,ii,jj);
+
+Positive variables
+    x(i) 'amount of resources'
+    y(j) 'achievement of goals';
+
+Binary variables
+    z(i,j) 'binary encoding of correlations';
+
+Equations
+    obj1
+    obj2
+    constraint(i,j);
+
+obj1.. sum(j, b(j)*y(j)) =E= sum(i, a(i)*x(i));
+
+obj2.. sum(j, prod((corr(i),b(j)),y(j))) =E= sum(ii, sum(jj, prod((corr(ii),b(jj)),y(jj))));
+
+option optCrFile = 1;
+#set auxC(i,j)= 1-(abs(c(i,j))**0.2);
+
+constraint(i,j)$c(i,j) =E= 1 + 1000*z(i,j)*auxC(i,j) - x(i) - y(j) + sum((jj$c(ii,jj)), z(i,jj));
+
+binary variable z1(j);
+constraint(j, ii(valbasename)$c(ii) =E= 1 + 1000*sum(i$c(i), (c(i,j)*x(i) + c(ii,jj)*z1(jj))*z(i,j))); 
+
+model multiobjective /all/;
+multiobjective.optfile = 1;
+multiobjective.optcr = 1;
+
+solve multiobjective using MIP minimizing obj1,obj2;
+
+display x.l, y.l, z.l;

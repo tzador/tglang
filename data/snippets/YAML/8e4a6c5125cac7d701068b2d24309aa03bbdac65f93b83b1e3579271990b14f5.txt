@@ -1,0 +1,27 @@
+- name: Install dependencies
+  run: npm install
+
+- name: Run unit tests
+  run: npm test
+
+- name: Deploy to production
+  run: |
+    git checkout production
+    git merge development
+    npm run build
+    aws s3 sync dist/ s3://production-bucket
+    aws cloudfront create-invalidation --distribution-id=distribution-id --paths "/*"
+
+- name: Deploy to staging
+  run: |
+    git checkout staging
+    git merge development
+    npm run build
+    aws s3 sync dist/ s3://staging-bucket
+    aws cloudfront create-invalidation --distribution-id=distribution-id --paths "/*"
+
+- name: Send notification
+  run: python send_notification.py
+  env:
+    API_KEY: ${{ secrets.API_KEY }}
+    EMAIL_LIST: ${{ secrets.EMAIL_LIST }}

@@ -1,0 +1,62 @@
+sets
+    i       'nodes'        /1*5/
+    j       'links'        /1*10/;
+alias (i,ip,jp);
+
+parameters
+    distance(i,j)           'arc distances'
+    capacity(i,j)           'flow capacities'
+    fixedcost(i,j)          'fixed costs per link'
+    unitcost(i,j)           'unit costs per unit of flow';
+
+scalar
+    B                       'budget';
+
+
+parameters
+    profit(i)               'profit for each node'
+    contribution(j)         'contribution to budget for each link';
+
+table
+     distance  capacity  fixedcost  unitcost  profit 
+i1        10         50        100         2       5
+i2        20         70        150         3       8
+i3        30         90        200         4       6
+i4        40        110        250         5       9
+i5        50        130        300         6       7 ;
+
+B = 1000;
+
+variables
+    flow(i,j)       'flow along each arc'
+    use(j)          '1 if link used, otherwise 0'
+    ratio(i,j)      'ratio of flow to capacity';
+
+binary variable use;
+
+equations
+    obj                 'objective function'
+    nodalbalance(i)     'net flow into each node'
+    costbalance(j)      'flow equals capacity times use'
+    nodalprofit(i)      'profit earned by each node'
+    costcontribution(j) 'contribution to total cost from each link';
+
+obj..       z =e= sum((i,j), profit(i) * use(j) - fixedcost(i,j) * use(j));
+
+nodalbalance(i)..
+            sum(j, flow(i,j)) =e= sum(jp, flow(ip,jp)) ;
+
+costbalance(j)..
+            flow(i,j) =l= capacity(i,j) * use(j) ;
+
+nodalprofit(i)..
+            profit(i) =e= sum(j, unitcost(i,j) * flow(i,j)) ;
+
+costcontribution(j)..
+            contribution(j) =e= (B / sum((i,j), fixedcost(i,j))) * fixedcost(i,j) * use(j);
+
+ratio(i,j) =e= flow(i,j) / capacity(i,j);
+
+model transportation /all/;
+
+Solve transportation using lp maximizing z;

@@ -1,0 +1,86 @@
+/*** 
+  This code snippet shows an example of data manipulation using SAS,
+  including merging and summarizing multiple datasets.
+***/
+ 
+/* First, create a data set for patient admissions */
+ 
+data admission;
+  /* Create an ID variable to identify each patient */
+  set patient_data;
+  retain patient_ID;
+ 
+  
+  /* Calculate age in years based on date of birth */
+  patient_age = intck('year', date_of_birth, today()); 
+  
+  /* Format date of birth in DDMMYY10. format */
+  format date_of_birth DDMMYY10.;
+  
+  /* Calculate length of hospital stay in days */
+  length_of_stay = intck('day', admission_date, discharge_date);
+  
+  /* Create indicator variable for inpatient or outpatient */
+  if length_of_stay = 0 then status = 'outpatient';
+  else status = 'inpatient';
+  
+  /* Keep only necessary variables */
+  keep patient_ID date_of_birth admission_date discharge_date status;
+  
+run;
+ 
+/* Second, create a data set for lab results */
+ 
+data lab_results;
+  /* Create an ID variable to identify each patient */
+  set patient_data;
+  retain patient_ID;
+  
+  /* Format test date in DDMMYY10. format */
+  format test_date DDMMYY10.;
+  
+  /* Rename variables for easier merging later */
+  rename test_value = cholesterol test_result = abnormal;
+  
+  /* Keep only necessary variables */
+  keep patient_ID test_date cholesterol test_result;
+  
+run;
+ 
+/* Third, merge the two datasets by patient ID */
+ 
+data patient_details;
+  /* Merge admission dataset with lab results dataset */
+  merge admission lab_results;
+  by patient_ID;
+  
+  /* Replace missing values for test_result with 'normal' */
+  if missing(abnormal) then abnormal = 'normal';
+  
+run;
+ 
+/* Fourth, create a summary dataset by patient status */
+ 
+proc means data = patient_details;
+  /* Calculate average length of stay for inpatients */
+  where status = 'inpatient';
+  var length_of_stay;
+  
+  /* Calculate average cholesterol level for outpatients */
+  where status = 'outpatient';
+  var cholesterol;
+  
+  /* Output summary statistics */
+  output out = patient_summary mean = avg;
+  
+run;
+ 
+/* Finally, create a report of the summary statistics */
+ 
+ods pdf file = 'patient_summary.pdf';
+proc print data = patient_summary;
+  title 'Patient Summary Report';
+run;
+ods pdf close;
+ 
+/* End of code snippet */

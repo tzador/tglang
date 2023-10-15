@@ -1,0 +1,55 @@
+{-# LANGUAGE GADTs, DataKinds, TypeOperators #-}
+
+module Main where
+
+import Data.List
+import GHC.TypeLits
+import Control.Monad.Indexed
+
+-- A generic matrix with statically defined dimensions
+data Matrix a (rows :: Nat) (cols :: Nat) where
+  NilMatrix :: Matrix a 0 0
+  RowMatrix :: a -> Matrix a 1 1
+  UnconsMatrix :: Matrix a r (c + 1) -> [a] -> Matrix a r c
+
+-- A possible instance for addition of matrices
+instance (Num a) => Additive (Matrix a) where
+  NilMatrix ^+^ NilMatrix = NilMatrix
+  RowMatrix a ^+^ RowMatrix b = RowMatrix (a + b)
+  UnconsMatrix xs (a:as) ^+^ UnconsMatrix ys (b:bs) =
+    UnconsMatrix (xs ^+^ ys) ((a + b) : (zipWith (+) as bs))
+  _ ^+^ _ = error "Incompatible dimensions for matrix addition"
+
+-- Finding the transpose of a matrix
+transpose :: Matrix a r c -> Matrix a c r
+transpose NilMatrix = NilMatrix
+transpose (RowMatrix a) = UnconsMatrix NilMatrix [a]
+transpose (UnconsMatrix xs (a:as)) =
+  case transpose xs of
+    NilMatrix -> RowMatrix a
+    UnconsMatrix ys bs -> UnconsMatrix (RowMatrix a ^+^ ys) as
+
+-- A helper function to convert a list of elements into a matrix
+fromList :: (KnownNat r, KnownNat c) => [a] -> Maybe (Matrix a r c)
+fromList as = do
+  let r = fromIntegral (length as)
+  guard (r > 0)
+  guard (r `mod` (natVal (Proxy @r)) == 0)
+  let c = fromIntegral (length as `div` natVal (Proxy @r))
+  return $ foldr UnconsMatrix NilMatrix (chunksOf c as)
+  where chunksOf n = unfoldr $ \xs ->
+          if null xs then Nothing else Just (splitAt n xs)
+
+-- A main function to showcase the usage of the above functions
+main :: IO ()
+main = do
+  let Just m1 = fromList [1..9] :: Maybe (Matrix Int 3 3)
+  let Just m2 = fromList [2..10] :: Maybe (Matrix Int 3 3)
+  putStrLn "Matrix 1:"
+  print m1
+  putStrLn "Matrix 2:"
+  print m2
+  putStrLn "Matrix 1 + Matrix 2:"
+  print (m1 ^+^ m2)
+  putStrLn "Transpose of Matrix 1:"
+  print (transpose m1)

@@ -1,0 +1,51 @@
+/* Create a new dataset with information on customer spending */
+DATA new_dataset;
+  SET old_dataset;
+
+  /* Apply a WHERE statement to filter out any irrelevant data */ 
+  WHERE Category IN ('Food', 'Clothing', 'Entertainment');
+
+  /* Calculate total spending for each customer */
+  BY Customer_ID;
+
+  /* Create new variables for total spending and average spending */
+  TOTAL_SPENDING = SUM(Spending);
+  AVERAGE_SPENDING = TOTAL_SPENDING / COUNT(Spending);
+
+/* Calculate the percentage of total spending that each category accounts for */
+  PERCENT_FOOD = Spending / TOTAL_SPENDING * 100;
+  PERCENT_CLOTHING = Spending / TOTAL_SPENDING * 100;
+  PERCENT_ENTERTAINMENT = Spending / TOTAL_SPENDING * 100;
+
+  /* Keep only the necessary variables */
+  KEEP Customer_ID TOTAL_SPENDING AVERAGE_SPENDING PERCENT_FOOD PERCENT_CLOTHING PERCENT_ENTERTAINMENT;
+
+  /* Sort the dataset by descending total spending */
+  PROC SORT DATA=new_dataset;
+    BY DESCENDING TOTAL_SPENDING;
+  RUN;
+
+/* Remove any duplicate records */
+  PROC SORT NODUPKEY DATA=new_dataset;
+    BY Customer_ID;
+  RUN;
+
+/* Create a new column to indicate the top spending category for each customer */
+  IF FIRST.Customer_ID THEN DO;
+    TOP_SPENDING_CATEGORY = '';
+  END;
+
+  IF PERCENT_FOOD > PERCENT_CLOTHING AND PERCENT_FOOD > PERCENT_ENTERTAINMENT THEN DO;
+    TOP_SPENDING_CATEGORY = 'Food';
+  END;
+  ELSE IF PERCENT_CLOTHING > PERCENT_FOOD AND PERCENT_CLOTHING > PERCENT_ENTERTAINMENT THEN DO;
+    TOP_SPENDING_CATEGORY = 'Clothing';
+  END;
+  ELSE IF PERCENT_ENTERTAINMENT > PERCENT_FOOD AND PERCENT_ENTERTAINMENT > PERCENT_CLOTHING THEN DO;
+    TOP_SPENDING_CATEGORY = 'Entertainment';
+  END;
+RUN;
+
+/* Print the final dataset */
+PROC PRINT DATA=new_dataset;
+RUN;

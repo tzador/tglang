@@ -1,0 +1,69 @@
+function ConvertFrom-CSV {
+<#
+.SYNOPSIS
+Converts a CSV file to an object type.
+.DESCRIPTION
+The ConvertFrom-CSV function converts a CSV file to a custom object type, with each row of the CSV file representing an individual object. The function accepts a csv file with a delimiter specified by the user, and returns an array of objects with properties that correspond to the column headers of the CSV file.
+.PARAMETER Path
+Specifies the path to the CSV file to be converted.
+.PARAMETER Delimiter
+Specifies the delimiter used in the CSV file. The default delimiter is a comma (,).
+.PARAMETER Header
+Specifies whether the first row of the CSV file contains the column headers. If set to $True, the first row will be used as column headers for the object properties. If set to $False, the column headers will default to "Column1, Column2, Column3, etc."
+.EXAMPLE
+ConvertFrom-CSV -Path C:\Data\myData.csv -Delimiter ";"
+This example will convert the CSV file located at C:\Data\myData.csv with a semicolon (;) delimiter, and return an array of objects.
+.NOTES
+The CSV file must contain at least one row and one column to be successfully converted.
+#>
+[CmdletBinding()]
+param(
+[Parameter(Mandatory=$True, Position = 0)]
+[ValidateNotNullOrEmpty()]
+[string]$Path,
+[Parameter(Position = 1)]
+[string]$Delimiter = ',',
+[Parameter(Position=2)]
+[switch]$Header
+)
+Begin {
+# Set the delimiter to a regular expression to handle special characters
+$Delimiter = [regex]::Escape($Delimiter)
+}
+Process {
+# Read in the CSV file as a single string and split it by new line characters
+[string]$csv = Get-Content -Path $Path -Raw
+[string[]]$lines = $csv.split("`n")
+# Check if the first line should be used as column headers or not
+if ($Header) {
+[string[]]$headers = $lines[0].split($Delimiter)
+}
+Else {
+# Set default column headers
+[string[]]$headers = [System.Linq.Enumerable]::Range(1, $lines[0].split($Delimiter).Count) | % {"Column$_"}
+}
+# Skip the first line if it was used for column headers
+if ($Header) {
+[string[]]$lines = $lines | Select-Object -Skip 1
+}
+# Create an empty array to store the objects
+[array]$objects = @()
+# Loop through each line of the CSV file
+foreach ($line in $lines) {
+# Split the line into an array using the delimiter
+[string[]]$data = $line.split($Delimiter)
+# Create a custom object and add it to the objects array
+$objects += New-Object psobject -Property ([Ordered]@{
+})
+# Loop through each column and add the corresponding value to the object's properties
+for ($i=0; $i -lt $data.Count; $i++) {
+$objects[-1].$($headers[$i].Trim()) = $data[$i].Trim()
+}
+}
+}
+
+Final {
+# Output the array of objects
+$objects
+}
+}

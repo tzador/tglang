@@ -1,0 +1,28 @@
+# Set up variables
+    ARG NODE_VERSION=10.19.0
+    ARG ALPINE_VERSION=3.11
+    ARG PROJECT_DIR=/usr/src/app
+    ARG PORT=3000
+
+    # Download Node image and set working directory
+    FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS base
+    WORKDIR ${PROJECT_DIR}
+    EXPOSE ${PORT}
+
+    # Install dependencies
+    FROM base AS deps
+    COPY package*.json ./
+    RUN npm ci --quiet
+
+    # Build production
+    FROM deps AS build
+    COPY . .
+    RUN npm run build
+
+    # Create production image with only necessary files
+    FROM base AS production
+    COPY --from=build ${PROJECT_DIR}/dist ./dist
+    COPY --from=deps ${PROJECT_DIR}/node_modules ./node_modules
+
+    # Command to start server
+    CMD ["npm", "start"]

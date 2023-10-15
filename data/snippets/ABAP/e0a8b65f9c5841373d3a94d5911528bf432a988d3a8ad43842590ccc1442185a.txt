@@ -1,0 +1,64 @@
+REPORT ZEXAMPLE.
+
+DATA: lv_name TYPE string,
+      lv_age TYPE i,
+      lv_salary TYPE p DECIMALS 2.
+
+*Define internal table with header line
+DATA: BEGIN OF it_personal_data OCCURS 0,
+        first_name TYPE string,
+        last_name TYPE string,
+        age TYPE i,
+        salary TYPE p DECIMALS 2,
+      END OF it_personal_data.
+	  
+*Selection screen with parameters
+PARAMETERS: p_first_name TYPE string,
+            p_age TYPE i,
+            p_salary TYPE p DECIMALS 2.
+
+*Selection options for salary range
+SELECT-OPTIONS: s_salary FOR it_personal_data-salary.
+
+*Selection screen with checkboxes
+SELECTION-SCREEN BEGIN OF BLOCK personal_info WITH FRAME TITLE 'Personal Information'.
+  SELECTION-SCREEN COMMENT 1(20) 'Select personal info:'.
+  SELECTION-SCREEN BEGIN OF LINE.
+  SELECTION-SCREEN CHECKBOX carr TYPE c AS CHECKBOX USER-COMMAND user_command DEFAULT 'X'.
+    SELECTION-SCREEN COMMENT 21(30) 'Carried over selection'.
+  SELECTION-SCREEN END OF LINE.
+  SELECTION-SCREEN BEGIN OF LINE.
+  SELECTION-SCREEN CHECKBOX have_child TYPE c AS CHECKBOX USER-COMMAND user_command.
+    SELECTION-SCREEN COMMENT 21(30) 'With child selection'.
+  SELECTION-SCREEN END OF LINE.
+SELECTION-SCREEN END OF BLOCK personal_info.
+
+START-OF-SELECTION.
+
+*Retrieve data from database
+SELECT * FROM personal_data INTO CORRESPONDING FIELDS OF TABLE it_personal_data
+  WHERE first_name = p_first_name AND
+        age = p_age AND
+        salary IN s_salary.
+
+*Loop through internal table and calculate salary
+LOOP AT it_personal_data INTO DATA(ls_personal_data).
+
+  lv_salary = ls_personal_data-salary * 1.1.
+  
+  *Check if user checked 'carried over' or 'with child' checkbox
+  CASE user_command.
+    WHEN 'CARR'. "user checked 'carried over' checkbox
+      IF lv_salary <= 5000. "check for salary limit
+        lv_salary = lv_salary + 500.
+      ENDIF.
+    WHEN 'CHLD'. "user checked 'with child' checkbox
+      IF ls_personal_data-first_name <> ''. "check if first name is not empty
+        lv_salary = lv_salary + 1000.
+      ENDIF.
+  ENDCASE.
+
+  *Print results
+  WRITE: / ls_personal_data-first_name, ls_personal_data-last_name, ls_personal_data-age, lv_salary.
+
+ENDLOOP.

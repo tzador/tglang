@@ -1,0 +1,72 @@
+buildscript {
+    repositories {
+        // Maven Central Repository
+        mavenCentral()
+    }
+    dependencies {
+        // Apache Commons IO
+        classpath group: 'commons-io', name: 'commons-io', version: '2.11.0'
+    }
+}
+
+plugins {
+    id 'java'
+    id 'jacoco'
+}
+
+// Versioning configuration
+version '1.0.0'
+sourceCompatibility = '1.8'
+
+// Target URL for deployment
+def deploymentBaseUrl = "https://example.com"
+
+// Define the tasks
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
+
+task buildDockerImage(type: DockerBuildImage) {
+    dependsOn assemble
+    tag = "${rootProject.name}:${version}"
+    inputs.files fileTree(projectDir).exclude { it.name == '.gradle' }
+    inputs.property "jarName", jar.archiveName
+    inputs.property "baseImage", "openjdk:8-jdk-alpine"
+    dockerfile = file("${projectDir}/src/main/docker/Dockerfile")
+}
+
+task run(type: JavaExec, dependsOn: buildDockerImage) {
+    standardOutput = System.out
+    classpath = sourceSets.main.runtimeClasspath
+    args "server", "config.prod.yml"
+}
+
+jacocoTestReport {
+    reports {
+        xml.enabled = true
+    }
+}
+
+// Define the repositories
+repositories {
+    mavenCentral()
+    maven {
+        url deploymentBaseUrl + '/libs'
+        credentials {
+            username = System.getenv('DEPLOYMENT_USERNAME')
+            password = System.getenv('DEPLOYMENT_PASSWORD')
+        }
+    }
+}
+
+dependencies {
+    // Spring Boot
+    compile group: 'org.springframework.boot', name: 'spring-boot-starter-web', version: '2.4.5'
+
+    // Swagger OpenAPI
+    compile group: 'io.swagger.core.v3', name: 'swagger-annotations', version: '2.1.6'
+
+    // JUnit 5
+    testImplementation(group: 'org.junit.jupiter', name: 'junit-jupiter-api', version: '5.7.1')
+    testRuntimeOnly(group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: '5.7.1')
+}

@@ -1,0 +1,39 @@
+create or replace procedure sales_summary (department_name in varchar2)
+is
+  -- declare variables
+  total_sales number(10, 2) := 0;
+  total_products number(5) := 0;
+  total_customers number(5) := 0;
+  average_price number(10,2) := 0;
+  current_month date := sysdate;
+  previous_month date := add_months(sysdate, -1);
+  last_year date := add_months(sysdate, -12);
+begin
+  -- calculate total sales for specified department
+   select sum(sales_amount), count(distinct(product_id)), count(distinct(customer_id))
+     into total_sales, total_products, total_customers
+     from sales
+    where department = department_name
+      and sales_date between last_year and current_month;
+  -- check if there were any sales in previous month
+  if total_sales > 0 then
+    -- calculate average price for previous month
+    select sum(sales_amount) / count(distinct(product_id))
+      into average_price 
+      from sales
+     where department = department_name
+       and sales_date between previous_month and add_months(previous_month, 1);
+    -- output sales summary for previous month
+    dbms_output.put_line('Sales summary for department ' || department_name || ' during previous month:');
+    dbms_output.put_line('Total sales: $' || to_char(total_sales));
+    dbms_output.put_line('Total number of products sold: ' || to_char(total_products));
+    dbms_output.put_line('Total number of customers: ' || to_char(total_customers));
+    dbms_output.put_line('Average price: $' || to_char(average_price));
+  end if;
+exception
+  when no_data_found then
+    dbms_output.put_line('No sales found for department ' || department_name);
+  when others then
+    dbms_output.put_line('An error occurred: ' || sqlerrm);
+end;
+/

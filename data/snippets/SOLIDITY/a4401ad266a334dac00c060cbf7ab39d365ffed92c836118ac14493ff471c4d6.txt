@@ -1,0 +1,118 @@
+/**1
+ * @title Token
+ * @dev ERC20 Token with transfer fees
+ * @notice Implements a basic ERC20 token with transfer fees.
+ */
+contract Token {
+  // Metadata
+  string public name;
+  string public symbol;
+  uint8 public decimals;
+  string public version = "1.0.0";
+
+  // Token supply
+  uint256 private totalSupply;
+  mapping(address => uint256) private balances;
+  
+  // Transfer fees
+  uint256 public transferFee;
+  address public feeRecipient;
+  
+  // Events
+  event Transfer(address indexed from, address indexed to, uint256 value);
+  event Approval(address indexed owner, address indexed spender, uint256 value);
+
+  // Constructor function
+  function Token(
+    string _name,
+    string _symbol,
+    uint8 _decimals,
+    uint256 _initialSupply,
+    address _feeRecipient,
+    uint256 _transferFee
+  ) public {
+    name = _name;
+    symbol = _symbol;
+    decimals = _decimals;
+    totalSupply = _initialSupply * (10 ** uint256(_decimals));
+    balances[msg.sender] = totalSupply;
+    feeRecipient = _feeRecipient;
+    transferFee = _transferFee;
+  }
+  
+  // Get total supply of tokens
+  function getTotalSupply() public view returns (uint256) {
+    return totalSupply;
+  }
+  
+  // Get balance of provided address
+  function balanceOf(address _owner) public view returns (uint256) {
+    return balances[_owner];
+  }
+  
+  // Transfer tokens to another address
+  function transfer(address _to, uint256 _value) public returns (bool) {
+    require(_value <= balances[msg.sender]);
+    require(_to != address(0));
+    
+    // Calculate transfer amount after fees
+    uint256 transferAmount = _value;
+    if (transferFee > 0) {
+      uint256 fee = _value.mul(transferFee).div(100);
+      transferAmount = _value.sub(fee);
+      
+      // Transfer fee to fee recipient
+      balances[feeRecipient] = balances[feeRecipient].add(fee);
+      emit Transfer(msg.sender, feeRecipient, fee);
+    }
+    
+    // Transfer tokens and emit event
+    balances[msg.sender] = balances[msg.sender].sub(_value);
+    balances[_to] = balances[_to].add(transferAmount);
+    emit Transfer(msg.sender, _to, transferAmount);
+    
+    return true;
+  }
+  
+  // Approve another address to spend tokens on behalf of the sender
+  function approve(address _spender, uint256 _value) public returns (bool) {
+    require(_spender != address(0));
+    
+    // Update allowance and emit event
+    allowances[msg.sender][_spender] = _value;
+    emit Approval(msg.sender, _spender, _value);
+    
+    return true;
+  }
+  
+  // Get token allowance for a spender
+  function allowance(address _owner, address _spender) public view returns (uint256) {
+    return allowances[_owner][_spender];
+  }
+  
+  // Transfer tokens from a specified address on behalf of the token owner
+  function transferFrom(address _from, address _to, uint256 _value) public returns (bool) {
+    require(_value <= balances[_from]);
+    require(_value <= allowances[_from][msg.sender]);
+    require(_to != address(0));
+    
+    // Calculate transfer amount after fees
+    uint256 transferAmount = _value;
+    if (transferFee > 0) {
+      uint256 fee = _value.mul(transferFee).div(100);
+      transferAmount = _value.sub(fee);
+      
+      // Transfer fee to fee recipient
+      balances[feeRecipient] = balances[feeRecipient].add(fee);
+      emit Transfer(_from, feeRecipient, fee);
+    }
+    
+    // Reduce allowance and transfer tokens
+    allowances[_from][msg.sender] = allowances[_from][msg.sender].sub(_value);
+    balances[_from] = balances[_from].sub(_value);
+    balances[_to] = balances[_to].add(transferAmount);
+    emit Transfer(_from, _to, transferAmount);
+    
+    return true;
+  }
+}

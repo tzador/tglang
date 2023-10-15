@@ -1,0 +1,44 @@
+/* This is a SAS code snippet that will loop through a dataset and generate summary statistics for each variable */
+/* First, define the dataset to be used */
+data dataset;
+    set mydata;
+
+/* Next, construct a macro that will generate the summary statistics for each variable in the dataset */
+%macro summary_stats(dataset);
+
+    /* Set up the initial statements for the summary statistics */
+    %let varlist = %sysfunc(varlist(&dataset)); /* Creates a list of all the variables in the dataset */
+    %let nvars = %sysfunc(countw(&varlist)); /* Counts the number of variables in the dataset */
+
+    /* Loop through each variable and generate summary statistics */
+    %do i = 1 %to &nvars;
+
+        /* Create a temporary dataset that contains only the current variable */
+        data temp;
+            set &dataset;
+            keep %scan(&varlist, &i); /* Only keep the current variable in the dataset */
+        run;
+
+        /* Generate summary statistics using PROC MEANS */
+        proc means data=temp;
+            var %scan(&varlist, &i); /* Specify the current variable in the VAR statement */
+            output out=summary_stats n=n mean=mean std=std; /* Store the summary statistic outputs in a new dataset */
+        run;
+
+        /* Merge the summary statistics dataset with the original dataset */
+        data &dataset;
+            merge &dataset summary_stats;
+            by %scan(&varlist, &i); /* Merge by the current variable */
+        run;
+
+        /* Delete the temporary dataset */
+        proc datasets lib=work nolist;
+            delete temp;
+        quit;
+
+    %end;
+
+%mend;
+
+/* Finally, call the macro and generate the summary statistics for the dataset */
+%summary_stats(dataset);

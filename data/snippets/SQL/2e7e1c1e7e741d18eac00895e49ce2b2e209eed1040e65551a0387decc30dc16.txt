@@ -1,0 +1,57 @@
+-- This code snippet performs a complex query in SQL
+
+-- Declare variables for input values
+DECLARE @startDate date, @endDate date, @category int, @country varchar(50)
+
+-- Set values for input variables
+SET @startDate = '2020-01-01'
+SET @endDate = GETDATE()
+SET @category = 5
+SET @country = 'USA'
+
+-- Create temporary table to store results
+CREATE TABLE #tempTable
+(
+    product_id int,
+    product_name varchar(255),
+    total_sales decimal(10,2)
+)
+
+-- Use a CTE to get all products sold within the given date range
+;WITH sold_products AS (
+    SELECT
+        product_id,
+        product_name,
+        SUM(quantity_sold * unit_price) AS total_sales
+    FROM sales_table
+    WHERE sale_date BETWEEN @startDate AND @endDate
+    GROUP BY product_id, product_name
+)
+
+-- Insert the results into the temporary table
+INSERT INTO #tempTable
+SELECT * FROM sold_products
+
+-- Use another CTE to get the sales by country for the specified category
+;WITH sales_by_country AS (
+    SELECT
+        country,
+        SUM(total_sales) AS total_sales
+    FROM sales_table
+    WHERE category_id = @category AND country = @country
+    GROUP BY country
+)
+
+-- Update the temporary table with the sales by country data
+UPDATE #tempTable
+SET total_sales = total_sales + sales_by_country.total_sales
+FROM #tempTable
+INNER JOIN sales_by_country ON #tempTable.product_name = sales_by_country.product_name
+
+-- Finally, select the top 10 products by total sales from the temporary table
+SELECT TOP 10 product_id, product_name, total_sales
+FROM #tempTable
+ORDER BY total_sales DESC
+
+-- Drop the temporary table
+DROP TABLE #tempTable

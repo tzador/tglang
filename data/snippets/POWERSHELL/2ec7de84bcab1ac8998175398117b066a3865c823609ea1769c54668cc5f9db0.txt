@@ -1,0 +1,36 @@
+#This code snippet creates a function that checks the disk space on a Windows system
+function Get-DiskSpace {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$false)]
+        [ValidateNotNullOrEmpty()]
+        [string] $ComputerName = 'localhost' #specify the computer you want to check the disk space for, defaults to local machine
+    
+    )
+    
+    begin {
+        #set up empty array to store results
+        $results = @()
+        #get logical disks on the specified computer
+        $disks = Get-WmiObject -Class Win32_LogicalDisk -ComputerName $ComputerName
+    }
+    
+    process {
+        foreach ($disk in $disks) {
+            #create new object to store results for each disk
+            $diskResult = New-Object PSObject
+            #add properties to object
+            $diskResult | Add-Member -MemberType NoteProperty -Name 'ComputerName' -Value $disk.__SERVER
+            $diskResult | Add-Member -MemberType NoteProperty -Name 'DriveLetter' -Value $disk.DeviceID
+            $diskResult | Add-Member -MemberType NoteProperty -Name 'TotalSpace' -Value ($disk.Size / 1GB)
+            $diskResult | Add-Member -MemberType NoteProperty -Name 'FreeSpace' -Value ($disk.FreeSpace / 1GB)
+            #add object to results array
+            $results += $diskResult
+        } 
+    }
+    
+    end {
+        #output results in a table format
+        $results | Format-Table -AutoSize
+    }
+}

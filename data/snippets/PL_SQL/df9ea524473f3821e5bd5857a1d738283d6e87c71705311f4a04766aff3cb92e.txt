@@ -1,0 +1,39 @@
+declare
+    cursor employee is
+    select emp_id, emp_name, salary, department
+    from employees
+    where department = 'Marketing'
+    for update;
+    
+    employee_rec employee%rowtype;
+    
+    continue_update boolean := true;
+    total_salary number := 0;
+begin
+    open employee;
+    
+    -- loop through each employee in the Marketing department
+    loop
+        fetch employee into employee_rec;
+        exit when employee%notfound;
+        
+        total_salary := total_salary + employee_rec.salary;
+        
+        -- check if employee's salary is above the department average
+        if employee_rec.salary > (total_salary / employee%rowcount) then
+            -- update employee's salary
+            update employees
+            set salary = salary*1.1
+            where current of employee;
+        else
+            continue_update := false;
+        end if;
+        
+        exit when continue_update = false;
+    end loop;
+    
+    -- print out total salary after updates
+    dbms_output.put_line('Total salary after updates: ' || total_salary);
+    
+    close employee;
+end;

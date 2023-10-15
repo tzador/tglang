@@ -1,0 +1,91 @@
+; This code snippet calculates the Fibonacci sequence up to the 10th term.
+
+section .data      ; declaring data section
+fibonacci:         ; declaring label 'fibonacci'
+    db 0, 1        ; initializing first 2 terms of Fibonacci sequence
+    times 8 dd 0   ; creating space for 8 more terms
+
+section .text      ; declaring text section
+global main        ; declaring global label 'main'
+main:              ; defining label 'main'
+
+    mov ecx, 10    ; initializing counter to 10 for 10 terms
+    mov esi, 0     ; initializing index
+    mov edi, 0     ; result variable
+
+calc_fib_seq:
+    mov eax, [fibonacci + esi]          ; move first term into accumulator
+    add eax, [fibonacci + esi + 4]      ; add second term to accumulator
+    mov [fibonacci + esi + 8], eax      ; store result in next term
+    add esi, 4                          ; increment index
+    dec ecx                             ; decrement counter
+    cmp ecx, 1                          ; check if counter is at 1
+    jne calc_fib_seq                    ; if counter is not at 1, jump back to calc_fib_seq
+    
+print_fib_seq:
+    mov ecx, 10    ; initializing counter to 10 for 10 terms
+    mov esi, 0     ; initializing index
+
+print_loop:
+    mov eax, [fibonacci + esi]      ; move term into accumulator
+    call print_num                  ; call print_num function
+    inc esi                         ; increment index
+    dec ecx                         ; decrement counter
+    cmp ecx, 0                      ; check if counter is at 0
+    jne print_loop                  ; if counter is not at 0, jump back to print_loop
+
+exit:
+    mov eax, 1      ; system call number for 'exit'
+    xor ebx, ebx    ; exit code 0
+    int 80h         ; interrupt to exit program
+
+print_num:                  ; prints a number from accumulator
+    push eax                ; push accumulator value onto stack
+    push excess_digit      ; push excess_digit label onto stack
+    jmp check_sign         ; jump to check_sign subroutine
+
+check_sign:
+    cmp eax, 0             ; check if number is negative
+    jge print_digit        ; if positive, jump to print_digit subroutine
+    push eax               ; push number onto stack
+    mov eax, '-'           ; move '-' into accumulator
+    call print_char        ; call print_char function
+    pop eax                ; pop original number from stack
+    neg eax                ; negate number for printing
+    pop excess_digit      ; pop excess_digit label from stack
+
+print_digit:
+    mov ebx, 10            ; set divisor to 10 for decimal to ASCII conversion
+    xor edx, edx           ; clear edx for division
+    div ebx                ; divide number by 10
+    push edx               ; push remainder onto stack
+    cmp eax, 0             ; check if quotient is 0
+    jne print_digit        ; if not 0, jump back to print_digit
+    jmp print_stack        ; if 0, jump to print_stack subroutine
+
+print_stack:
+    cmp ecx, 0             ; check if counter is 0
+    je end_print           ; if 0, jump to end_print subroutine
+    pop edx                ; pop remainder from stack
+    add dl, '0'            ; add '0' to remainder for ASCII conversion
+    call print_char        ; call print_char function
+    dec ecx                ; decrement counter
+    jmp print_stack        ; jump back to print_stack subroutine
+
+excess_digit:             ; label for extra digit storage
+    db 0                   
+
+print_char:        ; prints a single character from accumulator
+    push eax        ; push accumulator value onto stack
+    mov eax, 4      ; system call number for 'write'
+    mov ebx, 1      ; file descriptor for stdout
+    mov ecx, esp    ; pointer to char on top of stack
+    mov edx, 1      ; number of bytes to write
+    int 80h         ; interrupt to write character
+    add esp, 4      ; adjust stack pointer to remove char
+    ret             ; return from subroutine
+
+end_print:        ; ends printing
+    pop excess_digit    ; remove excess_digit from stack
+    pop eax             ; remove accumulator value from stack
+    ret                 ; return from subroutine

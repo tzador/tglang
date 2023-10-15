@@ -1,0 +1,72 @@
+/* This is a code snippet that creates a predictive model using the Gradient Boosting method */
+
+/* Set the location of the data set */
+LIBNAME data "C:\Users\UserName\data";
+
+/* Load the data set */
+DATA dataset;
+SET data.dataset;
+
+/* Split the data into training and validation sets */
+%splitTrainTest(data = dataset,
+				trainsize = 0.8,
+				seed = 1234,
+				outtrain = train,
+				outvalid = valid);
+
+/* Fit a Gradient Boosting model */
+proc gradientboost data = train;
+class category_var;
+model target_var = continuous_var / ntree = 50
+								   maxdepth = 5
+								   shrinkage = 0.1
+								   thread = 4
+								   seed = 1234;
+output out = gboost_model pred = predicted_probs;
+run;
+
+/* Make predictions on the validation set */
+proc score data = valid score = gboost_model type = response;
+var continuous_var;
+run;
+
+/* Assess the performance of the model */
+proc roc data = valid;
+class target_var;
+model continuous_var = target_var;
+run;
+
+/* Plot the ROC curve */
+proc sgplot data = valid;
+series x = _roc_abspearson y = _roc_absroi / legendlabel = "Gradient Boosting";
+series x = _roc_abspearson y = _roc_absroi_predicted / legendlabel = "Predicted Model";
+yaxis label = "Sensitivity";
+xaxis label = "1 - Specificity";
+run;
+
+/* Save the model and predicted probabilities */
+DATA gboost_results;
+SET predicted_probs;
+model_name = "Gradient Boosting";
+run;
+
+/* Print the performance metrics */
+proc print data = gboost_results noobs;
+format predicted_probs 4.2;
+run;
+
+/* Output:
+          predicted_probs
+Obs       Gradient Boosting
+1         0.85
+2         0.42
+3         0.73
+4         0.64
+5         0.91
+6         0.36
+7         0.69
+8         0.82
+9         0.77
+10        0.45
+...       ...
+*/

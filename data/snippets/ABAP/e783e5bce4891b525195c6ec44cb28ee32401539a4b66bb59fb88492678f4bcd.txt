@@ -1,0 +1,44 @@
+* This code snippet is used to read data from a database table and output it in a formatted table. *
+
+REPORT z_get_data_from_table.
+DATA: lt_table_data TYPE STANDARD TABLE OF <TABLE_NAME>.
+
+* Select data from database table *
+SELECT * FROM <TABLE_NAME>
+  INTO TABLE lt_table_data.
+
+* Sort the table data based on a field *
+SORT lt_table_data BY <FIELD_NAME>.
+
+* Output the results in a formatted table *
+LOOP AT lt_table_data INTO DATA(ls_table_data).
+
+* Create an instance of CL_SALV_TABLE which supports advanced features *
+DATA(lo_alv_table) = NEW cl_salv_table( iv_table_name = '<TABLE_NAME>' ).
+
+* Set table display options *
+lo_alv_table->set_screen_info(
+  IS_LAYOUT   = VALUE #( SEL_MODE = cl_salv_layout=>sel_mode_all_col ) " Select all columns
+  IS_VARIANT  = 'DEFAULT' " Use default variant
+  IS_FILTER   = VALUE #(
+    P_TABLE = 'X' "* Enable row and column filters
+    P_FIELD = <FIELD_NAME> "* Enable filter for selected field
+  )
+).
+
+* Add fields to the table *
+lo_alv_table->add_fields_to_catalog(
+  IT_FIELDCATALOG = VALUE #( ( FIELDNAME = <FIELD_NAME1> ) ( FIELDNAME = <FIELD_NAME2> ) )
+).
+
+* Assign data from internal table to the ALV table *
+CALL METHOD lo_alv_table->set_table_for_first_display
+  EXPORTING
+    IS_VARIANT = 'DEFAULT' "* Use default variant
+  CHANGING
+    IT_OUTTAB = lt_table_data " Internal table with the data
+  EXCEPTIONS
+    PROGRAM_ERROR = 1
+    OTHERS = 2.
+
+ENDLOOP.

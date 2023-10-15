@@ -1,0 +1,46 @@
+server {
+    listen 80; # listen for HTTP requests on port 80
+    server_name example.com; # server name for this server block
+    root /var/www/example.com; # root directory where files will be served from
+
+    location /images/ { # location block for requests starting with /images/
+        alias /path/to/images/; # alias for root location of files
+    }
+
+    location /media/ { # location block for requests starting with /media/
+        root /var/www/media.example.com; # root directory for files in this location block
+        try_files $uri $uri/ =404; # attempt to serve the requested file, if not found return 404 error
+    }
+
+    location ~ \.(php|html|css|js)$ { # regex location block for requests ending in .php, .html, .css, or .js
+        root /var/www/example.com; # root directory for files in this location block
+        try_files $uri =404; # attempt to serve the requested file, if not found return 404 error
+        fastcgi_pass unix:/var/run/php/php7.2-fpm.sock; # specify the PHP-FPM sock file to pass requests to
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; # specify the script filename for the PHP-FPM service
+        include fastcgi_params; # include standard fastcgi parameters
+    }
+
+    location /api/ {
+        proxy_pass http://localhost:8000; # pass requests to local server listening on port 8000
+        proxy_set_header Host $host; # set the Host header to the value of the original host
+        proxy_set_header X-Real-IP $remote_addr; # set the X-Real-IP header to the original client's IP address
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # set the X-Forwarded-For header to include the original client's IP address
+        proxy_set_header X-Forwarded-Proto $scheme; # set the X-Forwarded-Proto header to the original request protocol
+    }
+
+    location /admin/ {
+        auth_basic "Admin Login"; # specifies the text for the login prompt
+        auth_basic_user_file /etc/nginx/.htpasswd; # specifies the location of the password file
+        try_files $uri $uri/ =404; # attempt to serve the requested file, if not found return 404 error
+    }
+
+    error_page 404 /404.html; # specify the error page for 404 errors
+    location = /404.html { # location block for the 404.html file
+        internal; # only process requests from within Nginx, not directly from clients
+    }
+
+    error_page 500 502 503 504 /50x.html; # specify the error page for 500, 502, 503, and 504 errors
+    location = /50x.html { # location block for the 50x.html file
+        internal; # only process requests from within Nginx, not directly from clients
+    }
+}

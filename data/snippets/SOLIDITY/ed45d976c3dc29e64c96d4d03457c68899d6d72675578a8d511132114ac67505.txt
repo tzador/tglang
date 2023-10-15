@@ -1,0 +1,96 @@
+/**
+ * @dev Contract for a Decentralized Autonomous Organization (DAO) that follows the principles of SOLIDity.
+ */
+ 
+pragma solidity ^0.8.4;
+
+// Import required dependencies
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
+
+// Define interface for DAO functionalities
+interface DAO {
+    function createProposal(address[] memory _recipients, uint256[] memory _amounts, string memory _description) external returns (uint256);
+    function vote(uint256 _proposalId) external;
+    function executeProposal(uint256 _proposalId) external;
+}
+
+// Define contract for the DAO
+contract DAO is Ownable, Pausable {
+    
+    // Variables
+    mapping(address => uint256) public balances;
+    mapping(uint256 => Proposal) public proposals;
+    uint256 public proposalCount;
+    ERC20 public miaToken;
+
+    // Events
+    event ProposalCreated(uint256 _proposalId, address[] _recipients, uint256[] _amounts, string _description);
+    event Voted(uint256 _proposalId, address _voter, uint256 _voteWeight);
+    event ProposalExecuted(uint256 _proposalId);
+
+    // Struct for proposals
+    struct Proposal {
+        address[] recipients;
+        uint256[] amounts;
+        string description;
+        uint256 votes;
+        bool executed;
+    }
+
+    // Constructor to set MIA token address
+    constructor(address _miaToken) {
+        miaToken = ERC20(_miaToken);
+    }
+
+    // Create new proposal
+    function createProposal(address[] memory _recipients, uint256[] memory _amounts, string memory _description) external whenNotPaused returns (uint256) {
+        require(_recipients.length == _amounts.length, "Invalid proposal");
+        require(_recipients.length > 0, "Empty proposal");
+        require(miaToken.balanceOf(msg.sender) > 0, "Insufficient MIA tokens");
+
+        // Add proposal to mapping
+        uint256 _proposalId = proposalCount;
+        proposals[_proposalId].recipients = _recipients;
+        proposals[_proposalId].amounts = _amounts;
+        proposals[_proposalId].description = _description;
+        proposals[_proposalId].votes = 0;
+        proposals[_proposalId].executed = false;
+        
+        emit ProposalCreated(_proposalId, _recipients, _amounts, _description);
+        
+        // Increment proposal count
+        proposalCount++;
+        
+        // Return proposal id
+        return _proposalId;
+    }
+
+    // Vote for a proposal
+    function vote(uint256 _proposalId) external whenNotPaused {
+        require(proposals[_proposalId].executed == false, "Proposal already executed");
+        require(miaToken.balanceOf(msg.sender) > 0, "Insufficient MIA tokens");
+        
+        // Add vote weight to proposal
+        proposals[_proposalId].votes += miaToken.balanceOf(msg.sender);
+
+        emit Voted(_proposalId, msg.sender, miaToken.balanceOf(msg.sender));
+    }
+
+    // Execute a proposal
+    function executeProposal(uint256 _proposalId) external onlyOwner whenNotPaused {
+        require(proposals[_proposalId].executed == false, "Proposal already executed");
+        require(proposals[_proposalId].votes > (miaToken.totalSupply() / 2), "Insufficient votes");
+        
+        // Transfer tokens to recipients
+        for (uint256 i = 0; i < proposals[_proposalId].recipients.length; i++) {
+            miaToken.transfer(proposals[_proposalId].recipients[i], proposals[_proposalId].amounts[i]);
+        }
+        
+        // Mark proposal as executed
+        proposals[_proposalId].executed = true;
+        
+        emit ProposalExecuted(_proposalId);
+    }
+}

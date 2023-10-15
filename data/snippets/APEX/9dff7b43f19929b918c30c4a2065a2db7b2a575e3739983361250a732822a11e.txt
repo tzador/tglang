@@ -1,0 +1,38 @@
+trigger UpdateInvoiceStatus on Order (after update) {
+    // get a list of all order IDs from the trigger context
+    List<Id> orderIds = new List<Id>();
+    for (Order o : Trigger.new) {
+        orderIds.add(o.Id);
+    }
+    // create a map to store the invoice IDs associated with each order ID
+    Map<Id, Id> invoiceIds = new Map<Id, Id>();
+    // query the invoice object to get all invoices associated with the orders
+    List<Invoice__c> invoices = [SELECT Id, Order__c FROM Invoice__c WHERE Order__c IN :orderIds];
+    // loop through the invoices and store the order ID and invoice ID in the map
+    for (Invoice__c i : invoices) {
+        invoiceIds.put(i.Order__c, i.Id);
+    }
+    // create a list to hold the updated invoices
+    List<Invoice__c> updatedInvoices = new List<Invoice__c>();
+    // loop through the orders again
+    for (Order o : Trigger.new) {
+        // check if the order's status has changed
+        if (o.Status__c != Trigger.oldMap.get(o.Id).Status__c) {
+            // check if there is an invoice associated with the order
+            if (invoiceIds.containsKey(o.Id)) {
+                // get the invoice from the map
+                Invoice__c inv = new Invoice__c(Id = invoiceIds.get(o.Id));
+                // update the invoice status based on the order status
+                if (o.Status__c == 'Completed') {
+                    inv.Status__c = 'Paid';
+                } else {
+                    inv.Status__c = 'Pending';
+                }
+                // add the updated invoice to the list
+                updatedInvoices.add(inv);
+            }
+        }
+    }
+    // update the invoices in the database
+    update updatedInvoices;
+}

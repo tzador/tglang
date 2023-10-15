@@ -1,0 +1,39 @@
+METHOD on_submit.
+    DATA: lt_items TYPE STANDARD TABLE OF is_item,
+          lt_outtab TYPE STANDARD TABLE OF zcl_dummy,
+          lt_errors TYPE bapiret2_t.
+
+    DATA(lv_new_id) = zcl_dummy=>random_id( ). " generate random ID
+
+    lt_items = im_order->get_items( ). " retrieve items from order object
+
+    " insert items into database
+    LOOP AT lt_items ASSIGNING FIELD-SYMBOL(<item>).
+        lt_outtab = value #( ( id     = lv_new_id
+                               matnum = <item>-material
+                               quantity = <item>-quantity ) ).
+        INSERT zcl_dummy FROM TABLE lt_outtab.
+    ENDLOOP.
+
+    CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+      EXPORTING
+        wait = abap_true.
+
+    " check for errors
+    IF lt_errors IS INITIAL.
+        im_order->order_approved( ).
+        MESSAGE 'Order successfully submitted!' TYPE 'S'.
+    ELSE.
+        " rollback changes
+        ROLLBACK WORK.
+
+        " log errors
+        DATA(lv_error_msg) = 'Errors occurred while submitting the order:'.
+        LOOP AT lt_errors ASSIGNING FIELD-SYMBOL(<error>).
+            CONCATENATE lv_error_msg <error>-type <error>-message INTO lv_error_msg SEPARATED BY space.
+        ENDLOOP.
+        MESSAGE lv_error_msg TYPE 'E' DISPLAY LIKE 'I'.
+    ENDIF.
+
+    CLEAR lt_items.
+  ENDMETHOD.

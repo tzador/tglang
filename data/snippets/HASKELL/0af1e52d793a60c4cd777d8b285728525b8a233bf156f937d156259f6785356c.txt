@@ -1,0 +1,37 @@
+{-# LANGUAGE OverloadedStrings #-}
+
+import qualified Data.ByteString.Lazy as BL
+import Control.Monad
+import Data.Text (Text)
+import qualified Data.Text.Encoding as E
+import Data.List
+import Data.Function (on)
+import Data.Aeson
+import Data.Monoid ((<>))
+
+-- | Example data type with named fields
+data Person = Person { name    :: Text
+                     , age     :: Int
+                     , address :: Text
+                     } deriving (Show, Eq)
+
+-- | Function to parse JSON into a list of person objects
+parseJSON :: BL.ByteString -> Either String [Person]
+parseJSON = fmap (sortBy $ compare `on` age) . eitherDecode
+
+-- | Example JSON data
+jsonData :: BL.ByteString
+jsonData = "{\"people\":[{\"name\":\"John\",\"age\":30,\"address\":\"123 Main St\"},{\"name\":\"Jane\",\"age\":25,\"address\":\"456 Maple Ave\"}]}"
+
+main :: IO ()
+main = do
+    -- Parse the JSON data
+    result <- parseJSON jsonData
+    -- Print each person's name and address in alphabetical order
+    case result of
+        Left err   -> putStrLn err
+        Right people -> mapM_ (putStrLn . formatPerson) $ sortOn name people
+    where
+        -- Function to format a person object as a string
+        formatPerson :: Person -> String
+        formatPerson (Person name age address) = "Name: " <> E.decodeUtf8 (BL.toStrict name) <> ", Age: " <> show age <> ", Address: " <> E.decodeUtf8 (BL.toStrict address)

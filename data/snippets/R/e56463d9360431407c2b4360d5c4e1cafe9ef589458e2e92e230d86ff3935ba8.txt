@@ -1,0 +1,50 @@
+# This function uses model averaging to select the best model for a given dataset
+# Inputs: X (features matrix), y (response vector), k (number of models), alpha (penalty parameter)
+# Output: Coefficients of the selected model
+model_average <- function(X, y, k, alpha){
+  # initialize empty list for storing coefficients of each model
+  coefficients_list <- list()
+  
+  # split data into k folds for cross-validation
+  folds <- createFolds(y, k)
+  
+  # loop through each fold
+  for (i in 1:k){
+  
+    # subset training data using current fold
+    X_train <- X[-folds[[i]], ]
+    y_train <- y[-folds[[i]]]
+  
+    # subset validation data using current fold
+    X_val <- X[folds[[i]], ]
+    y_val <- y[folds[[i]]]
+  
+    # fit a linear regression model with lasso regularization using the train data
+    model <- glmnet(X_train, y_train, alpha = alpha, family = "gaussian")
+    # extract coefficients of the model
+    coefficients_list[[i]] <- coef(model)
+    
+    # calculate root mean squared error for validation data
+    y_pred <- predict(model, newx = X_val)
+    rmse <- sqrt(mean((y_val - y_pred)^2))
+    
+    # save rmse and selected model index in a data frame
+    results <- data.frame(RMSE = rmse, Model = i)
+    
+    # if first fold, save results as best results
+    if (i == 1){
+      best_results <- results
+    } else {
+      # if current RMSE is better than best RMSE, update best results
+      if (rmse < best_results[["RMSE"]]){
+        best_results <- results
+      }
+    }
+  }
+  
+  # get the index of the best model
+  best_model_index <- best_results[["Model"]]
+  
+ # return coefficients of the best model
+ return(coefficients_list[[best_model_index]]) 
+}

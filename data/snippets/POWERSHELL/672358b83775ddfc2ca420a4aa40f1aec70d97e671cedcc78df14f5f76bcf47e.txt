@@ -1,0 +1,18 @@
+try {$Computer = Read-Host "Enter computer name" # user input for computer name
+    $User = Read-Host "Enter username" # user input for username
+    $Password = Read-Host -AsSecureString "Enter password" # user input for password
+    $creds = New-OBject System.Management.Automation.PSCredential($User, $Password) # creating credentials object
+    Invoke-Command -ComputerName $Computer -Credential $creds -ScriptBlock { # running command on remote computer
+        $DiskSpace = Get-WmiObject -Class "Win32_LogicalDisk" | # getting logical disk information
+            Select-Object -Property DeviceID, Capacity, FreeSpace 
+        $DiskSpace.Capacity / 1GB
+    }
+    $CpuUsage = (Get-WmiObject -Class Win32_PerfFormattedData -ComputerName $Computer -Credential $creds -Filter "Name='sqlserver:memory manager'").TargetServerMemory
+    $MemoryUsage = (Get-CimInstance -ClassName "Win32_OperatingSystem" -ComputerName $Computer -Credential $creds).TotalVisibleMemorySize
+    $TotalMemoryInGB = $MemoryUsage / 1GB
+    $UsedMemoryInGB = $TotalMemoryInGB - $CpuUsage
+    Write-Host "Total Memory usage on $Computer:" $TotalMemoryInGB # printing output
+    Write-Host "Used Memory on $Computer:" $UsedMemoryInGB # printing output
+} catch { # error handling
+    Write-Host "Error: $_" 
+}

@@ -1,0 +1,130 @@
+/* Parser file for programming language SimpleCalc */
+
+/* Definition section */
+%defines {
+  %define parse.error verbose
+  %define api.pure full
+  %define yyerror_verbose
+  %define bison.useful % /* enables useful features */
+  %token INTEGER
+  %token PLUS
+  %token MINUS
+  %token TIMES
+  %token DIVIDE
+  %token LPAREN
+  %token RPAREN
+}
+
+/* Token definition section */
+%token <int> NUMBER_START /* custom type for integer tokens */
+%token <char *> IDENT_START /* custom type for string tokens */
+
+/* Grammar rules section */
+%% /* double percent signs are used to separate sections */
+%% /* start symbol (beginning of grammar) */
+program: /* empty production for now */
+  | expression { print_output($1) } /* prints the output of the expression */
+
+expression:
+  | NUMBER_START { $$ = $1; } /* assigns token value to expression output */
+  | IDENT_START { create_variable($1); } /* creates a new variable with identifier $1 */
+  | expression PLUS expression { $$ = $1 + $3; } /* addition operation between expressions */
+  | expression MINUS expression { $$ = $1 - $3; } /* subtraction operation between expressions */
+  | expression TIMES expression { $$ = $1 * $3; } /* multiplication operation between expressions */
+  | expression DIVIDE expression { $$ = $1 / $3; } /* division operation between expressions */
+  | LPAREN expression RPAREN { $$ = $2; } /* allows for grouping of expressions within parentheses */
+  | expression LPAREN arguments RPAREN { /* function call with optional arguments */
+      $$ = call_function($1, $3);
+    }
+  | IDENT_START LPAREN arguments RPAREN { /* function call with identifier and arguments */
+      $$ = call_function($1, $3);
+    }
+
+arguments:
+  | /* empty production for no arguments */
+  | argument /* single argument */
+  | arguments ',' argument /* multiple arguments separated by commas */
+
+argument:
+  | expression /* expression used as an argument */
+  | IDENT_START '=' expression /* named argument, assigns expression to variable of identifier */
+
+%% /* double percent signs are used to separate sections */
+
+/* Code section */
+/* includes and global variable declarations */
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int result; /* global variable for storing current result */
+%}
+
+/* Function definitions */
+/* prints the output of the expression */
+void print_output(int output) {
+  printf("Result: %d\n", output);
+}
+
+/* creates a new variable with given identifier */
+void create_variable(char *identifier) {
+  /* code to create variable with identifier */
+}
+
+/* calls a function with given identifier and arguments */
+int call_function(char *identifier, int *arguments) {
+  /* code to call function with given identifier and arguments */
+  /* returns result of function call */
+  return result;
+}
+
+/* Scanner rule section */
+/* Regular Expression for recognizing numbers */
+"0'|[1-9][0-9]*" {
+  /* convert token text to integer using atoi function */
+  $$ = atoi(yytext);
+  /* return token with type NUMBER_START */
+  return NUMBER_START;
+}
+
+/* Regular Expression for recognizing identifiers */
+[a-zA-Z_][a-zA-Z0-9_]* {
+  /* allocate memory for token text and copy text to it */
+  yylval.str = strdup(yytext);
+  /* return token with type IDENT_START */
+  return IDENT_START;
+}
+
+/* Regular Expression for recognizing operators */
+'['*] {
+  /* return token with corresponding type */
+  return TIMES;
+}
+'[/'] {
+  /* return token with corresponding type */
+  return DIVIDE;
+}
+'[+]' {
+  /* return token with corresponding type */
+  return PLUS;
+}
+'[-]' {
+  /* return token with corresponding type */
+  return MINUS;
+}
+
+/* Regular Expression for recognizing parentheses */
+'[(]' {
+  /* return token with corresponding type */
+  return LPAREN;
+}
+'[)]' {
+  /* return token with corresponding type */
+  return RPAREN;
+}
+
+/* Regular Expression for skipping white space */
+[ \t\n] {
+  /* do nothing, ignore whitespace */
+}

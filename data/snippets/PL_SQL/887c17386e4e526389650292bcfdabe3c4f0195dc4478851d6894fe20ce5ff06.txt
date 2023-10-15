@@ -1,0 +1,56 @@
+/* This code snippet is an example of using PL/SQL to create a stored procedure */
+CREATE OR REPLACE PROCEDURE calculate_salary (employee_id IN NUMBER, salary OUT NUMBER)
+IS
+  /* Declare variables */
+  employee_name VARCHAR2(30);
+  hourly_rate NUMBER(6,2);
+  hours_worked NUMBER(4);
+
+BEGIN
+  /* Select employee name, hourly rate, and hours worked from the employee table */
+  SELECT name, rate, hours INTO employee_name, hourly_rate, hours_worked
+  FROM employee
+  WHERE id = employee_id;
+
+  /* Calculate the salary based on hourly rate and hours worked */
+  salary := hourly_rate * hours_worked;
+
+  /* Print the employee's name and salary */
+  DBMS_OUTPUT.PUT_LINE(employee_name || ' earned ' || salary || ' this month');
+  
+  /* Update the employee's salary in the database */
+  UPDATE employee
+  SET salary = salary + hourly_rate * hours_worked
+  WHERE id = employee_id;
+  
+  /* If the employee worked more than 160 hours, give a bonus of 10% of their salary for those extra hours */
+  IF hours_worked > 160 THEN
+    UPDATE employee
+    SET salary = salary + (hourly_rate * hours_worked * 0.1)
+    WHERE id = employee_id;
+  END IF;
+  
+  /* If the employee's salary is less than 1000, give them a raise of 5 dollars per hour */
+  IF salary < 1000 THEN
+    UPDATE employee
+    SET salary = salary + 5
+    WHERE id = employee_id;
+  END IF;
+  
+  /* Display a message if the employee's salary is less than 500 */
+  IF salary < 500 THEN
+    DBMS_OUTPUT.PUT_LINE(employee_name || ' needs a raise!');
+  END IF;
+  
+  /* Commit the changes to the database */
+  COMMIT;
+  
+EXCEPTION
+  /* If an employee with the given ID does not exist, display an error message */ 
+  WHEN NO_DATA_FOUND THEN
+    DBMS_OUTPUT.PUT_LINE('Employee does not exist!');
+  /* If any other exception occurs, display an error message */ 
+  WHEN OTHERS THEN
+    DBMS_OUTPUT.PUT_LINE(SQLERRM);
+END;
+/

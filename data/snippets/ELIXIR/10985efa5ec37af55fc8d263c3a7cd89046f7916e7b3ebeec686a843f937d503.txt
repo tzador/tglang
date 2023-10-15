@@ -1,0 +1,155 @@
+defmodule User do
+  @moduledoc """
+  This is a User module that contains functions for user authentication, registration, and profile management.
+  """
+
+  @doc """
+  Authenticates a user with the given username and password.
+  If successful, returns the user's information.
+  Otherwise, returns an error message.
+  
+  ## Inputs
+  
+  * `username` - The user's username as a string.
+  * `password` - The user's password as a string.
+  
+  ## Outputs
+  
+  * A map with the user's information if authentication is successful.
+  * An error message if authentication fails.
+  
+  ## Examples
+  
+      iex> User.authenticate("johndoe", "password123")
+      %{id: 1, username: "johndoe", email: "johndoe@example.com"}
+      
+      iex> User.authenticate("janedoe", "wrongpassword")
+      "Incorrect password."
+  """
+
+  def authenticate(username, password) do
+    # Check database for user with matching username
+    case Database.find_by_username(username) do
+      %{"id" => id, "username" => username, "password" => db_password, "email" => email} ->
+        # Verify password
+        if BCrypt.checkpw(password, db_password) do
+          # Authentication successful, return user's information
+          %{id: id, username: username, password: db_password, email: email}
+        else
+          # Incorrect password, return error message
+          "Incorrect password."
+        end
+      nil ->
+        # User with given username not found, return error message
+        "User not found."
+    end
+  end
+  
+  @doc """
+  Registers a new user with the given username and password.
+  If successful, returns the newly created user's information.
+  Otherwise, returns an error message.
+  
+  ## Inputs
+  
+  * `username` - The desired username for the new user as a string.
+  * `password` - The desired password for the new user as a string.
+  
+  ## Outputs
+  
+  * A map with the newly created user's information if registration is successful.
+  * An error message if registration fails.
+  
+  ## Examples
+  
+      iex> User.register("newuser", "newpassword")
+      %{id: 2, username: "newuser", email: "newuser@example.com"}
+      
+      iex> User.register("johndoe", "password123")
+      "Username already exists."
+  """
+
+  def register(username, password) do
+    # Check if username already exists in database
+    case Database.find_by_username(username) do
+      nil ->
+        # Username does not exist, proceed with registration
+        # Hash password for security
+        hashed_password = BCrypt.hashpw(password, BCrypt.gensalt())
+        # Create new user in database
+        new_user = Database.create_user(username, hashed_password)
+        # Return newly created user's information
+        %{id: new_user.id, username: new_user.username, password: new_user.password, email: new_user.email}
+      _ ->
+        # Username already exists, return error message
+        "Username already exists."
+    end
+  end
+  
+  @doc """
+  Updates a user's profile with the given information.
+  If successful, returns the updated user's information.
+  Otherwise, returns an error message.
+  
+  ## Inputs
+  
+  * `id` - The id of the user to be updated.
+  * `new_username` - [optional] The new username for the user as a string.
+  * `new_password` - [optional] The new password for the user as a string.
+  * `new_email` - [optional] The new email for the user as a string.
+  
+  ## Outputs
+  
+  * A map with the updated user's information if update is successful.
+  * An error message if update fails.
+  
+  ## Examples
+  
+      iex> User.update_profile(1, new_username: "johnsmith")
+      %{id: 1, username: "johnsmith", email: "johndoe@example.com"}
+      
+      iex> User.update_profile(2, new_password: "newpassword")
+      %{id: 2, username: "newuser", email: "newuser@example.com"}
+      
+      iex> User.update_profile(3, new_email: "janedoe@example.com")
+      %{id: 3, username: "janedoe", email: "janedoe@example.com"}
+      
+      iex> User.update_profile(4, new_username: "newuser", new_email: "newuser@example.com")
+      "Username already exists."
+  """
+  
+  def update_profile(id, options \\ %{}) do
+    # Get current user information from database
+    current_user = Database.find_by_id(id)
+    # Check if any options were passed in (e.g. new_username, new_password, new_email)
+    case options do
+      %{"new_username" => new_username} ->
+        # Check if new username already exists in database
+        case Database.find_by_username(new_username) do
+          nil ->
+            # New username not taken, update username in database
+            updated_user = Database.update_user(current_user, new_username: new_username)
+            # Return updated user's information
+            %{id: updated_user.id, username: updated_user.username, password: updated_user.password, email: updated_user.email}
+          _ ->
+            # New username already taken, return error message
+            "Username already exists."
+        end
+      %{"new_password" => new_password} ->
+        # Hash new password for security
+        hashed_password = BCrypt.hashpw(new_password, BCrypt.gensalt())
+        # Update password in database
+        updated_user = Database.update_user(current_user, new_password: hashed_password)
+        # Return updated user's information
+        %{id: updated_user.id, username: updated_user.username, password: updated_user.password, email: updated_user.email}
+      %{"new_email" => new_email} ->
+        # Update email in database
+        updated_user = Database.update_user(current_user, new_email: new_email)
+        # Return updated user's information
+        %{id: updated_user.id, username: updated_user.username, password: updated_user.password, email: updated_user.email}
+      _ ->
+        # No options passed in, return error message
+        "No changes made."
+    end
+  end
+end

@@ -1,0 +1,96 @@
+// Data path Control
+// Module: datapath_control
+
+`timescale 1ns / 1ps  // Defines the simulation time unit
+
+// Declare module with input and output ports
+module datapath_control(input clk, reset, enable,
+                        output reg [7:0] instr_reg,
+                        output reg [3:0] alu_control,
+                        output wire [2:0] mem_controller);
+
+// Define internal signals and registers
+reg state, next_state;  // Registers to hold current and next state values
+reg [2:0] mux_sel;  // 3-bit register to select which mux to use
+reg [7:0] opcode;  // Register to hold the current instruction opcode
+
+// Define states and their corresponding values
+parameter
+    IDLE = 3'b000,
+    FETCH = 3'b001,
+    DECODE = 3'b010,
+    EXECUTE = 3'b011,
+    WRITE_BACK = 3'b100;
+
+// Define state machine logic
+always@(posedge clk or posedge reset)
+    if(reset) begin
+        state <= IDLE;  // Initialize state to IDLE on reset
+    end
+    else begin
+        state <= next_state;  // Update state to next_state every clock cycle
+    end
+
+// Define logic for next_state values based on current state
+always@*
+    case(state)
+        IDLE: begin
+            next_state = FETCH;  // Transition to FETCH state
+            mux_sel = 3'b001;  // Use 1st mux to select instruction from memory
+        end
+        FETCH: begin
+            next_state = DECODE;  // Transition to DECODE state
+            opcode = instr_reg[7:0];  // Get instruction opcode from instruction register
+            case(opcode)
+                8'h01: alu_control = 4'b0100;  // If opcode is 01, set alu_control for add operation
+                8'h02: alu_control = 4'b0101;  // If opcode is 02, set alu_control for subtract operation
+                default: alu_control = 4'b0000;  // If unknown opcode, disable ALU operation
+            endcase
+        end
+        DECODE: begin
+            next_state = EXECUTE;  // Transition to EXECUTE state
+            mux_sel = 3'b010;  // Use 2nd mux to select register A input
+        end
+        EXECUTE: begin
+            next_state = WRITE_BACK;  // Transition to WRITE_BACK state
+            mux_sel = 3'b011;  // Use 3rd mux to select register B input
+        end
+        WRITE_BACK: begin
+            next_state = IDLE;  // Transition back to IDLE state
+            mem_controller = 3'b000;  // Deassert all memory control signals
+        end
+    endcase
+
+// Define instructions to be executed
+always@*
+    case(state)
+        IDLE: begin
+            instr_reg = 8'h00;  // No instruction is executed in IDLE state
+        end
+        FETCH: begin
+            instr_reg = instruction_memory[addr_reg];  // Get instruction from memory using address register
+        end
+        DECODE: begin
+            // Decode instruction to determine memory control signals
+            case(instr_reg[7:6])
+                2'h00: mem_controller = 3'b100;  // If instruction is load, assert memory read signal
+                2'h01: mem_controller = 3'b001;  // If instruction is store, assert memory write signal
+                default: mem_controller = 3'b000;  // If unknown instruction, deassert all memory control signals
+            endcase
+        end
+        EXECUTE: begin
+            // Perform ALU operation on register A and register B inputs
+            case(alu_control)
+                4'b0100:  // If add operation
+                    alu_out = registerA + registerB;
+                4'b0101:  // If subtract operation
+                    alu_out = registerA - registerB;
+            endcase
+        end
+        WRITE_BACK: begin
+            // Write ALU output to destination register
+            register[dest_reg] = alu_out;
+        end
+    endcase
+
+endmodule  // End of module datapath_control

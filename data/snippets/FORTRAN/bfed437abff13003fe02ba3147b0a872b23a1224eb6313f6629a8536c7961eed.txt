@@ -1,0 +1,64 @@
+**! Parallel Computation of Frobenius Norm Matrix !**
+program frobenius_norm
+implicit none
+integer :: n, i, j, tid, nthreads, chunk
+double precision :: A(100,100), norm, partial_norm
+
+!Set matrix size
+n = 100
+
+!Initialize matrix A with random values
+call random_number(A)
+
+!Set number of threads to use
+nthreads = 4
+
+!Set chunk size for work distribution
+chunk = n / nthreads
+
+!Initialize partial norm values
+partial_norm = 0.0
+
+!Create parallel region with specified number of threads
+!Each thread will compute the norm for a different section of the matrix
+!This reduces the overall computation time
+!The parallel keyword indicates that this part of the code will be executed in parallel by multiple threads
+!The private keyword specifies that each thread will have its own copy of the variable partial_norm
+!The shared keyword specifies that the variable A will be shared among all threads
+!The default(none) clause requires that all variables be explicitly specified as either private or shared
+!The schedule(static, chunk) clause specifies that the loop iterations will be divided into chunks and distributed to threads in a round-robin fashion
+!This reduces the overhead associated with thread synchronization
+!The reduction(+:partial_norm) clause specifies that each thread will have its own copy of partial_norm, but a final reduction will be performed to combine the results
+!This ensures that the final norm value is accurate, accounting for any potential data race conditions
+!The thread ID is retrieved using the OMP_GET_THREAD_NUM function, which returns an integer representing the current thread's ID
+!The OMP_GET_NUM_THREADS function returns the total number of threads in the parallel region
+!These values are used to distribute the work among threads and ensure proper synchronization
+!The loop will be distributed among the threads in a round-robin fashion, with each thread starting at a different index and stepping by the chunk size
+!This ensures that each thread works on a different portion of the matrix
+!The schedule clause also ensures that the chunks are of equal size, preventing any one thread from doing significantly more work than the others
+!The reduction clause ensures that the partial_norm values are added together correctly to produce the final norm value
+!The !$OMP END PARALLEL DO directive indicates the end of the parallel region and the DO loop
+!Note: this syntax is for OpenMP parallelization, there are other methods for parallelization in FORTRAN
+
+!$OMP PARALLEL DO PRIVATE(partial_norm) SHARED(A) SCHEDULE(static,chunk) REDUCTION(+:partial_norm)
+do i = 1, n, chunk
+    !Get thread ID and number of threads
+    tid = OMP_GET_THREAD_NUM()
+    nthreads = OMP_GET_NUM_THREADS()
+
+    !Compute partial norm for current chunk of matrix
+    do j = i, i+chunk-1
+        partial_norm = partial_norm + abs(A(i,j))**2
+    end do
+
+    !Print current thread ID and partial norm value
+    print *, "Thread", tid, "Partial Norm:", partial_norm
+end do
+!$OMP END PARALLEL DO
+
+!Combine the partial norm values from each thread to produce the final norm value
+norm = sqrt(partial_norm)
+
+!Print final norm value
+print *, "Frobenius Norm:", norm
+end program frobenius_norm

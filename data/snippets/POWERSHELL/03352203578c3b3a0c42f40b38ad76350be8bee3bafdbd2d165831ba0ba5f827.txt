@@ -1,0 +1,64 @@
+# Function to create a new virtual machine in Azure with specific configurations
+function Create-AzureVM {
+  param (
+    [Parameter(Mandatory)]
+    [string] $VMName,
+
+    [Parameter(Mandatory)]
+    [string] $ResourceGroupName,
+
+    [Parameter(Mandatory)]
+    [string] $Location,
+
+    [Parameter(Mandatory)]
+    [string] $VMSize,
+
+    [Parameter(Mandatory)]
+    [string] $ImageURI,
+
+    [Parameter(Mandatory)]
+    [string] $AdminCredential,
+
+    [Parameter(Mandatory)]
+    [int] $DiskSizeInGB
+  )
+
+  # Create the virtual network for the VM
+  $vnet = New-AzVirtualNetwork -Name "VM-Vnet" -ResourceGroupName $ResourceGroupName -Location $Location -AddressPrefix "10.0.0.0/16"
+
+  # Create the subnet
+  $subnet = New-AzVirtualNetworkSubnetConfig -Name "Subnet-1" -VirtualNetwork $vnet -AddressPrefix "10.0.0.0/24"
+
+  # Create the public IP address
+  $publicIP = New-AzPublicIpAddress -Name "VM-IP" -ResourceGroupName $ResourceGroupName -Location $Location -AllocationMethod Dynamic
+
+  # Create the network security group
+  $nsg = New-AzNetworkSecurityGroup -Name "VM-NSG" -ResourceGroupName $ResourceGroupName -Location $Location
+
+  # Create a security rule to allow port 3389 for RDP
+  $nsg | Add-AzNetworkSecurityRuleConfig -Name "RDP" -Protocol Tcp -Direction Inbound -Priority 1000 -SourceAddressPrefix * -SourcePortRange * -DestinationAddressPrefix * -DestinationPortRange 3389 -Access Allow
+
+  # Create the virtual network interface
+  $nic = New-AzNetworkInterface -Name "VM-NIC" -ResourceGroupName $ResourceGroupName -Location $Location -Subnet $subnet -PublicIpAddress $publicIP -NetworkSecurityGroup $nsg
+
+  # Set the VM credentials
+  $creds = Get-Credential $AdminCredential
+
+  # Create the virtual machine
+  $vm = New-AzVMConfig -VMName $VMName -VMSize $VMSize
+
+  # Attach the network interface
+  $vm = Add-AzVMNetworkInterface -VM $vm -Id $nic.Id
+
+  # Create the OS disk
+  $diskConfig = New-AzDiskConfig -AccountType Premium_LRS -Location $Location -CreateOption FromImage -SourceUri $ImageURI -DiskSizeGB $DiskSizeInGB
+  $osDisk = New-AzDisk -DiskName "$VMName-OSDisk" -Disk $diskConfig -ResourceGroupName $ResourceGroupName
+
+  # Attach the OS disk to the VM
+  $vm = Set-AzVMOSDisk -VM $vm -ManagedDiskId $osDisk.Id -Name $osDisk.Name -CreateOption Attach -Windows -Caching ReadWrite
+
+  # Create and start the virtual machine
+  New-AzVM -ResourceGroupName $ResourceGroupName -Location $Location -VM $vm -Credential $creds
+
+  Write-Host "Virtual machine $VMName successfully created in Azure."
+}

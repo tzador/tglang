@@ -1,0 +1,45 @@
+* Define a set of customers with two attributes
+Set Customers 'All Customers'
+           / John(cost=1000, preference=Low)
+             Mary(cost=500, preference=Medium)
+             David(cost=1500, preference=High) /;
+
+* Define a set of delivery locations with two attributes
+Set Locations 'All Locations'
+           / NewYork(distance=10, demand=100)
+             LosAngeles(distance=20, demand=200)
+             Chicago(distance=15, demand=150) /;
+
+* Define the parameters for transportation costs and capacity
+Parameter
+Transport(cost,Cust,L)=
+    10*UniformInt(100,500)*ord(Cust);
+             * Transportation cost for each customer
+Parameter Capacity(Loc)= 200*ord(Loc);
+             * Maximum capacity for each location
+
+* Define the decision variable, x(i,j), for amount to be transported from location i to customer j
+Variable x(Locations, Customers);
+
+* Define the objective function to minimize total transportation cost
+Equation objfun;
+objfun.. sum((L,C),
+           cost(L, Cust)*x(L, Cust)) =E= sum((L), Capacity(L));
+
+* Define constraints to ensure each customer's preference is met and total transportation amount does not exceed capacity
+Equation pref_con(Customers);
+pref_con(C).. sum((L), x(L, Cust)*Locations(L, "demand")) =L=  sum((L), Locations(L, "demand")*(Uniform(0, 1)+Customers(Cust, "preference")));
+
+Equation cap_con(Locations);
+cap_con(L).. sum((C), x(L, C)) =L= Capacity(L);
+
+* Define the model and solve with the default solver
+Model transport 'Transportation Problem';
+Transport.Optfile = 1;
+Transport.Solfile = 1;
+Solve transport using nlp minimizing objfun;
+
+* Display the optimal solution values for the decision variable x(i,j)
+Parameter Solution;
+Solution(Locations, Customers) = x.l(Locations, Customers);
+display Solution;

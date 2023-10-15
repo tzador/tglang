@@ -1,0 +1,57 @@
+%code requires {
+    // declaring variables for symbol table
+    int var_count = 0;
+    char* var_list[100];
+    // declaring structs for syntax tree nodes
+    struct Stmt {
+        char* op;
+        void* left;
+        void* right;
+    };
+    struct Decl {
+        char* type;
+        char* name;
+    };
+    // function to add variables to symbol table
+    void add_var(char* name) {
+        var_list[var_count] = name;
+        var_count++;
+    }
+}
+
+%%
+// grammar rules
+program: declaration_list;
+
+declaration_list: declaration
+                | declaration_list declaration;
+
+declaration: 'int' ID ';'     {
+                                // creating new declaration node
+                                $$ = malloc(sizeof(struct Decl));
+                                // setting type and name from token inputs
+                                $$->type = strdup("int");
+                                $$->name = strdup($2);
+                                // adding variable to symbol table
+                                add_var($2);
+                            }
+            | declaration_list ';' 'int' ID     {
+                                                    // creating new declaration and statement nodes
+                                                    struct Decl* decl = malloc(sizeof(struct Decl));
+                                                    struct Stmt* stmt = malloc(sizeof(struct Stmt));
+                                                    // setting type and name from token inputs
+                                                    decl->type = strdup("int");
+                                                    decl->name = strdup($4);
+                                                    // indicating addition operation
+                                                    stmt->op = strdup("+");
+                                                    // setting left child to previous declaration node
+                                                    stmt->left = &$1;
+                                                    // creating new integer node for right child
+                                                    stmt->right = malloc(sizeof(int));
+                                                    *(int*)stmt->right = 1;
+                                                    // adding variable to symbol table
+                                                    add_var($4);
+                                                    // set current node as $$ (output)
+                                                    $$ = stmt;
+                                                };
+%%

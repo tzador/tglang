@@ -1,0 +1,75 @@
+//This contract represents a crowdfunding campaign.
+//It utilizes the concepts of inheritance, modifiers, and events in Solidity.
+
+//Importing OpenZeppelin's libraries for SafeMath and Ownable contracts.
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/contracts/math/SafeMath.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/contracts/access/Ownable.sol";
+
+//Defining the contract and inheriting from the Ownable contract.
+contract Crowdfunding is Ownable {
+
+    using SafeMath for uint; //Using SafeMath library for safe mathematical operations.
+
+    //Defining variables.
+    address public creator; //Address of the campaign creator.
+    uint public goal; //The goal amount for the campaign.
+    uint public deadline; //Timestamp for the deadline of the campaign.
+    uint public raisedAmount; //Total amount raised in the campaign.
+    mapping(address => uint) public contributions; //Mapping to keep track of contributions per address.
+
+    //Event to be emitted when a contribution is made.
+    event ContributionMade(address contributor, uint amount);
+
+    //Modifier to restrict function access to only the contract creator.
+    modifier onlyCreator {
+        require(msg.sender == creator, "Only the contract creator can access this function.");
+        _;
+    }
+
+    //Constructor function that sets the values for goal and deadline.
+    constructor(uint _goal, uint _durationInDays) public {
+        goal = _goal;
+        deadline = now + _durationInDays * 1 days;
+    }
+
+    //Function to contribute to the campaign.
+    function contribute() public payable {
+        require(msg.value > 0, "Contribution amount must be greater than 0."); //Check for non-zero contribution amount.
+        require(now < deadline, "The campaign has ended."); //Check if campaign deadline has passed.
+        contributions[msg.sender] = contributions[msg.sender].add(msg.value); //Add contribution to mapping for the sender.
+        raisedAmount = raisedAmount.add(msg.value); //Add contribution amount to total raised amount.
+        emit ContributionMade(msg.sender, msg.value); //Emit the event for the contribution made.
+    }
+
+    //Function to check if the campaign's goal has been reached.
+    function checkGoalReached() public onlyOwner {
+        if (raisedAmount >= goal) {
+            //Transfer the raised amount to the contract owner.
+            uint amount = address(this).balance;
+            owner.transfer(amount);
+            //Emit event for goal reached.
+            emit GoalReached(amount);
+        }
+    }
+
+    //Function to withdraw funds from the campaign by the contract creator.
+    function withdrawFunds() public onlyCreator {
+        require(now > deadline, "The campaign is still active."); //Check if campaign deadline has passed.
+        require(raisedAmount < goal, "The campaign goal has been reached."); //Check if campaign goal has been reached.
+        //Transfer the raised amount to the contract creator.
+        creator.transfer(address(this).balance);
+        //Emit event for funds withdrawn.
+        emit FundsWithdrawn(address(this).balance);
+    }
+
+    //Function to return all contributions made by a specific address.
+    function getContributionsByAddress(address _contributor) public view returns(uint) {
+        return contributions[_contributor];
+    }
+}
+
+//Event to be emitted when the campaign's goal is reached.
+event GoalReached(uint totalAmount);
+
+//Event to be emitted when the contract creator withdraws funds from the campaign.
+event FundsWithdrawn(uint amount);

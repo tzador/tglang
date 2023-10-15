@@ -1,0 +1,56 @@
+/* This code snippet imports data from a CSV file into a SAS dataset using PROC IMPORT */
+/* The CSV file contains information on sales transactions */
+/* The data is then manipulated and summarized using various SAS functions and procedures */
+ 
+/* Set the path to the CSV file */
+%let path = C:\Users\sales_data.csv;
+
+/* Use PROC IMPORT to create a SAS dataset from the CSV file */
+proc import datafile="&path"
+	out=Sales_Data
+	dbms=CSV 
+	replace;
+	getnames=yes; /* optional, add if the CSV file has column headers */
+run;
+
+/* Sort the data by transaction date in descending order */
+proc sort data=Sales_Data
+    out=Sorted_Sales_Data;
+	by descending Transaction_Date;
+run;
+
+/* Create a new variable for each transaction's total amount */
+data Sales_Data;
+	set Sorted_Sales_Data;
+    Total_Amount = Quantity * Price;	
+run;
+
+/* Use PROC SQL to calculate the total sales amount for each product */
+proc sql;
+	create table Total_Sales_Amount as
+		select Product_Name, sum(Total_Amount) as Total_Sales
+		from Sales_Data
+		group by Product_Name;
+quit;
+
+/* Use PROC MEANS to calculate the average, minimum, and maximum transaction amount */
+proc means data=Sales_Data
+	autoname
+	mean min max;
+	var Total_Amount;
+run;
+
+/* Create a new dataset with only transactions that occurred on weekdays */
+data Weekday_Sales;
+	set Sales_Data;
+    format Transaction_Date date9.;
+	where weekday(Transaction_Date) < 6; /* weekday function returns a number, where 6 = Saturday and 7 = Sunday */
+run;
+
+/* Use PROC CONTENTS to display information about the Sales_Data dataset */
+proc contents data=Sales_Data;
+run;
+
+/* Use PROC PRINT to view the first 10 observations in the Sales_Data dataset */
+proc print data=Sales_Data (obs=10); /* obs=10 limits the output to the first 10 observations */
+run;

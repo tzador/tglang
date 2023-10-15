@@ -1,0 +1,38 @@
+{-# LANGUAGE OverloadedStrings #-}
+
+import qualified Data.ByteString as BS
+import System.Directory
+import System.FilePath.Posix
+import Control.Monad
+import Control.Exception
+import Data.Maybe
+
+-- | Function that recursively finds all files with .txt extension in a given directory path
+findFileList :: FilePath -> IO [FilePath]
+findFileList dir = do
+    -- Check if the given path is a valid directory
+    isDirectory <- doesDirectoryExist dir
+    if isDirectory
+        then do
+            -- Get a list of all files and directories in the given path
+            fileOrDirs <- getDirectoryContents dir
+            -- Remove "." and ".." from the list
+            let filtered = filter (`notElem` [".", ".."]) fileOrDirs
+            -- Map the filtered list to their full paths
+            let filePaths = map (combine dir) filtered
+            -- Recursively call this function for any subdirectories in the path
+            subdirs <- mapM findFileList (filterM doesDirectoryExist filePaths)
+            -- Combine all subdirectory files with the files in the current directory
+            return (filePaths ++ concat subdirs)
+        else do
+            -- If the given path is not a directory, return an empty list
+            return []
+
+main :: IO ()
+main = do
+    -- Get current working directory
+    currentDir <- getCurrentDirectory
+    -- Find all .txt files in the given directory
+    txtFiles <- findFileList currentDir
+    -- Print out the list of .txt files
+    print txtFiles

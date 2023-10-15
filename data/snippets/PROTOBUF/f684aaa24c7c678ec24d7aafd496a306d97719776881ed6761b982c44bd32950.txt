@@ -1,0 +1,110 @@
+message Employee {
+  int32 id = 1; // the Employee's ID number
+  string name = 2; // the Employee's name
+  float salary = 3; // the Employee's salary
+  repeated string address = 4; // list of Employee's addresses
+  repeated string skills = 5; // list of Employee's skills
+}
+
+message Company {
+  string name = 1; // the Company's name
+  repeated Employee employees = 2; // list of Company's employees
+}
+
+// function to encode a Company object
+function encodeCompany(Company company) {
+  // create a new Protobuf encoder
+  var encoder = new ProtobufEncoder();
+
+  // encode the Company's name
+  encoder.encodeString("name", company.name);
+
+  // encode the Company's employees
+  for (var i = 0; i < company.employees.length; i++) {
+    // create a new encoder for the current Employee
+    var employeeEncoder = encoder.createEncoder("employees");
+
+    // encode the Employee's ID
+    employeeEncoder.encodeInt32("id", company.employees[i].id);
+
+    // encode the Employee's name
+    employeeEncoder.encodeString("name", company.employees[i].name);
+
+    // encode the Employee's salary
+    employeeEncoder.encodeFloat("salary", company.employees[i].salary);
+
+    // encode the Employee's addresses
+    for (var j = 0; j < company.employees[i].address.length; j++) {
+      employeeEncoder.encodeString("address", company.employees[i].address[j]);
+    }
+
+    // encode the Employee's skills
+    for (var k = 0; k < company.employees[i].skills.length; k++) {
+      employeeEncoder.encodeString("skills", company.employees[i].skills[k]);
+    }
+  }
+
+  // return the encoded Company object
+  return encoder.buffer;
+}
+
+// function to decode a Company object
+function decodeCompany(buffer) {
+  // create a new Protobuf decoder
+  var decoder = new ProtobufDecoder(buffer);
+
+  // decode the Company's name
+  var name = decoder.decodeString("name");
+
+  // decode the Company's employees
+  var employees = [];
+  var employeeDecoder = decoder.createDecoder("employees");
+  while (employeeDecoder.next()) {
+    // decode the Employee's ID
+    var id = employeeDecoder.decodeInt32("id");
+
+    // decode the Employee's name
+    var name = employeeDecoder.decodeString("name");
+
+    // decode the Employee's salary
+    var salary = employeeDecoder.decodeFloat("salary");
+
+    // decode the Employee's addresses
+    var addresses = [];
+    var addressDecoder = employeeDecoder.createDecoder("address");
+    while (addressDecoder.next()) {
+      addresses.push(addressDecoder.decodeString("address"));
+    }
+
+    // decode the Employee's skills
+    var skills = [];
+    var skillsDecoder = employeeDecoder.createDecoder("skills");
+    while (skillsDecoder.next()) {
+      skills.push(skillsDecoder.decodeString("skills"));
+    }
+
+    // create a new Employee object and push it to the employees array
+    var employee = new Employee(id, name, salary, addresses, skills);
+    employees.push(employee);
+  }
+
+  // create a new Company object and return it
+  return new Company(name, employees);
+}
+
+// create a new Company object to encode
+var company = new Company("Google",
+  [
+    new Employee(1, "John", 100000, ["123 Main St", "456 High St"], ["Java", "Python"]),
+    new Employee(2, "Sarah", 90000, ["789 Maple Ave", "101 Oak St"], ["C++", "JavaScript"])
+  ]
+);
+
+// encode the Company object
+var encodedCompany = encodeCompany(company);
+
+// decode the encoded Company object
+var decodedCompany = decodeCompany(encodedCompany);
+
+// output the decoded Company object
+console.log(decodedCompany);

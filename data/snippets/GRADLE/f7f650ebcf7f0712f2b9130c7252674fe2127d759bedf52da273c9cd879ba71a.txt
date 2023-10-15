@@ -1,0 +1,60 @@
+// This code snippet creates a custom task in gradle that generates a unique output file based on the inputs provided.
+
+task generateOutput(type:Exec) {
+
+  //set the inputs for the task
+  inputs.files("input1.txt", "input2.txt")
+  
+  //set the outputs for the task
+  outputs.file("output.txt")
+  
+  //define the command to be executed
+  commandLine "python", "generate_output.py", "input1.txt", "input2.txt", "output.txt"
+  
+  //set the working directory for the command
+  workingDir = project.rootDir
+  
+  //set the task description
+  description = "Generates an output file based on the given inputs."
+  
+  //add a dependency on the "build" task
+  dependsOn "build"
+}
+
+// Define an extension that allows for customization of the output file name and location
+ext {
+  outputFileName = "custom_output.txt"
+  outputDir = "output"
+}
+
+// Configure the generateOutput task to use the custom extension properties
+generateOutput {
+  //set the output file name
+  outputs.file("$outputDir/$outputFileName")
+  
+  //set the command to use the custom output file name
+  commandLine "python", "generate_output.py", "input1.txt", "input2.txt", "$outputDir/$outputFileName"
+}
+
+// Create another task that can delete the generated output file
+task deleteOutput(type:Delete) {
+  //set the file to be deleted as the output file of the generateOutput task
+  delete outputs.files("$outputDir/$outputFileName")
+  
+  //set the task description
+  description = "Deletes the generated output file."
+  
+  //add a dependency on the "clean" task
+  dependsOn "clean"
+}
+
+// Set the generateOutput task as the default task to run when "gradle" is executed
+defaultTasks 'generateOutput'
+
+// Add the deleteOutput task as a task that can be run from the command line, along with its dependencies
+gradle.taskGraph.whenReady { taskGraph ->
+  def deleteOutputTask = tasks.getByName("deleteOutput")
+  if (taskGraph.hasTask("deleteOutput")) {
+    deleteOutputTask.dependsOn("build")
+  }
+}

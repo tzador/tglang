@@ -1,0 +1,68 @@
+pragma solidity ^0.8.1;
+
+// This is a smart contract written in the Solidity programming language.
+// It implements a simple crowdsale where users can purchase tokens in exchange for Ether.
+
+contract Crowdsale {
+    // Declare state variables
+    address public owner; // contract owner's address
+    uint256 public cap; // maximum amount of funds to be raised
+    uint256 public raisedAmount; // total amount of funds raised so far
+    uint256 public startTime; // start time of the crowdsale
+    uint256 public endTime; // end time of the crowdsale
+    uint256 public rate; // token exchange rate (how many tokens per Ether)
+    uint256 public minPurchase; // minimum amount of Ether a user must purchase
+    uint256 public maxPurchase; // maximum amount of Ether a user can purchase
+    uint256 public tokensSold; // total number of tokens sold
+    Mapping(address => uint256) public balances; // mapping to track user balances
+    bool public saleEnded; // boolean flag to indicate if the sale has ended
+
+    // Events to track important contract activities
+    event TokensPurchased(address indexed _buyer, uint256 _amount);
+    event SaleEnded(uint256 _totalTokensSold, uint256 _totalRaisedAmount);
+
+    // Constructor function - executed only once when the contract is deployed
+    constructor(uint256 _cap, uint256 _startTime, uint256 _endTime, uint256 _rate, uint256 _minPurchase, uint256 _maxPurchase) {
+        owner = msg.sender; // set the owner of the contract to the address that deployed it
+        cap = _cap;
+        startTime = _startTime;
+        endTime = _endTime;
+        rate = _rate;
+        minPurchase = _minPurchase;
+        maxPurchase = _maxPurchase;
+    }
+
+    // Modifier to only allow the contract owner to perform certain functions
+    modifier onlyOwner() {
+        require(msg.sender == owner, "You are not authorized to perform this action.");
+        _;
+    }
+
+    // Function to handle the buying of tokens
+    function buyTokens() public payable {
+        require(!saleEnded, "The sale has ended."); // check if the sale has ended
+        require(msg.value >= minPurchase && msg.value <= maxPurchase, "You must purchase within the allowed range."); // check if purchase amount is within the allowed range
+        require(block.timestamp >= startTime && block.timestamp <= endTime, "The sale is not currently active."); // check if the sale is currently active
+        require(raisedAmount + msg.value <= cap, "The amount you are trying to purchase would exceed the maximum cap."); // check if the purchase would exceed the cap
+
+        uint256 tokensToBuy = msg.value * rate; // calculate the number of tokens to buy based on the user's purchase amount and the token exchange rate
+        balances[msg.sender] += tokensToBuy; // add the purchased tokens to the user's balance
+        tokensSold += tokensToBuy; // update the total number of tokens sold
+        raisedAmount += msg.value; // update the total amount of funds raised
+
+        emit TokensPurchased(msg.sender, tokensToBuy); // emit an event to track the purchase
+
+        // check if the cap has been reached and end the sale if necessary
+        if (raisedAmount == cap) {
+            saleEnded = true;
+            emit SaleEnded(tokensSold, raisedAmount);
+        }
+    }
+
+    // Function to transfer the funds raised to the owner's address
+    function withdrawFunds() public onlyOwner {
+        require(saleEnded, "The sale has not ended yet."); // check if the sale has ended
+        require(address(this).balance > 0, "There are no funds to withdraw."); // check if there are any funds to withdraw
+        payable(owner).transfer(address(this).balance); // transfer the funds raised to the owner's address
+    }
+}

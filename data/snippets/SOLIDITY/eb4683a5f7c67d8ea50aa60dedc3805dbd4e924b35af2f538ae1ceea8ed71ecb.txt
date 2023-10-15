@@ -1,0 +1,134 @@
+pragma solidity ^0.5.0;
+
+// The ERC-20 token standard interface
+interface ERC20Interface {
+    // Required methods
+    function totalSupply() external view returns (uint);
+    function balanceOf(address tokenOwner) external view returns (uint balance);
+    function allowance(address tokenOwner, address spender) external view returns (uint remaining);
+    function transfer(address to, uint tokens) external returns (bool success);
+    function approve(address spender, uint tokens) external returns (bool success);
+    function transferFrom(address from, address to, uint tokens) external returns (bool success);
+
+    // Optional methods
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function decimals() external view returns (uint8);
+    function increaseAllowance(address spender, uint addedTokens) external returns (bool success);
+    function decreaseAllowance(address spender, uint subtractedTokens) external returns (bool success);
+
+    // Events
+    event Transfer(address indexed from, address indexed to, uint tokens);
+    event Approval(address indexed tokenOwner, address indexed spender, uint tokens);
+}
+
+// Custom token contract
+contract MyToken is ERC20Interface {
+    string public name;
+    string public symbol;
+    uint8 public decimals;
+    uint public totalSupply;
+
+    // Balance for each address
+    mapping(address => uint) balances;
+    // Allowance for each address and authorized spender
+    mapping(address => mapping(address => uint)) allowed;
+
+    constructor(string memory _name, string memory _symbol, uint8 _decimals, uint _totalSupply) public {
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+        totalSupply = _totalSupply;
+        // Assign total supply to contract creator
+        balances[msg.sender] = totalSupply;
+    }
+
+    // Returns the total supply of tokens
+    function totalSupply() external view returns (uint) {
+        return totalSupply;
+    }
+
+    // Returns the balance of the specified address
+    function balanceOf(address tokenOwner) external view returns (uint balance) {
+        return balances[tokenOwner];
+    }
+
+    // Returns the amount of tokens approved by the owner that can be
+    // transferred to the spender's account
+    function allowance(address tokenOwner, address spender) external view returns (uint remaining) {
+        return allowed[tokenOwner][spender];
+    }
+
+    // Transfers tokens from the sender's address to the specified address
+    function transfer(address to, uint tokens) external returns (bool success) {
+        // Sender must have enough tokens
+        require(balances[msg.sender] >= tokens);
+        // Update balances
+        balances[msg.sender] -= tokens;
+        balances[to] += tokens;
+        // Emit Transfer event
+        emit Transfer(msg.sender, to, tokens);
+        return true;
+    }
+
+    // Approves a specified account to spend a certain amount of tokens on behalf of the owner
+    function approve(address spender, uint tokens) external returns (bool success) {
+        // Update allowance
+        allowed[msg.sender][spender] = tokens;
+        // Emit Approval event
+        emit Approval(msg.sender, spender, tokens);
+        return true;
+    }
+
+    // Transfers tokens from one address to another using the approved allowance
+    function transferFrom(address from, address to, uint tokens) external returns (bool success) {
+        // Sender must have enough tokens
+        require(balances[from] >= tokens);
+        // Allowance must be greater than or equal to the amount being transferred
+        require(allowed[from][msg.sender] >= tokens);
+        // Update balances and allowance
+        balances[from] -= tokens;
+        balances[to] += tokens;
+        allowed[from][msg.sender] -= tokens;
+        // Emit Transfer event
+        emit Transfer(from, to, tokens);
+        return true;
+    }
+
+    // Returns the name of the token
+    function name() external view returns (string memory) {
+        return name;
+    }
+
+    // Returns the symbol of the token
+    function symbol() external view returns (string memory) {
+        return symbol;
+    }
+
+    // Returns the number of decimals used in the token
+    function decimals() external view returns (uint8) {
+        return decimals;
+    }
+
+    // Increases the allowance for a specified address and authorized spender
+    function increaseAllowance(address spender, uint addedTokens) external returns (bool success) {
+        // Update allowance
+        allowed[msg.sender][spender] += addedTokens;
+        // Emit Approval event
+        emit Approval(msg.sender, spender, allowed[msg.sender][spender]);
+        return true;
+    }
+
+    // Decreases the allowance for a specified address and authorized spender
+    function decreaseAllowance(address spender, uint subtractedTokens) external returns (bool success) {
+        // If allowance is already 0, then no need to decrease it further
+        if(allowed[msg.sender][spender] == 0) {
+            return true;
+        }
+        // Update allowance
+        allowed[msg.sender][spender] -= subtractedTokens;
+        // Emit Approval event
+        emit Approval(msg.sender, spender, allowed[msg.sender][spender]);
+        return true;
+    }
+}

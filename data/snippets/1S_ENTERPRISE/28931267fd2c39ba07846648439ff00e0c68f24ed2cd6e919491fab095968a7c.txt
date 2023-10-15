@@ -1,0 +1,139 @@
+//
+// Module: ExpenseManagement
+// Description: This module handles expense tracking and management
+//
+
+// Data Types
+Type ExpenseStatus = (Accepted, Rejected, Pending); // Enum type for expense status
+Type Expense = Record
+    Number: String;
+    Description: String;
+    Amount: Number;
+    Status: ExpenseStatus;
+    CreatedBy: String;
+    DateCreated: Date;
+    DateModified: Date;
+    Approver: Reference(Employee); // Reference to employee who approved the expense
+    Reason: String;
+EndType
+
+Type Employee = Catalog // Base type for employee data
+    Name: String;
+    Department: String;
+    Position: String;
+    DateHired: Date;
+    DateResigned: Date;
+    Expenses: ValueTable(Expense); // Value table of expenses filed by the employee
+    LastLogin: DateTime;
+    Password: String;
+    Role: Reference(Role); // Reference to employee's role in the system
+EndType
+
+Type Role = Catalog // Base type for role data
+    Name: String;
+    Permissions: EnumList;
+EndType
+
+// Procedures
+Procedure RejectExpense(ExpenseNumber: String) // Procedure for rejecting an expense
+    Expense = Expenses.FindByNumber(ExpenseNumber); // Find the expense by its number
+    If Expense.Status <> Pending Then // Check if expense status is not pending
+        Error("Cannot reject an expense that is not pending status"); // Throw an error
+    Else
+        Expense.Status = Rejected; // Set expense status to rejected
+        Expenses.Modify(Expense); // Modify the expense record
+    EndIf;
+EndProcedure
+
+Procedure AddNewEmployee(Name: String, Department: String, Position: String, DateHired: Date, Password: String) // Procedure for adding a new employee
+    Employee = Employees.Create(); // Create a new employee record
+    Employee.Name = Name; // Set employee's name
+    Employee.Department = Department; // Set employee's department
+    Employee.Position = Position; // Set employee's position
+    Employee.DateHired = DateHired; // Set employee's date of hire
+    Employee.Password = Password; // Set employee's password
+    Employee.LastLogin = CurrentDateTime(); // Set employee's last login to current date and time
+    Employee.Role = Roles.FindByName("Employee"); // Set employee's role to employee (lowest level)
+    Employees.Add(Employee); // Add employee record to catalog
+EndProcedure
+
+// Forms
+Form ExpenseForm // Expense form for expense entry
+    Field Number
+        Title = "Expense Number"
+        Type = String
+    EndField
+
+    Field Description
+        Title = "Expense Description"
+        Type = String
+    EndField
+
+    Field Amount
+        Title = "Expense Amount"
+        Type = Number
+    EndField
+
+    Field DateCreated
+        Title = "Date Created"
+        Type = Date
+        ReadOnly = True // Date created is automatically set and cannot be modified
+    EndField
+
+    Button SubmitExpense
+        Title = "Submit"
+        Output = "Expense has been submitted for approval"
+        Action = Procedure(_SubmitExpense(Number, Description, Amount),)
+    EndButton
+
+    Button SaveExpense
+        Title = "Save"
+        Output = "Expense has been saved"
+        Action = Procedure(_SaveExpense(Number, Description, Amount),)
+    EndButton
+EndForm
+
+Form EmployeeForm // Employee form for adding a new employee
+    Title = "Add New Employee"
+
+    Field Name
+        Title = "Employee Name"
+        Type = String
+    EndField
+
+    Field Department
+        Title = "Department"
+        Type = String
+    EndField
+
+    Field Position
+        Title = "Position"
+        Type = String
+    EndField
+
+    Field DateHired
+        Title = "Date Hired"
+        Type = Date
+    EndField
+
+    Button SubmitEmployee
+        Title = "Submit"
+        Output = "Employee has been added to the system"
+        Action = Procedure(_AddNewEmployee(Name, Department, Position, DateHired),)
+    EndButton
+EndForm
+
+// Access Rights
+// Employee only has access to view and submit expenses
+RolePermissions[Employee] = [ViewExpenses, SubmitExpenses];
+
+// Supervisor has same access as employee but with additional approval access
+RolePermissions[Supervisor] = [ViewExpenses, SubmitExpenses, ApproveExpenses];
+
+// Manager has full access to expense management
+RolePermissions[Manager] = ["*"];
+
+// User Interface
+LoadForm(EmployeeForm); // Load the employee form for adding a new employee
+
+LoadForm(ExpenseForm); // Load the expense form for expense entry and submission

@@ -1,0 +1,56 @@
+%%% Module: fiber
+%%% Author: John Smith
+%%% Description: This module implements a lightweight fiber scheduler.
+%%% License: MIT License
+
+-module(fiber).
+
+%% Exported functions
+-export([
+    spawn/1,
+    yield/1,
+    send/2,
+    receive/1,
+    loop/1
+]).
+
+%% Types
+-type fiber_id() :: integer().
+-type message() :: term().
+
+%% State record for each fiber
+-record(fiber_state, {
+    id = 0, % Fiber ID
+    mailbox = [], % Messages in the fiber's mailbox
+    yielded = false, % Flag indicating whether the fiber has yielded
+    func = fun() -> ok end, % Function to be executed by the fiber
+    parent = self() % Parent process that spawned the fiber
+}).
+
+%% Spawn a new fiber and execute the given function
+spawn(Func) ->
+    Parent = self(),
+    Fiber = #fiber_state{id = erlang:unique_integer()},
+    Fiber2 = Fiber#fiber_state{func = Func, parent = Parent},
+    spawn_link(fun() -> loop(Fiber2) end).
+
+%% Yield the execution of the current fiber
+yield(FiberState) ->
+    _ = erlang:yield(FiberState#fiber_state.yielded),
+    FiberState#fiber_state{yielded = true}.
+
+%% Send a message to the given fiber
+send(FiberState, Message) ->
+    FiberState#fiber_state{mailbox = [Message | FiberState#fiber_state.mailbox]}.
+
+%% Receive a message from the given fiber's mailbox
+receive(FiberState) ->
+    {{Message, Mailbox}, FiberState#fiber_state{mailbox = []}} =
+        erlang:receive(FiberState#fiber_state.mailbox),
+    {Message, FiberState#fiber_state{mailbox = Mailbox}}.
+
+%% Execute the function stored in the given fiber's state
+loop(State) ->
+    Message = receive(State),
+    Result = State#fiber_state.func(Message),
+    loop(Result).

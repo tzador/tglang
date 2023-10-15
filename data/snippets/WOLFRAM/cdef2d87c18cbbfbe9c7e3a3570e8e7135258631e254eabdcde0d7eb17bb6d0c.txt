@@ -1,0 +1,61 @@
+(*This program demonstrates the implementation of a neural network using Wolfram language*)
+(*Define the input and output data*)
+inputs = {{0, 0}, {0, 1}, {1, 0}, {1, 1}};
+outputs = {{0}, {1}, {1}, {0}};
+
+(*Define the number of hidden layers and neurons in each layer*)
+numHiddenLayers = 2;
+numNeurons = {4, 3};
+
+(*Initialize the weights for each neuron using random values*)
+weights = Table[RandomReal[{-1, 1}, {numNeurons[[i]], numNeurons[[i + 1]]}], {i, 1, numHiddenLayers}];
+
+(*Define the activation function*)
+activation[x_] := 1/(1 + Exp[-x]);
+
+(*Define the derivative of the activation function*)
+activationPrime[x_] := activation[x]*(1 - activation[x]);
+
+(*Define the training function*)
+train[inputs_, outputs_, weights_, numIterations_, learningRate_] := Module[{errors, predictions, delta, updatedWeights},
+  errors = {};
+  For[i = 1, i <= numIterations, i++,
+   predictions = {};
+   For[j = 1, j <= Length[inputs], j++,
+    (*Forward pass*)
+    activations = {inputs[[j]]};
+    For[k = 1, k <= numHiddenLayers, k++,
+     activations = Append[activations, activation[activations[[k]].weights[[k]]]];
+    ];
+
+    (*Calculate error and record it*)
+    error = Mean[(outputs[[j]] - activations[[-1]])^2];
+    AppendTo[errors, error];
+
+    (*Backward pass*)
+    delta = {(outputs[[j]] - activations[[-1]])*activationPrime[activations[[-1]]]};
+    For[k = numHiddenLayers - 1, k >= 1, k--,
+     delta = Prepend[delta, activationPrime[activations[[k]]].Transpose[weights[[k]]].delta[[1]]];
+    ];
+
+    (*Update weights*)
+    updatedWeights = weights + learningRate*Outer[Times, delta, activations];
+
+    (*Assign updated weights*)
+    weights = updatedWeights;
+   ];
+  ];
+  {errors, weights}
+];
+
+(*Train the network for 1000 iterations with a learning rate of 0.5*)
+results = train[inputs, outputs, weights, 1000, 0.5];
+
+(*Display the errors and final weights*)
+Print["Errors: ", results[[1]]];
+Print["Final weights: ", results[[2]]];
+
+(*Test the network with new input*)
+testInput = {1, 0};
+testOutput = testInput.weights;
+Print["Predicted output for ", testInput, ": ", activation[testOutput[[-1]]]];

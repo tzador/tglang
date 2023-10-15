@@ -1,0 +1,147 @@
+pragma solidity ^0.8.4; // version specification
+
+import "./Helper.sol"; // helper contract import
+
+/** 
+ * MultiSignature Contract 
+ */
+contract MultiSignature {
+  // state variables
+  mapping(address => bool) public isOwner;
+  mapping(uint256 => bool) public pendingTransactions;
+  address[] public owners;
+  uint256 public numOfApprovals;
+  
+  // constructor to set initial owners and number of required approvals
+  constructor(address[] memory _owners, uint256 _numOfApprovals) {
+    require(_owners.length > 0, "At least one owner needed");
+    require(numOfApprovals > 0 && numOfApprovals <= _owners.length, "Invalid number of approvals");
+    for (uint256 i = 0; i < _owners.length; i++) {
+      address owner = _owners[i];
+      isOwner[owner] = true;
+      owners.push(owner);
+    }
+    numOfApprovals = _numOfApprovals;
+  }
+  
+  // function modifier to check if caller is one of the owners
+  modifier onlyOwner() {
+    require(isOwner[msg.sender], "Caller is not an owner");
+    _;
+  }
+  
+  // function modifier to check if transaction is not already pending
+  modifier notPending(uint256 _transactionId) {
+    require(!pendingTransactions[_transactionId], "Transaction is already pending");
+    _;
+  }
+  
+  // event to be emitted on new transaction creation
+  event ProposalCreated(address indexed sender, bytes _transaction);
+  
+  /** 
+   * @dev Creates a new transaction proposal
+   * @param _transaction The raw transaction data in bytes format
+   * @return Returns the transaction id for future reference
+   */
+  function createProposal(bytes memory _transaction) public onlyOwner {  
+    // generate transaction id
+    uint256 transactionId = createTransactionId(_transaction);
+    
+    // check if transaction is not already pending
+    require(!pendingTransactions[transactionId], "Transaction is already pending");
+    
+    // add transaction to pending transactions
+    pendingTransactions[transactionId] = true;
+    
+    // emit event
+    emit ProposalCreated(msg.sender, _transaction);
+  }
+  
+  /**
+   * @dev Generates a transaction id based on raw transaction data
+   * @param _transaction The raw transaction data in bytes format
+   * @return Returns the generated transaction id
+   */
+  function createTransactionId(bytes memory _transaction) internal pure returns (uint256) {
+    // use helper function to concatenate raw data and current block timestamp
+    bytes32 concatenatedData = Helper.concat(_transaction, block.timestamp); 
+    
+    // calculate transaction id using keccak256 hash function
+    uint256 transactionId = uint256(keccak256(abi.encodePacked(concatenatedData)));
+    return transactionId;
+  }
+  
+  // function modifier to check if transaction has enough approvals
+  modifier enoughApprovals(uint256 _transactionId) {
+    require(getApprovalCount(_transactionId) >= numOfApprovals, "Transaction does not have enough approvals");
+    _;
+  }
+  
+  /**
+   * @dev Approves a pending transaction proposal
+   * @param _transactionId The id of the pending transaction
+   */
+  function approveTransaction(uint256 _transactionId) public onlyOwner notPending(_transactionId) {
+    // check if transaction exists and has not been finalized
+    require(pendingTransactions[_transactionId], "Transaction does not exist or has already been finalized");
+    
+    // check if transaction has enough approvals
+    require(getApprovalCount(_transactionId) >= numOfApprovals - 1, "Transaction does not have enough approvals");
+    
+    // finalize transaction
+    finalizeTransaction(_transactionId);
+  }
+  
+  // function modifier to check if transaction is already approved by caller
+  modifier notApproved(uint256 _transactionId) {
+    require(!transactions[_transactionId].approvals[msg.sender], "Caller has already approved this transaction");
+    _;
+  }
+  
+  // function modifier to check if caller has not already approved the transaction
+  modifier approved(uint256 _transactionId) {
+    require(transactions[_transactionId].approvals[msg.sender], "Caller has not approved this transaction");
+    _;
+  }
+  
+  struct Transaction {
+    bytes transactionData;
+    mapping(address => bool) approvals;
+    bool isFinalized;
+  }
+  
+  mapping(uint256 => Transaction) public transactions;
+  
+  /**
+   * @dev Gets the number of approvals for a pending transaction
+   * @param _transactionId The id of the pending transaction
+   * @return Returns the number of approvals for the pending transaction
+   */
+  function getApprovalCount(uint256 _transactionId) public view returns (uint256) {
+    uint256 count = 0;
+    Transaction storage transaction = transactions[_transactionId];
+    for (uint256 i = 0; i < owners.length; i++) {
+      if (transaction.approvals[owners[i]]) {
+        count++;
+      }
+    }
+    return count;
+  }
+  
+  /**
+   * @dev Finalizes a pending transaction
+   * @param _transactionId The id of the pending transaction
+   */
+  function finalizeTransaction(uint256 _transactionId) internal enoughApprovals(_transactionId) {
+    // check if transaction has not already been finalized
+    require(!transactions[_transactionId].isFinalized, "Transaction has already been finalized");
+    
+    // set transaction data
+    transactions[_transactionId] = Transaction({
+      transactionData: transactions[_transactionId].transactionData,
+      approvals: transactions[_transactionId].approvals,
+      isFinalized: true
+    });
+  }
+}

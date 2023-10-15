@@ -1,0 +1,42 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE RankNTypes #-}
+
+-- This is a simple Church numeral implementation in Haskell
+-- It uses a typeclass for Church representation
+
+class ChurchNumeral c where
+  succ :: c -> c
+  pred :: c -> c
+  fromNumber :: Int -> c
+
+instance ChurchNumeral Int where
+  succ = (+ 1)
+  pred = subtract 1
+  fromNumber = id
+
+instance ChurchNumeral c => ChurchNumeral (c -> c) where
+  succ :: (c -> c) -> (c -> c)
+  succ n = \f x -> f (n f x)
+
+  pred :: (c -> c) -> (c -> c)
+  pred n = \f x -> n (\g -> \h -> h (g f)) (\u -> x) (\u -> u)
+
+  fromNumber :: Int -> (a -> a)
+  fromNumber 0 = id
+  fromNumber n = \f -> f (fromNumber (n - 1))
+
+-- Test cases
+two :: (a -> a)
+two = fromNumber 2
+
+three :: (a -> a)
+three = succ two
+
+six :: (a -> a)
+six = two `mult` three
+
+-- Multiplication function for Church numerals
+mult :: ChurchNumeral c => c -> c -> c
+mult n m = n (m succ) 0

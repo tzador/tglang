@@ -1,0 +1,47 @@
+-- This query joins data from two tables, calculates the total amount of money spent by each customer,
+-- then inserts the result into a new table called "customer_spending".
+
+CREATE TABLE customer_spending (
+  customer_id INTEGER,
+  total_spending DECIMAL(10,2)
+);
+
+INSERT INTO customer_spending (customer_id, total_spending)
+  SELECT c.id AS customer_id, SUM(i.price * o.quantity) AS total_spending
+  FROM customers c
+  JOIN orders o ON c.id = o.customer_id
+  JOIN items i ON o.item_id = i.id
+  GROUP BY c.id;
+
+-- This query updates the "customer_spending" table to include the customer's name,
+-- using a subquery to retrieve the name from the "customers" table.
+
+UPDATE customer_spending c
+SET customer_name = (
+  SELECT name FROM customers
+  WHERE id = c.customer_id
+);
+
+-- This query creates a stored procedure that inserts a new order into the database,
+-- and updates the "customer_spending" table to reflect the new total spending for that customer.
+
+CREATE OR REPLACE PROCEDURE add_order(
+  p_customer_id IN INTEGER,
+  p_item_id IN INTEGER,
+  p_quantity IN INTEGER
+)
+AS
+  v_price DECIMAL(10,2);
+BEGIN
+  -- Calculate the total price of the order based on the price of the item and the quantity.
+  SELECT price INTO v_price FROM items WHERE id = p_item_id;
+  v_price := v_price * p_quantity;
+
+  -- Insert the new order into the "orders" table.
+  INSERT INTO orders (customer_id, item_id, quantity, total_price)
+  VALUES (p_customer_id, p_item_id, p_quantity, v_price);
+
+  -- Update the total spending for the customer in the "customer_spending" table.
+  UPDATE customer_spending SET total_spending = total_spending + v_price
+  WHERE customer_id = p_customer_id;
+END;

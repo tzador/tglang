@@ -1,0 +1,107 @@
+//Importing SafeMath library
+import "./SafeMath.sol";
+
+//Defining contract
+contract Token {
+    using SafeMath for uint256;
+    
+    //Defining variables
+    address private owner;
+    mapping(address => uint256) private balances;
+    uint256 private totalSupply;
+    
+    //Defining events
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    
+    //Defining modifiers
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only contract owner can call this function");
+        _;
+    }
+    
+    //Defining functions
+    constructor(uint256 _initialSupply) public {
+        owner = msg.sender;
+        totalSupply = _initialSupply;
+        balances[msg.sender] = _initialSupply;
+    }
+    
+    //Getters
+    function ownership() public view returns (address) {
+        return owner;
+    }
+    
+    function balanceOf(address _who) public view returns (uint256) {
+        return balances[_who];
+    }
+    
+    function totalSupply() public view returns (uint256) {
+        return totalSupply;
+    }
+    
+    //Token transfer function
+    function transfer(address _to, uint256 _value) public returns (bool) {
+        require(balances[msg.sender] >= _value, "Insufficient balance");
+        
+        //SafeMath to prevent overflow
+        balances[msg.sender] = balances[msg.sender].sub(_value);
+        balances[_to] = balances[_to].add(_value);
+        
+        //Emitting Transfer event
+        emit Transfer(msg.sender, _to, _value);
+        return true;
+    }
+    
+    //Approval function for token transfer by another address
+    function approve(address _spender, uint256 _value) public returns (bool) {
+        require(msg.sender != _spender, "Cannot approve transactions for yourself");
+        
+        //Updating allowance
+        allowance[msg.sender][_spender] = _value;
+        
+        //Emtting Approval event
+        emit Approval(msg.sender, _spender, _value);
+        return true;
+    }
+    
+    //Token transfer function from approved allowance
+    function transferFrom(address _from, address _to, uint256 _value) public returns (bool) {
+        require(allowance[_from][msg.sender] >= _value, "Amount exceeds allowed allowance");
+        require(balances[_from] >= _value, "Insufficient balance");
+        
+        //SafeMath to prevent overflow
+        balances[_from] = balances[_from].sub(_value);
+        balances[_to] = balances[_to].add(_value);
+        
+        //Updating allowance
+        allowance[_from][msg.sender] = allowance[_from][msg.sender].sub(_value);
+        
+        //Emitting Transfer event
+        emit Transfer(_from, _to, _value);
+        return true;
+    }
+    
+    //Token burn function
+    function burn(uint256 _value) public onlyOwner returns (bool) {
+        require(balances[owner] >= _value, "Insufficient balance");
+        
+        //Updating total supply and balance
+        totalSupply = totalSupply.sub(_value);
+        balances[owner] = balances[owner].sub(_value);
+        
+        //Emitting Transfer event with value set to zero
+        emit Transfer(owner, address(0), _value);
+        return true;
+    }
+    
+    //Token mint function
+    function mint(address _to, uint256 _value) public onlyOwner returns (bool) {
+        totalSupply = totalSupply.add(_value);
+        balances[_to] = balances[_to].add(_value);
+        
+        //Emitting Transfer event
+        emit Transfer(address(0), _to, _value);
+        return true;
+    }
+}

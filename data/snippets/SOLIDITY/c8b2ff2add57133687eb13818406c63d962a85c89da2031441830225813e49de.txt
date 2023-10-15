@@ -1,0 +1,157 @@
+/**
+ * @title ERC721Token
+ * @dev ERC721 interface for token contract
+ */
+contract ERC721Token {
+    
+    // Variables
+    uint256 public totalSupply;
+
+    // Events
+    event Transfer(address indexed _from, address indexed _to, uint256 indexed _tokenId);
+    event Approval(address indexed _owner, address indexed _approved, uint256 indexed _tokenId);
+
+    // Mapping
+    mapping (uint256 => address) internal tokenOwner;
+    mapping (uint256 => address) internal tokenApprovals;
+    mapping (address => uint256) internal ownedTokensCount;
+    mapping (address => mapping (address => bool)) internal operatorApprovals;
+
+    // Methods
+    function supportsInterface(bytes4 _interfaceId) external view returns (bool);
+    function balanceOf(address _owner) external view returns (uint256);
+    function ownerOf(uint256 _tokenId) external view returns (address);
+    function safeTransferFrom(address _from, address _to, uint256 _tokenId, bytes data) external payable;
+    function safeTransferFrom(address _from, address _to, uint256 _tokenId) external payable;
+    function transferFrom(address _from, address _to, uint256 _tokenId) external payable;
+    function approve(address _approved, uint256 _tokenId) external payable;
+    function setApprovalForAll(address _operator, bool _approved) external;
+    function getApproved(uint256 _tokenId) external view returns (address);
+    function isApprovedForAll(address _owner, address _operator) external view returns (bool);
+}
+
+/**
+ * @title Ownable
+ * @dev Contract with ownable functionality
+ */
+contract Ownable {
+   
+    // Variables
+    address public owner;
+
+    // Events
+    event OwnershipRenounced(address indexed previousOwner);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    // Modifiers
+    modifier onlyOwner() {
+        require(msg.sender == owner);
+        _;
+    }
+
+    // Constructor
+    function Ownable() public {
+        owner = msg.sender;
+    }
+
+    // Methods
+    function renounceOwnership() public onlyOwner {
+        emit OwnershipRenounced(owner);
+        owner = address(0);
+    }
+
+    function transferOwnership(address _newOwner) public onlyOwner {
+        require(_newOwner != address(0));
+        emit OwnershipTransferred(owner, _newOwner);
+        owner = _newOwner;
+    }
+}
+
+/**
+ * @title MyToken
+ * @dev Custom ERC721 token contract
+ */
+contract MyToken is ERC721Token, Ownable {
+    
+    // Variables
+    string public name;
+    string public symbol;
+    
+    // Modifier
+    modifier onlyOwnerOf(uint256 _tokenId) {
+        require(ownerOf(_tokenId) == msg.sender);
+        _;
+    }
+    
+    // Constructor
+    function MyToken(string _name, string _symbol) public {
+        name = _name;
+        symbol = _symbol;
+    }
+    
+    // Methods
+    function mint(address _to, uint256 _tokenId) public onlyOwner {
+        require(_to != address(0));
+        require(_tokenId != 0);
+        _mint(_to, _tokenId);
+    }
+
+    function _mint(address _to, uint256 _tokenId) internal {
+        super._mint(_to, _tokenId);
+        totalSupply = totalSupply.add(1);
+    }
+
+    function setTokenUri(uint256 _tokenId, string _tokenUri) public onlyOwnerOf(_tokenId) {
+        require(bytes(_tokenUri).length > 0);
+        _setTokenUri(_tokenId, _tokenUri);
+    }
+
+    function _setTokenUri(uint256 _tokenId, string _tokenUri) internal {
+        super._setTokenUri(_tokenId, _tokenUri);
+    }
+    
+    function burn(uint256 _tokenId) public onlyOwnerOf(_tokenId) {
+        super._burn(ownerOf(_tokenId), _tokenId);
+        totalSupply = totalSupply.sub(1);
+    }
+    
+    function transferFrom(address _from, address _to, uint256 _tokenId) external payable {
+        // Check if sender is approved or owner
+        require(_isApprovedOrOwner(msg.sender, _tokenId));
+        // Change token ownership
+        _transferFrom(_from, _to, _tokenId);
+    }
+    
+    function _transferFrom(address _from, address _to, uint256 _tokenId) internal {
+        // Update token mapping
+        tokenOwner[_tokenId] = _to;
+        // Update owned tokens count
+        ownedTokensCount[_to] = ownedTokensCount[_to].add(1);
+        ownedTokensCount[_from] = ownedTokensCount[_from].sub(1);
+        // Update approvals
+        emit Transfer(_from, _to, _tokenId);
+    }
+    
+    function approve(address _approved, uint256 _tokenId) public onlyOwnerOf(_tokenId) {
+        // Update approval mapping
+        tokenApprovals[_tokenId] = _approved;
+        // Emit event
+        emit Approval(msg.sender, _approved, _tokenId);
+    }
+    
+    function isApprovedOrOwner(address _spender, uint256 _tokenId) internal view returns (bool) {
+        address owner = ownerOf(_tokenId);
+        // Check if spender is owner or approved
+        return (_spender == owner || getApproved(_tokenId) == _spender || isApprovedForAll(owner, _spender));
+    }
+    
+    function _isApprovedOrOwner(address _spender, uint256 _tokenId) internal view returns (bool) {
+        // Check if spender is approved or owner
+        return (isApprovedOrOwner(_spender, _tokenId));
+    }
+    
+    function supportsInterface(bytes4 _interfaceId) external view returns (bool) {
+        // Return true for ERC721 interface
+        return (_interfaceId == 0x80ac58cd);
+    }
+}

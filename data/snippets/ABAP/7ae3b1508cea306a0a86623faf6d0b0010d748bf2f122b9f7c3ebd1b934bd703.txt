@@ -1,0 +1,69 @@
+*&---------------------------------------------------------------------*
+*& Report Z_CALC_TOTAL_NUTRITION
+*&
+*&---------------------------------------------------------------------*
+*& This report calculates the total nutrition values for a recipe
+*& based on the ingredients and their quantities entered by the user.
+*&---------------------------------------------------------------------*
+REPORT Z_CALC_TOTAL_NUTRITION.
+
+*&---------------------------------------------------------------------*
+*& Data Declaration
+*&---------------------------------------------------------------------*
+DATA: it_ingredients TYPE STANDARD TABLE OF ZTY_INGREDIENTS,
+      wa_ingredients TYPE ZTY_INGREDIENTS,
+      total_calories TYPE P DECIMALS 2,
+      total_fat TYPE P DECIMALS 2,
+      total_carbs TYPE P DECIMALS 2,
+      total_protein TYPE P DECIMALS 2.
+
+*&---------------------------------------------------------------------*
+*& Types Declaration
+*&---------------------------------------------------------------------*
+TYPES: BEGIN OF ZTY_INGREDIENTS,
+         ingredient_name TYPE STRING, "Name of the ingredient
+         quantity TYPE P, "Quantity of the ingredient
+         measurement_unit TYPE STRING, "Measurement unit of the ingredient
+       END OF ZTY_INGREDIENTS.
+
+*&---------------------------------------------------------------------*
+*& Selection Screen
+*&---------------------------------------------------------------------*
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE text-001.
+PARAMETERS: p_recipe_name TYPE STRING REQUIRED.
+SELECTION-SCREEN END OF BLOCK b1.
+
+START-OF-SELECTION.
+* Get ingredients and their quantities input by the user
+SELECT *
+FROM mara
+WHERE matnr = p_recipe_name.
+
+wa_ingredients-ingredient_name = mara-maktx.
+wa_ingredients-quantity = mara-BRGEW.
+wa_ingredients-measurement_unit = mara-MEINS.
+
+APPEND wa_ingredients TO it_ingredients.
+
+*&---------------------------------------------------------------------*
+*& Calculations
+*&---------------------------------------------------------------------*
+LOOP AT it_ingredients INTO wa_ingredients.
+* Calculate nutrition values for each ingredient based on weight
+SELECT SINGLE *
+FROM znutrition_table
+WHERE ingredient_name = wa_ingredients-ingredient_name.
+
+total_calories = total_calories + (wa_ingredients-quantity / 100 * znutrition_table-calories).
+total_fat = total_fat + (wa_ingredients-quantity / 100 * znutrition_table-fat).
+total_carbs = total_carbs + (wa_ingredients-quantity / 100 * znutrition_table-carbs).
+total_protein = total_protein + (wa_ingredients-quantity / 100 * znutrition_table-protein).
+ENDLOOP.
+
+*&---------------------------------------------------------------------*
+*& Output
+*&---------------------------------------------------------------------*
+WRITE: / 'Total calories:', total_calories,
+       / 'Total fat:', total_fat,
+       / 'Total carbs:', total_carbs,
+       / 'Total protein:', total_protein.

@@ -1,0 +1,75 @@
+/** 
+ * @title Bidding Contract
+ * @dev This contract allows users to bid on an item and the highest bidder wins
+ */
+ 
+contract BiddingContract {
+    //Variable to store the highest bid
+    uint public highestBid;
+    
+    //Address of the highest bidder
+    address public highestBidder;
+    
+    //Mapping to track each bidder's bid amount
+    mapping(address => uint) public bids;
+    
+    //Modifier to only allow the owner of the contract to call certain functions
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the contract owner can call this function.");
+        _;
+    }
+    
+    //Event to emit when a new bid is placed
+    event NewBid(address bidder, uint bidAmount);
+    
+    /**
+     * @dev Function to place a bid on the item
+     * @param amount The amount in wei to bid
+     */
+    function placeBid(uint amount) public payable {
+        //Require that the bid amount is higher than the current highest bid
+        require(amount > highestBid, "Bid must be higher than the current highest bid.");
+        
+        //Send back the previous highest bid to the previous bidder
+        if(highestBidder != address(0)) {
+            bids[highestBidder].transfer(highestBid);
+        }
+        
+        //Update the highest bid and highest bidder
+        highestBid = amount;
+        highestBidder = msg.sender;
+        
+        //Emit NewBid event
+        emit NewBid(msg.sender, amount);
+    }
+    
+    /**
+     * @dev Function to withdraw a bid and get refunded
+     */
+    function withdrawBid() public {
+        //Require that the user has a bid on the item
+        require(bids[msg.sender] > 0, "You do not have a bid on this item.");
+        
+        //Send back the bid amount to the bidder
+        msg.sender.transfer(bids[msg.sender]);
+        
+        //Delete the bid
+        delete bids[msg.sender];
+    }
+    
+    /**
+     * @dev Function to end the bidding process and send the item to the highest bidder
+     * @param item The item to be transferred to the highest bidder
+     */
+    function endBidding(address item) public onlyOwner {
+        //Require that there are bids on the item
+        require(highestBidder != address(0), "There are no bids on this item.");
+        
+        //Transfer the item to the highest bidder
+        ERC721(item).transferFrom(address(this), highestBidder);
+        
+        //Reset the highest bid and bidder
+        highestBid = 0;
+        highestBidder = address(0);
+    }
+}

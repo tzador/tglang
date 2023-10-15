@@ -1,0 +1,49 @@
+worker_processes auto; #sets number of worker processes to be used
+
+events { #block for configuring events
+    worker_connections 1024; #sets maximum number of connections per worker process
+    use epoll; #specifies event processing method
+}
+
+http { #block for configuring HTTP server
+    include mime.types; #specifies the types of files to be interpreted as
+    default_type application/octet-stream; #sets default MIME type if it cannot be determined
+
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" ' #specifies the format for access logs
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"'; #includes additional variables in log format
+
+    server { #block for configuring specific server
+        listen       80; #sets port number for server to listen on
+        server_name  localhost; #sets hostname for server
+
+        # 'location' block can be used to define specific behaviors for certain locations within a server
+        # for example, this block ensures that any requests to '/images/' are handled by the 'images' location
+        # directive which specifies where to look for image files
+        location /images/ {
+            root   /usr/share/nginx/html;
+        }
+
+        location / { #block for configuring behavior for all other requests
+            root   /usr/share/nginx/html; #sets root directory for server files
+            index  index.html index.htm; #sets default files to be served
+        }
+    }
+
+    server { #block for configuring another server
+        listen  8080; #sets different port number for this server
+        root   /usr/share/nginx/html;
+
+        location / { #block for configuring behavior for all requests to this server
+            index  index.php; #sets default file to be served
+            try_files $uri $uri/ /index.php$is_args$args; #rewrites requests to /index.php if no file exists at requested location
+        }
+
+        location ~ \.php$ { #block for configuring behavior for requests to files ending in .php
+            fastcgi_pass 127.0.0.1:9000; #sets address and port for PHP-FPM server
+            fastcgi_index index.php; #sets default file to be served
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; #specifies PHP script to be executed
+            include fastcgi_params; #includes any additional parameters needed for PHP-FPM
+        }
+    }
+}

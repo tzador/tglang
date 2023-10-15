@@ -1,0 +1,55 @@
+server {
+    listen 80; # Defines the port number that NGINX will listen on for incoming requests
+    server_name example.com; # Defines the domain name that will be served by the server block
+
+    location / {
+        root /var/www/example.com; # Defines the root directory where the web files are located
+        index index.html; # Defines the default file to be served in case no file is specified in the URL
+    }
+
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+        # Directives to serve static files
+        expires max;
+        log_not_found off;
+        access_log off;
+    }
+
+    location ~* \.php$ {
+        # Passes PHP scripts to FastCGI server
+        fastcgi_pass unix:/run/php-fpm/www.sock;
+        fastcgi_index index.php;
+        include fastcgi_params;
+        # Defines the root directory for PHP scripts
+        fastcgi_param SCRIPT_FILENAME /var/www/example.com$fastcgi_script_name;
+    }
+
+    # Redirect non-www to www URL
+    if ($host !~ ^www\.) {
+        rewrite ^/(.*)$ $scheme://www.$host/$1 permanent;
+    }
+
+    # Redirect all http requests to https
+    server {
+        listen 80;
+        server_name www.example.com;
+        return 301 https://www.example.com$request_uri;
+    }
+
+    # SSL configuration
+    # Defines the port number and certificate information for HTTPS requests
+    server {
+        listen 443 ssl http2;
+        server_name www.example.com;
+        ssl_certificate /etc/ssl/certs/www.example.com.crt;
+        ssl_certificate_key /etc/ssl/private/www.example.com.key;
+        ssl_protocols TLSv1.2;
+        ssl_prefer_server_ciphers on;
+        # Defines the location of the ciphers file for HTTPS requests
+        include /etc/nginx/snippets/ssl-ciphers.conf;
+
+        location / {
+            root /var/www/example.com;
+            index index.html;
+        }
+    }
+}

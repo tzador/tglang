@@ -1,0 +1,33 @@
+METHOD get_net_weight.
+  " Determine weight of material with packaging, includes recursive call to get material group
+  " Inputs:
+  " - material_id: the ID of the material to be weighed
+  " - unit_of_measure: the unit of measure of the weight
+  " Outputs:
+  " - net_weight: the net weight of the material with packaging
+  
+  DATA material_group TYPE mara-matkl. " material group field
+  DATA material_weight TYPE i. " weight of material field
+  DATA packaging_weight TYPE i. " weight of packaging field
+  
+  " Recursive call to get material group
+  CALL METHOD get_material_group
+    EXPORTING
+      material_id = material_id
+    IMPORTING
+      material_group = material_group
+      material_weight = material_weight.
+  
+  " Calculate weight of packaging
+  SELECT SINGLE gewicht_pakket INTO @packaging_weight
+    FROM packing_table
+    WHERE material_group = @material_group.
+  
+  " Add packaging weight to material weight
+  net_weight = material_weight + packaging_weight.
+  
+  " Convert weight to correct unit of measure
+  net_weight = cl_unit_converter=>convert( source_unit = 'G' " gram
+                                          target_unit = unit_of_measure
+                                          quantity = net_weight ).
+ENDMETHOD.

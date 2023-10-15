@@ -1,0 +1,112 @@
+# Define a server block to handle requests on port 80
+server {
+    # Listen on port 80
+    listen 80;
+    
+    # Define server name and aliases
+    server_name example.com www.example.com;
+    
+    # Configure root directory for serving static files
+    root /var/www/example.com;
+    
+    # Return a 301 redirect for any requests made without www
+    if ($host !~* ^www\.(.*)) {
+        return 301 https://www.$host$request_uri;
+    } 
+    
+    # Handle requests for index files
+    index index.html index.php;
+    
+    # Define location block for serving static files
+    location /static {
+        # Set a caching header to improve performance
+        expires 7d;
+        
+        # Allow GET requests only
+        if ($request_method != GET) {
+            return 405;
+        }
+        
+        # Serve files from the root directory
+        root /var/www/example.com;
+        
+        # Enable gzip compression for faster transfer
+        gzip on;
+        
+        # Enable caching for improved performance
+        open_file_cache max=1000 inactive=20s;
+        open_file_cache_valid 30s;
+        open_file_cache_min_uses 2;
+        open_file_cache_errors on;
+        
+        # Include additional MIME types for serving files
+        include /etc/nginx/mime.types;
+        
+        # Set HTTP headers
+        add_header Cache-Control "public, max-age=604800, immutable";
+        
+        # Enable logging
+        access_log /var/log/nginx/static-access.log;
+        error_log /var/log/nginx/static-error.log;
+    }
+    
+    # Define location block for handling PHP scripts
+    location /php {
+        # Enable PHP processing
+        fastcgi_pass unix:/run/php/php7.4-fpm.sock;
+        
+        # Pass additional options to the PHP fastcgi process
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param PATH_INFO $fastcgi_path_info;
+        fastcgi_param QUERY_STRING $query_string;
+    }
+    
+    # Define location block for handling server-side includes
+    location /ssi {
+        # Enable server-side includes
+        ssi on;
+        
+        # Set the base directory for server-side includes
+        ssi_silent_errors on;
+        ssi_types text/html;
+        
+        # Include additional MIME types for server-side includes
+        include /etc/nginx/mime.types;
+        
+        # Enable logging
+        access_log /var/log/nginx/ssi-access.log;
+    }
+    
+    # Define location block for handling error pages
+    error_page 404 /errors/404.html;
+    error_page 500 502 503 504 /errors/50x.html;
+    
+    # Define location block for handling redirects
+    location = /old-page.html {
+        return 301 https://www.example.com/new-page.html;
+    }
+    
+    # Define location block for handling proxy requests
+    location /api {
+        # Define the upstream server to proxy requests to
+        proxy_pass http://127.0.0.1:8000;
+        
+        # Pass additional headers to the upstream server
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Host $host;
+        
+        # Set timeouts for proxy connections
+        proxy_connect_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+    
+    # Define a location block for handling server status requests
+    location /nginx_status {
+        # Enable access for localhost only
+        allow 127.0.0.1;
+        deny all;
+        
+        # Enable the stub_status module for server status information
+        stub_status;
+    }
+}

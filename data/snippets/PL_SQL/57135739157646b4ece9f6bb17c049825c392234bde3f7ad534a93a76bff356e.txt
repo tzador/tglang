@@ -1,0 +1,31 @@
+CREATE OR REPLACE FUNCTION calculate_order_total (p_order_id IN NUMBER)
+RETURN NUMBER IS
+  v_total NUMBER;
+  v_order_date DATE;
+BEGIN
+  -- retrieve order date
+  SELECT order_date INTO v_order_date
+  FROM orders
+  WHERE order_id = p_order_id;
+  
+  -- calculate subtotal of order
+  SELECT SUM(quantity * unit_price) INTO v_total
+  FROM order_items
+  WHERE order_id = p_order_id;
+  
+  IF v_order_date >= TO_DATE('2021/01/01', 'yyyy/mm/dd') THEN
+    -- apply discount for orders placed in 2021
+    v_total := v_total * 0.9;
+  ELSIF v_order_date < TO_DATE('2021/01/01', 'yyyy/mm/dd') AND v_total > 1000 THEN
+    -- apply discount for large orders placed before 2021
+    v_total := v_total * 0.95;
+  END IF;
+  
+  -- add tax to total
+  v_total := v_total * 1.10;
+  
+  -- round total to 2 decimal places
+  v_total := ROUND(v_total, 2);
+  
+  RETURN v_total;
+END;

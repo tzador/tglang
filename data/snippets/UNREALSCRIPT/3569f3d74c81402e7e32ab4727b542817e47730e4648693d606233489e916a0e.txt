@@ -1,0 +1,138 @@
+/** A class representing a playable character in the game */
+class PlayerCharacter extends UnrealPawn
+    placeable;
+
+/** Event called when the player presses the jump button */
+event JumpKey( bool bPressed );
+
+/** Event called when the player picks up an item */
+event Pickup( Weapon Pickup );
+
+/** Event called when the player takes damage */
+event TakeDamage( int DamageAmount, Controller EventInstigator, Object_WeaponType WeapType, Vector HitLocation, Vector Momentum, name HitBoneName, Vector HitNormal, Pawn InstigatedBy, out Vector HitInfo);
+
+/** A function to update the character's location based on input */
+simulated function UpdateLocation( float DeltaTime )
+{
+    local Vector MoveDirection;
+    local Rotator NewRotation;
+    
+    // Get movement input from player
+    MoveDirection.X = Self.PlayerInput.aStrafe;
+    MoveDirection.Y = Self.PlayerInput.aForward;
+    MoveDirection = MoveDirection.Normalized(); // Normalize the input
+    
+    // Determine player rotation based on input and camera
+    NewRotation = rotator(MoveDirection); // Get a rotation based on the move direction
+    NewRotation *= Self.PlayerInput.aTurn; // Apply the turn input from the camera
+    
+    // Move the character forwards based on input
+    EventMove(MoveDirection, DeltaTime * Speed); // EventMove is an UnrealPawn function
+    
+    // Rotate the character
+    SetRotation(NewRotation);
+}
+
+/** A function to handle the player's interaction with the game world */
+simulated function Interact()
+{
+    local Actor TraceActor;
+    local Vector StartTrace;
+    local Vector EndTrace;
+    local Vector HitLocation;
+    local Vector HitNormal;
+    local PrimitiveComponent HitComponent;
+    
+    local KActor KAct;
+    local Weapon Pickup;
+    
+    // Get start and end points for line trace
+    StartTrace = CameraLocation;
+    EndTrace = StartTrace + CameraRotation.Vector() * 10000;
+    
+    // Perform line trace to check for any actors in front of player
+    TraceActor = Trace(HitLocation, HitNormal, EndTrace, StartTrace, false, vec(0,0,0), TRACE_All, false, true);
+    
+    // If a trace hit an actor
+    if (TraceHit() && HitNormal.Z > 0.6 && HitNormal.Z < 0.8)
+    {
+        HitComponent = HitActor.GetComponent();
+        if (HitComponent.IsA('KActor'))
+        {
+            KAct = KActor(HitComponent);
+
+            // If the actor is a Weapon pickup, call Pickup event
+            if (KAct.IsA('Weapon'))
+                Pickup(Weapon(KAct));
+        }
+    }
+}
+
+DefaultProperties
+{
+    Begin Object Name=MeshComp
+        bStatic=false
+        bMovable=False
+        bNotifyRigidBodyCollision=false
+        BodyInstance
+        {
+            bSimulate=true
+            bNotifyRigidBodyCollision=true
+            CollisionProfileName=NameProfiles.LightPawn
+            CollisionResponses
+            {
+                // Arrays for PawnPhysical materials to override
+                // 0 -"Pawns - Solid Materials",  1 - "Pawns - Blocked Materials",  2 - "Pawns - NonBlocked Materials",
+                // 3 - "Pawn - Stair Step Materials",  4 - "Pawn - Platform materials", 5 - "Pawn - Ramp Materials", 6 - "Pawn - Custom Materials",
+                // 7 - "Pawn - Blocking covers"  8 - "Pawn - Blocked For Nav Mesh"
+                ResponseArray(0)=(Channel=COLLISION_Material,PrefResponse=Response_Overlap)
+                ResponseArray(1)=(Channel=COLLISION_Material,PrefResponse=Response_Overlap)
+                ResponseArray(2)=(Channel=COLLISION_Material,PrefResponse=Response_Overlap)
+                ResponseArray(3)=(Channel=COLLISION_Material,PrefResponse=Response_Overlap)
+                ResponseArray(4)=(Channel=COLLISION_Material,PrefResponse=Response_Overlap)
+                ResponseArray(5)=(Channel=COLLISION_Material,PrefResponse=Response_Block)
+                ResponseArray(6)=(Channel=COLLISION_Material,PrefResponse=Response_Block)
+                ResponseArray(7)=(Channel=COLLISION_Material,PrefResponse=Response_Overlap)
+                ResponseArray(8)=(Channel=COLLISION_Material,PrefResponse=Response_Overlap)
+            }
+            CollisionResponses
+            {
+                // Arrays for PawnPhysical materials to override
+                // 0 -"Pawns - Solid Materials",  1 - "Pawns - Blocked Materials",  2 - "Pawns - NonBlocked Materials",
+                // 3 - "Pawn - Stair Step Materials",  4 - "Pawn - Platform materials", 5 - "Pawn - Ramp Materials", 6 - "Pawn - Custom Materials",
+                // 7 - "Pawn - Blocking covers"  8 - "Pawn - Blocked For Nav Mesh"
+                ResponseArray(0)=(Channel=COLLISION_GameTraceChannel1,PrefResponse=Response_Overlap)
+                ResponseArray(1)=(Channel=COLLISION_GameTraceChannel1,PrefResponse=Response_Overlap)
+                ResponseArray(2)=(Channel=COLLISION_GameTraceChannel1,PrefResponse=Response_Overlap)
+                ResponseArray(3)=(Channel=COLLISION_GameTraceChannel1,PrefResponse=Response_Overlap)
+                ResponseArray(4)=(Channel=COLLISION_GameTraceChannel1,PrefResponse=Response_Overlap)
+                ResponseArray(5)=(Channel=COLLISION_GameTraceChannel1,PrefResponse=Response_Block)
+                ResponseArray(6)=(Channel=COLLISION_GameTraceChannel1,PrefResponse=Response_Block)
+                ResponseArray(7)=(Channel=COLLISION_GameTraceChannel1,PrefResponse=Response_Overlap)
+                ResponseArray(8)=(Channel=COLLISION_GameTraceChannel1,PrefResponse=Response_Overlap)
+            }
+        }
+        bNotifyRigidBodyCollision=false
+        NameSprite=Sprite'BigArrowHits'
+    End Object
+    Begin Object Name=basemesh
+       SkeletalMesh=SkeletalDisplayMesh'Meshes.S_King'
+       ShadowOffset=(X=4.000000,Y=4.000000)
+       UseMaterialInstance=true
+       PropertyBasedMaterial=Material'StepTutorialW.Peasant'
+       SingularPostMaterial=true
+       NameMaterialOverrides(0)="NoMaterialChange"
+       HiddenNamedMaterialOverrides.Add("NoMaterialChange")
+       NameSubMeshGroups(0)="Button"
+       NameSubMeshGroups(1)="Screen"
+       NameSubMeshGroups(2)="Back"
+       CollisionComponent=
+       Begin Object Class=SkeletalMeshComponentProperty
+          CollideActor=true
+          CollideWorld=true
+          BlockActor=false
+          BlockNonZeroExtent=true
+          BlockNonZeroExtent=true
+       End Object
+    End Object
+}

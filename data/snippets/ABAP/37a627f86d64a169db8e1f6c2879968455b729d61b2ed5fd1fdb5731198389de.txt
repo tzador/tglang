@@ -1,0 +1,76 @@
+*&---------------------------------------------------------------------*
+*& Report Z_MY_SPECIAL_REPORT
+*&---------------------------------------------------------------------*
+*& This report generates a special report based on customized logic.
+*&
+*&---------------------------------------------------------------------*
+REPORT Z_MY_SPECIAL_REPORT.
+
+* Define selection-screen parameters
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE text-t01.
+  PARAMETERS:
+    p_matnr TYPE mara-matnr OBLIGATORY,
+    p_werks TYPE mara-werks OBLIGATORY,
+    p_kostenst TYPE costc-kostl DEFAULT '1000',
+    p_date1 TYPE sy-datum DEFAULT sy-datum.
+SELECTION-SCREEN END OF BLOCK b1.
+
+* Define global data
+DATA:
+  gv_quantity TYPE i,
+  gv_total TYPE i,
+  gt_data TYPE STANDARD TABLE OF mara.
+
+* Define selection-screen output
+SELECTION-SCREEN BEGIN OF BLOCK b2 WITH FRAME TITLE text-t02.
+  PARAMETERS:
+    p_output TYPE c RADIOBUTTON GROUP rd.
+SELECTION-SCREEN END OF BLOCK b2.
+
+* Define selection-screen comments
+SELECTION-SCREEN BEGIN OF BLOCK b3 WITH FRAME TITLE text-t03.
+  PARAMETERS:
+    p_comments TYPE STRING DEFAULT 'Please enter any comments here'.
+SELECTION-SCREEN END OF BLOCK b3.
+
+* Define selection-screen pushbuttons
+SELECTION-SCREEN PUSHBUTTON /1(10) button1 USER-COMMAND ucomm1.
+SELECTION-SCREEN PUSHBUTTON /30(10) button2 USER-COMMAND ucomm2.
+
+* Define event blocks
+AT SELECTION-SCREEN OUTPUT.
+  LOOP AT SCREEN.
+    IF screen-name = 'P_COMMENTS'.
+      screen-invisible = '2'. " Hide the comments field
+      MODIFY SCREEN.
+    ENDIF.
+  ENDLOOP.
+
+AT SELECTION-SCREEN ON BLOCK b2.
+  IF p_output = abap_true.
+    gv_quantity = 0.
+    gv_total = 0.
+    SELECT SINGLE * FROM mara INTO @DATA(ls_mara) WHERE matnr = @p_matnr AND werks = @p_werks.
+    IF sy-subrc = 0.
+      APPEND ls_mara TO gt_data.
+      gv_quantity = gv_quantity + ls_mara-labst.
+      gv_total = gv_total + ls_mara-labst * ls_mara-peinh.
+    ENDIF.
+    IF gv_quantity > 0.
+      CONDENSE gv_total NO-GAPS.
+      MESSAGE 'Total stock:' gv_total INTO p_comments.
+    ENDIF.
+  ENDIF.
+
+AT SELECTION-SCREEN ON ucomm1.
+  MESSAGE 'You clicked Button 1' TYPE 'S'.
+
+AT SELECTION-SCREEN ON ucomm2.
+  MESSAGE 'You clicked Button 2' TYPE 'S'.
+
+* Define output
+START-OF-SELECTION.
+  WRITE: 'This is the output of your special report:'.
+  LOOP AT gt_data INTO DATA(ls_data).
+    WRITE: / ls_data-matnr, ls_data-werks, ls_data-labst.
+  ENDLOOP.

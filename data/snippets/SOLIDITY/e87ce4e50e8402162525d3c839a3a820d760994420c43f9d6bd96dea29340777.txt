@@ -1,0 +1,48 @@
+// Contract to represent a token sale
+contract TokenSale {
+  mapping(address => uint256) balances; // Mapping to track token balances
+  
+  address public owner;
+  uint256 public tokenPrice;
+  uint256 public tokenForSale;
+
+  modifier onlyOwner() { // Modifier to restrict access to certain functions
+    require(msg.sender == owner); // Require that the sender is the owner
+    _; // Continue execution if requirement is met
+  }
+
+  event TokensPurchased(address buyer, uint256 amount); // Event to track token purchases
+
+  constructor(uint256 _tokenForSale, uint256 _tokenPrice) public {
+    owner = msg.sender;
+    tokenForSale = _tokenForSale;
+    tokenPrice = _tokenPrice;
+  }
+
+  function buyTokens() public payable { // Function to allow buying tokens
+    require(msg.value % tokenPrice == 0); // Require payment to be a multiple of token price
+    require(msg.value > 0); // Require payment to be greater than 0
+
+    uint256 numTokens = msg.value / tokenPrice; // Calculate number of tokens to be purchased
+
+    require(numTokens <= tokenForSale); // Require there to be enough tokens for sale
+
+    balances[msg.sender] += numTokens; // Add tokens to buyer's balance
+    tokenForSale -= numTokens; // Update the number of tokens for sale
+
+    emit TokensPurchased(msg.sender, numTokens); // Emit event to track token purchase
+  }
+
+  function withdrawTokens() public onlyOwner { // Function to allow withdrawing tokens
+    require(balances[msg.sender] > 0); // Require the owner to have tokens to withdraw
+
+    uint256 amount = balances[msg.sender]; // Get the number of tokens to be withdrawn
+
+    balances[msg.sender] = 0; // Set owner's balance to 0
+    tokenForSale += amount; // Update number of tokens for sale
+
+    msg.sender.transfer(amount * tokenPrice); // Transfer ether equivalent to number of tokens
+
+    emit TokensPurchased(msg.sender, amount); // Emit event to track token withdrawal
+  }
+}

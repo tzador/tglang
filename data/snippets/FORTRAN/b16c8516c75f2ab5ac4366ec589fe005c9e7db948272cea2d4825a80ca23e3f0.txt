@@ -1,0 +1,165 @@
+SUBROUTINE EIGENVAL(N, A, EIG, TOL)
+C
+C This subroutine calculates the eigenvalues of a given matrix using the QR algorithm
+C
+C Input:
+C   N - dimension of the square matrix A
+C   A - the square matrix whose eigenvalues to be calculated
+C   TOL - tolerance level for convergence of the algorithm
+C
+C Output:
+C   EIG - array containing the eigenvalues of matrix A
+C
+      IMPLICIT NONE
+C
+C Declaring input and output variables
+      INTEGER :: N
+      REAL :: A(N,N)
+      REAL :: EIG(N)
+      REAL :: TOL
+C
+C Declaring variables for QR algorithm
+      INTEGER :: I, J, K, L
+      REAL :: B, C, D, F, G, H, R, S, T, X, Y, Z
+      REAL :: EPSILON
+C
+C Initializing variables and arrays
+      EPSILON = 1.0E-6
+C
+C Setting the initial value of eigenvalues to be diagonal elements of matrix A
+      DO I = 1, N
+        EIG(I) = A(I,I)
+      ENDDO
+C
+C Applying QR algorithm until convergence
+      DO 200 K = 1, 50
+C
+C Checking for convergence
+        IF (ABS(A(N,N-1)) < TOL) THEN
+          GO TO 250
+        END IF
+C
+C Applying shifted QR algorithm
+        L = N-1
+        DO 300 I = 1, N-1
+          IF (ABS(A(L,L-1)) < TOL) THEN
+            B = A(L,L)
+            C = A(N,N)
+            D = A(N,L)
+            B = B*B
+            C = C*C
+            R = SQRT(B+C)
+            A(L,L) = (B-C)/(2.0*R) + A(N,N)/R
+            A(N,N) = (B-C)/(2.0*R) - A(N,N)/R
+            A(N,L) = -D/R
+            A(L,N) = A(N,L)
+            A(L,L-1) = 0.0
+            A(N,N-1) = 0.0
+            A(N-1,N) = 0.0
+            DO 500 J = 1, L-2
+C
+C Applying Givens rotation
+              X = A(J,J)
+              Y = A(J+1,J)
+              Z = A(J+1,J+1)
+              R = SQRT(X*X + Y*Y)
+              C = X/R
+              S = -Y/R
+              A(J,J) = R
+              A(J+1,J+1) = C*Z - S*A(J+1,J)
+              A(J+1,J) = 0.0
+              A(J,J+1) = 0.0
+              F = R*X + S*Y
+              G = C*Y - S*X
+              DO 600 I = 1, J-1
+                R = A(I,I)
+                A(I,I) = C*R + S*A(I,J)
+                A(I,J) = -S*R + C*A(I,J)
+                A(I,I+1) = 0.0
+                A(I+1,I) = 0.0
+              ENDDO
+              DO 600 I = J+2, L
+                R = A(I,J)
+                A(I,J) = C*R + S*A(I,J+1)
+                A(I,J+1) = -S*R + C*A(I,J+1)
+              ENDDO
+              DO 600 I = 1, N
+                R = EIG(I)
+                EIG(I) = C*R + S*EIG(J)
+                EIG(J) = -S*R + C*EIG(J)
+              ENDDO
+C
+C Applying Givens rotation for column
+              X = A(N,J)
+              Y = A(N,J+1)
+              Z = A(N-1,J+1)
+              R = SQRT(X*X + Y*Y)
+              C = X/R
+              S = -Y/R
+              A(N,J) = R
+              A(N,J+1) = C*Z - S*A(N,J)
+              A(N-1,J+1) = 0.0
+              A(N,J) = 0.0
+              F = R*X + S*Y
+              G = C*Y - S*X
+              DO 700 I = 1, J-1
+                R = A(I,J)
+                A(I,J) = C*R + S*A(I,J+1)
+                A(I,J+1) = -S*R + C*A(I,J+1)
+              ENDDO
+              DO 700 I = J+2, N-1
+                R = A(I,J)
+                A(I,J) = C*R + S*A(I,J+1)
+                A(I,J+1) = -S*R + C*A(I,J+1)
+              ENDDO
+              DO 700 I = 1, L
+                R = EIG(I)
+                EIG(I) = C*R + S*EIG(J+1)
+                EIG(J+1) = -S*R + C*EIG(J+1)
+              ENDDO
+              GO TO 300
+C
+C Applying Givens rotation for row
+600          X = A(J+1,N)
+              Y = A(J,N)
+              Z = A(J+1,J)
+              R = SQRT(X*X + Y*Y)
+              C = X/R
+              S = -Y/R
+              A(J+1,N) = R
+              A(J,N) = C*Z - S*A(J,N)
+              A(J,N-1) = 0.0
+              A(J+1,N) = 0.0
+              F = R*X + S*Y
+              G = C*Y - S*X
+              DO 800 I = 1, J-1
+                R = A(I,J)
+                A(I,J) = C*R + S*A(I+1,J)
+                A(I+1,J) = -S*R + C*A(I+1,J)
+              ENDDO
+              DO 800 I = J+2, N-1
+                R = A(J,I)
+                A(J,I) = C*R + S*A(J+1,I)
+                A(J+1,I) = -S*R + C*A(J+1,I)
+              ENDDO
+              DO 800 I = 1, N
+                R = EIG(I)
+                EIG(I) = C*R + S*EIG(J+1)
+                EIG(J+1) = -S*R + C*EIG(J+1)
+              ENDDO
+C
+C Applying Givens rotation for bottom diagonal element
+800           IF (J+1 == N) THEN
+                GO TO 300
+              END IF
+              J = J+1
+300           L = L-1
+        ENDDO
+200   CONTINUE
+C
+C Printing the approximate eigenvalues
+250   DO I = 1, N
+        PRINT*, "Eigenvalue #", I, "=", EIG(I)
+      ENDDO
+C
+      END SUBROUTINE

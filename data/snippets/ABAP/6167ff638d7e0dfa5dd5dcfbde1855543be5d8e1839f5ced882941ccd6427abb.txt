@@ -1,0 +1,57 @@
+*&---------------------------------------------------------------------*
+*& Report z_print_material_list
+*&---------------------------------------------------------------------*
+REPORT z_print_material_list.
+* Selection screen parameters
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE text-001.
+PARAMETER p_plant TYPE werks_d DEFAULT '1000' OBLIGATORY.
+PARAMETER p_order TYPE aufnr DEFAULT '000000' OBLIGATORY.
+PARAMETER p_date TYPE sy-datum DEFAULT sy-datum.
+SELECTION-SCREEN END OF BLOCK b1.
+
+* Internal table declaration
+TYPES: BEGIN OF t_material,
+         plant LIKE marc-werks,
+         order LIKE afko-aufnr,
+         material LIKE mara-matnr,
+         c_name LIKE mara-maktx,
+         c_description LIKE makt-maktx,
+         c_price LIKE marc-netpr,
+       END OF t_material.
+
+DATA: lt_material TYPE TABLE OF t_material,
+      ls_material TYPE t_material.
+
+* Selection screen fields
+SELECT-OPTIONS s_material FOR ls_material-matnr.
+
+* Main logic
+START-OF-SELECTION.
+  " Get data from database based on input parameters
+  SELECT marc~werks AS plant,
+         afko~aufnr AS order,
+         mara~matnr AS material,
+         mara~maktx AS c_name,
+         makt~maktx AS c_description,
+         marc~netpr AS c_price
+    INTO CORRESPONDING FIELDS OF TABLE lt_material
+    FROM marc INNER JOIN afko ON marc~werks = afko~werks
+              INNER JOIN mara ON marc~matnr = mara~matnr
+              INNER JOIN makt ON mara~matnr = makt~matnr
+    WHERE marc~werks = p_plant
+      AND afko~aufnr = p_order
+      AND makt~spras = sy-langu " Get material text in user's language
+      AND mara~matnr IN s_material.
+
+  " Sort the internal table by plant and material
+  SORT lt_material BY plant material.
+
+  " Loop through the internal table and print the data
+  LOOP AT lt_material INTO ls_material.
+    WRITE: / ls_material-plant,
+             ls_material-order,
+             ls_material-material,
+             ls_material-c_name,
+             ls_material-c_description,
+             ls_material-c_price.
+  ENDLOOP.

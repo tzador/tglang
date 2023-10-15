@@ -1,0 +1,76 @@
+/** 
+   This procedure checks if a customer has purchased a specific product 
+   and returns the date of purchase if they have.
+   
+   INPUT PARAMETERS:
+      ip_customer_id (CHARACTER, optional) - The customer ID to search for
+      ip_product_id (CHARACTER, optional) - The product ID to check for
+   OUTPUT PARAMETERS:
+      op_purchase_date (DATETIME, optional) - The date of purchase if found
+      op_error_code (INTEGER) - The error code if an error occurred
+**/
+PROCEDURE check_customer_purchase:
+   DEFINE INPUT PARAMETER ip_customer_id AS CHARACTER NO-UNDO OPTIONAL.
+   DEFINE INPUT PARAMETER ip_product_id AS CHARACTER NO-UNDO OPTIONAL.
+   DEFINE OUTPUT PARAMETER op_purchase_date AS DATETIME NO-UNDO OPTIONAL.
+   DEFINE OUTPUT PARAMETER op_error_code AS INTEGER NO-UNDO.
+   
+   DEFINE VARIABLE lv_customer_found AS LOGICAL NO-UNDO.
+   DEFINE VARIABLE lv_purchase_date AS DATE NO-UNDO.
+   DEFINE VARIABLE lv_error AS CHARACTER NO-UNDO.
+   
+   ON ERROR UNDO, THROW:
+   
+   /* check if customer ID is provided */
+   IF ip_customer_id = '' THEN
+   DO:
+      ASSIGN lv_error = 'Customer ID is required'
+             op_error_code = 1.
+      THROW ERROR.
+   END.
+   
+   /* check if product ID is provided */
+   IF ip_product_id = '' THEN
+   DO:
+      ASSIGN lv_error = 'Product ID is required'
+             op_error_code = 1.
+      THROW ERROR.
+   END.
+   
+   /* retrieve customer details */
+   FIND FIRST customer WHERE customer.id = ip_customer_id NO-LOCK NO-ERROR.
+   IF NOT AVAILABLE customer THEN
+   DO:
+      ASSIGN lv_error = 'Customer does not exist'
+             op_error_code = 2.
+      THROW ERROR.
+   END.
+   
+   /* check if product has been purchased */
+   FIND FIRST product_purchase
+      WHERE product_purchase.customer_id = customer.id AND 
+            product_purchase.product_id = ip_product_id NO-LOCK NO-ERROR.
+   IF AVAILABLE product_purchase THEN
+   DO:
+      /* retrieve purchase date */
+      ASSIGN lv_purchase_date = product_purchase.purchase_date.
+      
+      IF NOT lv_purchase_date = ? THEN /* purchase date is not null */
+         ASSIGN op_purchase_date = DATETIME(lv_purchase_date, '00:00:00').
+   END.
+   
+   RETURN TRUE.
+   
+   /* catch any errors */
+   CATCH e AS Progress.Lang.Error:
+      ASSIGN op_error_code = e:GetMessageNum().
+      IF lv_error = '' THEN
+         ASSIGN lv_error = e:GetMessage(1).
+      MESSAGE lv_error
+         VIEW-AS ALERT-BOX ERROR 'Error'.
+   END CATCH.
+   
+   /* return false if errors occurred */
+   RETURN FALSE.
+   
+END PROCEDURE.

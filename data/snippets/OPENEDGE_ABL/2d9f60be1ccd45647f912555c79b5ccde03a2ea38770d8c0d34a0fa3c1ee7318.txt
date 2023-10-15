@@ -1,0 +1,62 @@
+/*This is a complex code snippet written in OPENEDGE_ABL programming language. */
+
+/* Define dataset */
+DEFINE DATASET dsCustomer FOR Customer, Order, Address SCROLLING.
+
+/* Define temp-table */
+DEFINE TEMP-TABLE ttCustomer NO-UNDO
+  FIELD Cust-Num AS INTEGER 
+  FIELD Cust-Name LIKE Customer.Name
+  FIELD Cust-Address LIKE Address.Street FORMAT "x(30)"
+  FIELD Num-Orders AS INTEGER.
+
+/* Define buffer for customer table */
+DEFINE BUFFER bufCustomer FOR Customer.
+
+/* Define buffer for order table */
+DEFINE BUFFER bufOrder FOR Order.
+
+/* Define buffer for address table */
+DEFINE BUFFER bufAddress FOR Address.
+
+/* Define dynamic query */
+DEFINE QUERY qCustomer
+  FOR Customer, Order, Address
+  FIELDS(bufCustomer.Cust-Num, bufCustomer.Cust-Name,
+         bufOrder.Order-Num, bufOrder.Order-Date,
+         bufAddress.Street)
+  WHERE bufCustomer.Cust-Num = bufOrder.Cust-Num
+  AND bufCustomer.Cust-Num = bufAddress.Cust-Num
+  AND bufOrder.Status = "Open"
+  AND bufAddress.Country = "USA".
+
+/* Open dataset */
+OPEN DATASET dsCustomer
+  FOR EACH qCustomer.
+
+/* Loop through records in dataset */
+DO WHILE AVAILABLE dsCustomer:
+
+  /* Create new record in temp-table */
+  CREATE ttCustomer.
+  ASSIGN
+    ttCustomer.Cust-Num = bufCustomer.Cust-Num
+    ttCustomer.Cust-Name = bufCustomer.Cust-Name
+    ttCustomer.Cust-Address = bufAddress.Street
+    ttCustomer.Num-Orders = bufOrder.Order-Num.
+
+  /* Update buffer for customer table */
+  UPDATE bufCustomer
+    SET Num-Orders = Num-Orders + 1
+    WHERE Cust-Num = bufCustomer.Cust-Num.
+
+  /* Update dataset */
+  UPDATE dsCustomer.
+
+  /* Display customer information */
+  DISPLAY ttCustomer WITH 1 COLUMN LABELS "Customer Number", "Customer Name", "Address", "Number of Orders".
+
+END.
+
+/* Close dataset */
+CLOSE DATASET dsCustomer.

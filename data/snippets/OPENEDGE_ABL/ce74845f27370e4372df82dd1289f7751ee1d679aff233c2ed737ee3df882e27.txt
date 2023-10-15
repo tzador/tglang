@@ -1,0 +1,93 @@
+{&START-PROCEDURE create-customer.
+DEFINE VARIABLE cNum AS CHARACTER NO-UNDO.
+DEFINE VARIABLE cName AS CHARACTER NO-UNDO.
+DEFINE VARIABLE cEmail AS CHARACTER NO-UNDO.
+DEFINE VARIABLE cAddress AS CHARACTER NO-UNDO.
+DEFINE VARIABLE cPhone AS CHARACTER NO-UNDO.
+DEFINE VARIABLE cType AS CHARACTER NO-UNDO.
+DEFINE VARIABLE cBalance AS DECIMAL NO-UNDO.
+
+/* This procedure will create a new customer entry in the database
+and assign a customer number, name, email, address, phone, type, and balance. */
+
+DEFINE TEMP-TABLE ttCustomer
+    FIELD custNum AS CHARACTER
+    FIELD custName AS CHARACTER
+    FIELD custEmail AS CHARACTER
+    FIELD custAddress AS CHARACTER
+    FIELD custPhone AS CHARACTER
+    FIELD custType AS CHARACTER
+    FIELD custBalance AS DECIMAL.
+
+/* Prompt user for customer information */
+
+PROMPT-FOR cNum LABEL "Enter customer number: "
+PROMPT-FOR cName LABEL "Enter customer name: "
+PROMPT-FOR cEmail LABEL "Enter customer email: "
+PROMPT-FOR cAddress LABEL "Enter customer address: "
+PROMPT-FOR cPhone LABEL "Enter customer phone: "
+PROMPT-FOR cType LABEL "Enter customer type: "
+PROMPT-FOR cBalance LABEL "Enter customer balance: ".
+
+/* Validate customer information */
+
+IF cNum = "" THEN
+    MESSAGE "Please enter a customer number" VIEW-AS ALERT-BOX.
+ELSE IF cName = "" THEN
+    MESSAGE "Please enter a customer name" VIEW-AS ALERT-BOX.
+ELSE IF cEmail = "" THEN
+    MESSAGE "Please enter a customer email" VIEW-AS ALERT-BOX.
+ELSE IF cAddress = "" THEN
+    MESSAGE "Please enter a customer address" VIEW-AS ALERT-BOX.
+ELSE IF cPhone = "" THEN
+    MESSAGE "Please enter a customer phone" VIEW-AS ALERT-BOX.
+ELSE IF cType = "" THEN
+    MESSAGE "Please enter a customer type" VIEW-AS ALERT-BOX.
+ELSE IF cBalance = 0 THEN
+    MESSAGE "Please enter a customer balance" VIEW-AS ALERT-BOX.
+
+/* Add new customer to temp-table */
+
+CREATE ttCustomer.
+ASSIGN
+    ttCustomer.custNum = cNum
+    ttCustomer.custName = cName
+    ttCustomer.custEmail = cEmail
+    ttCustomer.custAddress = cAddress
+    ttCustomer.custPhone = cPhone
+    ttCustomer.custType = cType
+    ttCustomer.custBalance = cBalance.
+
+/* Display new customer information */
+
+MESSAGE "New customer created: " cName VIEW-AS ALERT-BOX.
+
+/* Save temp-table records to database */
+
+FOR EACH ttCustomer:
+    FIND FIRST Customer EXCLUSIVE-LOCK WHERE Customer.custNum = ttCustomer.custNum NO-ERROR.
+    IF AVAILABLE Customer THEN
+        DO:
+            COPY-LOB ttCustomer.custAddress TO Customer.custAddress.
+            COPY-LOB ttCustomer.custEmail TO Customer.custEmail.
+            COPY-LOB ttCustomer.custPhone TO Customer.custPhone.
+            ASSIGN Customer.custBalance = Customer.custBalance + ttCustomer.custBalance.
+
+            UPDATE Customer.
+        END.
+    ELSE
+        DO:
+            CREATE Customer.
+            ASSIGN
+                Customer.custNum = ttCustomer.custNum
+                Customer.custName = ttCustomer.custName
+                Customer.custAddress = ttCustomer.custAddress
+                Customer.custEmail = ttCustomer.custEmail
+                Customer.custPhone = ttCustomer.custPhone
+                Customer.custType = ttCustomer.custType
+                Customer.custBalance = ttCustomer.custBalance.
+
+            APPLY "discount-customer.p" TO Customer NO-ERROR.
+        END.
+END.
+{&END-PROCEDURE}

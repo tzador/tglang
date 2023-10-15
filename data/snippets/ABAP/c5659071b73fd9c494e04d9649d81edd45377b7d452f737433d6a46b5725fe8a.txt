@@ -1,0 +1,91 @@
+*&---------------------------------------------------------------------*
+*& Report ZXY_ABAP_CODE_GENERATOR
+*&---------------------------------------------------------------------*
+ 
+REPORT zxy_abap_code_generator.
+ 
+TYPE-POOLS: slis. "Include for ALV data types
+ 
+**" Data declarations for selection screen
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE text-001.
+PARAMETERS: p_matnr TYPE mara-matnr OBLIGATORY.
+ 
+**" Data declarations for internal tables
+DATA: itab TYPE STANDARD TABLE OF mara,
+      wa_itab TYPE mara.
+ 
+**" Fetching data from database table
+SELECT * FROM mara INTO TABLE itab WHERE matnr = p_matnr.
+CHECK sy-subrc = 0.
+ 
+**" *** DATA ALTERATIONS AND PROCESSING ***
+ 
+**" "Calculating new values for mandatory fields
+LOOP AT itab INTO wa_itab.
+  wa_itab.matnr = '000000000000000000'.
+ENDLOOP.
+ 
+**" "Processing logic for non-mandatory fields
+**" Update some fields based on user input
+LOOP AT itab INTO wa_itab.
+  " if material description is not empty
+  IF wa_itab.mtart IS NOT INITIAL.
+    wa_itab.mtart = 'ABC'.
+  ENDIF.
+ 
+  " if material type is 'Material'
+  IF wa_itab.name1 = 'Material'.
+    wa_itab.mtart = 'M'.
+  ENDIF.
+  " *** END OF DATA ALTERATIONS AND PROCESSING ***
+ 
+**" Creating and displaying ALV report
+DATA: obj TYPE REF TO cl_gui_alv_grid.
+CREATE OBJECT obj.
+ 
+DATA: grida TYPE slis_t_fieldcat_alv WITH HEADER LINE," Create field catalog object
+      wa_fcat TYPE slis_fieldcat_alv. " Create field catalog line item
+ 
+**" First, populate the field catalog
+CLEAR wa_fcat.
+wa_fcat-fieldname = 'MATNR'. " Field name
+wa_fcat-ref_tabname = 'MARA'.
+wa_fcat-seltext_l = 'Material Number'. " Description
+APPEND wa_fcat TO grida.
+ 
+CLEAR wa_fcat.
+wa_fcat-fieldname = 'NAME1'.
+wa_fcat-ref_tabname = 'MARA'.
+wa_fcat-seltext_l = 'Material Description'.
+APPEND wa_fcat TO grida.
+ 
+CLEAR wa_fcat.
+wa_fcat-fieldname = 'MTART'.
+wa_fcat-ref_tabname = 'MARA'.
+wa_fcat-seltext_l = 'Material Type'.
+APPEND wa_fcat TO grida.
+ 
+**" Set layout for ALV report
+DATA: layout TYPE slis_layout_alv,
+      layout_xml TYPE slis_layout_fname,
+      formname TYPE slis_formname.
+ 
+layout-grid_title = 'Material List'. " ALV report title
+layout-cols_nota = 'X'. " prevent user from resizing columns
+layout-zebra = 'X'. " enable zebra pattern on rows
+layout-width = 120. " default column width
+ 
+**" Display ALV report
+CALL METHOD obj->set_table_for_first_display
+  EXPORTING
+    i_structure_name = 'MARA'
+  CHANGING
+    is_layout = layout
+    it_fieldcatalog = grida
+  EXCEPTIONS
+    invalid_parameter_combination = 1
+    program_error = 2
+    too_many_lines = 3
+    OTHERS = 4.
+ 
+**" End of program

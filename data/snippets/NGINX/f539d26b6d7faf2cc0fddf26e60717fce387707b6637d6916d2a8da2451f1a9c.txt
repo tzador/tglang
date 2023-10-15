@@ -1,0 +1,117 @@
+# define a variable for the server name
+server_name www.example.com
+
+# set up a server block
+server {
+  # listen on port 80
+  listen 80;
+
+  # define server name using previously defined variable
+  server_name $server_name;
+
+  # define document root for the server
+  root /var/www/example;
+
+  # enable gzip compression
+  gzip on;
+
+  # enable caching using proxy_cache
+  proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=example_cache:10m inactive=60m;
+  proxy_cache_key "$scheme$request_method$host$request_uri";
+
+  # set up location for proxy caching
+  location / {
+    # define proxy_pass to the backend server
+    proxy_pass http://backend_server;
+
+    # enable caching for the location block
+    proxy_cache example_cache;
+
+    # set ttl for cached content
+    proxy_cache_valid 200 10m;
+
+    # define additional headers to be passed to the backend server
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  }
+
+  # define location for static files
+  location /static/ {
+    # set up alias to the actual directory containing the static files
+    alias /var/www/example/static/;
+  }
+
+  # define location for serving media files
+  location /media/ {
+    # set up alias to the actual directory containing the media files
+    alias /var/www/example/media/;
+
+    # enable serving of partial content for media files
+    # to support seeking in video files
+    # requires nginx version 1.6.0 or newer
+    # uncomment the following line if using an older version of nginx
+    # error_page 416 = @range_not_satisfiable;
+  }
+
+
+  # location block to handle requests for videos
+  # requires nginx-vod-module to be installed
+  location /videos/ {
+    # define proxy_pass to the vod backend server
+    # using the nginx-vod-module uri
+    proxy_pass http://vod_backend_server/vod;
+
+    # set up request parameters for the vod module
+    # including defining the location of the manifest files
+    vod_mode remote;
+    vod_remote_server 127.0.0.1;
+    vod_remote_port 8080;
+    vod_remote_base_url /vod/;
+    vod_remote_manifests_path /var/www/example/vod/manifests/;
+    vod_remote_all_streams;
+
+    # define additional headers to be passed to the vod backend server
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-FORWARDED-FOR $ngx_proxy_add_x_forwarded_for;
+  }
+
+  # location block for handling requests for live streams
+  # requires nginx-rtmp-module to be installed
+  location /streams/ {
+    # define the rtmp server
+    rtmp_server localhost;
+
+    # set up HLS streaming for the live streams
+    # requires nginx-rtmp-module version 1.2.2 or newer
+    # uncomment the following lines if using an older version of nginx-rtmp-module
+    # rtmp_stat all;
+    # rtmp_stat_stylesheet /var/www/example/rtmp-stat.xsl;
+    # rtmp_stat_exports /var/www/example/rtmp-stat.xml;
+    # rtmp_live on;
+    # rtmp_live_path /var/www/example/hls/;
+    # rtmp_hls_variant _low BANDWIDTH=123456;
+    # rtmp_hls_variant _mid BANDWIDTH=789012;
+    # rtmp_hls_variant _high BANDWIDTH=1440000;
+
+    # enable recording for live streams
+    rtmp_record rtmp;
+    rtmp_record_path /var/www/example/live/;
+    rtmp_record_suffix _rec;
+
+    # enable access control for the live streams
+    # allow access only to specific IPs or IP ranges
+    # uncomment the following lines and update the IPs accordingly
+    # deny all;
+    # allow 127.0.0.1;
+    # allow 192.168.0.0/24;
+    # allow 10.0.0.0/8;
+    # deny all;
+  }
+
+  # define location for error logs
+  error_log /var/log/nginx/example_error.log;
+
+  # define location for access logs
+  access_log /var/log/nginx/example_log.log;
+}

@@ -1,0 +1,77 @@
+Function Set-FilePermissions {
+  <#
+    .SYNOPSIS
+      This function sets the permissions for a specified file or folder.
+
+    .DESCRIPTION
+      The Set-FilePermissions function takes in a path to a file or folder
+      and sets the specified permissions for the associated file or folder.
+
+    .PARAMETER Path
+      Specifies the path to the file or folder for which permissions need to be set.
+
+    .PARAMETER Permissions
+      A string or array of strings containing the desired permissions for the file or folder.
+
+    .PARAMETER Recurse
+      When specified, this switch will set the permissions recursively for all subfolders and files.
+
+    .EXAMPLE
+      Set-FilePermissions -Path 'C:\Users\User1\Documents\Important Documents' -Permissions 'FullControl' -Recurse
+
+    .NOTES
+      Author: John Smith
+      Version: 1.0
+      Date: 02/14/2021
+  #>
+  
+  [CmdletBinding()]
+  Param(
+    [Parameter(Mandatory = $true, Position = 0)]
+    [ValidateScript( { Test-Path $_ } )]
+    [string]$Path,
+
+    [Parameter(Mandatory = $true, Position = 1)]
+    [ValidateSet('FullControl', 'Read', 'Write', 'Modify')]
+    [string[]]$Permissions,
+
+    [Parameter(ValueFromPipeline = $true)]
+    [Switch]$Recurse
+  )
+
+  If (-not (Test-Path $Path)) {
+    Throw "Error: The specified path does not exist."
+  }
+
+  If ($Permissions.Contains('FullControl')) {
+    # Get the current owner of the file or folder
+    $currentOwner = (Get-Acl -Path $Path).Owner
+
+    # Take ownership of the file or folder
+    Take-Ownership -Path $Path -Owner $currentOwner
+  }
+
+  ForEach ($permission in $Permissions) {
+    # Get the ACL of the file or folder
+    $acl = Get-Acl -Path $Path
+
+    # Create a permission rule with the desired permission and set it for all users
+    $permissionRule = New-Object System.Security.AccessControl.FileSystemAccessRule("Users", $permission, "ContainerInherit,ObjectInherit", "None", "Allow")
+
+    # Add the permission rule to the ACL
+    $acl.SetAccessRule($permissionRule)
+
+    # Set the new ACL
+    Set-Acl -Path $Path -AclObject $acl
+  }
+
+  If ($Recurse) {
+    # Get all child items (files and folders) in the specified path
+    $children = Get-ChildItem -Path $Path
+
+    # For each child item, call this function recursively to set permissions
+    ForEach ($child in $children) {
+      Set-FilePermissions -Path $child.FullName -Permissions $Permissions -Recurse
+    }
+  }
+}

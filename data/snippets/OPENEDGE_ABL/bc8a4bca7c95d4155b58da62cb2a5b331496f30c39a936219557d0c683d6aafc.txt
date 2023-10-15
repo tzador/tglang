@@ -1,0 +1,75 @@
+/* This program creates a new Order record and saves it to the database */
+
+DEFINE VARIABLE cOrderNum AS CHARACTER NO-UNDO FORMAT "x(10)"
+  LABEL "Order Number".
+
+DEFINE VARIABLE cCustomerNum AS CHARACTER NO-UNDO FORMAT "x(8)"
+  LABEL "Customer Number".
+
+DEFINE VARIABLE cOrderDate AS CHARACTER NO-UNDO FORMAT "99/99/9999"
+  INITIAL TODAY LABEL "Order Date".
+
+DEFINE VARIABLE cShipDate AS CHARACTER NO-UNDO FORMAT "99/99/9999"
+  INITIAL TODAY LABEL "Ship Date".
+
+DEFINE VARIABLE dOrderTotal AS DECIMAL NO-UNDO FORMAT "99999.99"
+  LABEL "Order Total"
+  INITIAL 0.
+
+DEFINE VARIABLE dDiscount AS DECIMAL NO-UNDO FORMAT "999.99"
+  LABEL "Discount"
+  INITIAL 0.
+
+DEFINE VARIABLE dTax AS DECIMAL NO-UNDO FORMAT "9999.99"
+  LABEL "Tax"
+  INITIAL 0.
+
+DEFINE VARIABLE dNetTotal AS DECIMAL NO-UNDO FORMAT "99999.99"
+  LABEL "Net Total"
+  INITIAL 0.
+
+/* Creating new Order record */
+CREATE Order.
+ASSIGN
+  Order.OrderNum = cOrderNum
+  Order.CustomerNum = cCustomerNum
+  Order.OrderDate = cOrderDate
+  Order.ShipDate = cShipDate
+  Order.OrderTotal = dOrderTotal
+  Order.Discount = dDiscount
+  Order.Tax = dTax
+  Order.NetTotal = dNetTotal.
+
+/* Saving record to database */
+DO TRANSACTION:
+  CREATE Order.
+  ASSIGN
+    Order.OrderNum = cOrderNum
+    Order.CustomerNum = cCustomerNum
+    Order.OrderDate = cOrderDate
+    Order.ShipDate = cShipDate
+    Order.OrderTotal = dOrderTotal
+    Order.Discount = dDiscount
+    Order.Tax = dTax
+    Order.NetTotal = dNetTotal.
+  /* Checking for errors */
+  IF ERROR-STATUS:ERROR THEN DO:
+    MESSAGE "Error creating Order record: " ERROR-STATUS:GET-MESSAGE(1) VIEW-AS ALERT-BOX.
+  END.
+  /* If no errors, commit the transaction */
+  ELSE DO:
+    APPLY "pub/orders.s"/* order subscriber */ IN FRAME {&FRAME-NAME-HERE} TO CURRENT-WINDOW.
+    APPLY "pub/line-items.s"/* line items subscriber */ IN FRAME {&FRAME-NAME-HERE} TO CURRENT-WINDOW.
+    /* Call to update the customer's open balance */
+    RUN pub/cust-balances-update.p 
+      (INPUT cCustomerNum
+      dOrderTotal
+      dDiscount
+      dTax
+      dNetTotal) /* Pass in values from the order */
+      /* Checking for errors */
+      ERROR-STATUS:ERROR THEN DO:
+        MESSAGE "Error updating customer balance: " ERROR-STATUS:GET-MESSAGE(1) VIEW-AS ALERT-BOX.
+      END.
+  END.
+END. /* End of transaction */

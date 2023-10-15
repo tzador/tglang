@@ -1,0 +1,96 @@
+/*
+This contract represents a basic voting system where only registered voters can cast their votes.
+*/
+
+//Contract declaration
+contract VotingSystem {
+    
+    //Struct for storing voter details
+    struct Voter {
+        bool isRegistered; //Flag to check if a voter is registered or not
+        bool hasVoted; //Flag to check if a voter has voted or not
+        uint candidateIndex; //Index of the candidate the voter has voted for 
+    }
+    
+    //Struct for storing candidate details
+    struct Candidate {
+        string name; //Name of the candidate
+        uint voteCount; //Number of votes received by the candidate
+    }
+    
+    //Mapping to store the list of voters
+    mapping (address => Voter) public voters;
+    
+    //Array to store the list of candidates
+    Candidate[] public candidates;
+    
+    //Address of the owner of the contract
+    address owner;
+    
+    //Event to notify when a new candidate is added
+    event NewCandidate(string name);
+    
+    //Event to notify when a voter has successfully cast their vote
+    event VoteCasted(address voterAddress, string candidateName);
+    
+    //Constructor function to set the owner of the contract
+    constructor() public {
+        owner = msg.sender;
+    }
+    
+    //Modifier to restrict access to only the owner of the contract
+    modifier onlyOwner {
+        require(msg.sender == owner, "Only the owner of the contract can perform this action.");
+        _;
+    }
+    
+    //Function to add a new candidate to the election
+    function addCandidate(string memory _name) public onlyOwner {
+        //Check if the candidate is already added
+        for (uint i = 0; i < candidates.length; i++) {
+            require(keccak256(abi.encodePacked(candidates[i].name)) != keccak256(abi.encodePacked(_name)), "This candidate is already added.");
+        }
+        
+        //Add the candidate to the list of candidates
+        candidates.push(Candidate(_name, 0));
+        
+        //Emit the NewCandidate event
+        emit NewCandidate(_name);
+    }
+    
+    //Function to register a voter
+    function registerVoter(address _voterAddress) public onlyOwner {
+        
+        //Check if the voter is already registered
+        require(!voters[_voterAddress].isRegistered, "This voter is already registered.");
+        
+        //Register the voter
+        voters[_voterAddress].isRegistered = true;
+        voters[_voterAddress].hasVoted = false;
+        
+    }
+    
+    //Function to cast a vote
+    function castVote(uint _candidateIndex) public {
+        
+        //Check if the voter is registered
+        require(voters[msg.sender].isRegistered, "You are not a registered voter.");
+        
+        //Check if the voter has already cast their vote
+        require(!voters[msg.sender].hasVoted, "You have already cast your vote.");
+        
+        //Check if the candidate index is valid
+        require(_candidateIndex < candidates.length, "Invalid candidate index.");
+        
+        //Update the voter's vote
+        voters[msg.sender].hasVoted = true;
+        voters[msg.sender].candidateIndex = _candidateIndex;
+        
+        //Increase the vote count for the candidate
+        candidates[_candidateIndex].voteCount++;
+        
+        //Emit the VoteCasted event
+        emit VoteCasted(msg.sender, candidates[_candidateIndex].name);
+    }
+    
+}

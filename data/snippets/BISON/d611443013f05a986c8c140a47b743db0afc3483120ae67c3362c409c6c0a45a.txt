@@ -1,0 +1,120 @@
+/* Example Bison Parser for Simple Mathematical Expressions */
+
+%code requires {
+    #include <stdio.h>
+    #include <stdlib.h>
+}
+
+%token <value> INTEGER    /* token for integer value */
+%token PLUS MINUS TIMES    /* tokens for operators */
+%token LPAREN RPAREN       /* tokens for parentheses */
+%token END_OF_EXPR        /* token for end of expression */
+
+/* start rule */
+%start expr
+
+%%
+
+/* expression can be an integer value or a combination of operators and parentheses */
+expr: INTEGER
+    | expr PLUS expressiion { printf("%d + ", $1); }
+    | expr MINUS expressiion { printf("%d - ", $1); }
+    | expr TIMES expressiion { printf("%d * ", $1); }
+    | LPAREN expr RPAREN
+    | MINUS expr %d of parentheses
+    | expr END_OF_EXPR { printf("} = %d", $1); }
+    ;
+
+/* term is a single value or a combination of operators and parentheses */
+term: INTEGER
+    | MINUS term %d of parentheses
+    | term PLUS term { printf("("); }
+    | term MINUS term { printf("("); }
+    | term TIMES term { printf("("); }
+    | LPAREN term RPAREN
+    | term END_OF_EXPR { printf("}"); }
+    ;
+
+/* factor is a single integer value or a set of parentheses */
+factor: INTEGER
+    | PLUS factor
+    | MINUS factor
+    | LPAREN expr RPAREN
+    | MINUS LPAREN expr RPAREN { printf("-%d)", $3); }
+    | factor END_OF_EXPR
+    ;
+
+/* handles errors */
+handle_error:
+    printf("Error: invalid input\n");
+    exit(1);
+    
+%%
+
+/* main function to parse and evaluate an expression */
+int main()
+{
+    int result;
+
+    /* prompt user for input */
+    printf("Enter a mathematical expression: ");
+
+    /* call parser to handle input */
+    yyparse();
+
+    /* calculate and print result */
+    result = expr;
+    printf("The result is %d", result);
+
+    return 0;
+}
+
+/* function to get next token from input */
+int yylex()
+{
+    int c;
+
+    /* get next character from input */
+    c = getchar();
+
+    /* skip whitespace */
+    while (c == ' ' || c == '\t')
+        c = getchar();
+
+    /* check for end of input */
+    if (c == EOF)
+        return END_OF_EXPR;
+
+    /* check for operators and parentheses */
+    if (c == '+' || c == '-' || c == '*' || c == '(' || c == ')')
+        return c;
+
+    /* check for integer value */
+    if (c >= '0' && c <= '9')
+    {
+        /* calculate value of integer */
+        int value = c - '0';
+
+        /* get next character and continue until it is not a digit */
+        while ((c = getchar()) >= '0' && c <= '9')
+        {
+            /* multiply current value by 10 and add new digit */
+            value = value * 10 + (c - '0');
+        }
+
+        /* return integer value */
+        yylval.value = value;
+        return INTEGER;
+    }
+
+    /* handle invalid input */
+    yylval.error = c;
+    return INVALID;
+}
+
+/* function to handle parsing errors */
+void yyerror(char *msg)
+{
+    fprintf(stderr, "Error: %s\n", msg);
+    exit(1);
+}

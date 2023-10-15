@@ -1,0 +1,85 @@
+# This code snippet uses the reinforcement learning algorithm, Q-learning, to solve a grid world problem
+# The problem involves a 5x5 grid world with a start state (S), goal state (G), and obstacles (X)
+# The agent must navigate through the grid world to reach the goal state while avoiding obstacles
+# The agent receives rewards for reaching the goal state (+10) or hitting an obstacle (-10)
+# The Q-table is initialized with arbitrary values and is updated after each action taken
+# Import necessary packages
+library(MASS)
+library(gridExtra)
+
+# Set up grid world environment
+grid_size <- 5 # define size of grid
+states <- paste0('S', seq(1, grid_size^2-2)) # create list of all grid states (excluding G and X)
+states <- c(states, 'G', 'X') # add goal state and obstacles to state list
+actions <- c('up', 'down', 'left', 'right') # define actions available to agent
+q_table <- matrix(rnorm(length(states)*length(actions)), ncol = length(actions), nrow = length(states), 
+                  dimnames = list(states, actions)) # initialize Q-table with random values
+
+# Function for selecting an action based on maximum Q-value for a given state
+get_action <- function(state, q_table, epsilon){
+  if (runif(1)<epsilon){ # epsilon-greedy policy
+    return(sample(actions, 1))
+  } else {
+    return(names(q_table[state,])[which.max(q_table[state,])]) # choose action with maximum Q-value for state
+  }
+}
+
+# Function for updating Q-value in Q-table after taking an action and receiving reward
+update_q_table <- function(state, action, reward, next_state, q_table, learning_rate, discount_factor){
+  max_q <- max(q_table[next_state,]) # maximum Q-value for next state
+  q <- q_table[state, action] # Q-value for current state and action
+  new_q <- q + learning_rate*(reward + discount_factor*max_q - q) # update Q-value using Bellman equation
+  q_table[state, action] <- new_q # update Q-table with new Q-value
+  return(q_table)
+}
+
+# Function for running Q-learning algorithm
+run_q_learning <- function(start_state, goal_state, obstacles, q_table, learning_rate, discount_factor, epsilon,
+                           max_steps, verbose = FALSE){
+  state <- start_state # initialize state to start state
+  steps <- 0 # initialize number of steps taken
+  path <- list(state) # store path taken by agent
+
+  # Run Q-learning until goal state is reached or maximum number of steps is reached
+  while (state!=goal_state & steps<max_steps){
+    action <- get_action(state, q_table, epsilon) # select action based on current state and Q-table
+    next_state <- if (action=='up') state-grid_size
+      else if (action=='down') state+grid_size
+      else if (action=='left') state-1
+      else if (action=='right') state+1 # determine next state based on action
+    reward <- if (next_state %in% obstacles) -10 
+      else if (next_state==goal_state) 10
+      else -1 # determine reward based on next state
+    q_table <- update_q_table(state, action, reward, next_state, q_table, learning_rate, discount_factor) # update Q-table
+    state <- next_state # update current state
+    steps <- steps+1 # increment step count
+    path <- c(path, state) # add current state to path taken
+    if (verbose){ # print current state and path taken if verbose is TRUE
+      cat('Current State: ', state, '\n')
+      cat('Path taken: ', path, '\n\n')
+    }
+  }
+  
+  if (steps==max_steps){ # print message if maximum steps reached without reaching goal state
+    cat('Maximum steps reached without reaching goal state.')
+  } else { # print message and final path taken if goal state is reached
+    cat('Goal state reached in ', steps, ' steps.')
+    cat('Final path: ', path, '\n\n')
+  }
+  
+  # Visualize path taken in grid world
+  gridworld <- matrix(0, ncol = grid_size, nrow = grid_size)
+  gridworld[start_state] <- -1 # start state shown in orange
+  gridworld[goal_state] <- -2 # goal state shown in green
+  gridworld[obstacles] <- -3 # obstacles shown in red
+  gridworld[path] <- 1 # path taken shown in blue
+  gridworld <- as.data.frame(gridworld)
+  gridworld <- gridworld[grid_size:1,] # flip grid world to match coordinate system
+  gridworld <- apply(gridworld, 2, rev) # flip grid world to match coordinate system
+  p <- rasterGrob(gridworld, col = c('orange', 'green', 'red', 'blue'), # create raster graphic of grid world
+                  interpolate = FALSE, hjust = 0, vjust = 0)
+  grid::grid.raster(p)
+}
+
+# Run Q-learning algorithm
+run_q_learning('S1', 'G', c('X7', 'X14', 'X18', 'X20'), q_table, 0.1, 0.9, 0.1, 100, TRUE)

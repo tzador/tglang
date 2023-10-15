@@ -1,0 +1,130 @@
+# NGINX server configuration
+
+# Set the user and group under which NGINX will run
+user www-data www-data;
+
+# Number of worker processes to spawn
+worker_processes 4;
+
+# Worker process spawns 1024 connections
+events {
+  worker_connections 1024;
+}
+
+# Configure the HTTP server
+http {
+
+  # Define the log format
+  log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                  '$status $body_bytes_sent "$http_referer" '
+                  '"$http_user_agent" "$http_x_forwarded_for"';
+
+  # Configure access and error logs
+  access_log /var/log/nginx/access.log;
+  error_log /var/log/nginx/error.log;
+
+  # Configure the port to listen on
+  server {
+    listen 80; # Listen on port 80 for HTTP requests
+
+    # Specify the server_name
+    server_name example.com; # Replace with your domain name
+
+    # Define the document root
+    root /var/www/html;
+
+    # Enable index file lookup
+    index index.html;
+
+    # Configure HTTP response headers
+    add_header X-XSS-Protection "1; mode=block";
+    add_header X-Content-Type-Options nosniff;
+
+    # Prevent clickjacking attacks
+    add_header X-Frame-Options "SAMEORIGIN";
+
+    # Disable server information in HTTP response
+    server_tokens off;
+
+    # Enable gzip compression
+    gzip on;
+    gzip_types text/plain text/css text/javascript application/javascript;
+
+    # Add custom error pages
+    error_page 401 /error_pages/401.html;
+    error_page 404 /error_pages/404.html;
+    error_page 500 /error_pages/500.html;
+
+    # Configure caching for static assets
+    location ~* \.(jpg|jpeg|gif|png|svg|js|css|ico)$ {
+      expires 30d;
+    }
+
+    # Handle HTTP requests
+    location / {
+      # Pass the request to the application server
+      proxy_pass http://localhost:8080;
+
+      # Hide the headers that contain server information
+      proxy_hide_header X-Powered-By;
+      proxy_hide_header X-Server-Name;
+      proxy_hide_header X-Server-OS;
+
+      # Enable HTTP/2
+      proxy_http_version 1.1;
+      proxy_set_header Connection "";
+
+      # Enable caching for HTTP responses
+      proxy_cache_bypass $http_pragma;
+      proxy_cache_revalidate on;
+      proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+      proxy_cache_min_uses 3;
+      proxy_cache_key "$scheme$request_method$host$request_uri";
+      proxy_cache_valid 200 60m;
+    }
+
+    # Redirect HTTP requests to HTTPS
+    server {
+      listen 80 default_server;
+      listen [::]:80 default_server;
+
+      return 301 https://$host$request_uri;
+    }
+
+    # Configure SSL
+    server {
+      listen 443 ssl;
+      listen [::]:443 ssl;
+
+      # Replace with your SSL certificate and private key
+      ssl_certificate /etc/nginx/ssl/example.crt;
+      ssl_certificate_key /etc/nginx/ssl/example.key;
+
+      # Enable secure protocols only
+      ssl_protocols TLSv1.2;
+      ssl_prefer_server_ciphers on;
+      ssl_ciphers "EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH";
+
+      # Enable HSTS
+      add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+
+      # Enable OCSP stapling for improved security and performance
+      ssl_stapling on;
+      ssl_stapling_verify on;
+      ssl_trusted_certificate /etc/nginx/ssl/example.crt;
+
+      # Enable content security policy (CSP)
+      add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.example.com; style-src 'self' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; report-uri https://example.report-uri.com/r/d/csp/enforce";
+
+      # Enable HTTP/2
+      http2_push_preload on;
+      http2_max_field_size 16k;
+      http2_recv_timeout 2m;
+
+      # Enable session resumption for improved performance
+      ssl_session_cache shared:SSL:10m;
+      ssl_session_timeout 30m;
+      ssl_session_tickets on;
+    }
+  }
+}

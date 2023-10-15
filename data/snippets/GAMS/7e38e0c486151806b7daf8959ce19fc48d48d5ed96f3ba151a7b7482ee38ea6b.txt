@@ -1,0 +1,77 @@
+$Title Multi-Echelon Supply Chain Model
+
+Sets
+    i "Plants" / plant1, plant2, plant3 /
+    j "Distribution Centers" / dc1, dc2, dc3, dc4 /
+    k "Retailers" / r1*r5 /
+    m "Products" / p1*p10 /
+    t "Time Periods" / t1*t10 /
+    bc "Big Customers" / customer1, customer2, customer3 /;
+
+Parameters
+    tc(i) "Transport Cost from Plant to DC"
+        / plant1 200, plant2 250, plant3 300 /
+    dl(i, m) "Demand for Product in a Plant"
+        / plant1.p1 500, plant1.p2 1500
+          plant2.p1 1000, plant2.p2 2000
+          plant3.p1 1500, plant3.p2 1000 /
+    uc(i) "Production Cost at the Plant level"
+        / plant1 0.75, plant2 0.9, plant3 1.1 /
+    ti(m, t) "Product demand in a time period"
+        / p1.t1 100, p1.t2 50, p1.t3 75, p1.t4 125, p1.t5 100,
+          p2.t1 200, p2.t2 100, p2.t3 150, p2.t4 250, p2.t5 200,
+          p3.t1 50, p3.t2 25, p3.t3 30, p3.t4 50, p3.t5 40,
+          p4.t1 75, p4.t2 65, p4.t3 100, p4.t4 80, p4.t5 60,
+          p5.t1 60, p5.t2 40, p5.t3 50, p5.t4 70, p5.t5 55,
+          p6.t1 50, p6.t2 75, p6.t3 60, p6.t4 80, p6.t5 100,
+          p7.t1 30, p7.t2 20, p7.t3 40, p7.t4 35, p7.t5 60,
+          p8.t1 40, p8.t2 30, p8.t3 25, p8.t4 45, p8.t5 35,
+          p9.t1 20, p9.t2 10, p9.t3 15, p9.t4 25, p9.t5 20,
+          p10.t1 15, p10.t2 25, p10.t3 50, p10.t4 40, p10.t5 35 /;
+
+Set bigCustomers(i, bc, t);
+
+Parameters
+   sc(i,j) "Shipping Capacity between Plant and DC"
+      / plant1.dc1 500, plant1.dc2 750, plant1.dc3 1000,
+        plant2.dc1 1000, plant2.dc2 1250, plant2.dc3 1500,
+        plant3.dc1 750, plant3.dc2 1000, plant3.dc3 1250 /
+   rc(j, k) "Retailer capacity in DC"
+      / customer1.r1 100, customer1.r2 150, customer1.r3 100, customer1.r4 200, customer1.r5 150,
+        customer2.r1 150, customer2.r2 100, customer2.r3 100, customer2.r4 150, customer2.r5 200,
+        customer3.r1 200, customer3.r2 200, customer3.r3 150, customer3.r4 50, customer3.r5 100 /;
+
+Variables
+    x(i, j, m, t) "Amount of product shipped"
+    y(i, k, m, t) "Amount of product produced"
+    z(i, bc, t) "Amount of product for big customers"
+    obj "Total cost over all plant/DC/retailer/time locations";
+
+Positive Variable x, y, obj;
+
+Equations
+    cost "Objective function"
+    s_cons(i, j, m, t) "Shipping constraint"
+    c_cons(i, k, m, t) "Production constraint"
+    p_cons(i, bc, t) "Big customer demand constraint";
+
+cost.. obj =e= sum((i, j, m, t), tc(i) * x(i, j, m, t))
+              + sum((i, k, m, t), uc(i) * y(i, k, m, t));
+s_cons(i, j, m, t).. x(i, j, m, t) =l= sc(i,j);
+c_cons(i, k, m, t).. y(i, k, m, t) =l= dl(i,m);
+p_cons(i, bc, t).. z(i, bc, t) =e= x(i, j, m, t)$bigCustomers(i, bc, t);
+
+Model multiEchelonSupplyChain /all/;
+
+Option lp = cplex;
+$GdxIn "input.gdx"
+$Load i j k m t dl param
+$GdxIn
+
+bigCustomers(i, customer1, *)$SetRange(i) = yes;
+bigCustomers(i, customer2, *)$SetRange(i) = no;
+bigCustomers(i, customer3, *)$SetRange(i) = no;
+
+Solve multiEchelonSupplyChain max obj using lp;
+
+Display x.l, y.l, obj.l;

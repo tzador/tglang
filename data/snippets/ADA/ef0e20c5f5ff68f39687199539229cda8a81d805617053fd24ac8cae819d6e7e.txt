@@ -1,0 +1,321 @@
+-- This is a code snippet in ADA that creates an AVL tree data structure and performs operations on it
+
+with Text_IO; use Text_IO;
+with Ada.Text_IO.Integer_IO; use Ada.Text_IO.Integer_IO;
+
+-- Define a node type for the AVL tree
+type AVL_Node is record
+    Key : Integer;
+    Left : access AVL_Node;
+    Right : access AVL_Node;
+    Balance : Integer := 0;
+end record;
+
+-- Define a pointer to the root of the tree
+type AVL_Tree is access AVL_Node;
+
+-- Function to insert a new key into the AVL tree
+procedure Insert (T : in out AVL_Tree; New_Key : Integer) is
+    procedure Balance_Right (N : in out AVL_Node) is
+        -- Helper procedure to balance the tree to the right
+        begin
+            if N.Balance = -1 then
+                N.Balance := 0;
+            elsif N.Balance = 0 then
+                N.Balance := 1;
+                T.Balance := -1;
+            else
+                -- N.Balance = 1
+                T.Balance := 0;
+            end if;
+            
+            N.Left.Balance := 0;
+            N.Right.Balance:= 0;
+            N := N.Left;
+        end Balance_Right;
+    procedure Balance_Left (N : in out AVL_Node) is
+        -- Helper procedure to balance the tree to the left
+        begin
+            if N.Balance = 1 then
+                N.Balance := 0;
+            elsif N.Balance = 0 then
+                N.Balance := -1;
+                T.Balance := 1;
+            else
+                -- N.Balance = -1
+                T.Balance := 0;
+            end if;
+            
+            N.Left.Balance := 0;
+            N.Right.Balance := 0;
+            N := N.Right;
+        end Balance_Left;
+    procedure Balance_Right_Left (N : in out AVL_Node) is
+        -- Helper procedure to balance the tree to the right and then left
+        begin
+            N.Left.Balance := 0;
+            N := N.Left;
+            Balance_Left (N);
+            Balance_Right (N);
+        end Balance_Right_Left;
+    procedure Balance_Left_Right (N : in out AVL_Node) is
+        -- Helper procedure to balance the tree to the left and then right
+        begin
+            N.Right.Balance := 0;
+            N := N.Right;
+            Balance_Right (N);
+            Balance_Left (N);
+        end Balance_Left_Right;
+    begin
+        if T = null then
+            T := new AVL_Node;
+            T.Key := New_Key;
+            
+        elsif New_Key < T.Key then
+            -- Insert into the left subtree
+            Insert (T.Left, New_Key);
+            
+            if T.Balance = 1 then
+                -- Tree was out of balance to the right 
+                -- but is now perfectly balanced
+                T.Balance := 0;
+            elsif T.Balance = 0 then
+                -- Tree was perfectly balanced at this level
+                -- and now tilts to the left
+                T.Balance := -1;
+            
+            -- Else T.Balance must already be -1, so the node
+            -- has tilted to the left a second time 
+            -- but this may create an unbalance with one of its sons
+            else
+                Balance_Left (T);
+            end if;
+            
+            -- Take care of the case when the balance factor becomes
+            -- -2 and left rotation or double rotation permutation needs to be applied
+            if T.Balance = -2 then
+                if T.Left.Balance = -1 then
+                    -- left rotation
+                    Balance_Right (T);
+                else
+                    -- double rotation
+                    Balance_Left_Right (T);
+                end if;
+            end if;
+            
+        elsif New_Key > T.Key then
+            -- Insert into the right subtree
+            Insert (T.Right, New_Key);
+            
+            if T.Balance = -1 then
+                -- Tree was out of balance to the left 
+                -- but is now perfectly balanced
+                T.Balance := 0;
+            elsif T.Balance = 0 then
+                -- Tree was perfectly balanced at this level
+                -- and now tilts to the right
+                T.Balance := 1;
+            
+            -- Else T.Balance must already be 1, so the node
+            -- has tilted to the right a second time 
+            -- but this may create an unbalance with one of its sons
+            else
+                Balance_Right (T);
+            end if;
+            
+            -- Take care of the case when the balance factor becomes
+            -- 2 and right rotation or double rotation permutation needs to be applied
+            if T.Balance = 2 then
+                if T.Right.Balance = 1 then
+                    -- right rotation
+                    Balance_Left (T);
+                else
+                    -- double rotation
+                    Balance_Right_Left (T);
+                end if;
+            end if;
+        else
+            -- Key already exists in the tree, nothing to do
+            null;
+        end if;
+    end Insert;
+    
+-- Function to delete a key from the AVL tree
+procedure Delete (T : in out AVL_Tree; Key : Integer) is
+    -- Procedure to find the node that contains the key
+    procedure Find_Node (N : in out AVL_Node; Key : Integer) is
+        begin
+            if N.Key = Key then
+                -- Found the node
+                -- Check which case we are in
+                if N.Balance = -2 then
+                    -- Unbalanced to the left
+                    if N.Left.Balance = -1 then
+                        -- left rotation
+                        Balance_Right (N);
+                    else
+                        -- double rotation
+                        Balance_Left_Right (N);
+                    end if;
+                elsif N.Balance = 2 then
+                    -- Unbalanced to the right
+                    if N.Right.Balance = 1 then
+                        -- right rotation
+                        Balance_Left (N);
+                    else
+                        -- double rotation
+                        Balance_Right_Left (N);
+                    end if;
+                else
+                    -- Tree was perfectly balanced at this level
+                    N.Balance := 0;
+                end if;
+            elsif Key < N.Key then
+                -- Keep looking in the left subtree
+                Find_Node (N.Left, Key);
+            else
+                -- Keep looking in the right subtree
+                Find_Node (N.Right, Key);
+            end if;
+        end Find_Node;
+    begin
+        if T = null then
+            -- Tree is empty, nothing to delete
+            null;
+            
+        else
+            if Key = T.Key then
+                if T.Left = null and T.Right = null then
+                    -- Case 1: Node to be deleted is a leaf node
+                    free (T);
+                    T := null;
+                elsif T.Left = null or T.Right = null then
+                    if T.Left = null then
+                        -- Case 2: Node to be deleted has one child on the right
+                        T := T.Right;
+                    else
+                        -- Case 2: Node to be deleted has one child on the left
+                        T := T.Left;
+                    end if;
+                else
+                    -- Case 3: Node to be deleted has both left and right children
+                    -- Find the node with the smallest key in the right subtree
+                    -- and use it to replace the node to be deleted
+                    declare
+                        Temp : access AVL_Node := T.Right;
+                    begin
+                        while Temp.Left /= null loop
+                            Temp := Temp.Left;
+                        end loop;
+                        
+                        T.Key := Temp.Key;
+                        Delete (T.Right, Temp.Key);
+                        
+                        -- After the node has been deleted, the right subtree might be unbalanced
+                        -- so we check its balance factor and apply the appropriate rotations
+                        if T.Right.Balance = -2 then
+                            -- Unbalanced to the left
+                            if T.Right.Left.Balance = -1 then
+                                -- left rotation
+                                Balance_Right (T.Right);
+                            else
+                                -- double rotation
+                                Balance_Left_Right (T.Right);
+                            end if;
+                        elsif T.Right.Balance = 2 then
+                            -- Unbalanced to the right
+                            if T.Right.Right.Balance = 1 then
+                                -- right rotation
+                                Balance_Left (T.Right);
+                            else
+                                -- double rotation
+                                Balance_Right_Left (T.Right);
+                            end if;
+                        end if;
+                    end;
+                end if;
+            elsif Key < T.Key then
+                -- Keep looking in the left subtree
+                Delete (T.Left, Key);
+            else
+                -- Keep looking in the right subtree
+                Delete (T.Right, Key);
+            end if;
+            
+            -- Once the node has been deleted, check the balance factor of the tree
+            -- to ensure it remains an AVL tree
+            if T = null then
+                -- Tree is empty, nothing to balance
+                null;
+                
+            elsif T.Balance = -2 then
+                -- Unbalanced to the left
+                if T.Left.Balance = -1 then
+                    -- left rotation
+                    Balance_Right (T);
+                else
+                    -- double rotation
+                    Balance_Left_Right (T);
+                end if;
+            
+            elsif T.Balance = 2 then
+                -- Unbalanced to the right
+                if T.Right.Balance = 1 then
+                    -- right rotation
+                    Balance_Left (T);
+                else
+                    -- double rotation
+                    Balance_Right_Left (T);
+                end if;
+            end if;
+        end if;
+    end Delete;
+    
+-- Procedure to print an in-order traversal of the AVL tree
+procedure Print (T : in AVL_Tree) is
+    -- Helper procedure to recursively traverse the tree and print the keys
+    procedure Traverse (N : in AVL_Node) is
+        begin
+            if N /= null then
+                Traverse (N.Left);
+                Put (N.Key);
+                Put_Line (" (" & N.Balance'Image & ")");
+                Put (" ");
+                Traverse (N.Right);
+            end if;
+        end Traverse;
+    begin
+        if T /= null then
+            Traverse (T);
+        else
+            Put_Line ("The tree is empty.");
+        end if;
+    end Print;
+    
+-- Create an AVL tree and perform operations on it
+procedure Main is
+    Tree : AVL_Tree := null;
+begin
+    -- Insert some keys into the tree
+    Insert (Tree, 5);
+    Insert (Tree, 1);
+    Insert (Tree, 7);
+    Insert (Tree, 4);
+    Insert (Tree, 9);
+    Insert (Tree, 2);
+    Insert (Tree, 6);
+    
+    -- Print the tree
+    Put_Line ("In-order traversal of the tree:");
+    Print (Tree);
+    
+    -- Delete some keys from the tree
+    Delete (Tree, 7);
+    Delete (Tree, 4);
+    Delete (Tree, 2);
+    Delete (Tree, 9);
+    
+    -- Print the tree again
+    Put_Line ("In-order traversal of the tree after deleting some keys:");
+    Print (Tree);
+end Main;

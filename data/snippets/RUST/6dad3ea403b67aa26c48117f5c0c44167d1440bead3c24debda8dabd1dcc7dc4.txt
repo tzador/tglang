@@ -1,0 +1,48 @@
+#![feature(async_closure)]
+
+use std::collections::HashMap;
+use tokio::sync::{Mutex, RwLock};
+
+struct Database {
+    items: RwLock<HashMap<i32, String>>
+}
+
+impl Database {
+    pub async fn insert(&self, key: i32, value: String) -> Result<(), String> {
+        // Use a closure for asynchronous computation
+        let insert_fn = async move || {
+            // Simulate async call using a delay
+            tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+            self.items.write().await.insert(key, value);  // Use Tokio's built-in mutex for concurrency control
+            Ok(())
+        };
+        insert_fn().await  // Invoke the closure to perform the computation
+    }
+
+    pub async fn get(&self, key: i32) -> Result<String, String> {
+        // Use a closure for asynchronous computation
+        let get_fn = async move || {
+            // Simulate async call using a delay
+            tokio::time::delay_for(std::time::Duration::from_secs(1)).await;
+            self.items.read().await.get(&key).cloned().ok_or("Key does not exist".to_string())
+        };
+        get_fn().await  // Invoke the closure to perform the computation
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    let database = Database { items: RwLock::new(HashMap::new()) };
+
+    // Spawn a future to run asynchronously
+    tokio::spawn(async move {
+        database.insert(1, "value1".to_string()).await.unwrap();
+        database.insert(2, "value2".to_string()).await.unwrap();
+    });
+
+    // Call the get method and print the results
+    let result1 = database.get(1).await;
+    let result2 = database.get(2).await;
+    println!("result1: {:?}", result1);
+    println!("result2: {:?}", result2);
+}

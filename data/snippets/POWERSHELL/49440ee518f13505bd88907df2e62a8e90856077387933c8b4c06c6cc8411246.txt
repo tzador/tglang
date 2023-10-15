@@ -1,0 +1,20 @@
+$Output = @()
+
+$DriveList = Get-WmiObject Win32_Volume | 
+Where-Object { $_.DriveType -eq '2' } | 
+Select-Object Name
+
+foreach ($Drive in $DriveList) {
+    $DiskUtilInfo = New-Object psobject
+
+    $BDEStatus = Invoke-Command -ScriptBlock { Get-BitLockerVolume -MountPoint $args[0] | Select-Object -ExpandProperty ProtectionStatus } -ArgumentList $Drive.Name
+    $WIMStatus = Invoke-Command -ScriptBlock { Get-FileIntegrity | Select-Object -ExpandProperty Enabled } -ArgumentList $Drive.Name
+
+    $DiskUtilInfo | Add-Member -MemberType NoteProperty -Name "DriveName" -Value $Drive.Name
+    $DiskUtilInfo | Add-Member -MemberType NoteProperty -Name "Bitlocker Status" -Value $BDEStatus
+    $DiskUtilInfo | Add-Member -MemberType NoteProperty -Name "File Integrity Status" -Value $WIMStatus
+    
+    $Output += $DiskUtilInfo
+}
+
+$Output | Format-Table -AutoSize

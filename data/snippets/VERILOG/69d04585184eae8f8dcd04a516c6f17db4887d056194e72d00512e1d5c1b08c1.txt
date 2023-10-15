@@ -1,0 +1,86 @@
+module counter (clk, reset, enable, count_out, error);
+    
+    // Input and Output declarations
+    input clk, reset, enable;
+    output [3:0] count_out;
+    output error;
+    
+    // Internal wire declarations
+    wire [3:0] next_count;
+    wire [2:0] current_state;
+    wire [2:0] next_state;
+    wire count_overflow;
+    wire count_underflow;
+
+    // State parameter declarations
+    parameter IDLE = 3'b000;
+    parameter INC_STATE = 3'b001;
+    parameter DEC_STATE = 3'b010;
+    parameter ERROR_STATE = 3'b011;
+    
+    // Registers to store current and next state values
+    reg [2:0] current_state_reg;
+    reg [2:0] next_state_reg;
+    
+    // Assigning current state based on initial state value
+    always @ (posedge clk)
+    begin
+        if(reset)
+            current_state_reg <= IDLE;
+        else
+            current_state_reg <= next_state_reg;
+    end
+    
+    // Assigning next state based on inputs and current state
+    always @ (*)
+    begin
+        next_state_reg = current_state_reg;
+        error = 0;
+        case(current_state_reg)
+            IDLE:
+                begin
+                    if(enable)
+                        next_state = INC_STATE;
+                    else
+                        next_state = current_state_reg;
+                end
+            INC_STATE:
+                begin
+                    if(enable)
+                        next_state = current_state_reg + 1;
+                    if(current_state_reg == 3)
+                        next_state = ERROR_STATE;
+                    count_overflow = (current_state_reg == 3 && enable);
+                end
+            DEC_STATE:
+                begin
+                    if(enable)
+                        next_state = current_state_reg - 1;
+                    if(current_state_reg == 0)
+                        next_state = ERROR_STATE;
+                    count_underflow = (current_state_reg == 0 && enable);
+                end
+            ERROR_STATE:
+                begin
+                    next_state = current_state;
+                    error = 1;
+                end
+        endcase
+    end
+    
+    // Assigning output count based on current state
+    always @ (*)
+    begin
+        case(current_state)
+            IDLE:
+                count_out = 3'b000;
+            INC_STATE:
+                count_out = current_state;
+            DEC_STATE:
+                count_out = current_state;
+            ERROR_STATE:
+                count_out = 3'b111;
+        endcase
+    end
+
+endmodule

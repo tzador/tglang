@@ -1,0 +1,279 @@
+# Main NGINX configuration file
+
+# Start event-based configuration
+events {
+    # Set maximum number of connections
+    worker_connections 1024;
+}
+
+# Define virtual server block
+http {
+    # Set the server's default port
+    listen 80 default_server;
+    
+    # Define server name
+    server_name mywebsite.com;
+    
+    # Disable server tokens
+    server_tokens off;
+    
+    # Set location of root directory
+    root /var/www/mywebsite;
+    
+    # Specify which index file to use
+    index index.html;
+    
+    # Enable gzip compression
+    gzip on;
+    
+    # Specify which files to compress
+    gzip_types text/plain text/css application/json;
+    
+    # Set expiration for cached files
+    expires 1d;
+    
+    # Enable caching
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=cache:10m inactive=60m;
+    
+    # Handle requests for static files
+    location /static/ {
+        # Set cache location and expiration
+        proxy_cache cache;
+        proxy_cache_valid 200 60m;
+        
+        # Define caching rules for various file types
+        proxy_cache_valid 404 1m;
+        proxy_cache_valid 500 1m;
+        
+        # Set caching key based on request URI
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+        
+        # Disable caching for POST requests
+        proxy_cache_bypass $http_pragma;
+        
+        # Forward request to backend server
+        proxy_pass http://backend;
+        
+        # Set timeout for backend server
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        
+        # Enable proxy buffering
+        proxy_buffering on;
+        proxy_buffer_size 4k;
+        proxy_buffers 4 32k;
+        
+        # Caching must be enabled for this location
+        proxy_cache_use_stale error timeout invalid_header updating http_500 http_502 http_503 http_504;
+    }
+    
+    # Handle requests for dynamic pages
+    location / {
+        # Forward request to backend server
+        proxy_pass http://backend;
+        
+        # Enable proxy buffering
+        proxy_buffering on;
+        proxy_buffer_size 4k;
+        proxy_buffers 4 32k;
+        
+        # Caching must be disabled for this location
+        proxy_cache_bypass $http_pragma;
+    }
+    
+    # Handle requests for API endpoints
+    location /api/ {
+        # Set timeout for backend server
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 5s;
+        
+        # Forward request to backend server
+        proxy_pass http://backend_api;
+    }
+    
+    # Redirect requests to HTTPS
+    server {
+        listen 80 default_server;
+        listen [::]:80 default_server;
+        server_name mywebsite.com;
+        
+        # Permanent redirect to HTTPS
+        return 301 https://$host$request_uri;
+    }
+    
+    # HTTPS server configuration
+    server {
+        listen 443 ssl;
+        listen [::]:443 ssl;
+        server_name mywebsite.com;
+        
+        # Specify SSL certificate and private key location
+        ssl_certificate /etc/nginx/ssl/certificate.crt;
+        ssl_certificate_key /etc/nginx/ssl/private.key;
+        
+        # Enable session resumption
+        ssl_session_cache shared:SSL:10m;
+        ssl_session_timeout 5m;
+        
+        # Enable session tickets
+        ssl_session_tickets off;
+
+        # Protect against BEAST attacks
+        ssl_prefer_server_ciphers on;
+        ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-SHA;
+        
+        # Enable OCSP stapling
+        ssl_stapling on;
+        ssl_stapling_verify on;
+        
+        # Enable HSTS header with 1 year max age
+        add_header Strict-Transport-Security max-age=31536000;
+        
+        # HSTS preload status
+        add_header X-Frame-Options "SAMEORIGIN";
+        
+        # Only allow modern TLS protocols
+        ssl_protocols TLSv1.1 TLSv1.2;
+        
+        # Disable insecure renegotiation
+        ssl_renegotiation off;
+        
+        # Disable server tokens
+        server_tokens off;
+        
+        # Specify location of root directory
+        root /var/www/mywebsite;
+
+        # Specify which index file to use
+        index index.html;
+        
+        # Handle requests for static files
+        location /static/ {
+            # Serve files directly if found in root directory
+            try_files $uri $uri/ @backend;
+            
+            # Define caching rules for various file types
+            expires 1d;
+            
+            # Enable gzip compression
+            gzip on;
+            
+            # Specify which files to compress
+            gzip_types text/plain text/css application/json;
+            
+            # Set cache location and expiration
+            proxy_cache cache;
+            proxy_cache_valid 200 60m;
+            
+            # Set caching key based on request URI
+            proxy_cache_key "$scheme$request_method$host$request_uri";
+            
+            # Forward request to backend server
+            proxy_pass http://backend;
+            
+            # Set timeout for backend server
+            proxy_connect_timeout 60s;
+            proxy_send_timeout 60s;
+            
+            # Enable proxy buffering
+            proxy_buffering on;
+            proxy_buffer_size 4k;
+            proxy_buffers 4 32k;
+            
+            # Caching must be enabled for this location
+            proxy_cache_use_stale error timeout invalid_header updating http_500 http_502 http_503 http_504;
+        }
+        
+        # Handle requests for dynamic pages
+        location / {
+            # Forward request to backend server
+            proxy_pass http://backend;
+            
+            # Enable proxy buffering 
+            proxy_buffering on;
+            proxy_buffer_size 4k;
+            proxy_buffers 4 32k;
+        }
+        
+        # Handle requests for API endpoints
+        location /api/ {
+            # Set timeout for backend server
+            proxy_connect_timeout 5s;
+            proxy_send_timeout 5s;
+            
+            # Forward request to backend server
+            proxy_pass http://backend_api;
+        }
+        
+        # Custom error pages for various HTTP codes
+        error_page 400 /400.html;
+        location = /400.html { 
+            root /var/www/mywebsite;
+        }
+        
+        error_page 404 /404.html;
+        location = /404.html { 
+            root /var/www/mywebsite;
+        }
+        
+        error_page 500 /500.html;
+        location = /500.html { 
+            root /var/www/mywebsite;
+        }
+        
+        # Deny access to hidden files
+        location ~ /\. {
+            deny all;
+        }
+        
+        # Enable GZIP compression server-wide
+        gzip on;
+        gzip_types text/plain text/css application/json;
+        
+        # Enable caching of JS and CSS files
+        location ~* \.(js|css)$ {
+            # Set cache location and expiration
+            proxy_cache cache;
+            proxy_cache_valid 200 60m;
+            
+            # Set caching key based on request URI
+            proxy_cache_key "$scheme$request_method$host$request_uri";
+            
+            # Enable proxy buffering
+            proxy_buffering on;
+            proxy_buffer_size 4k;
+            proxy_buffers 4 32k;
+
+            # Caching must be enabled for this location
+            proxy_cache_use_stale error timeout invalid_header updating http_500 http_502 http_503 http_504;
+        }
+        
+        # Handle requests for PHP files
+        location ~ \.php$ {
+            # Forward request to PHP FastCGI server
+            try_files $uri @proxy;
+            
+            # Set timeout for PHP FastCGI
+            fastcgi_read_timeout 60s;
+            
+            location @proxy {
+                # Connect to PHP FastCGI server
+                fastcgi_pass unix:/var/run/php/php7.2-fpm.sock;
+                
+                # Specify additional FastCGI parameters
+                fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+                fastcgi_param PATH_INFO $fastcgi_path_info;
+                fastcgi_param HTTPS $https;
+                
+                # Enable proxy buffering
+                fastcgi_buffering on;
+                fastcgi_buffers 8 16k;
+                fastcgi_busy_buffers_size 16k;
+                fastcgi_temp_file_write_size 128k;
+                
+                # Disable caching
+                fastcgi_cache_bypass $http_pragma;
+            }
+        }
+    }
+}

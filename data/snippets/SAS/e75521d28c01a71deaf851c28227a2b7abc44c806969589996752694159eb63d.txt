@@ -1,0 +1,44 @@
+/* This is a complex code snippet in SAS */
+
+/* Create a new library named 'mydata' and assign it a physical location */
+libname mydata 'C:\Users\Documents\MyData';
+
+/* Create a macro variable named 'date' containing today's date in the format 'mmddyy' */
+%let date = %sysfunc(today(), mmddyy.);
+
+/* Import a CSV file named 'sales_data' from the 'mydata' library */
+data mydata.sales_data;
+  infile "C:\Users\Documents\MyData\sales_data.csv" dlm="," firstobs=2;
+  
+  /* Create variables with their respective datatypes and lengths */
+  length cust_id 8. 
+         sales_amt 8.
+         date_purchased 8.;
+  
+  /* Read the data from the CSV file into the variables, ignoring first row */
+  input cust_id sales_amt date_purchased;
+  format date_purchased mmddyy10.;
+run;
+
+/* Merge the sales_data table with a customer data table from another library */
+data mydata.sales_customer_data;
+  merge mydata.sales_data(in=a) mydata.customer_data(in=b);
+  by cust_id;
+  
+  /* Keep only rows with matching customer IDs from both tables */
+  if a and b;
+run;
+
+/* Calculate the total sales for each customer using a PROC SQL query */
+proc sql;
+  select cust_id, sum(sales_amt) as total_sales
+  from mydata.sales_customer_data
+  group by cust_id;
+quit;
+
+/* Create a histogram of the total sales using PROC SGPLOT */
+proc sgplot data=mydata.sales_customer_data;
+  histogram total_sales / binwidth=1000;
+  xaxis label='Total Sales' values=(0 to 30000 by 5000);
+  yaxis label='Number of Customers';
+run;

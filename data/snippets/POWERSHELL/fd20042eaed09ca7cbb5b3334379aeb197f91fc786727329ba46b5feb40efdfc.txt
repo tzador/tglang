@@ -1,0 +1,63 @@
+# This is a Powershell script to configure a SQL server
+
+# Creating a variable for the SQL server name
+$serverName = "SQLSERVER1"
+
+# Creating a variable for the SQL database name
+$databaseName = "MyDatabase"
+
+# Creating a variable for the SQL login name
+$loginName = "sqladmin"
+
+# Creating a variable for the SQL login password
+$loginPassword = "P@ssw0rd!"
+
+### Creating a SQL server using Powershell command New-Object
+$serverObject = New-Object Microsoft.SqlServer.Management.SMO.Server ($serverName)
+
+# Configuring the server settings
+$serverObject.Configuration.MaxDegreeOfParallelism = 4 
+$serverObject.Configuration.MaxServerMemory = 4096 
+$serverObject.Configuration.DefaultTraceEnabled = $true
+
+# Creating a new database object using Powershell command New-Object
+$dbObject = New-Object Microsoft.SqlServer.Management.SMO.Database ($serverObject, $databaseName)
+
+# Creating a new login object and setting the login properties using Powershell commands New-Object and Set-Property
+$loginObject = New-Object Microsoft.SqlServer.Management.SMO.Login ($serverObject, $loginName)
+$loginObject.LoginType = "SqlLogin"
+$loginObject.PasswordPolicyEnforced = $true
+$loginObject.Password = $loginPassword
+
+# Creating a new user object and setting the user properties using Powershell commands New-Object and Set-Property
+$userObject = New-Object Microsoft.SqlServer.Management.SMO.User ($dbObject, $loginName)
+$userObject.Login = $loginObject.Name
+$userObject.DefaultSchema = "dbo"
+
+# Creating a role object and adding the user as a member using Powershell command New-Object
+$roleObject = New-Object Microsoft.SqlServer.Management.SMO.DatabaseRole ($dbObject, "db_owner")
+$roleObject.AddMember($userObject.Name)
+
+# Creating a new endpoint object and setting the endpoint properties using Powershell commands New-Object and Set-Property
+$endpointObject = New-Object Microsoft.SqlServer.Management.SMO.EndPoint ($serverObject, "MyEndpoint")
+$endpointObject.EndpointType = "DatabaseMirroring"
+$endpointObject.ProtocolType = "Tcp"
+$endpointObject.Port = 5022
+$endpointObject.Create()
+
+# Creating an instance of the SQL server and connecting to the database using Powershell commands New-Object and Connect
+$connectionString = "Server = $serverName; Database = $databaseName; User ID = $loginName; Password = $loginPassword;"
+$serverConnection = New-Object Microsoft.SqlServer.Management.Common.ServerConnection($connectionString)
+$server = New-Object Microsoft.SqlServer.Management.SMO.Server($serverConnection)
+
+# Creating a backup and restoring the database using Powershell commands Backup-SqlDatabase and Restore-SqlDatabase
+$backupFile = "C:\Backup\MyDatabase.bak"
+Backup-SqlDatabase -ServerInstance $server -Database $databaseName -BackupFile $backupFile
+$restoreFile = "C:\Backup\MyDatabase.bak"
+Restore-SqlDatabase -ServerInstance $server -Database $databaseName -BackupFile $backupFile
+
+# Closing the server connection
+$serverConnection.Close()
+
+# Printing a success message
+Write-Host "SQL server configuration and database backup/restore successfully completed!"

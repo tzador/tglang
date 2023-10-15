@@ -1,0 +1,57 @@
+# Set gzip compression to level 9
+gzip on;
+gzip_comp_level 9;
+
+# Configure caching for JS and CSS files
+map $sent_http_content_type $expires {
+    default               off;
+    application/javascript     max;
+    text/css                  max;
+}
+server {
+    location ~* \.(js|css)$ {
+        expires $expires;
+    }
+}
+
+# Redirect all HTTP requests to HTTPS
+server {
+    listen 80;
+    server_name example.com;
+    return 301 https://$server_name$request_uri;
+}
+
+# Enable server-side caching
+proxy_cache_path  /var/cache/nginx levels=1:2 keys_zone=my_cache:10m inactive=60m;
+server {
+    location / {
+        proxy_cache my_cache;
+        proxy_cache_bypass $http_pragma;
+        add_header X-Proxy-Cache $upstream_cache_status;
+        proxy_cache_valid 200 60m;
+    }
+}
+
+# Protect sensitive directories
+server {
+    location ~ /admin/ {
+        deny all;
+        return 403;
+    }
+    location ~* /private/ {
+        internal;
+        # other configuration options
+    }
+}
+
+# Forward all requests to an upstream server
+upstream backend {
+    server backend1.example.com;
+    server backend2.example.com;
+}
+
+server {
+    location / {
+        proxy_pass http://backend;
+    }
+}

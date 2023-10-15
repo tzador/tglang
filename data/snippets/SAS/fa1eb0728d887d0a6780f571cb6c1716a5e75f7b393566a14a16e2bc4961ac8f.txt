@@ -1,0 +1,57 @@
+/* Define input dataset containing sales data for a company */
+data sales;
+   input year month sales;
+   datalines;
+2018 1 5000
+2018 2 6000
+2018 3 7000
+2018 4 8000
+2018 5 9000
+2018 6 10000
+2018 7 11000
+2018 8 12000
+2018 9 13000
+2018 10 14000
+2018 11 15000
+2018 12 16000
+;
+
+/* Calculate average monthly sales for the year */
+proc means data=sales mean;
+   var sales;
+   output out=avg_sales;
+run;
+
+/* Sort the results in descending order by the average sales */
+proc sort data=avg_sales;
+   by descending sales_mean;
+run;
+
+/* Define macro with dynamic analysis variables */
+%macro dynamic_analysis(sales, mean, std_dev);
+   /* Create a new dataset with z-score for each month's sales */
+   data sales_z;
+      set sales;
+      z_score = (&mean - sales) / &std_dev;
+   run;
+
+   /* Create a histogram of the z-score to visualize the distribution */
+   proc sgplot data=sales_z;
+      histogram z_score;
+   run;
+
+   /* Determine outliers using a cutoff of 3 standard deviations from the mean */
+   data outliers;
+      set sales_z;
+      if z_score > 3 or z_score < -3;
+   run;
+
+   /* Print the outlier values and their corresponding month */
+   proc print data=outliers;
+      var month sales;
+   run;
+
+%mend dynamic_analysis;
+
+/* Call the macro with the necessary input variables */
+%dynamic_analysis(sales, sales_mean, std_dev);

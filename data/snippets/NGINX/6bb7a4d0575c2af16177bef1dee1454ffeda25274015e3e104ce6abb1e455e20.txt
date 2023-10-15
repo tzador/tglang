@@ -1,0 +1,99 @@
+# The following configuration snippet demonstrates how to use NGINX as a reverse proxy server to redirect requests to an upstream server.
+
+server {
+    listen 80;
+    server_name example.com;
+
+    location / {
+        # Define the upstream server where requests will be redirected to
+        proxy_pass http://upstream_server;
+
+        # Set request headers to be sent to the upstream server
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Enable caching of HTTP requests for improved performance
+        proxy_cache my_cache;
+        proxy_cache_valid 200 2m;
+        proxy_cache_valid 404 1m;
+        proxy_cache_methods GET HEAD;
+
+        # Pass original request headers to the upstream server
+        proxy_pass_request_headers on;
+
+        # Enable buffering of large responses instead of sending them immediately
+        proxy_buffering on;
+
+        # Define the maximum size for buffer
+        proxy_buffer_size 4k;
+
+        # Set the maximum allowed time for the request to wait for a response from the upstream server
+        proxy_connect_timeout 10s;
+
+        # Define the maximum allowed time for the request to wait for a response from the upstream server after the connection is established
+        proxy_send_timeout 10s;
+
+        # Set the maximum allowed time for the client to wait for a response from the proxy server
+        proxy_read_timeout 10s;
+
+        # Enable gzip compression for faster data transfer
+        gzip on;
+        gzip_min_length 1000;
+        gzip_types application/json text/css;
+    }
+}
+
+# The following configuration demonstrates how to use NGINX as a load balancer for distributing traffic among multiple upstream servers.
+
+# Create an upstream group with two servers
+upstream backend {
+    server backend1.example.com weight=5;
+    server backend2.example.com;
+}
+
+server {
+    listen 80;
+    server_name example.com;
+
+    location / {
+        # Define the upstream group as the target for load balancing
+        proxy_pass http://backend;
+
+        # Enable sticky sessions for distributing requests from the same client to the same upstream server
+        sticky on;
+        sticky_cookie backendserverexpires=1h;
+
+        # Define the load balancing algorithm
+        # In this example, the least connected method is used
+        # Other options include: round_robin, ip_hash, and random
+        upstream_conf least_conn;
+
+        # Set request headers to be sent to the upstream servers
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+
+        # Enable caching of HTTP requests for improved performance
+        proxy_cache my_cache;
+        proxy_cache_valid 200 5m;
+        proxy_cache_valid 404 1m;
+        proxy_cache_methods GET;
+
+        # Pass original request headers to the upstream servers
+        proxy_pass_request_headers on;
+
+        # Enable buffering of large responses instead of sending them immediately
+        proxy_buffering on;
+
+        # Define the maximum size for buffer
+        proxy_buffer_size 4k;
+        
+        # Enable health checks for upstream servers to monitor their availability
+        # In this example, a simple HTTP request is sent to the server every 5 seconds to check its status
+        health_check interval=5 fails=3 passes=2 uri=/health;
+        
+        # Define the failover server in case all upstream servers become unavailable
+        proxy_set_header Host failover.example.com;
+        proxy_intercept_errors on;
+    }
+}

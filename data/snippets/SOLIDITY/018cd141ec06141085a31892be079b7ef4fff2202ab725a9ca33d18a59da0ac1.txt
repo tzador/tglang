@@ -1,0 +1,89 @@
+pragma solidity ^0.8.0;
+
+// A simple smart contract that allows users to send funds to the contract address and receive a token in exchange
+// This contract implements the ERC-20 token standard
+
+// Import statements for necessary libraries
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/ERC20.sol"; // Import the ERC-20 token implementation
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Address.sol"; // Import the Address library for address manipulation
+
+// Contract declaration
+contract TokenExchange {
+  using Address for address payable; // Use the Address library for payable addresses
+  
+  // State variables
+  address private _owner; // Owner of the contract
+  ERC20 private _token; // Instance of the ERC-20 token
+  uint256 private _exchangeRate; // Exchange rate for token to ether
+  
+  // Event declarations
+  event TokensPurchased(address buyer, uint256 amount);
+  event TokensSold(address seller, uint256 amount);
+  
+  // Constructor function
+  constructor(address tokenAddress, uint256 initialRate) {
+    _owner = msg.sender;
+    _token = ERC20(tokenAddress);
+    _exchangeRate = initialRate;
+  }
+  
+  // Modifier for onlyOwner functions
+  modifier onlyOwner() {
+    require(msg.sender == _owner, "Caller is not the owner");
+    _;
+  }
+  
+  // Function to purchase tokens by sending ether to the contract address
+  function purchaseTokens() public payable {
+    require(msg.value > 0, "Must send ether to purchase tokens");
+    
+    uint256 tokenAmount = msg.value * _exchangeRate; // Calculate the amount of tokens to be purchased
+    
+    require(_token.balanceOf(address(this)) >= tokenAmount, "Insufficient tokens in contract"); // Check if the contract has enough tokens
+    
+    _token.transfer(msg.sender, tokenAmount); // Transfer tokens to the buyer
+    emit TokensPurchased(msg.sender, tokenAmount); // Emit event for purchased tokens
+  }
+  
+  // Function to sell tokens for ether
+  function sellTokens(uint256 amount) public {
+    require(amount > 0, "Must specify amount to sell");
+    require(_token.allowance(msg.sender, address(this)) >= amount, "Caller must approve contract to transfer tokens");
+    
+    uint256 etherAmount = amount / _exchangeRate; // Calculate the amount of ether to be received
+    
+    require(address(this).balance >= etherAmount, "Insufficient ether in contract"); // Check if the contract has enough ether
+    
+    _token.transferFrom(msg.sender, address(this), amount); // Transfer tokens from the seller to the contract
+    payable(msg.sender).sendValue(etherAmount); // Send ether to the seller
+    emit TokensSold(msg.sender, amount); // Emit event for sold tokens
+  }
+  
+  // Function for owner to change the exchange rate
+  function setExchangeRate(uint256 newRate) public onlyOwner {
+    require(newRate > 0, "Exchange rate must be greater than 0");
+    _exchangeRate = newRate;
+  }
+  
+  // Function for owner to withdraw ether from the contract
+  function withdraw() public onlyOwner {
+    require(address(this).balance > 0, "No ether to withdraw");
+    
+    payable(_owner).sendValue(address(this).balance); // Send all ether to the owner
+  }
+  
+  // Function to retrieve the current exchange rate
+  function getExchangeRate() public view returns (uint256) {
+    return _exchangeRate;
+  }
+  
+  // Function to retrieve the token balance of the contract
+  function getTokenBalance() public view returns (uint256) {
+    return _token.balanceOf(address(this));
+  }
+  
+  // Function to retrieve the ether balance of the contract
+  function getEtherBalance() public view returns (uint256) {
+    return address(this).balance;
+  }
+}

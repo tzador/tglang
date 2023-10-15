@@ -1,0 +1,43 @@
+# Define upstream servers for load balancing
+upstream backend {
+  server 10.10.10.1:80;
+  server 10.10.10.2:80;
+  server 10.10.10.3:80;
+}
+
+# Define server block for reverse proxy configuration
+server {
+  listen 80;
+  server_name example.com;
+
+  # Serve static files
+  location /static/ {
+    alias /var/www/static/;
+    autoindex on;
+  }
+
+  # Serve dynamic content
+  location / {
+    proxy_pass http://backend;
+
+    # Enable caching
+    proxy_cache_key "$scheme$request_method$host$request_uri";
+    proxy_cache_valid 200 1m;
+    proxy_cache_valid 404 1h;
+  }
+
+  # Enable gzip compression
+  gzip on;
+  gzip_comp_level 5;
+  gzip_types text/plain text/css application/json;
+
+  # Enable caching for static files
+  location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+    expires 1d;
+    add_header Pragma public;
+    add_header Cache-Control "public";
+    proxy_cache_valid 200 1d;
+    proxy_cache_bypass $http_pragma;
+    proxy_cache_revalidate on;
+  }
+}

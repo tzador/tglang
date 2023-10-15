@@ -1,0 +1,112 @@
+<?php
+
+class User
+{
+    private $name;
+    private $email;
+    private $password;
+
+    public function __construct($name, $email, $password)
+    {
+        $this->name = $name;
+        $this->email = $email;
+        $this->password = $password;
+    }
+
+    public function login()
+    {
+        // check if user exists
+        $user = $this->getUserByEmail($this->email);
+
+        if (!$user) {
+            throw new Exception('User does not exist');
+        }
+
+        // check if password is correct
+        if ($user['password'] !== $this->password) {
+            throw new Exception('Incorrect password');
+        }
+
+        // set session data
+        // note: session_start() must be called before
+        // using $_SESSION variable
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['user_name'] = $user['name'];
+        $_SESSION['user_email'] = $user['email'];
+
+        // redirect to user profile page
+        header('Location: profile.php');
+        exit;
+    }
+
+    public function register()
+    {
+        // check if user with the same email already exists
+        $user = $this->getUserByEmail($this->email);
+
+        if ($user) {
+            throw new Exception('User with this email already exists');
+        }
+
+        // create new user
+        $newUser = array(
+            'name' => $this->name,
+            'email' => $this->email,
+            'password' => $this->password
+        );
+
+        // save new user to database
+        $this->saveUser($newUser);
+
+        // set session data
+        $_SESSION['user_id'] = $newUser['id'];
+        $_SESSION['user_name'] = $newUser['name'];
+        $_SESSION['user_email'] = $newUser['email'];
+
+        // redirect to user profile page
+        header('Location: profile.php');
+        exit;
+    }
+
+    private function getUserByEmail($email)
+    {
+        // execute database query to get user by email
+        $query = "SELECT * FROM users WHERE email='$email'";
+        $result = mysqli_query($conn, $query);
+
+        // check if query was successful
+        if (!$result) {
+            throw new Exception('Database error: ' . mysqli_error($conn));
+        }
+
+        // check if user exists
+        if (mysqli_num_rows($result) === 0) {
+            return null;
+        }
+
+        // return user data as associative array
+        return mysqli_fetch_assoc($result);
+    }
+
+    private function saveUser($user)
+    {
+        // execute database query to insert new user
+        $query = "INSERT INTO users (name, email, password)
+        VALUES ('{$user['name']}', '{$user['email']}', '{$user['password']}')";
+        $result = mysqli_query($conn, $query);
+
+        // check if query was successful
+        if (!$result) {
+            throw new Exception('Database error: ' . mysqli_error($conn));
+        }
+    }
+}
+
+// create new User object
+$user = new User('John', 'john@example.com', '1234');
+
+// register user
+$user->register();
+
+// login user
+$user->login();

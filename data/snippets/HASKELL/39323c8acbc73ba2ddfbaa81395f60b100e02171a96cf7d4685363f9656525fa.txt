@@ -1,0 +1,29 @@
+{-# LANGUAGE FlexibleContexts #-}
+import qualified Data.Vector as V
+import qualified Data.Vector.Mutable as VM
+
+countSort :: (V.Vector Int) -> (V.Vector Int)
+countSort inputVector = runST $ do
+    let len = V.length inputVector
+        maxValue = V.foldl' max 0 inputVector
+    countArray <- VM.replicate (maxValue + 1) 0
+    outputArray <- V.thaw inputVector
+    forM_ [0..len-1] $ \i -> do
+        let value = inputVector V.! i
+        count <- VM.read countArray value
+        VM.write countArray value (count + 1)
+
+    forM_ [1..maxValue] $ \i -> do
+        let index = i - 1
+            value = i
+        count <- VM.read countArray index
+        prevCount <- VM.read countArray (index - 1)
+        VM.write countArray index (count + prevCount)
+
+    forM_ [len-1, len-2..0] $ \i -> do
+        let value = inputVector V.! i
+            index = countArray V.! value - 1
+        VM.write outputArray index value
+        VM.write countArray value (index - 1)
+
+    V.freeze outputArray

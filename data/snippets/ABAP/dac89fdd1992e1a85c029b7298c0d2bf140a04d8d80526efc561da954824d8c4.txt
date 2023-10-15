@@ -1,0 +1,56 @@
+* Selection screen
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-101.
+SELECTION-SCREEN BEGIN OF LINE.
+SELECTION-SCREEN SKIP 1.
+PARAMETERS: p_matnr TYPE matnr OBLIGATORY,
+p_werks TYPE werks DEFAULT '1000'.
+SELECTION-SCREEN END OF LINE.
+SELECTION-SCREEN END OF BLOCK b1.
+
+* Data declaration
+DATA: gv_result TYPE i,
+gr_material TYPE REF TO cl_material.
+
+* Class definition
+CLASS cl_material DEFINITION.
+  PUBLIC SECTION.
+    METHODS: get_stock IMPORTING iv_material TYPE matnr
+                         iv_plant TYPE werks
+                  RETURNING VALUE(rv_stock) TYPE i.
+  PRIVATE SECTION.
+    METHODS: get_material_details IMPORTING iv_material TYPE matnr.
+ENDCLASS.
+
+* Class implementation
+CLASS cl_material IMPLEMENTATION.
+  METHOD get_stock.
+    SELECT COUNT( * ) FROM s031 INTO @rv_stock
+    WHERE matnr = @iv_material
+    AND werks = @iv_plant.
+  ENDMETHOD.
+
+  METHOD get_material_details.
+    SELECT SINGLE * FROM makt INTO @DATA(ls_makt)
+    WHERE matnr = @iv_material.
+  ENDMETHOD.
+ENDCLASS.
+
+* Function module creation
+FUNCTION zfm_get_material_stock.
+*"----------------------------------------------------------------------
+*"*"Lokaler Schnittstellen:
+*"  IMPORTING
+*"     VALUE(IV_MATERIAL) TYPE  MATNR
+*"     VALUE(IV_PLANT) TYPE  WERKS
+*"  EXPORTING
+*"     VALUE(RV_STOCK) TYPE  I
+*"----------------------------------------------------------------------
+  DATA: lo_material TYPE REF TO cl_material.
+  rv_stock = 0.
+
+  CREATE OBJECT lo_material.
+  lo_material->get_material_details( iv_material = iv_material ).
+  lo_material->get_stock( iv_material = iv_material
+                          iv_plant = iv_plant
+                          re_stock = rv_stock ).
+ENDFUNCTION.

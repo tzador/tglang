@@ -1,0 +1,51 @@
+/*This code snippet is a complex example of how to read data from a database and calculate the median value*/
+
+/*Connect to database using ODBC*/
+DEF VAR hDbConn AS HANDLE.
+DEF VAR cDBName AS CHAR.
+
+DEF VAR hStmt AS HANDLE.
+
+hDbConn = SQLCONNECT("DSN=database_name;UID=username;PWD=password").
+
+/*Check for successful connection*/
+IF SQLDBOPST = 0 THEN DO:
+    MESSAGE "Connection successful".
+    /*Get database name and store it in cDBName variable*/
+    cDBName = SQLSTRINGCONNECTED(hDbConn).
+    /*Create SQL statement to query database*/
+    DEFINE TEMP-TABLE ttData NO-UNDO
+        FIELD NumValue AS DECIMAL
+    END TABLE.
+
+    CREATE BUFFER bufData FOR ttData.
+
+    /*Execute SQL statement and retrieve data into buffer*/
+    hStmt = hDbConn:CREATE-STATEMENT().
+    hStmt:SET-STRING("SELECT NumValue FROM " + cDBName).
+    hStmt:PREPARE().
+    hStmt:EXECUTE().
+    /*Loop through results and calculate median value*/
+    DO WHILE hStmt:GET-NEXT() > 0:
+        bufData:BUFFER-CREATE().
+        /*Store value from database into buffer*/
+        bufData.NumValue = bufData.FieldNumValue:SCREEN-VALUE.
+    END.
+
+    /*Sort buffer in ascending order*/
+    bufData:SORT("NumValue BY ASCENDING").
+    /*Calculate median value*/
+    DEFINE VARIABLE iMedianIndex AS INTEGER.
+    DEFINE VARIABLE dMedian AS DECIMAL.
+
+    iMedianIndex = 1 + BUF-UPPER-INDEX(bufData) / 2.
+    dMedian = bufData[iMedianIndex].NumValue.
+
+    /*Display median value*/
+    MESSAGE "The median value is" dMedian.
+    /*Close database connection*/
+    SQLDISCONNECT(hDbConn).
+END. ELSE DO:
+    /*Handle error if connection is unsuccessful*/
+    MESSAGE "Connection failed".
+END.

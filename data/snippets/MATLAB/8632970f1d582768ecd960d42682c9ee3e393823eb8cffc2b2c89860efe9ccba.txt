@@ -1,0 +1,46 @@
+%% Loading data
+% Load the dataset into a table called 'data'
+data = readtable('dataset.csv');
+
+%% Pre-processing
+% Replace all missing values in column A with the mean value
+col_A_mean = mean(data.A);
+data.A(ismissing(data.A)) = col_A_mean;
+
+% Convert column B to categorical data
+data.B = categorical(data.B);
+
+% Normalize column C using min-max normalization
+col_C_min = min(data.C);
+col_C_max = max(data.C);
+data.C = (data.C - col_C_min) / (col_C_max - col_C_min);
+
+%% Training and testing
+% Split the data into 80% training and 20% testing sets
+[training_data, testing_data] = splitData(data, 0.8);
+
+% Train a decision tree classifier using the training set
+dt_classifier = fitctree(training_data(:, 1:end-1), training_data(:, end));
+
+% Predict labels for the testing set
+predicted_labels = predict(dt_classifier, testing_data(:, 1:end-1));
+
+%% Evaluation
+% Calculate the accuracy of the classifier
+accuracy = sum(predicted_labels == testing_data(:, end)) / height(testing_data); 
+
+% Plot the confusion matrix
+confusion_matrix = confusionmat(testing_data(:, end), predicted_labels);
+figure;
+heatmap(confusion_matrix, 'XLabel', 'Predicted Label', 'YLabel', 'Actual Label', 'ColorbarVisible', 'off');
+
+% Calculate the precision, recall, and F1 score
+precision = confusion_matrix(2,2) / (confusion_matrix(2,2) + confusion_matrix(1,2));
+recall = confusion_matrix(2,2) / (confusion_matrix(2,2) + confusion_matrix(2,1));
+F1_score = 2 * (precision * recall) / (precision + recall);
+
+% Display the evaluation metrics
+fprintf('Accuracy: %0.2f%% \n', accuracy * 100);
+fprintf('Precision: %0.2f \n', precision);
+fprintf('Recall: %0.2f \n', recall);
+fprintf('F1 Score: %0.2f \n', F1_score);

@@ -1,0 +1,61 @@
+<#
+.SYNOPSIS
+    Script to retrieve system information on a Windows computer.
+.DESCRIPTION
+    This script will retrieve various system information on a Windows computer including computer name, operating system version, processor information, and more. It can be used for troubleshooting or reporting purposes.
+.NOTES
+    - This script requires administrative privileges to run.
+    - This script only works on Windows computers.
+.PARAMETER ComputerName
+    Specifies the name of the computer to retrieve information from. If not specified, the local computer will be used.
+.EXAMPLE
+    Get-SystemInfo -ComputerName "Server01"
+    Retrieves system information from the computer "Server01".
+.EXAMPLE
+    Get-SystemInfo
+    Retrieves system information from the local computer.
+#>
+function Get-SystemInfo {
+    param(
+        [string]$ComputerName = $env:COMPUTERNAME
+    )
+    # Get computer name and create hashtable for output
+    $SystemInfo = @{ "ComputerName" = $ComputerName }
+    # Get operating system information
+    $OperatingSystem = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $ComputerName
+    $SystemInfo.Add("OperatingSystem", $OperatingSystem.Caption)
+    $SystemInfo.Add("OperatingSystemVersion", $OperatingSystem.Version)
+    $SystemInfo.Add("InstallDate", $OperatingSystem.InstallDate)
+    # Get processor information
+    $Processor = Get-WmiObject -Class Win32_Processor -ComputerName $ComputerName
+    $SystemInfo.Add("Processor", $Processor.Name)
+    $SystemInfo.Add("NumberOfCores", $Processor.NumberOfCores)
+    $SystemInfo.Add("ProcessorSpeed", $Processor.MaxClockSpeed)
+    # Get memory information
+    $Memory = Get-WmiObject -Class Win32_PhysicalMemory -ComputerName $ComputerName
+    $SystemInfo.Add("TotalMemory", ($Memory.Capacity / 1GB))
+    # Get disk information
+    $Disks = Get-WmiObject -Class Win32_LogicalDisk -Filter "DriveType='3'" -ComputerName $ComputerName
+    $DiskInfo = @()
+    foreach ($Disk in $Disks) {
+        $DiskInfo += @{
+            "DriveLetter" = $Disk.DeviceID
+            "TotalSize" = ($Disk.Size / 1GB)
+            "FreeSpace" = ($Disk.FreeSpace / 1GB)
+        }
+    }
+    $SystemInfo.Add("DiskInfo", $DiskInfo)
+    # Get network adapter information
+    $NetworkAdapters = Get-WmiObject -Class Win32_NetworkAdapter -Filter "NetEnabled='True'" -ComputerName $ComputerName
+    $NetworkAdapterInfo = @()
+    foreach ($Adapter in $NetworkAdapters) {
+        $NetworkAdapterInfo += @{
+            "Name" = $Adapter.Name
+            "MACAddress" = $Adapter.MacAddress
+            "IPAddress" = $Adapter.IPAddress
+        }
+    }
+    $SystemInfo.Add("NetworkAdapters", $NetworkAdapterInfo)
+    # Output results as a custom object
+    New-Object -TypeName PSObject -Property $SystemInfo
+}

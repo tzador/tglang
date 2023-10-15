@@ -1,0 +1,58 @@
+pragma solidity ^0.8.0;
+
+contract SimpleContract {
+    address public owner;
+    uint256 public balance;
+    
+    constructor() {
+        owner = msg.sender;
+        balance = 0;
+    }
+    
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the contract owner can call this function.");
+        _;
+    }
+    
+    function deposit() public payable {
+        balance += msg.value;
+    }
+    
+    function withdraw(uint256 amount) public onlyOwner {
+        require(amount <= balance, "Not enough balance.");
+        balance -= amount;
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, "Withdraw failed.");
+    }
+    
+    function transfer(address recipient, uint256 amount) public onlyOwner {
+        require(amount <= balance, "Not enough balance.");
+        balance -= amount;
+        payable(recipient).transfer(amount);
+    }
+    
+    function getContractBalance() public view returns (uint256) {
+        return address(this).balance;
+    }
+    
+    event Deposit(address indexed depositor, uint256 amount);
+    event Withdrawal(address indexed recipient, uint256 amount);
+    
+    /// @dev this function will be executed every time Ether is sent to the contract
+    receive() external payable {
+        deposit();
+        emit Deposit(msg.sender, msg.value);
+    }
+    
+    /// @dev fallback function called when a function does not exist or invalid function call is made
+    fallback() external payable {
+        deposit();
+        emit Deposit(msg.sender, msg.value);
+    }
+    
+    /// @dev similar to the fallback function, but gas can be specified manually
+    receive(uint256 gas) external payable {
+        deposit();
+        emit Deposit(msg.sender, msg.value);
+    }
+}

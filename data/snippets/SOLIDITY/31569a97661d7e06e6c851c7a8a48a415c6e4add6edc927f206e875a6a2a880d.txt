@@ -1,0 +1,59 @@
+// Contract for a basic voting system using the Solidity programming language
+
+// Importing the necessary libraries
+pragma solidity ^0.6.0;
+import "github.com/oraclize/ethereum-api/oraclizeAPI.sol";
+
+// Defining the contract
+contract Voting {
+
+    // Defining variables and mappings
+    address public admin; // Stores the address of the admin
+    string public topic; // Stores the topic of the voting
+    uint256 public totalVotes; // Stores the total number of votes
+    bool public canVote; // Stores whether voting is open or closed
+    mapping(address => bool) public hasVoted; // Mapping to track whether an address has voted
+    mapping(bytes32 => uint256) public votes; // Mapping to store the number of votes for each option
+
+    // Defining events
+    event NewVote(address indexed voter, bytes32 option, uint256 voteCount);
+    event VotingClosed();
+
+    // Constructor function
+    constructor(string memory _topic) public {
+        admin = msg.sender; // Set the creator of the contract as the admin
+        topic = _topic; // Set the topic of the voting
+        canVote = true; // Enable voting
+    }
+
+    // Modifier to restrict function access to the admin
+    modifier onlyAdmin() {
+        require(msg.sender == admin, "You are not authorized to perform this action.");
+        _;
+    }
+
+    // Function to add options for the voting
+    function addOption(bytes32 option) public onlyAdmin {
+        require(canVote == true, "Voting is closed.");
+        votes[option] = 0; // Set the initial vote count for the option to 0
+    }
+
+    // Function to vote for an option
+    function vote(bytes32 option) public {
+        require(canVote == true, "Voting is closed.");
+        require(!hasVoted[msg.sender], "You have already voted.");
+        require(votes[option] >= 0, "Invalid option."); // Check if the option exists
+        votes[option]++; // Increment the vote count for the option
+        hasVoted[msg.sender] = true; // Update the mapping to indicate that the address has voted
+        totalVotes++; // Increment the total vote count
+        emit NewVote(msg.sender, option, votes[option]); // Emit the event
+    }
+
+    // Function to close the voting
+    function closeVoting() public onlyAdmin {
+        require(canVote == true, "Voting is already closed.");
+        canVote = false; // Disable voting
+        emit VotingClosed(); // Emit the event
+    }
+
+}

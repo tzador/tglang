@@ -1,0 +1,103 @@
+%{
+
+/* The %syntax directive specifies the language syntax of the BISON file */
+%syntax "bison"; 
+
+/* Declare global variables */
+int num_inputs; 
+int num_outputs; 
+
+/* Define the data type node for the AST */
+typedef struct {
+  char *type; 
+  int value; 
+  int line_number; 
+} node; 
+
+/* Define all the tokens for the grammar */
+%token NAME 
+%token NUMBER 
+%token PLUS 
+%token MINUS 
+%token MULTIPLY 
+%token DIVIDE 
+
+%}
+
+/* Define the starting symbol for the grammar */
+%start program; 
+
+/* Define the grammar rules in BNF format */
+%%
+
+program: NAME '{' inputs outputs '}' 
+        | NAME '{' statements '}' 
+        | NAME '{' inputs outputs statements '}' 
+
+inputs: ':' 'input' NUMBER ';' inputs 
+        | ':' 'input' NUMBER ';' 
+
+outputs: ':' 'output' NUMBER ';' outputs 
+        | ':' 'output' NUMBER ';' 
+
+statements: statement ';' more_statements 
+            | statement ';' 
+
+statement: assignment 
+          | declaration 
+          | conditional 
+          | loop 
+
+more_statements: statement ';' more_statements 
+                | statement ';' 
+
+assignment: NAME '=' expression 
+
+declaration: NAME ':' type 
+
+conditional: 'if' '(' condition ')' '{' statements '}' 
+            | 'if' '(' condition ')' '{' statements '}' 'else' '{' statements '}' 
+
+loop: 'while' '(' condition ')' '{' statements '}' 
+
+expression: expression PLUS term 
+            | expression MINUS term 
+            | term 
+
+term: term MULTIPLY factor 
+     | term DIVIDE factor 
+     | factor 
+
+factor: '(' expression ')' 
+       | NUMBER 
+       | NAME 
+
+condition: expression '<' expression 
+          | expression '>' expression 
+          | expression '==' expression 
+          | expression '!=' expression
+          | expression '>=' expression
+          | expression '<=' expression
+
+%%
+
+/* Define the functions for parsing and error handling */
+int yyerror(char *msg) {
+  fprintf(stderr, "%i: %s\n", yylineno, msg); 
+  return 0; 
+}
+
+int main() {
+  /* Initialize the parser */
+  yyparse(); 
+  return 0; 
+}
+
+/* Define the function for creating a new node in the AST */
+node *AST_new_node(char *type, int value, int line_number) {
+  node *new_node = (node *) malloc(sizeof(node)); 
+  new_node->type = type; 
+  new_node->value = value; 
+  new_node->line_number = line_number; 
+  return new_node; 
+}

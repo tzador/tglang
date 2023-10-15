@@ -1,0 +1,105 @@
+pragma solidity ^0.8.0;
+
+// Import the necessary libraries
+import "./SafeMath.sol";
+import "./Ownable.sol";
+import "./ReentrancyGuard.sol";
+
+/**
+ * @title TokenSale
+ * @dev Implements a token sale contract with different sale stages.
+ */
+contract TokenSale is Ownable, ReentrancyGuard {
+
+    using SafeMath for uint256; // Use SafeMath library for arithmetic operations
+
+    // Enum representing the different sale stages
+    enum SaleStage {
+        BEFORE_SALE,
+        PRE_SALE,
+        MAIN_SALE
+    }
+
+    // Variables to keep track of the token and sale details
+    SaleStage public currentSaleStage; // The current sale stage
+    uint256 public tokenPrice; // The price of each token
+    uint256 public tokenCap; // The total number of tokens available for sale
+    uint256 public tokensSold; // The number of tokens sold
+    uint256 public weiRaised; // The amount of wei raised
+    bool public saleClosed; // Flag to indicate if the sale is closed or not
+
+    // Address of the token contract
+    IERC20 public token;
+
+    // Events to be emitted during different actions
+    event SaleStarted(SaleStage saleStage, uint256 tokenPrice, uint256 tokenCap);
+    event TokenPurchased(address buyer, uint256 tokenAmount, uint256 weiAmount);
+    event SaleEnded(uint256 tokensSold, uint256 weiRaised);
+
+    constructor(address _token, uint256 _tokenPrice, uint256 _tokenCap) {
+        token = IERC20(_token);
+        tokenPrice = _tokenPrice;
+        tokenCap = _tokenCap;
+        saleClosed = false;
+        currentSaleStage = SaleStage.BEFORE_SALE;
+    }
+
+    /**
+     * @dev Function to start the token sale by setting the sale stage, token price and cap.
+     * This function can only be called by the owner of the contract.
+     * @param _saleStage The sale stage to be set
+     * @param _tokenPrice The token price to be set
+     * @param _tokenCap The token cap to be set
+     */
+    function startSale(SaleStage _saleStage, uint256 _tokenPrice, uint256 _tokenCap) public onlyOwner {
+        require(currentSaleStage == SaleStage.BEFORE_SALE, "Sale has already started");
+        currentSaleStage = _saleStage;
+        tokenPrice = _tokenPrice;
+        tokenCap = _tokenCap;
+        emit SaleStarted(currentSaleStage, tokenPrice, tokenCap);
+    }
+
+    /**
+     * @dev Function to buy tokens during the sale.
+     * The amount of tokens purchased will depend on the sale stage.
+     */
+    function buyTokens() public payable nonReentrant {
+        require(!saleClosed, "Sale is closed");
+        uint256 weiAmount = msg.value;
+        uint256 tokenAmount = _getTokenAmount(weiAmount);
+        token.transfer(msg.sender, tokenAmount); // Transfer tokens to the buyer
+        weiRaised = weiRaised.add(weiAmount);
+        tokensSold = tokensSold.add(tokenAmount);
+        emit TokenPurchased(msg.sender, tokenAmount, weiAmount);
+    }
+
+    /**
+     * @dev Function to close the sale.
+     * This function can only be called by the owner and will transfer any unsold tokens back to the owner.
+     * It will also emit an event to indicate the end of the sale.
+     */
+    function closeSale() public onlyOwner {
+        require(!saleClosed, "Sale is already closed");
+        saleClosed = true;
+        uint256 unsoldTokens = token.balanceOf(address(this)); // Get the amount of unsold tokens
+        if (unsoldTokens > 0) {
+            token.transfer(msg.sender, unsoldTokens); // Transfer unsold tokens to the owner
+        }
+        emit SaleEnded(tokensSold, weiRaised);
+    }
+
+    /**
+     * @dev Function to get the amount of tokens based on the sale stage and token price.
+     * @param _weiAmount The amount of wei used to buy tokens
+     * @return The amount of tokens to be purchased
+     */
+    function _getTokenAmount(uint256 _weiAmount) private view returns (uint256) {
+        if (currentSaleStage == SaleStage.PRE_SALE) {
+            return _weiAmount.div(tokenPrice).mul(2);
+        } else if (currentSaleStage == SaleStage.MAIN_SALE) {
+            return _weiAmount.div(tokenPrice);
+        } else {
+            revert("Invalid sale stage");
+        }
+    }
+}

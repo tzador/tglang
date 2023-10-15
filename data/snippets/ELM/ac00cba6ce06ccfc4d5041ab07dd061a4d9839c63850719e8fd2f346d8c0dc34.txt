@@ -1,0 +1,78 @@
+-- Custom type for a user's details
+type alias User =
+    { name : String
+    , age : Int
+    , address : String
+    , email : String
+    }
+
+{-| Helper function to parse user data from JSON
+-}
+userDecoder : Decoder User
+userDecoder =
+    Decode.map4 User
+        (Decode.field "name" Decode.string)
+        (Decode.field "age" Decode.int)
+        (Decode.field "address" Decode.string)
+        (Decode.field "email" Decode.string)
+
+{-| Result type for fetching user data from API
+-}
+type Msg
+    = UserDataUpdated (Result Http.Error User)
+    | UserFetchFailed Http.Error
+
+{-| Function to fetch user data from API given a user ID
+-}
+fetchUserData : Int -> Cmd Msg
+fetchUserData userId =
+    Http.get
+        { url = "https://myapi.com/users/" ++ (String.fromInt userId)
+        , expect = Http.expectJson UserDataUpdated userDecoder
+        , headers = []
+        , timeout = Nothing
+        , withCredentials = False
+        }
+
+main : Program Never
+main =
+    App.program
+        { init = (NoOp, Cmd.none)
+        , view = view
+        , update = update
+        , subscriptions = subscriptions
+        }
+
+{-| View function to display user data
+-}
+view : User -> Html Msg
+view user =
+    div []
+        [ h1 [] [ text ("Name: " ++ user.name) ]
+        , h2 [] [ text ("Age: " ++ (String.fromInt user.age)) ]
+        , h3 [] [ text ("Address: " ++ user.address) ]
+        , h4 [] [ text ("Email: " ++ user.email) ]
+        ]
+
+{-| Update function to handle user data updates
+-}
+update : Msg -> User -> (User, Cmd Msg)
+update msg user =
+    case msg of
+        UserDataUpdated (Ok newUser) ->
+            (newUser, Cmd.none)
+
+        UserDataUpdated (Err err) ->
+            (user, Cmd.none)
+
+        UserFetchFailed err ->
+            (user, Cmd.none)
+
+{-| Subscriptions function to fetch user data on page load
+-}
+subscriptions : User -> Sub Msg
+subscriptions user =
+    Sub.batch
+        [ Sub.batch [ fetchUserData 1, fetchUserData 2, fetchUserData 3 ]
+        , Time.every (5 * Time.second) FetchUserData 4
+        ]

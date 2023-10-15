@@ -1,0 +1,59 @@
+# set the compiler and its options
+set(CMAKE_C_COMPILER gcc)
+set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} -Wall -Werror -g)
+
+# add a custom target
+add_custom_target(my_target
+    COMMAND echo "Hello, world!"
+    DEPENDS my_dependency
+    COMMENT "Running custom target"
+)
+
+# add a library target
+add_library(my_library
+    src/my_library.c
+    include/my_library.h
+)
+
+# add include directories to the library target 
+target_include_directories(my_library
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+# add a binary target
+add_executable(my_binary
+    src/main.c
+)
+
+# link the binary target to the library target
+target_link_libraries(my_binary 
+    PRIVATE my_library
+)
+
+# set the output directory for the binary
+set_target_properties(my_binary
+    PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+# add a test target
+add_test(
+    NAME unit_tests
+    COMMAND my_binary
+)
+
+# set the working directory for the test
+set_tests_properties(unit_tests
+    PROPERTIES
+    WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+# add a coverage target with gcov
+add_custom_target(coverage
+    COMMAND ${CMAKE_MAKE_PROGRAM} test
+    COMMAND lcov --directory "${CMAKE_BINARY_DIR}/bin/CMakeFiles/my_binary.dir/src" --capture --output-file ${CMAKE_BINARY_DIR}/coverage.info
+    COMMAND lcov --remove "${CMAKE_BINARY_DIR}/coverage.info" '/usr/*' '${CMAKE_BINARY_DIR}/bin/*' --output-file ${CMAKE_BINARY_DIR}/coverage.info
+    COMMAND genhtml ${CMAKE_BINARY_DIR}/coverage.info --output-directory ${CMAKE_BINARY_DIR}/coverage
+    COMMAND ${CMAKE_COMMAND} -E remove ${CMAKE_BINARY_DIR}/coverage.info
+    COMMENT "Generating code coverage report"
+)

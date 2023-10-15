@@ -1,0 +1,36 @@
+%macro customer_purchases(customerID, startDate, endDate);
+    /* This macro calculates the total purchases made by a specific customer within a given date range */
+
+    /* Set up initial variables */
+   %let total_purchases = 0;
+    %let current_date = &startDate;
+
+    /* Create a loop to iterate through each day within the date range */
+    %do %while (&current_date <= &endDate);
+
+        /* Use SQL to select the purchase amount for the current date and customer */
+        proc sql;
+            select sum(amount)
+            into :daily_purchases
+            from purchases
+            where customer_id = &customerID
+            and purchase_date = &current_date;
+        quit;
+
+        /* If no purchases were made on that day, set the daily_purchases to 0 */
+        %if &daily_purchases. eq . %then %let daily_purchases = 0;
+
+        /* Add the daily_purchases to the total_purchases variable */
+        %let total_purchases = %eval(&total_purchases + &daily_purchases);
+
+        /* Increment current_date variable by 1 day */
+        %let current_date = %eval(&current_date + 1);
+    %end;
+
+    /* Print the total purchases for the given date range */
+    %put Customer &customerID. made &total_purchases. in purchases between &startDate. and &endDate.;
+
+%mend customer_purchases;
+
+/* Example usage */
+%customer_purchases(12345, '01Jan2020'd, '31Dec2020'd);

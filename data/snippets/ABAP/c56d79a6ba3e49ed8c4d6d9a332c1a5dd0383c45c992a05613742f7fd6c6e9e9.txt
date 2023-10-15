@@ -1,0 +1,74 @@
+*&---------------------------------------------------------------------*
+*& Report Z_REVENUE_REPORT
+*&---------------------------------------------------------------------*
+
+REPORT Z_REVENUE_REPORT.
+
+*Variable Declaration
+
+DATA: lv_customers TYPE i, "Number of customers
+      lv_revenue TYPE p DECIMALS 2, "Total revenue
+      lt_sales_orders TYPE TABLE OF vbeln, "Sales orders for customer
+      lv_net_revenue TYPE p DECIMALS 2, "Net revenue for customer
+      lv_tax_amount TYPE p DECIMALS 2, "Tax amount for customer
+      lv_discount TYPE p DECIMALS 2, "Discount amount for customer
+
+*Logic to get number of customers and total revenue
+
+SELECT COUNT( kunnr ) AS lv_customers,
+       SUM( netwr ) AS lv_revenue
+INTO @DATA(lt_result)
+FROM vbak
+WHERE audat BETWEEN '20210101' AND '20210930'.
+
+*Output formatting for header information
+
+WRITE: / 'REVENUE REPORT FOR 2021'.
+SKIP.
+WRITE: / 'Total customers: ', lv_customers.
+WRITE: / 'Total revenue: $ ', lv_revenue.
+
+*Loop to calculate revenue for each customer
+
+DO lv_customers TIMES.
+  DATA(lv_index) = sy-index.
+  DATA(lv_customer) = VALUE #( SIGN = 'I' OPTION = 'EQ' ( line = lt_result[ kunnr = lv_index ]-kunnr ) ).
+  SELECT vbeln
+  INTO @DATA(lt_sales_orders)
+  FROM vbak
+  WHERE kunnr = lv_customer.
+
+  CLEAR lv_net_revenue.
+  CLEAR lv_tax_amount.
+  CLEAR lv_discount.
+
+  *Loop to calculate net revenue, tax amount, and discount for each sales order
+
+  LOOP AT lt_sales_orders INTO DATA(lv_sales_order).
+    DATA(lv_header_data) = VALUE #( SIGN = 'I' OPTION = 'EQ' ( vbeln = lv_sales_order ) ).
+    SELECT netwr, mwskz, rabat
+    FROM vbap
+    INTO @DATA(lt_items)
+    WHERE vbeln = lv_sales_order
+    AND audat BETWEEN '20210101' AND '20210930'.
+    LOOP AT lt_items INTO DATA(ls_item).
+      CASE ls_item-mwskz.
+        WHEN 'V0' OR 'Z0'.
+          lv_tax_amount = lv_tax_amount + ls_item-netwr.
+        WHEN 'V1' OR 'V2'.
+          lv_tax_amount = lv_tax_amount + ls_item-netwr * 0.07.
+        WHEN 'V3'.
+          lv_tax_amount = lv_tax_amount + ls_item-netwr * 0.10.
+      ENDCASE.
+      lv_net_revenue = lv_net_revenue + ls_item-netwr.
+      lv_discount = lv_discount + ls_item-rabat.
+    ENDLOOP.
+  ENDLOOP.
+
+  *Output formatting for customer information
+  SKIP.
+  WRITE: /(20) 'Customer: ', lv_customer.
+  WRITE: /(20) 'Net revenue: $ ', lv_net_revenue.
+  WRITE: /(20) 'Tax amount: $ ', lv_tax_amount.
+  WRITE: /(20) 'Discount: $ ', lv_discount.
+ENDDO.

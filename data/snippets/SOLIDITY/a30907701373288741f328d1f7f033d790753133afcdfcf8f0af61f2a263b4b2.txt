@@ -1,0 +1,75 @@
+// Contract that implements a basic ERC20 token with transfer, approve and transferFrom functions
+pragma solidity ^0.8.2;
+
+// Importing required libraries
+import "./IERC20.sol";
+import "./SafeMath.sol";
+
+// Defining contract with name 'MyToken' that implements IERC20 interface
+contract MyToken is IERC20 {
+
+    // Using SafeMath library to prevent overflow/underflow errors
+    using SafeMath for uint256;
+
+    // Variables
+    string public constant name = "My Token"; // Token name
+    string public constant symbol = "MTKN"; // Token symbol
+    uint8 public constant decimals = 18; // Number of decimals
+    uint256 public totalSupply; // Total supply of tokens
+
+    // Mapping to keep track of balances for each address
+    mapping(address => uint256) balances;
+
+    // Mapping to keep track of approved spending for each address
+    mapping(address => mapping (address => uint256)) allowed;
+
+    // Events
+    event Transfer(address indexed from, address indexed to, uint256 value); // Triggered when tokens are transferred
+    event Approval(address indexed owner, address indexed spender, uint256 value); // Triggered when approval is granted or revoked
+
+    // Constructor - assign total supply of tokens to the contract creator
+    constructor() {
+        balances[msg.sender] = totalSupply;
+    }
+
+    // Function to get the balance of a given address
+    function balanceOf(address owner) public view override returns (uint256) {
+        return balances[owner];
+    }
+
+    // Function to transfer tokens from the sender's account to another account
+    function transfer(address to, uint256 value) public virtual override returns (bool) {
+        require(value <= balances[msg.sender], "Insufficient balance"); // Revert transaction if sender does not have enough balance
+        require(to != address(0), "Cannot transfer to zero address"); // Revert transaction if trying to transfer to zero address
+
+        balances[msg.sender] = balances[msg.sender].sub(value); // Subtract tokens from sender's balance
+        balances[to] = balances[to].add(value); // Add tokens to receiver's balance
+        emit Transfer(msg.sender, to, value); // Trigger transfer event
+        return true; // Transaction successful
+    }
+
+    // Function to approve a specific amount of spending for a specific address
+    function approve(address spender, uint256 value) public virtual override returns (bool) {
+        allowed[msg.sender][spender] = value; // Update allowed mapping with the approved amount
+        emit Approval(msg.sender, spender, value); // Trigger approval event
+        return true; // Approval successful
+    }
+
+    // Function to transfer tokens from one account to another, only if the sender has enough approved spending by the account
+    function transferFrom(address from, address to, uint256 value) public virtual override returns (bool) {
+        require(value <= balances[from], "Insufficient balance"); // Revert transaction if sender does not have enough balance
+        require(value <= allowed[from][msg.sender], "Insufficient allowance"); // Revert transaction if sender does not have enough approved spending
+        require(to != address(0), "Cannot transfer to zero address"); // Revert transaction if trying to transfer to zero address
+
+        balances[from] = balances[from].sub(value); // Subtract tokens from sender's balance
+        allowed[from][msg.sender] = allowed[from][msg.sender].sub(value); // Subtract approved spending from sender's allowance
+        balances[to] = balances[to].add(value); // Add tokens to receiver's balance
+        emit Transfer(from, to, value); // Trigger transfer event
+        return true; // Transaction successful
+    }
+
+    // Function to get the current approved amount of spending for a specific address by the sender
+    function allowance(address owner, address spender) public view virtual override returns (uint256) {
+        return allowed[owner][spender];
+    }
+}

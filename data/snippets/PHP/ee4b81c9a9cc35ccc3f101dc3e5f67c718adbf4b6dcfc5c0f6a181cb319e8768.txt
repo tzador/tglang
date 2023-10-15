@@ -1,0 +1,60 @@
+<?php
+namespace App\Http\Controllers;
+
+// Import necessary classes
+use Illuminate\Http\Request;
+use App\Models\User;
+use App\Services\CustomService;
+use App\Http\Controllers\Controller;
+
+// Define class
+class UserController extends Controller
+{
+    /**
+     * Get the authenticated user's profile.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Contracts\Support\Renderable
+     */
+    public function profile(Request $request)
+    {
+        // Retrieve user from request and eager load relationships
+        $user = User::with(['posts', 'profile', 'roles.permissions'])->find($request->user()->id);
+
+        // Use custom service to format profile data
+        $profileData = CustomService::formatProfileData($user->profile);
+
+        // Return view with user and formatted profile data as variables
+        return view('profile', compact('user', 'profileData'));
+    }
+
+    /**
+     * Update the authenticated user's profile.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function updateProfile(Request $request)
+    {
+        // Validate request data using Laravel's built-in validation method
+        $validatedData = $request->validate([
+            'name' => 'required|max:255',
+            'email' => 'required|email|max:255|unique:users,email,' . $request->user()->id,
+            'profile.bio' => 'nullable|max:255',
+            'profile.location' => 'nullable|max:255',
+            'profile.website' => 'nullable|url',
+        ]);
+
+        // Retrieve authenticated user and update with validated data
+        $user = $request->user();
+        $user->name = $validatedData['name'];
+        $user->email = $validatedData['email'];
+        $user->profile->bio = $validatedData['profile']['bio'];
+        $user->profile->location = $validatedData['profile']['location'];
+        $user->profile->website = $validatedData['profile']['website'];
+        $user->push();
+
+        // Redirect back with success message
+        return redirect()->back()->with('success', 'Profile updated successfully.');
+    }
+}

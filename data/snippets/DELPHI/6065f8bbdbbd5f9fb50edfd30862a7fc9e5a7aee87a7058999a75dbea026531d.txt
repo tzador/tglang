@@ -1,0 +1,174 @@
+unitMain;
+
+interface
+
+uses
+  System.SysUtils, System.Classes, Vcl.Forms, Vcl.Controls, Vcl.Dialogs,
+  Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.ComCtrls, FireDAC.UI.Intf, FireDAC.FMXUI.Wait,
+  FireDAC.Stan.Intf, FireDAC.Comp.Client, Data.DB, FireDAC.Phys.SQLite,
+
+  // Imports the SQLite database drivers and dependencies
+
+  SQLiteTable3; // Imports a custom SQLite table class for easier database manipulation
+
+type
+  TMainForm = class(TForm)
+    Panel1: TPanel;
+    Label1: TLabel;
+    Panel2: TPanel;
+    ListView1: TListView;
+    Panel3: TPanel;
+    btnAddRecord: TButton;
+    btnEditRecord: TButton;
+    btnDeleteRecord: TButton;
+    FDConnection1: TFDConnection;
+    FDPhysSQLiteDriverLink1: TFDPhysSQLiteDriverLink;
+    FDTable1: TFDTable;
+    FDTable1ID: TFDAutoIncField;
+    FDTable1NAME: TStringField;
+    FDTable1AGE: TIntegerField;
+    FDTable1GENDER: TStringField;
+    procedure FormShow(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure btnAddRecordClick(Sender: TObject);
+    procedure btnEditRecordClick(Sender: TObject);
+    procedure btnDeleteRecordClick(Sender: TObject);
+  private
+    { Private declarations }
+    DatabasePath: string;
+    SQLiteTable: TSQLiteTable3; // Custom SQLite table object
+    procedure LoadData;
+    procedure AddRecord;
+    procedure EditRecord;
+    procedure DeleteRecord;
+  public
+    { Public declarations }
+  end;
+
+var
+  MainForm: TMainForm;
+
+implementation
+
+{$R *.dfm}
+
+procedure TMainForm.FormShow(Sender: TObject);
+begin
+  // Sets the database path and connects to the database
+  DatabasePath := ExtractFilePath(Application.ExeName) + 'database.sqlite';
+  FDConnection1.Params.Database := DatabasePath;
+  FDConnection1.Connected := True;
+
+  // Creates the SQLiteTable object and loads data into the list view
+  SQLiteTable := TSQLiteTable3.Create(FDConnection1, 'SELECT * FROM my_table;');
+  LoadData;
+end;
+
+procedure TMainForm.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+  // Closes the database connection and frees the SQLiteTable object
+  FDConnection1.Connected := False;
+  SQLiteTable.Free;
+end;
+
+procedure TMainForm.LoadData;
+begin
+  // Clears any existing items in the list view
+  ListView1.Items.Clear;
+
+  // Loops through the SQLiteTable object and adds each record as a list view item
+  while not SQLiteTable.EOF do
+  begin
+    with ListView1.Items.Add do
+    begin
+      Caption := SQLiteTable.FieldAsString('NAME');
+      SubItems.Add(IntToStr(SQLiteTable.FieldAsInteger('AGE')));
+      SubItems.Add(SQLiteTable.FieldAsString('GENDER'));
+    end;
+    SQLiteTable.Next;
+  end;
+end;
+
+procedure TMainForm.btnAddRecordClick(Sender: TObject);
+begin
+  // Calls the AddRecord procedure to add a new record to the database
+  AddRecord;
+end;
+
+procedure TMainForm.btnEditRecordClick(Sender: TObject);
+begin
+  // Calls the EditRecord procedure to edit an existing record
+  EditRecord;
+end;
+
+procedure TMainForm.btnDeleteRecordClick(Sender: TObject);
+begin
+  // Calls the DeleteRecord procedure to delete an existing record
+  DeleteRecord;
+end;
+
+procedure TMainForm.AddRecord;
+begin
+  // Prompts the user for input and inserts a new record into the database using the SQLiteTable object
+  with SQLiteTable do
+  begin
+    Insert;
+    FieldByName('NAME').AsString := InputBox('Name', 'Please enter a name', '');
+    FieldByName('AGE').AsInteger := StrToInt(InputBox('Age', 'Please enter an age', ''));
+    FieldByName('GENDER').AsString := InputBox('Gender', 'Please enter a gender', '');
+    Post;
+
+    // Reloads the data into the list view to show the newly added record
+    LoadData;
+  end;
+end;
+
+procedure TMainForm.EditRecord;
+begin
+  // Checks if a record is selected in the list view
+  if ListView1.Selected <> nil then
+  begin
+    // Gets the selected record from the list view and updates the corresponding record in the database using the SQLiteTable object
+    with SQLiteTable do
+    begin
+      First;
+      MoveBy(ListView1.Selected.Index);
+      Edit;
+      FieldByName('NAME').AsString := InputBox('Name', 'Please enter a name', FieldByName('NAME').AsString);
+      FieldByName('AGE').AsInteger := StrToInt(InputBox('Age', 'Please enter an age', IntToStr(FieldByName('AGE').AsInteger)));
+      FieldByName('GENDER').AsString := InputBox('Gender', 'Please enter a gender', FieldByName('GENDER').AsString);
+      Post;
+    end;
+
+    // Reloads the data into the list view to show the updated record
+    LoadData;
+  end
+  else
+  begin
+    // Displays a message if no record is selected
+    ShowMessage('Please select a record to edit.');
+  end;
+end;
+
+procedure TMainForm.DeleteRecord;
+begin
+  // Checks if a record is selected in the list view
+  if ListView1.Selected <> nil then
+  begin
+    // Gets the selected record from the list view and deletes the corresponding record from the database using the SQLiteTable object
+    with SQLiteTable do
+    begin
+      First;
+      MoveBy(ListView1.Selected.Index);
+      Delete;
+    end;
+
+    // Reloads the data into the list view to show the updated list of records
+    LoadData;
+  end
+  else
+  begin
+    // Displays a message if no record is selected
+    ShowMessage('Please select a record to delete.');
+  end;
+end;

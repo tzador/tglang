@@ -1,0 +1,53 @@
+/* This is a macro program that creates a dataset of customer transactions */
+
+%macro customer_transactions(input_data, output_data, customer, date, product);
+
+    /* Create a temporary dataset with only the specified customer's data */
+    data _temp;
+        set &input_data;
+        where customer = &customer;
+        /* Keep only the customer, date, and product columns */
+        keep &customer &date &product;
+    run;
+
+    /* Sort the temporary data by date */
+    proc sort data=_temp;
+        by &date;
+    run;
+
+    /* Initialize variables for calculating running totals for each product */
+    %let prev_product = 0;
+    %let prev_total = 0;
+    %let current_total = 0;
+
+    /* Create a new dataset for the customer transactions with a running total for each product */
+    data &output_data;
+        set _temp;
+        by &date;
+
+        /* If it is the first row for a product, set the running total to the current value */
+        if first.&product then do;
+            &product._total = &product;
+        end;
+
+        /* If it is the same product as the previous row, add the current value to the previous total */
+        else if &product = &prev_product then do;
+            &product._total = &product + &prev_total;
+        end;
+
+        /* If it is a different product, set the running total to the current value */
+        else do;
+            &product._total = &product;
+        end;
+
+        /* Update the previous product and total values for the next row */
+        %let prev_product = &product;
+        %let prev_total = &product._total;
+    run;
+
+    /* Drop the temporary dataset */
+    proc datasets library=work;
+        delete _temp;
+    run;
+
+%mend;

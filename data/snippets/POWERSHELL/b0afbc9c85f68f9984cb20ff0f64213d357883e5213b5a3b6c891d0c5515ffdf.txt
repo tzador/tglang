@@ -1,0 +1,69 @@
+function Get-FolderItem {
+    <#
+        .SYNOPSIS
+        Retrieves items in a folder and its subfolders.
+        .DESCRIPTION
+        This command retrieves items in a folder and, optionally, its subfolders. It returns File objects or DirectoryInfo objects. You can also use this command to view simply the status of the files and folders in the folder.
+        .PARAMETER Path
+        Specifies the path to the folder that contains the items to be retrieved.
+        .PARAMETER Filter
+        Specifies a filter in the form of wildcards or strings that can be used to retrieve only the files and subfolders that meet the specified criteria. Can be provided as a string or as an array of strings.
+        .PARAMETER Include
+        Specifies one or more paths that should be included in the retrieval operation.
+        .PARAMETER Exclude
+        Specifies one or more paths that should be excluded from the retrieval operation.
+        .PARAMETER Recurse
+        Retrieves items in subfolders.
+        .PARAMETER Depth
+        Specifies the maximum number of subfolder levels to search. 
+        .EXAMPLE
+        Get-FolderItem -Path "C:\Users\JohnDoe\Documents" -Filter "*.txt"
+        Retrieves all files with the .txt extension in the Documents folder.
+        .EXAMPLE
+        Get-FolderItem -Path "C:\Users\JohnDoe\Documents" -Filter "*log*" -Exclude "C:\Users\JohnDoe\Documents\Logs"
+        Retrieves all files and subfolders with "log" in their name, excluding the Logs subfolder.
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Path,
+        [string[]]$Filter,
+        [string[]]$Include,
+        [string[]]$Exclude,
+        [switch]$Recurse,
+        [int]$Depth
+    )
+    $items = @()
+    if($Recurse){
+        $items += Get-ChildItem $Path -Recurse -File
+    } else {
+        if(!$Depth){
+            $Depth = 1
+        }
+        $items += Get-ChildItem $Path -File
+        $subfolders = Get-ChildItem $Path -Recurse -Directory
+        foreach($subfolder in $subfolders){
+            $items += Get-ChildItem $subfolder.FullName -File -depth $Depth
+        }
+    }
+    if($Filter){
+        $filteredItems = $items | Where-Object {$item.Name -like $Filter}
+    }
+    if($Include){
+        $includedItems = $items | Where-Object {$item.FullName -in $Include}
+        $items = $items | Where-Object {$item.FullName -notin $Include}
+    }
+    if($Exclude){
+        $excludedItems = $items | Where-Object {$item.FullName -in $Exclude}
+        $items = $items | Where-Object {$item.FullName -notin $Exclude}
+    }
+    if($filteredItems){
+        return $filteredItems
+    } elseif($includedItems){
+        $items += $includedItems
+    } elseif($excludedItems){
+        $items += $excludedItems
+    }
+    return $items
+}

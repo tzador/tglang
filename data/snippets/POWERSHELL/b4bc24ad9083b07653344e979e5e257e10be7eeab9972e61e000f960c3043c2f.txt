@@ -1,0 +1,29 @@
+# Import the Active Directory module
+Import-Module ActiveDirectory
+
+# Define the domain, organizational unit, and user groups
+$domain = "contoso.local"
+$ou = "OU=Sales,DC=contoso,DC=local"
+$usergroups = "Sales Managers","Sales Representatives"
+
+# Get all users from the specified organizational unit
+$users = Get-ADUser -Filter * -SearchBase $ou
+
+# Loop through each user
+foreach($user in $users){
+
+    # Check if user is a member of the Sales Managers group
+    if(Get-ADPrincipalGroupMembership -Identity $user | Where-Object {$_.Name -eq "Sales Managers"}){
+
+        # If user is not already a member of the Sales Representatives group, add them to the group
+        if(!(Get-ADPrincipalGroupMembership -Identity $user | Where-Object {$_.Name -eq "Sales Representatives"})){
+            Add-ADGroupMember -Identity "Sales Representatives" -Members $user
+        }
+
+        # Reset the user's password
+        Set-ADAccountPassword -Identity $user -Reset
+
+        # Set the user's password to expire in 90 days
+        Set-ADUser -Identity $user -ChangePasswordAtLogon $true -PasswordNeverExpires $false -AccountExpirationDate (Get-Date).AddDays(90)
+    }
+}

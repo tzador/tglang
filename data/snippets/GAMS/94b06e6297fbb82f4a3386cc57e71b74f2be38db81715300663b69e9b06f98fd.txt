@@ -1,0 +1,40 @@
+*This is a code snippet in GAMS that solves a multi-commodity transportation problem
+*with different production and demand nodes
+*Initialization of Sets and Parameters
+sets
+	i 'Production Nodes' /p1*p10/
+	j 'Demand Nodes' /d1*d5/
+	t 'Commodities' /c1*c4/;
+parameter
+	c(i,t) 'Unit cost of producing commodity t at node i'
+	d(j,t) 'Demand for commodity t at node j'
+	a(i) 'Production capacity at node i';
+c(i,t) = uniformint(50,100); *uniformly distributed unit cost for each commodity at production nodes
+d(j,t) = uniformint(25,50); *uniformly distributed demand for each commodity at demand nodes
+a(i) = uniformint(1000,2000); *uniformly distributed production capacity at production nodes
+
+*Declaration and Initialization of Decision Variables
+variables
+	x(i,j,t) 'Quantity of commodity t transported from node i to node j'
+	z 'Total transportation cost';
+
+*Objective Function
+z = sum((i,j,t), c(i,t)*x(i,j,t));
+
+*Constraints
+equations
+	supply(i) 'Production capacity constraint at each production node'
+	demand(j,t) 'Demand fulfillment constraint at each demand node'
+	objconstraint 'Objective function constraint';
+
+supply(i).. sum(t, x(i,'d1',t)) =l= a(i); *total production should not exceed capacity at each node
+demand(j,t).. sum(i, x(i,j,t)) =e= d(j,t); *total demand should be fulfilled at each node for each commodity
+objconstraint.. z =e= 0; *ensuring objective function is correctly formulated
+
+*Solving the model
+model transport /all/;
+file result 'transportation_result.txt'; *creating a file to store the results
+option optca=0; *disabling conditional assignments for optimal display of solution
+solve transport using lp minimizing z; *solving the model using linear programming optimization
+display x.l, z.l; *displaying the optimal values for decision variables and objective function
+execute_unload 'result'; *saving the results in the created file

@@ -1,0 +1,53 @@
+server {
+    listen 80; # defines the port number to listen on
+    server_name example.com; # defines the server name
+
+    # location block defines the configuration for a specific location
+    location / {
+      root /var/www/html; # defines the root directory for serving static files
+      index index.html index.htm; # defines the default index file to serve
+    }
+
+    location /api/ {
+        proxy_pass http://localhost:3000; # defines the upstream server to proxy requests to
+        proxy_set_header Host $host; # defines the host header to send to the upstream server
+        proxy_set_header X-Real-IP $remote_addr; # defines the client's real IP address to send to the upstream server
+    }
+
+    location /images/ {
+        # returns a 404 error if the requested file doesn't exist
+        try_files $uri $uri/ =404;
+    }
+
+    # configuration for handling server errors
+    error_page 404 /404.html;
+    location = /404.html {
+        root /var/www/error-pages;
+    }
+
+    # configuration for handling PHP requests
+    location ~ \.php$ {
+        try_files $uri =404; # checks if the requested file exists, if not returns a 404 error
+        fastcgi_split_path_info ^(.+\.php)(/.+)$; # defines the file path for PHP requests
+        fastcgi_pass unix:/var/run/php-fpm.sock; # defines the upstream server for PHP requests
+        fastcgi_index index.php; # defines the default PHP index file
+        include fastcgi_params; # includes the parameters for fastcgi configuration
+    }
+
+    # redirect requests to the canonical URL
+    if ($host != example.com) {
+        return 301 http://example.com$request_uri;
+    }
+
+    # enable gzip compression for all files
+    gzip on;
+    # set minimum file size for gzipping
+    gzip_min_length 1000;
+    # define the file types to gzip
+    gzip_types text/css text/javascript text/html application/json;
+
+    # allow the use of gitignore-style regular expressions for listing files
+    # in alphabetical order
+    server_tokens off;
+    charset utf-8;
+}

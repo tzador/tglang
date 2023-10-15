@@ -1,0 +1,74 @@
+#!/bin/bash
+
+#This is a script to check the availability of a website
+
+#Function to check if HTTP status is 200
+check_http(){
+    if [[ $(curl -s -o /dev/null -w "%{http_code}" $1) -eq 200 ]]; then #Curl the url and check the HTTP status code
+        echo "The website $1 is up and running." 
+    else
+        echo "The website $1 is down." 
+    fi
+}
+
+#Function to check if Domain is pointing to correct IP address
+check_dns(){
+    #Getting the correct IP address using DNS lookup
+    correct_ip=$(dig +short $1)
+
+    #Ping the website and get the IP address
+    website_ip=$(ping -c 1 $1 | sed -nE 's/^PING[^(]+\(([^)]+)\).*/\1/p')
+
+    #Comparing the two IP addresses
+    if [ "$correct_ip" = "$website_ip" ]; then 
+        echo "Domain is pointing to the correct IP address."
+    else
+        echo "Domain is not pointing to the correct IP address."
+    fi
+}
+
+#Function to check the SSL certificate expiry date
+check_ssl(){
+    #Getting the expiry date of the SSL certificate
+    expiry_date=$(echo | openssl s_client -servername $1 -connect $1:443 2>/dev/null | openssl x509 -noout -dates | grep notAfter | cut -d'=' -f2)
+
+    #Converting the date to seconds since epoch
+    expiry_seconds=$(date --date="$expiry_date" +%s)
+
+    #Getting the current date in seconds since epoch
+    current_seconds=$(date +%s)
+
+    #Calculating the difference and converting it to days
+    expiry_days=$(( (expiry_seconds - current_seconds) / 86400 ))
+
+    #Checking if the expiry days are less than 30
+    if [ $expiry_days -lt 30 ]; then 
+        echo "The SSL certificate for $1 is about to expire in $expiry_days days."
+    else
+        echo "The SSL certificate for $1 is valid for $expiry_days days."
+    fi
+}
+
+#Prompting user to enter the website URL
+echo "Enter the URL of the website to check:"
+
+#Storing the entered URL in a variable
+read website_url
+
+#Checking if the URL starts with "http://" or "https://"
+if [[ $website_url == http* ]]; then
+    #Removing "http://" or "https://" from the URL to get the domain
+    domain=$(echo $website_url | cut -d'/' -f3)
+else
+    #Storing the input URL in domain
+    domain=$website_url
+fi
+
+#Calling the check_http function with the domain
+check_http $domain
+
+#Calling the check_dns function with the domain
+check_dns $domain
+
+#Calling the check_ssl function with the domain
+check_ssl $domain

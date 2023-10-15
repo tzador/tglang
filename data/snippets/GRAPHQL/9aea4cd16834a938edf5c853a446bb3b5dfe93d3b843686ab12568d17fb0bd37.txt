@@ -1,0 +1,255 @@
+const { GraphQLServer } = require('graphql-yoga');
+const uuid = require('uuid');
+
+// Type definitions for GraphQL schema
+const typeDefs = `
+  type Query {
+    posts(query: String): [Post!]!
+    users(query: String): [User!]!
+    comments: [Comment!]!
+    me: User!
+  }
+
+  type Mutation {
+    createPost(data: CreatePostInput!): Post!
+    createComment(data: CreateCommentInput!): Comment!
+    createUser(data: CreateUserInput!): User!
+  }
+
+  input CreatePostInput {
+    title: String!
+    body: String!
+    published: Boolean!
+    author: ID!
+  }
+
+  input CreateCommentInput {
+    text: String!
+    author: ID!
+    post: ID!
+  }
+
+  input CreateUserInput {
+    name: String!
+    email: String!
+    age: Int
+  }
+
+  type Post {
+    id: ID!
+    title: String!
+    body: String!
+    published: Boolean!
+    author: User!
+    comments: [Comment!]!
+  }
+
+  type Comment {
+    id: ID!
+    text: String!
+    author: User!
+    post: Post!
+  }
+
+  type User {
+    id: ID!
+    name: String!
+    email: String!
+    age: Int
+    posts: [Post!]!
+    comments: [Comment!]!
+  }
+`;
+
+// Resolvers for GraphQL Queries and Mutations
+const resolvers = {
+  Query: {
+    posts(parent, args, { db }, info) {
+      const { query } = args;
+      if (!query) {
+        return db.posts;
+      }
+      return db.posts.filter((post) => {
+        const { title, body } = post;
+        const lowerQuery = query.toLowerCase();
+        return (
+          title.toLowerCase().includes(lowerQuery) ||
+          body.toLowerCase().includes(lowerQuery)
+        );
+      });
+    },
+    users(parent, args, { db }, info) {
+      const { query } = args;
+      if (!query) {
+        return db.users;
+      }
+      return db.users.filter((user) => {
+        const { name } = user;
+        const lowerQuery = query.toLowerCase();
+        return name.toLowerCase().includes(lowerQuery);
+      });
+    },
+    comments(parent, args, { db }, info) {
+      return db.comments;
+    },
+    me() {
+      return {
+        id: uuid.v4(),
+        name: 'John Doe',
+        email: 'johndoe@example.com',
+        age: 25,
+      };
+    },
+  },
+  Mutation: {
+    createPost(parent, args, { db }, info) {
+      const { data } = args;
+      const { title, body, published, author } = data;
+      const post = {
+        id: uuid.v4(),
+        title,
+        body,
+        published,
+        author,
+      };
+      db.posts.push(post);
+      return post;
+    },
+    createComment(parent, args, { db }, info) {
+      const { data } = args;
+      const { text, author, post } = data;
+      const comment = {
+        id: uuid.v4(),
+        text,
+        author,
+        post,
+      };
+      db.comments.push(comment);
+      return comment;
+    },
+    createUser(parent, args, { db }, info) {
+      const { data } = args;
+      const { name, email, age } = data;
+      const emailTaken = db.users.some((user) => user.email === email);
+      if (emailTaken) {
+        throw new Error('Email already taken.');
+      }
+      const user = {
+        id: uuid.v4(),
+        name,
+        email,
+        age,
+      };
+      db.users.push(user);
+      return user;
+    },
+  },
+  Post: {
+    author(parent, args, { db }, info) {
+      const { author } = parent;
+      return db.users.find((user) => user.id === author);
+    },
+    comments(parent, args, { db }, info) {
+      const { id } = parent;
+      return db.comments.filter((comment) => comment.post === id);
+    },
+  },
+  Comment: {
+    author(parent, args, { db }, info) {
+      const { author } = parent;
+      return db.users.find((user) => user.id === author);
+    },
+    post(parent, args, { db }, info) {
+      const { post } = parent;
+      return db.posts.find((postItem) => postItem.id === post);
+    },
+  },
+  User: {
+    posts(parent, args, { db }, info) {
+      const { id } = parent;
+      return db.posts.filter((post) => post.author === id);
+    },
+    comments(parent, args, { db }, info) {
+      const { id } = parent;
+      return db.comments.filter((comment) => comment.author === id);
+    },
+  },
+};
+
+const server = new GraphQLServer({
+  typeDefs,
+  resolvers,
+  context: {
+    db: {
+      users: [
+        {
+          id: '1',
+          name: 'Jane Smith',
+          email: 'janesmith@example.com',
+          age: 30,
+        },
+        {
+          id: '2',
+          name: 'Bob Johnson',
+          email: 'bjohnson@example.com',
+          age: 45,
+        },
+        {
+          id: '3',
+          name: 'Emily Davis',
+          email: 'edavis@example.com',
+          age: 22,
+        },
+      ],
+      posts: [
+        {
+          id: '1',
+          title: 'GraphQL for Beginners',
+          body: 'This is a beginner-friendly introduction to GraphQL.',
+          published: true,
+          author: '1',
+        },
+        {
+          id: '2',
+          title: 'Advanced GraphQL Concepts',
+          body:
+            'Learn about advanced concepts like mutations and subscriptions in GraphQL.',
+          published: false,
+          author: '1',
+        },
+        {
+          id: '3',
+          title: 'The Power of GraphQL',
+          body:
+            'Discover the power of GraphQL and how it can revolutionize your APIs.',
+          published: true,
+          author: '2',
+        },
+      ],
+      comments: [
+        {
+          id: '1',
+          text: 'Great post, thanks for sharing!',
+          author: '3',
+          post: '1',
+        },
+        {
+          id: '2',
+          text: 'I learned a lot from this article.',
+          author: '2',
+          post: '2',
+        },
+        {
+          id: '3',
+          text: 'Looking forward to reading more posts from you.',
+          author: '1',
+          post: '3',
+        },
+      ],
+    },
+  },
+});
+
+server.start(() => {
+  console.log('Server is running on localhost:4000');
+});

@@ -1,0 +1,30 @@
+# Import the 'ActiveDirectory' and 'GroupPolicy' modules
+Import-Module ActiveDirectory
+Import-Module GroupPolicy
+
+# Define a variable for the Organizational Unit (OU) to create a new group in
+$OU = "OU=Sales,OU=Marketing,DC=contoso,DC=local"
+
+# Create a new security group within the defined OU
+New-ADGroup -Name "SalesGroup" -GroupCategory Security -Path $OU -GroupScope Global -Description "Sales department group"
+
+# Create a new group policy object (GPO) for the SalesGroup
+$gpo = New-GPO -Name "SalesGroupPolicy"
+
+# Add a security group to the GPO
+Set-GPPermissions -Name "SalesGroupPolicy" -TargetType Group -TargetName "SalesGroup" -PermissionLevel GPOApply
+
+# Set the properties of the GPO
+$gpo | Set-GPRegistryValue -Key "HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\Installer" -ValueName "DisableMSI" -Type DWORD -Value 1
+$gpo | Set-GPRegistryValue -Key "HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "AUOptions" -Type DWORD -Value 3
+
+# Link the GPO to the Sales OU and enforce it
+New-GPLink -Guid $gpo.Id -Target $OU
+Set-GPLink -Guid $gpo.Id -Target $OU -Enforced Yes
+
+# Create a new user and add them to the SalesGroup
+New-ADUser -Name "John Smith" -SamAccountName "jsmith" -Enabled $true -AccountPassword (ConvertTo-SecureString "P@ssword123" -AsPlainText -Force)
+Add-ADGroupMember -Identity "SalesGroup" -Members "jsmith"
+
+# Apply the SalesGroupPolicy to the user
+Invoke-GPUpdate -Computer "jsmith" -Target "User" -Force

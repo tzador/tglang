@@ -1,0 +1,129 @@
+const { GraphQLServer } = require('graphql-yoga')
+const { PrismaClient } = require('@prisma/client')
+
+const prisma = new PrismaClient()
+
+const typeDefs = `
+  type Query {
+    users(filter: String, first: Int, skip: Int): [User!]!
+    posts(filter: String, first: Int, skip: Int): [Post!]!
+  }
+
+  type Mutation {
+    createUser(name: String!, email: String!): User!
+    createPost(title: String!, content: String!, authorId: ID!): Post!
+  }
+
+  type User {
+    id: ID!
+    name: String!
+    email: String!
+    posts(filter: String, first: Int, skip: Int): [Post!]!
+  }
+
+  type Post {
+    id: ID!
+    title: String!
+    content: String!
+    author: User!
+  }
+`
+
+const resolvers = {
+  Query: {
+    users: async (parent, { filter, first, skip }, context) => {
+      const users = await prisma.user.findMany({
+        where: {
+          OR: [
+            {
+              name: { contains: filter }
+            },
+            {
+              email: { contains: filter }
+            }
+          ]
+        },
+        first,
+        skip
+      })
+
+      return users
+    },
+    posts: async (parent, { filter, first, skip }, context) => {
+      const posts = await prisma.post.findMany({
+        where: {
+          OR: [
+            {
+              title: { contains: filter }
+            },
+            {
+              content: { contains: filter }
+            }
+          ]
+        },
+        first,
+        skip
+      })
+
+      return posts
+    }
+  },
+  Mutation: {
+    createUser: async (parent, { name, email }, context) => {
+      const user = await prisma.user.create({
+        data: {
+          name,
+          email
+        }
+      })
+
+      return user
+    },
+    createPost: async (parent, { title, content, authorId }, context) => {
+      const post = await prisma.post.create({
+        data: {
+          title,
+          content,
+          authorId
+        }
+      })
+
+      return post
+    }
+  },
+  User: {
+    posts: async (parent, { filter, first, skip }, context) => {
+      const posts = await prisma.post.findMany({
+        where: {
+          authorId: parent.id,
+          OR: [
+            {
+              title: { contains: filter }
+            },
+            {
+              content: { contains: filter }
+            }
+          ]
+        },
+        first,
+        skip
+      })
+
+      return posts
+    }
+  },
+  Post: {
+    author: async (parent, args, context) => {
+      const user = await prisma.user.findOne({
+        where: {
+          id: parent.authorId
+        }
+      })
+
+      return user
+    }
+  }
+}
+
+const server = new GraphQLServer({ typeDefs, resolvers })
+server.start(() => console.log('Server running on http://localhost:4000'))

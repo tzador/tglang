@@ -1,0 +1,47 @@
+// Module to store and manipulate an 8-bit register
+module register (
+    input clk, // Clock input
+    input rst, // Asynchronous reset input
+    input en, // Enable input
+    input [7:0] in, // Data input (8 bits)
+    output reg [7:0] out, // Data output (8 bits)
+    input [2:0] sel // Select input (3 bits)
+);
+
+reg [7:0] reg_data; // Internal register to store data
+wire [7:0] data_out; // Wire to connect output to data_out
+
+// Synchronous process to update register on rising edge of clock
+always @(posedge clk) begin
+    if (rst) // Asynchronous reset behavior
+        reg_data <= 8'b0; // Reset register to 0
+    else if (en) // Register updates only when enabled
+        case(sel) // Select behavior based on sel input
+            3'b000: reg_data <= in; // sel = 0, copy data input to register
+            3'b001: reg_data <= reg_data + in; // sel = 1, add data input to register
+            3'b010: reg_data <= reg_data - in; // sel = 2, subtract data input from register
+            3'b011: reg_data <= reg_data & in; // sel = 3, bitwise AND operation between register and input
+            3'b100: reg_data <= reg_data | in; // sel = 4, bitwise OR operation between register and input
+            default: reg_data <= reg_data ^ in; // For all other cases, bitwise XOR operation between register and input
+        endcase
+end
+
+// Assign output to data_out based on select input
+assign data_out = (sel == 3'b000) ? reg_data :
+                 (sel == 3'b001) ? 8'hff :
+                 (sel == 3'b010) ? 8'h00 :
+                 (sel == 3'b011) ? in :
+                 (sel == 3'b100) ? reg_data << 1 :
+                 (sel == 3'b101) ? reg_data >> 1 :
+                 (sel == 3'b110) ? {reg_data[6:0], 1'b0} :
+                 (sel == 3'b111) ? {1'b0, reg_data[7:1]} : 8'h00;
+
+// Output always equals data_out when enabled
+always @(*) begin
+    if (en)
+        out <= data_out;
+    else
+        out <= 8'b0; // Output is 0 when not enabled
+end
+
+endmodule

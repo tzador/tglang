@@ -1,0 +1,77 @@
+// Import necessary modules and packages
+const express = require("express");
+const { graphqlHTTP } = require("express-graphql");
+const { buildSchema } = require("graphql");
+
+// Define schema
+const schema = buildSchema(`
+  type Book {
+    id: String
+    title: String
+    author: String
+  }
+  type Query {
+    book(id: String): Book
+    books: [Book]
+  }
+  input BookInput {
+    title: String
+    author: String
+  }
+  type Mutation {
+    addBook(input: BookInput): Book
+    deleteBook(id: String): String
+  }
+`)
+
+// Define data
+const books = [
+  {
+    id: "1",
+    title: "Harry Potter and the Sorcerer's Stone",
+    author: "J.K. Rowling"
+  },
+  {
+    id: "2",
+    title: "Pride and Prejudice",
+    author: "Jane Austen"
+  },
+  {
+    id: "3",
+    title: "To Kill a Mockingbird",
+    author: "Harper Lee"
+  }
+];
+
+// Define resolvers for Query and Mutation
+const root = {
+  book: ({ id }) => books.find(book => book.id === id),
+  books: () => books,
+  addBook: ({ input }) => {
+    const newBook = {
+      id: books.length + 1,
+      title: input.title,
+      author: input.author
+    }
+    books.push(newBook);
+    return newBook;
+  },
+  deleteBook: ({ id }) => {
+    const deletedBook = books.find(book => book.id === id);
+    books = books.filter(book => book.id !== id);
+    return `Deleted book ${deletedBook.title} by ${deletedBook.author}.`
+  }
+}
+
+// Create express server
+const app = express();
+
+// Create endpoint for GraphQL
+app.use("/graphql", graphqlHTTP({
+  schema: schema,
+  rootValue: root,
+  graphiql: true, // Enable GraphiQL for testing API
+}));
+
+// Start server
+app.listen(4000, () => console.log("Server is listening on port 4000"));

@@ -1,0 +1,94 @@
+/*
+This code snippet is an example of a custom Character Movement Class in the UnrealScript programming language.
+It allows for smooth and precise movement of a character in a 3D environment.
+*/ 
+
+private class MyCustomCharacterMovement extends CharacterMovementComponent;
+
+/*
+This function overrides the default ground friction and allows for smoother movement on different surfaces.
+It takes in a parameter of the character's velocity and adjusts it based on the surface's friction.
+*/ 
+function GetModifiedAcceleration(Vector InAcceleration, FVector InGravity, float InDeltaTime)
+{
+    local float SurfaceFriction;
+
+    // Check if character is standing on a surface and get the friction value
+    if(CurrentFloor.IsWalkable())
+    {
+        SurfaceFriction = CurrentFloor.GetGroundFriction();
+    }
+    else
+    {
+        SurfaceFriction = 0.0; // No friction when in the air
+    }
+
+    // Apply friction to the character's acceleration
+    local float ModifiedAcceleration = (InAcceleration - (InAcceleration * SurfaceFriction)) * InDeltaTime;
+
+    // Apply gravity to the acceleration
+    ModifiedAcceleration += InGravity * InDeltaTime;
+
+    return ModifiedAcceleration;
+}
+
+/*
+This function performs the actual movement of the character.
+It takes in the character's current velocity and updates it based on the current acceleration.
+*/ 
+function SimulateMovement(float InDeltaTime)
+{
+    // Get the modified acceleration based on the character's velocity and gravity
+    local Vector ModifiedAcceleration = GetModifiedAcceleration(CurrentVelocity, GetGravityForMovement(), InDeltaTime);
+
+    // Update character's velocity with the modified acceleration
+    CurrentVelocity += ModifiedAcceleration;
+
+    // Apply velocity to the character's location
+    Move(CurrentVelocity * InDeltaTime);
+
+    // Check for collision and adjust velocity if necessary
+    CheckForCollision(OldLocation, Location);
+}
+
+/*
+This function handles the character's jump movement.
+It takes in a parameter of the character's current velocity and adds a vertical velocity for jumping.
+*/ 
+function Jump(Vector InVelocity)
+{
+    // Get the vertical jump velocity based on the character's current velocity (if any)
+    local float VerticalJumpVelocity = Max(0, VectorDot(InVelocity, Normal(1,0,0)));
+
+    // Update character's velocity with the jump velocity
+    CurrentVelocity.Z += VerticalJumpVelocity;
+}
+
+/*
+This function handles the character's movement on slopes.
+It takes in a parameter of the character's current velocity and adjusts it to match the slope.
+*/ 
+function AdjustVelocityForSlope(Vector InVelocity)
+{
+    // Get the slope angle and direction from the character's current floor
+    local float SlopeAngle = GetSlopeAngle(CurrentFloor.HitNormal);
+    local Vector SlopeDirection = VectorCross(Normal(1,0,0), CurrentFloor.HitNormal);
+
+    // Update character's velocity to match the slope
+    CurrentVelocity.Z = InVelocity.Z * Cos(SlopeAngle);
+    CurrentVelocity.X = InVelocity.X * SlopeDirection.X;
+    CurrentVelocity.Y = InVelocity.Y * SlopeDirection.Y;
+}
+
+/*
+This function handles the character's sliding movement.
+It takes in a parameter of the character's current velocity and adjusts it to simulate sliding.
+*/ 
+function ApplySlide(Vector InVelocity)
+{
+    // Get the magnitude of the velocity in the direction of the slope
+    local float SlideVelocityMagnitude = VectorDot(InVelocity, CurrentFloor.HitNormal);
+
+    // Update character's velocity to simulate sliding
+    CurrentVelocity += (-SlideVelocityMagnitude * CurrentFloor.HitNormal);
+}

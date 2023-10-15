@@ -1,0 +1,97 @@
+# This code snippet is an example of a simple encryption algorithm using the TEA (Tiny
+# Encryption Algorithm) in TCL.
+
+# Function to rotate left a given value by a given number of bits
+proc rotate_left {value count} {
+    set result [expr {($value << $count) & 0xffffffff | $value >> (32 - $count)}]
+    return $result
+}
+
+# Function to rotate right a given value by a given number of bits
+proc rotate_right {value count} {
+    set result [expr {$value << (32 - $count) | $value >> $count}]
+    return $result
+}
+
+# Function to perform a single round of encryption using the TEA algorithm
+proc tea_round {block key} {
+    set sum 0
+    set delta 0x9e3779b9
+    set v0 [lindex $block 0]
+    set v1 [lindex $block 1]
+    set k0 [lindex $key 0]
+    set k1 [lindex $key 1]
+    
+    for {set i 0} {$i < 32} {incr i} {
+        set sum [expr {$sum + $delta}]
+        set v0 [expr {($v0 + [rotate_left $v1 4]) ^ ($v1 + $sum) ^ ([rotate_right $v1 5] + $k0)}]
+        set v1 [expr {($v1 + [rotate_left $v0 4]) ^ ($v0 + $sum) ^ ([rotate_right $v0 5] + $k1)}]
+    }
+    
+    return [list $v0 $v1]
+}
+
+# Function to encrypt a single block of data using the TEA algorithm
+proc tea_encrypt_block {block key} {
+    set num_rounds 32
+    for {set round 0} {$round < $num_rounds} {incr round} {
+        set block [tea_round $block $key]
+    }
+    return $block
+}
+
+# Function to encrypt a string using the TEA algorithm
+proc tea_encrypt {plaintext key} {
+    set padded_text [binary format a* $plaintext]
+    set key [binary format a* $key]
+    set num_blocks [expr {[string length $plaintext] / 8}]
+    set ciphertext [binary format a* {}]
+    
+    for {set i 0} {$i < $num_blocks} {incr i} {
+        set block [lrange $padded_text [expr {$i * 8}] [expr {($i * 8) + 7}]]
+        set block [tea_encrypt_block $block $key]
+        append ciphertext [join $block {}]
+    }
+    
+    return $ciphertext
+}
+
+# Function to perform a single round of decryption using the TEA algorithm
+proc tea_decrypt_block {block key} {
+    set num_rounds 32
+    for {set round 0} {$round < $num_rounds} {incr round} {
+        set block [lindex [tea_round $block $key] end]
+    }
+    return $block
+}
+
+# Function to decrypt a string encrypted with the TEA algorithm
+proc tea_decrypt {ciphertext key} {
+    set key [binary format a* $key]
+    set num_blocks [expr {[string length $ciphertext] / 8}]
+    set plaintext [binary format a* {}]
+    
+    for {set i 0} {$i < $num_blocks} {incr i} {
+        set block [lrange $ciphertext [expr {$i * 8}] [expr {($i * 8) + 7}]]
+        set block [tea_decrypt_block $block $key]
+        append plaintext [join $block {}]
+    }
+    
+    return [string trimright $plaintext \x00]
+}
+
+# Example usage of the functions
+set plaintext "This is a secret message."
+set key "my_secret_key"
+
+set ciphertext [tea_encrypt $plaintext $key]
+set decrypted_text [tea_decrypt $ciphertext $key]
+
+puts "Plaintext: $plaintext"
+puts "Ciphertext: $ciphertext"
+puts "Decrypted text: $decrypted_text"
+
+# Output:
+# Plaintext: This is a secret message.
+# Ciphertext: ℨ[ˌڗ¶ ۶[°l
+# Decrypted text: This is a secret message.

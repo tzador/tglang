@@ -1,0 +1,56 @@
+; This is a code snippet that creates a GUI to interact with a database
+
+#NoEnv ;Prevents creation of extra variables
+#SingleInstance, Force ;Only allows one instance to run at a time
+#MaxThreadsPerHotkey, 1 ;Prevents multiple threads from being created per hotkey
+
+; ----- GUI -----
+Gui, +Resize +AlwaysOnTop ;Creates a resizable and always on top GUI window
+Gui, Add, Text, x20 y10, Database Connection Details: ;Adds text label to GUI
+Gui, Add, Edit, x20 y30 w200 h25 vDBServer, Server: ;Adds text input for server name
+Gui, Add, Edit, x20 y60 w200 h25 vDBName, Database Name: ;Adds text input for database name
+Gui, Add, Edit, x20 y90 w100 h25 vDBUsername, Username: ;Adds text input for username
+Gui, Add, Edit, x20 y120 w100 h25 vDBPassword, Password: ;Adds text input for password
+Gui, Add, Button, x20 y150 w50 h25 gConnectDB, Connect ;Adds button to connect to database
+Gui, Show, w250 h200, Database Connection ;Shows the GUI window
+
+; ----- FUNCTIONS -----
+ConnectDB: ;Function that will be called when the Connect button is pressed
+Gui, Submit, NoHide ;Gets the values from the GUI and stores them in respective variables
+Server := DBServer ;Stores the value from the server input in the Server variable
+DBName := DBName ;Stores the value from the database name input in the DBName variable
+Username := DBUsername ;Stores the value from the username input in the Username variable
+Password := DBPassword ;Stores the value from the password input in the Password variable
+
+; ----- DATABASE CONNECTION -----
+;Create database connection
+Conn := ComObjCreate("ADODB.Connection") ;Creates an ADODB connection object
+Conn.Open("Driver={SQL Server};Server=" Server ";" ;Opens a connection to the server using stored variables
+          "Database=" DBName ";" ;Specifies the database to connect to
+          "Uid=" Username ";" ;Specifies the username to use for authentication
+          "Pwd=" Password ";") ;Specifies the password to use for authentication
+
+; ----- QUERY -----
+;Create and execute SQL query
+Sql := "SELECT * FROM Employees" ;Specifies the SQL statement to execute
+Rs := Conn.Execute(Sql) ;Executes the SQL query and stores the results in a recordset object
+
+; ----- DISPLAY RESULTS -----
+Gui, Add, ListView, x250 y10 w600 h300 vList, Name|Age|Position ;Adds a list view to display results
+GuiControl, Delete, List ;Deletes any previous data in the list view
+GuiControl, +gListView ;Adds a callback for when an item is double clicked in the list view
+While (!Rs.EOF) ;Loops through all rows in the recordset
+{
+    Name := Rs.Fields("Name").Value ;Stores the value of the Name field in the Name variable
+    Age := Rs.Fields("Age").Value ;Stores the value of the Age field in the Age variable
+    Position := Rs.Fields("Position").Value ;Stores the value of the Position field in the Position variable
+    GuiControl, +c0000FF +aRight, List ;Sets the color and alignment for the upcoming data
+    GuiControl, Add, List, %Name%|%Age%|%Position% ;Adds the data to the list view
+    Rs.MoveNext() ;Moves to the next row in the recordset
+}
+Gui, Show,, Database Results ;Shows the updated GUI window
+
+; ----- CLOSE CONNECTION -----
+Conn.Close() ;Closes the database connection
+Rs := "" ;Clears the recordset object for reuse
+Return ;Ends the function

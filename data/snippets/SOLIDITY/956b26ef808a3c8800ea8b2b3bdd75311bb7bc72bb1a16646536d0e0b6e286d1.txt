@@ -1,0 +1,352 @@
+/**
+* @title ERC20 Interface
+* @dev Provides basic ERC20 token interface
+*/
+interface ERC20 {
+    /**
+    * @dev Returns the total amount of tokens in circulation
+    */
+    function totalSupply() external view returns (uint256);
+
+    /**
+    * @dev Returns the balance of the specified address
+    * @param _owner The address to query the balance of
+    * @return An uint256 representing the balance of the address
+    */
+    function balanceOf(address _owner) external view returns (uint256 balance);
+
+    /**
+    * @dev Transfers tokens from sender address to recipient address
+    * @param _to The address that will receive the tokens
+    * @param _value The amount of tokens to be transferred
+    * @return A boolean indicating whether the transfer was successful or not
+    */
+    function transfer(address _to, uint256 _value) external returns (bool success);
+
+    /**
+    * @dev Transfers tokens from a specific address to another specific address
+    * @param _from The address that the tokens will be transferred from
+    * @param _to The address that will receive the tokens
+    * @param _value The amount of tokens to be transferred
+    * @return A boolean indicating whether the transfer was successful or not
+    */
+    function transferFrom(address _from, address _to, uint256 _value) external returns (bool success);
+
+    /**
+    * @dev Approves a spender to withdraw a specified amount of tokens on behalf of the owner
+    * @param _spender The address that will be allowed to spend the tokens
+    * @param _value The amount of tokens to be approved for spending
+    * @return A boolean indicating whether the approval was successful or not
+    */
+    function approve(address _spender, uint256 _value) external returns (bool success);
+
+    /**
+    * @dev Returns the amount of tokens that a spender is allowed to withdraw from an address
+    * @param _owner The address that the tokens belong to
+    * @param _spender The address that is allowed to spend the tokens
+    * @return An uint256 representing the amount of tokens approved for spending
+    */
+    function allowance(address _owner, address _spender) external view returns (uint256 remaining);
+
+    /**
+    * @dev Triggered when tokens are transferred, approves or transferredFrom
+    */
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+}
+
+/**
+ * @title Owned
+ * @dev Provides basic authorization control functions
+ */
+contract Owned {
+    address public owner;
+
+    /**
+    * @dev Sets the contract owner to the address that created the contract
+    */
+    constructor() public {
+        owner = msg.sender;
+    }
+
+    /**
+    * @dev Throws an error if caller is not the owner
+    */
+    modifier onlyOwner {
+        require(msg.sender == owner);
+        _;
+    }
+
+    /**
+    * @dev Allows current owner to transfer control of the contract to a new owner
+    * @param _newOwner The address to transfer ownership to
+    */
+    function transferOwnership(address _newOwner) public onlyOwner {
+        require(_newOwner != address(0));
+        owner = _newOwner;
+    }
+}
+
+/**
+ * @title Crowdsale
+ * @dev Contract manages a simple crowdsale of a specified ERC20 token
+ */
+contract Crowdsale is Owned {
+    ERC20 public token; // The token being sold
+    uint256 public rate; // Exchange rate of token to ether
+    uint256 public weiRaised; // Amount in wei raised during the crowdsale
+    uint256 public cap; // Crowdsale cap in ether
+    uint256 public openingTime; // Time when crowdsale opens
+    uint256 public closingTime; // Time when crowdsale closes
+    uint256 public minPurchase; // Minimum purchase amount in wei
+    uint256 public maxPurchase; // Maximum purchase amount in wei
+    uint256 public individualCap; // Cap per individual in wei
+    uint256 public totalIndividualCap; // Total individual cap for the whole sale in wei
+    uint256 public tokensSold; // Amount of tokens sold during the crowdsale
+    mapping(address => uint256) public contributions; // Tracks amount of wei contributed by each address
+    mapping(address => bool) public whitelist; // List of addresses allowed to participate in the crowdsale
+    bool public isClosed; // Flag to indicate if the crowdsale has ended
+    bool public isFinalized; // Flag to indicate if the crowdsale has been finalized
+    address public wallet; // Address where funds are collected
+
+    /**
+    * @dev Event for token purchase logging
+    * @param purchaser The address that purchased the tokens
+    * @param beneficiary The address that received the tokens
+    * @param value The amount of wei paid for purchase
+    * @param amount The amount of tokens purchased
+    */
+    event TokensPurchased(address indexed purchaser, address indexed beneficiary, uint256 value, uint256 amount);
+
+    /**
+    * @dev Event for whitelist definition logging
+    * @param address The address added or removed from the whitelist
+    * @param added A boolean indicating if the address is being added or removed
+    */
+    event WhitelistDefinition(address indexed address, bool added);
+
+    /**
+    * @dev Event for cap change logging
+    * @param newCap The new cap amount in ether
+    */
+    event CapChanged(uint256 newCap);
+
+    /**
+    * @dev Event for individual cap change logging
+    * @param newCap The new individual cap amount in wei
+    */
+    event IndividualCapChanged(uint256 newCap);
+
+    /**
+    * @dev Event for rate change logging
+    * @param newRate The new rate amount, representing the exchange rate of token to ether
+    */
+    event RateChanged(uint256 newRate);
+
+    /**
+    * @dev Event for opening and closing time change logging
+    * @param openingTime The new opening time
+    * @param closingTime The new closing time
+    */
+    event TimeChanged(uint256 openingTime, uint256 closingTime);
+
+    /**
+    * @dev Event for individual cap settings change logging
+    * @param minPurchase The new minimum purchase amount in wei
+    * @param maxPurchase The new maximum purchase amount in wei
+    */
+    event IndividualCapSettingsChanged(uint256 minPurchase, uint256 maxPurchase);
+
+    /**
+    * @dev Event for withdrawal logging
+    * @param amount The amount of wei withdrawn
+    * @param beneficiary The address that received the withdrawal
+    */
+    event Withdrawal(uint256 amount, address indexed beneficiary);
+
+    /**
+    * @dev Event for finalization logging
+    */
+    event Finalized();
+
+    /**
+    * @dev Constructor function
+    * @param _token Address of the token being sold
+    * @param _rate Exchange rate of token to ether
+    * @param _cap Crowdsale cap in ether
+    * @param _openingTime Timestamp for when the crowdsale will open
+    * @param _closingTime Timestamp for when the crowdsale will close
+    * @param _minPurchase Minimum purchase amount in wei
+    * @param _maxPurchase Maximum purchase amount in wei
+    * @param _individualCap Cap per individual in wei
+    * @param _totalIndividualCap Total individual cap for the whole sale in wei
+    * @param _wallet Address where funds will be collected
+    */
+    constructor(ERC20 _token, uint256 _rate, uint256 _cap, uint256 _openingTime, uint256 _closingTime,
+        uint256 _minPurchase, uint256 _maxPurchase, uint256 _individualCap, uint256 _totalIndividualCap,
+        address _wallet) public {
+        require(_token != address(0));
+        require(_cap > 0);
+        require(_rate > 0);
+        require(_closingTime > _openingTime);
+        require(_minPurchase > 0);
+        require(_maxPurchase > 0);
+        require(_minPurchase <= _maxPurchase);
+        require(_individualCap <= _totalIndividualCap);
+
+        token = _token;
+        rate = _rate;
+        cap = _cap;
+        openingTime = _openingTime;
+        closingTime = _closingTime;
+        minPurchase = _minPurchase;
+        maxPurchase = _maxPurchase;
+        individualCap = _individualCap;
+        totalIndividualCap = _totalIndividualCap;
+        wallet = _wallet;
+    }
+
+    /**
+    * @dev Fallback function for handling ether sent to this contract
+    */
+    function() external payable {
+        buyTokens(msg.sender);
+    }
+
+    /**
+    * @dev Buy tokens method
+    * @param _beneficiary Address that will receive the tokens
+    */
+    function buyTokens(address _beneficiary) public payable {
+        require(_beneficiary != address(0));
+        require(!isClosed && !isFinalized && now >= openingTime && now < closingTime);
+        require(whitelist[msg.sender] && msg.value >= minPurchase && msg.value <= maxPurchase);
+
+        // Calculate token amount to be purchased
+        uint256 tokens = msg.value * rate;
+        require(tokens > 0);
+
+        // Check if individual cap is exceeded
+        if (individualCap > 0) {
+            require(contributions[msg.sender].add(msg.value) <= individualCap);
+            contributions[msg.sender] = contributions[msg.sender].add(msg.value);
+        }
+
+        // Check if total individual cap for the whole sale is exceeded
+        if (totalIndividualCap > 0) {
+            require(weiRaised.add(msg.value) <= totalIndividualCap);
+        }
+
+        // Check if total wei raised is less than cap
+        require(weiRaised.add(msg.value) <= cap);
+
+        // Update state
+        weiRaised = weiRaised.add(msg.value);
+        tokensSold = tokensSold.add(tokens);
+
+        // Issue tokens
+        token.transfer(_beneficiary, tokens);
+
+        emit TokensPurchased(msg.sender, _beneficiary, msg.value, tokens);
+    }
+
+    /**
+    * @dev Add or remove an address from the crowdsale whitelist
+    * @param _address Address to be added/removed from the whitelist
+    * @param _added A boolean indicating whether the address is being added or removed
+    */
+    function setWhitelist(address _address, bool _added) public onlyOwner {
+        require(_address != address(0));
+        whitelist[_address] = _added;
+        emit WhitelistDefinition(_address, _added);
+    }
+
+    /**
+    * @dev Change the crowdsale cap amount
+    * @param _newCap New cap amount in ether
+    */
+    function setCap(uint256 _newCap) public onlyOwner {
+        require(_newCap > 0 && _newCap > weiRaised);
+        cap = _newCap;
+        emit CapChanged(_newCap);
+    }
+
+    /**
+    * @dev Change the individual cap amount
+    * @param _newCap New individual cap amount in wei
+    */
+    function setIndividualCap(uint256 _newCap) public onlyOwner {
+        require(_newCap >= minPurchase && _newCap <= maxPurchase);
+        individualCap = _newCap;
+        emit IndividualCapChanged(_newCap);
+    }
+
+    /**
+    * @dev Change the rate amount, representing the exchange rate of token to ether
+    * @param _newRate New rate amount
+    */
+    function setRate(uint256 _newRate) public onlyOwner {
+        require(_newRate > 0);
+        rate = _newRate;
+        emit RateChanged(_newRate);
+    }
+
+    /**
+    * @dev Change the opening and closing time of the crowdsale
+    * @param _openingTime New opening time
+    * @param _closingTime New closing time
+    */
+    function setTime(uint256 _openingTime, uint256 _closingTime) public onlyOwner {
+        require(_closingTime > _openingTime && now < _openingTime);
+        openingTime = _openingTime;
+        closingTime = _closingTime;
+        emit TimeChanged(_openingTime, _closingTime);
+    }
+
+    /**
+    * @dev Change the minimum and maximum purchase amounts
+    * @param _newMinPurchase New minimum purchase amount in wei
+    * @param _newMaxPurchase New maximum purchase amount in wei
+    */
+    function setIndividualCapSettings(uint256 _newMinPurchase, uint256 _newMaxPurchase) public onlyOwner {
+        require(_newMinPurchase > 0 && _newMaxPurchase > 0 && _newMinPurchase <= _newMaxPurchase);
+        minPurchase = _newMinPurchase;
+        maxPurchase = _newMaxPurchase;
+        emit IndividualCapSettingsChanged(_newMinPurchase, _newMaxPurchase);
+    }
+
+    /**
+    * @dev Withdraw funds function
+    * @param _amount The amount of wei to be withdrawn
+    */
+    function withdraw(uint256 _amount) public onlyOwner {
+        require(_amount > 0 && _amount <= address(this).balance);
+        wallet.transfer(_amount);
+        emit Withdrawal(_amount, wallet);
+    }
+
+    /**
+    * @dev Finalize function to end the crowdsale
+    */
+    function finalize() public onlyOwner {
+        require(!isFinalized);
+        require(isClosed || now >= closingTime);
+
+        // Transfer any unsold tokens back to the owner
+        uint256 unsoldTokens = token.balanceOf(address(this));
+        if (unsoldTokens > 0) {
+            token.transfer(owner, unsoldTokens);
+        }
+
+        // Transfer any remaining wei back to the owner
+        uint256 remainingWei = address(this).balance;
+        if (remainingWei > 0) {
+            wallet.transfer(remainingWei);
+        }
+
+        // Update state
+        isClosed = true;
+        isFinalized = true;
+        emit Finalized();
+    }
+}

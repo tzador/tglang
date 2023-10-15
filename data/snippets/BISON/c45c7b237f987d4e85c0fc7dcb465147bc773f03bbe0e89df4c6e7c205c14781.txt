@@ -1,0 +1,141 @@
+%{
+    /* Defines the start condition of the scanner */
+    static int string_size = 0; /* Holds the size of the string being evaluated */
+    static int line_no = 0; /* Holds the current line number */
+    static int error_found = 0; /* Flag to indicate if errors were found during evaluation */
+%}
+
+/* Defines the tokens to be identified by the lexer */
+%token <str> STRING /* Identifier for string tokens */
+%token <num> NUMBER /* Identifier for number tokens */
+%token <id> IDENTIFIER /* Identifier for identifiers (variables, functions, etc.) */
+%token <error> ERROR /* Identifier for error tokens */
+
+/* Defines the grammar rules for the input language */
+%%
+input: /* Empty input */
+      | input line /* Recursive rule to evaluate multiple lines */
+      ;
+
+line: stat '\n'
+     | error '\n' /* Any invalid input will be identified as an error */
+     ;
+
+stat: expr '=' expr { /* Rule for assigning one expression to another */
+        if($1 != $3) { /* Checks if the two expressions are equal */
+            error_found = 1; /* Sets error flag if expressions are not equal */
+        }
+      }
+    | expr '+' expr /* Rule for adding two expressions */
+    | expr '-' expr /* Rule for subtracting two expressions */
+    | expr '*' expr /* Rule for multiplying two expressions */
+    | expr '/' expr /* Rule for dividing two expressions */
+    ;
+
+expr: NUMBER /* Expression can simply be a number */
+    | IDENTIFIER /* Expression can also be an identifier */
+    | STRING /* Expression can also be a string */
+    ;
+
+%%
+/* Defines the actions to be taken when a token is identified by the lexer */
+void yyerror (char *s)
+  {
+    /* If an error is found, print error message with line number and increment error_found */
+    fprintf (stderr, "%d: %s\n", line_no, s);
+    error_found++;
+  }
+
+/* Defines the lexer function to identify tokens and return their code */
+int yylex (void)
+  {
+    int c;
+
+    /* Reset string size for each line */
+    string_size = 0;
+
+    /* Skip blank spaces and new lines */
+    while ((c = getchar ()) == ' ' || c == '\t') {
+        if (c == '\n') {
+            line_no++;
+        }
+    }
+
+    /* If end of input is reached, return 0 */
+    if (c == EOF) {
+        return 0;
+    }
+
+    /* If input is a digit, return number token with value */
+    if (isdigit (c)) {
+        ungetc (c, stdin); /* Places digit back into input buffer */
+        scanf ("%d", &yylval.num); /* Scans next character as a number and sets its value in yylval */
+        return NUMBER; /* Returns NUMBER token */
+    }
+
+    /* If input is an identifier, return identifier token with value */
+    if (isalpha (c)) {
+        char id[50]; /* Defines string to hold identifier */
+        id[0] = c;
+        int i = 1;
+
+        while ((c = getchar ()) != ' ' && c != EOF && c != '\n') { /* Continues to read until reaching a blank space, end of input, or new line */
+            if (!isalnum (c) && c != '_') { /* Checks if input is not alphanumeric or underscore */
+                /* If so, print error and return ERROR token */
+                fprintf (stderr, "%d: Invalid character\n", line_no);
+                error_found++;
+                return ERROR;
+            }
+            id[i] = c;
+            i++;
+        }
+
+        ungetc (c, stdin); /* Places character back into input buffer */
+        id[i] = '\0'; /* Adds null character to end of string */
+
+        /* Checks if string is a reserved word */
+        if (strcmp (id, "if") == 0 || strcmp (id, "while") == 0 || strcmp (id, "else") == 0 || strcmp (id, "return") == 0) {
+            return IDENTIFIER; /* Returns IDENTIFIER token */
+        }
+        /* If not, set identifier value in yylval and return IDENTIFIER token */
+        strcpy (yylval.id, id); /* Copies string to yylval.id */
+        return IDENTIFIER;
+    }
+
+    /* If input is an opening quotation mark, return string token with value */
+    if (c == '"') {
+        string_size = 0; /* Resets string size counter */
+        while ((c = getchar ()) != '"') { /* Continues to read until reaching a closing quotation mark */
+            if (c == '\n') { /* Detects if input has new line within string */
+                fprintf (stderr, "%d: New line not allowed in string\n", line_no);
+                error_found++;
+                return ERROR;
+            }
+            /* Adds each character to string and increments size counter */
+            yylval.str[string_size] = c;
+            string_size++;
+        }
+        yylval.str[string_size] = '\0'; /* Adds null character to end of string */
+        return STRING; /* Returns STRING token */
+    }
+
+    /* If input is a special character, return corresponding token */
+    if (c == '=') {
+        return '=';
+    }
+    if (c == '+') {
+        return '+';
+    }
+    if (c == '-') {
+        return '-';
+    }
+    if (c == '*') {
+        return '*';
+    }
+    if (c == '/') {
+        return '/';
+    }
+
+    /* If input is anything else, return ERROR token */
+    return ERROR;
+  }
