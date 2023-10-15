@@ -48,6 +48,13 @@ with open("src/tglang.c", "w") as f:
             f"    strstr(text, {to_c_string_literal(feature)}) ? 1 : 0,", file=f)
     print("  };", file=f)
 
+    print("  int count = 0;", file=f)
+    print(f"  for (int i = 0; i < {F}; i++) {{", file=f)
+    print("    count += x[i];", file=f)
+    print("  }", file=f)
+
+    print("  if (count < 10) return TGLANG_LANGUAGE_OTHER;", file=f)
+
     print("  int votes[] = {", file=f)
     for language in languages:
         print(f"    0,", file=f)

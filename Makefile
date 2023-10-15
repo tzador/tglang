@@ -3,6 +3,7 @@
 submission:
 	rm -rf submission
 	mkdir submission
+
 	cp README.md submission/README.md
 	cp -r src submission
 
