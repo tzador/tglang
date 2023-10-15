@@ -11,14 +11,15 @@ We use substrings to vectorize a snippet of code, by putting 1 if a given substr
 # Data set generation
 
 First we generate the code snippets using a typescript script and OpenAI api.
-Pretty much it boils down to "generate me a code snippet in languagte C".
+Pretty much it boils down to "generate me a code snippet in languagte X".
 Both for faster code snippet generation and since chat completion seems to be repetitive,
 I have used gpt-3.5-instruct model to complete string prefixes.
 More details in `src/1_dataset.ts`
+Two languages have been skipped, TL and FUNC since ChatGPT seems not to know about them.
 
 # Feature generation
 
-For each of the 10 languages, in a repetitive loop of 30, we ask chat gpt to give us a
+For each of the 100 languages, in a repetitive loop of 30, we ask chat gpt to give us a
 JSON list of strings that occure in the language source code and are indicative of the langauge.
 We collect all of them into a set and use it to vectorize our snippets.
 
